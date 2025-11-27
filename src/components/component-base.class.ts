@@ -1,5 +1,6 @@
 import type { IComponentMeta } from './interfaces/icomponent-meta.interface';
 import type { IComponent } from './interfaces/icomponent.interface';
+import { render } from '../template/template';
 
 export abstract class ComponentBase extends HTMLElement {
 	#meta: IComponentMeta;
@@ -51,19 +52,24 @@ export abstract class ComponentBase extends HTMLElement {
 	}
 
 	#render(): void {
-		// const template: ((...args: any[]) => TemplateResult) | null = this.#getTemplate();
-		// const styles: ((...args: any[]) => TemplateResult) | null = this.#getStyles();
-		// const attributes: Record<string, string> = this.#getAttributeValues();
+		// Render template if provided
+		if (this.#meta.template) {
+			const templateResult = this.#meta.template(this.#component, this.#getAttributeValues());
 
-		// if (template) {
-		// 	render(template(this.component, attributes), this.#root);
-		// }
+			if (typeof templateResult === 'string') {
+				// Simple string template
+				this.#root.innerHTML = templateResult;
+			} else {
+				// TemplateResult from html`` tagged template
+				render(templateResult, this.#root);
+			}
+		}
 
-		// if (styles) {
-		// 	render(styles(this.component, attributes), this.#style);
-		// }
-
-		console.log(`Component '${this.#meta.selector}' rendered.`);
+		// Render styles if provided
+		if (this.#meta.styles) {
+			const stylesResult = this.#meta.styles(this.#component);
+			this.#style.textContent = typeof stylesResult === 'string' ? stylesResult : '';
+		}
 
 		if (this.#component.onRender !== undefined) {
 			this.#component.onRender();
