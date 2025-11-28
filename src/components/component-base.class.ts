@@ -84,6 +84,18 @@ export abstract class ComponentBase extends HTMLElement {
 	#observe(): void {
 		const properties: string[] = Object.getOwnPropertyNames(this.#component);
 		properties.forEach((prop) => {
+			const descriptor = Object.getOwnPropertyDescriptor(this.#component, prop);
+
+			// Skip if it's already a getter/setter (accessor property)
+			if (descriptor && descriptor.get) {
+				return;
+			}
+
+			// Skip if it's a function
+			if (typeof (this.#component as any)[prop] === 'function') {
+				return;
+			}
+
 			const self: any = this;
 
 			let _val: unknown = (this.#component as any)[prop];

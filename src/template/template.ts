@@ -2,6 +2,8 @@
  * Ultra-fast template system with minimal overhead
  */
 
+import { isDirective } from './directive';
+
 // Unique marker for identifying dynamic positions
 const MARKER = `melodic-${String(Math.random()).slice(2)}`;
 const COMMENT_NODE_MARKER = `<!--${MARKER}-->`;
@@ -12,6 +14,7 @@ interface Part {
 	name?: string;
 	node?: Node;
 	previousValue?: unknown;
+	directiveState?: any; // State for directives (like repeat())
 }
 
 interface TemplateCache {
@@ -200,15 +203,20 @@ export class TemplateResult {
 		for (const part of parts) {
 			const value = this.values[part.index];
 
-			// Skip unchanged values
-			if (part.previousValue === value) {
+			// Skip unchanged values (but not for directives - they manage their own state)
+			if (!isDirective(value) && part.previousValue === value) {
 				continue;
 			}
 
 			switch (part.type) {
 				case 'node':
 					if (part.node) {
-						part.node.textContent = String(value ?? '');
+						// Handle directives
+						if (isDirective(value)) {
+							part.directiveState = value.render(part.node, part.directiveState);
+						} else {
+							part.node.textContent = String(value ?? '');
+						}
 					}
 					break;
 
