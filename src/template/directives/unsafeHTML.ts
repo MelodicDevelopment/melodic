@@ -17,28 +17,75 @@ import { directive, type DirectiveResult } from '../directive';
  *
  * @param html - Raw HTML string to render
  */
+interface UnsafeHTMLState {
+	html: string;
+	startMarker: Comment;
+	endMarker: Comment;
+	nodes: Node[];
+}
+
 export function unsafeHTML(html: string): DirectiveResult {
-	return directive((container: Node, previousHTML?: string) => {
+	return directive((container: Node, previousState?: UnsafeHTMLState) => {
+		// First render - setup markers
+		if (!previousState) {
+			const parent = container.parentNode;
+			if (!parent) {
+				throw new Error('unsafeHTML() directive: container must be attached to a parent node');
+			}
+
+			const startMarker = document.createComment('unsafeHTML-start');
+			const endMarker = document.createComment('unsafeHTML-end');
+
+			parent.replaceChild(startMarker, container);
+			parent.insertBefore(endMarker, startMarker.nextSibling);
+
+			const state: UnsafeHTMLState = {
+				html: '',
+				startMarker,
+				endMarker,
+				nodes: []
+			};
+
+			renderHTML(html, state);
+			return state;
+		}
+
 		// Skip if HTML hasn't changed
-		if (previousHTML === html) {
-			return html;
+		if (previousState.html === html) {
+			return previousState;
 		}
 
-		const parent = container.parentElement || container.parentNode;
-		if (!parent) return html;
-
-		// Create a temporary container
-		const temp = document.createElement('div');
-		temp.innerHTML = html;
-
-		// Replace the container with the parsed nodes
-		const fragment = document.createDocumentFragment();
-		while (temp.firstChild) {
-			fragment.appendChild(temp.firstChild);
-		}
-
-		parent.replaceChild(fragment, container);
-
-		return html;
+		// Update HTML
+		renderHTML(html, previousState);
+		return previousState;
 	});
+}
+
+function renderHTML(html: string, state: UnsafeHTMLState): void {
+	const parent = state.startMarker.parentNode;
+	if (!parent) {
+		throw new Error('unsafeHTML() directive: markers not in DOM');
+	}
+
+	// Remove old nodes
+	for (const node of state.nodes) {
+		node.parentNode?.removeChild(node);
+	}
+
+	// Create new nodes from HTML
+	const temp = document.createElement('div');
+	temp.innerHTML = html;
+
+	const fragment = document.createDocumentFragment();
+	while (temp.firstChild) {
+		fragment.appendChild(temp.firstChild);
+	}
+
+	// Insert new nodes between markers
+	state.nodes = Array.from(fragment.childNodes);
+	for (const node of state.nodes) {
+		parent.insertBefore(node, state.endMarker);
+	}
+
+	state.html = html;
 }

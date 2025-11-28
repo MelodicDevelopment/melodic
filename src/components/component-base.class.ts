@@ -69,6 +69,11 @@ export abstract class ComponentBase extends HTMLElement {
 		if (this.#meta.styles) {
 			const stylesResult = this.#meta.styles(this.#component);
 			this.#style.textContent = typeof stylesResult === 'string' ? stylesResult : '';
+
+			// Ensure style element is in the shadow root (re-append if removed)
+			if (!this.#style.parentNode) {
+				this.#root.appendChild(this.#style);
+			}
 		}
 
 		if (this.#component.onRender !== undefined) {

@@ -37,10 +37,13 @@ export function repeat<T>(
 	return {
 		__directive: true,
 		render(container: Node, previousState?: RepeatState): RepeatState {
-			const parent = container.parentElement || container;
-
 			// First render - setup markers
 			if (!previousState) {
+				const parent = container.parentNode;
+				if (!parent) {
+					throw new Error('repeat() directive: container must be attached to a parent node');
+				}
+
 				const startMarker = document.createComment('repeat-start');
 				const endMarker = document.createComment('repeat-end');
 
@@ -80,6 +83,26 @@ function updateList<T>(
 	for (let i = 0; i < newItems.length; i++) {
 		const key = keyFn(newItems[i], i);
 		newKeyToIndex.set(key, i);
+	}
+
+	// Quick check: if length and all keys are the same, skip expensive reconciliation
+	if (oldItems.length === newItems.length) {
+		let allKeysMatch = true;
+		for (let i = 0; i < newItems.length; i++) {
+			const key = keyFn(newItems[i], i);
+			if (i >= oldItems.length || oldItems[i].key !== key) {
+				allKeysMatch = false;
+				break;
+			}
+		}
+		if (allKeysMatch) {
+			// Items are in same order with same keys - just update templates in place
+			for (let i = 0; i < newItems.length; i++) {
+				const templateResult = template(newItems[i], i);
+				templateResult.renderInto(oldItems[i].container);
+			}
+			return;
+		}
 	}
 
 	// Track which old items we can reuse

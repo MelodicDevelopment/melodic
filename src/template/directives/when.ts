@@ -33,10 +33,13 @@ export function when(
 	return {
 		__directive: true,
 		render(container: Node, previousState?: WhenState): WhenState {
-			const parent = container.parentElement || container;
-
 			// First render - setup markers
 			if (!previousState) {
+				const parent = container.parentNode;
+				if (!parent) {
+					throw new Error('when() directive: container must be attached to a parent node');
+				}
+
 				const startMarker = document.createComment('when-start');
 				const endMarker = document.createComment('when-end');
 
@@ -53,17 +56,23 @@ export function when(
 				};
 
 				if (condition) {
-					renderContent(state, parent);
+					renderContent(state);
 				}
 
 				state.condition = condition;
 				return state;
 			}
 
+			// Get parent from the markers (which are still in the DOM)
+			const parent = previousState.startMarker.parentNode;
+			if (!parent) {
+				throw new Error('when() directive: markers were removed from DOM');
+			}
+
 			// Condition changed from false to true
 			if (condition && !previousState.condition) {
 				previousState.template = template();
-				renderContent(previousState, parent);
+				renderContent(previousState);
 			}
 			// Condition changed from true to false
 			else if (!condition && previousState.condition) {
@@ -84,7 +93,12 @@ export function when(
 	};
 }
 
-function renderContent(state: WhenState, parent: Node): void {
+function renderContent(state: WhenState): void {
+	const parent = state.startMarker.parentNode;
+	if (!parent) {
+		throw new Error('when() directive: markers not in DOM');
+	}
+
 	const container = document.createDocumentFragment();
 	state.template.renderInto(container);
 	state.container = container;

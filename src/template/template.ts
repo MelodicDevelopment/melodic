@@ -182,6 +182,8 @@ export class TemplateResult {
 								...part,
 								node: element
 							});
+							// Remove the marker attribute so directives can work with a clean element
+							element.removeAttribute(attr.name);
 						}
 					}
 				}
@@ -223,7 +225,10 @@ export class TemplateResult {
 				case 'attribute':
 					if (part.node && part.name) {
 						const element = part.node as Element;
-						if (value == null) {
+						// Handle directives
+						if (isDirective(value)) {
+							part.directiveState = value.render(element, part.directiveState);
+						} else if (value == null) {
 							element.removeAttribute(part.name);
 						} else {
 							element.setAttribute(part.name, String(value));
@@ -233,7 +238,13 @@ export class TemplateResult {
 
 				case 'property':
 					if (part.node && part.name) {
-						(part.node as any)[part.name] = value;
+						const element = part.node as Element;
+						// Handle directives
+						if (isDirective(value)) {
+							part.directiveState = value.render(element, part.directiveState);
+						} else {
+							(part.node as any)[part.name] = value;
+						}
 					}
 					break;
 
