@@ -5,7 +5,7 @@
 import { isDirective } from './directive';
 
 // Unique marker for identifying dynamic positions
-const MARKER = `melodic-${String(Math.random()).slice(2)}`;
+const MARKER = `m${Math.random().toString(36).slice(2,9)}`;
 const COMMENT_NODE_MARKER = `<!--${MARKER}-->`;
 
 interface Part {

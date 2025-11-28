@@ -21,8 +21,6 @@ export abstract class ComponentBase extends HTMLElement {
 		if (this.#component.onInit) {
 			this.#component.onInit();
 		}
-
-		console.log(`Component '${this.#meta.selector}' initialized.`);
 	}
 
 	connectedCallback(): void {
