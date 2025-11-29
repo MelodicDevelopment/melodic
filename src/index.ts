@@ -12,8 +12,8 @@ export { Directive, directive, isDirective } from './template/directive';
 export type { DirectiveResult } from './template/directive';
 
 // Built-in directives
-export { repeat } from './template/directives/repeat';
-export { when } from './template/directives/when';
-export { classMap } from './template/directives/classMap';
-export { styleMap } from './template/directives/styleMap';
-export { unsafeHTML } from './template/directives/unsafeHTML';
+export { repeat } from './template/directives/repeat.directive';
+export { when } from './template/directives/when.directive';
+export { classMap } from './template/directives/class-map.directive';
+export { styleMap } from './template/directives/style-map.directive';
+export { unsafeHTML } from './template/directives/unsafe-html.directive';

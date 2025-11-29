@@ -27,10 +27,7 @@ interface WhenState {
  * @param condition - When true, renders the template. When false, removes from DOM.
  * @param template - Template function to render when condition is true
  */
-export function when(
-	condition: boolean,
-	template: () => TemplateResult
-): DirectiveResult {
+export function when(condition: boolean, template: () => TemplateResult): DirectiveResult {
 	return directive((container: Node, previousState?: WhenState): WhenState => {
 		// First render - setup markers
 		if (!previousState) {

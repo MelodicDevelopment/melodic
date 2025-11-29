@@ -369,6 +369,416 @@ export function scrollSpy(callback: (isVisible: boolean) => void): DirectiveResu
 
 ---
 
+## Class-Based Directive Examples
+
+Class-based directives are ideal when you need:
+- **Multiple helper methods** for better organization
+- **Constructor parameters** to configure the directive
+- **Private state** and encapsulation
+- **Complex logic** that benefits from OOP structure
+
+### Example 1: Simple Text Transform (Class-Based)
+
+```typescript
+import { Directive } from 'melodic';
+import type { DirectiveResult } from 'melodic';
+
+type TransformType = 'uppercase' | 'lowercase' | 'title' | 'reverse';
+
+class TextTransformDirective extends Directive {
+  constructor(private text: string, private transform: TransformType) {
+    super();
+  }
+
+  render(container: Node, previousState?: string): string {
+    const element = container as HTMLElement;
+    const transformed = this.applyTransform();
+
+    // Only update if changed
+    if (previousState === transformed) {
+      return previousState;
+    }
+
+    element.textContent = transformed;
+    return transformed;
+  }
+
+  private applyTransform(): string {
+    switch (this.transform) {
+      case 'uppercase':
+        return this.text.toUpperCase();
+      case 'lowercase':
+        return this.text.toLowerCase();
+      case 'title':
+        return this.toTitleCase(this.text);
+      case 'reverse':
+        return this.text.split('').reverse().join('');
+      default:
+        return this.text;
+    }
+  }
+
+  private toTitleCase(str: string): string {
+    return str.replace(/\w\S*/g, (txt) =>
+      txt.charAt(0).toUpperCase() + txt.substring(1).toLowerCase()
+    );
+  }
+}
+
+export function textTransform(text: string, transform: TransformType): DirectiveResult {
+  return new TextTransformDirective(text, transform);
+}
+
+// Usage:
+html`
+  <p>${textTransform('hello world', 'title')}</p>
+  <!-- Renders: Hello World -->
+`
+```
+
+### Example 2: Configurable Highlight Directive
+
+```typescript
+import { Directive } from 'melodic';
+import type { DirectiveResult } from 'melodic';
+
+interface HighlightOptions {
+  color?: string;
+  backgroundColor?: string;
+  duration?: number;
+}
+
+class HighlightDirective extends Directive {
+  private options: Required<HighlightOptions>;
+
+  constructor(options: HighlightOptions = {}) {
+    super();
+    this.options = {
+      color: options.color || '#000',
+      backgroundColor: options.backgroundColor || '#ffeb3b',
+      duration: options.duration || 2000
+    };
+  }
+
+  render(container: Node, previousState?: number): number {
+    const element = container as HTMLElement;
+
+    // Apply highlight
+    this.applyStyles(element);
+
+    // Remove highlight after duration
+    setTimeout(() => {
+      this.removeStyles(element);
+    }, this.options.duration);
+
+    return Date.now();
+  }
+
+  private applyStyles(element: HTMLElement): void {
+    element.style.transition = 'all 0.3s ease';
+    element.style.color = this.options.color;
+    element.style.backgroundColor = this.options.backgroundColor;
+  }
+
+  private removeStyles(element: HTMLElement): void {
+    element.style.color = '';
+    element.style.backgroundColor = '';
+  }
+}
+
+export function highlight(options?: HighlightOptions): DirectiveResult {
+  return new HighlightDirective(options);
+}
+
+// Usage:
+html`
+  <div ${highlight({ backgroundColor: '#4caf50', duration: 3000 })}>
+    This will be highlighted!
+  </div>
+`
+```
+
+### Example 3: Debounced Input Handler
+
+```typescript
+import { Directive } from 'melodic';
+import type { DirectiveResult } from 'melodic';
+
+interface DebounceState {
+  timeoutId: number | null;
+  handler: (e: Event) => void;
+}
+
+class DebounceDirective extends Directive {
+  constructor(
+    private callback: (value: string) => void,
+    private delay: number = 300
+  ) {
+    super();
+  }
+
+  render(container: Node, previousState?: DebounceState): DebounceState {
+    const element = container as HTMLInputElement;
+
+    // First render - setup event listener
+    if (!previousState) {
+      const handler = (e: Event) => {
+        this.handleInput(e as InputEvent, element);
+      };
+
+      element.addEventListener('input', handler);
+
+      return {
+        timeoutId: null,
+        handler
+      };
+    }
+
+    // Callback or delay changed - remove old listener and add new one
+    if (previousState.handler) {
+      element.removeEventListener('input', previousState.handler);
+
+      const handler = (e: Event) => {
+        this.handleInput(e as InputEvent, element);
+      };
+
+      element.addEventListener('input', handler);
+
+      return {
+        timeoutId: previousState.timeoutId,
+        handler
+      };
+    }
+
+    return previousState;
+  }
+
+  private handleInput(event: InputEvent, element: HTMLInputElement): void {
+    const value = element.value;
+
+    // Clear existing timeout
+    if ((event.target as any).__debounceTimeout) {
+      clearTimeout((event.target as any).__debounceTimeout);
+    }
+
+    // Set new timeout
+    (event.target as any).__debounceTimeout = setTimeout(() => {
+      this.callback(value);
+    }, this.delay);
+  }
+}
+
+export function debounce(
+  callback: (value: string) => void,
+  delay?: number
+): DirectiveResult {
+  return new DebounceDirective(callback, delay);
+}
+
+// Usage in component:
+html`
+  <input
+    type="text"
+    ${debounce((value) => console.log('Debounced value:', value), 500)}
+    placeholder="Type something..."
+  />
+`
+```
+
+### Example 4: Complex Drag-and-Drop Directive
+
+This shows the power of class-based directives with multiple helper methods:
+
+```typescript
+import { Directive } from 'melodic';
+import type { DirectiveResult } from 'melodic';
+
+interface DragState {
+  isDragging: boolean;
+  startX: number;
+  startY: number;
+  offsetX: number;
+  offsetY: number;
+  handlers: {
+    mouseDown: (e: MouseEvent) => void;
+    mouseMove: (e: MouseEvent) => void;
+    mouseUp: (e: MouseEvent) => void;
+  };
+}
+
+interface DragOptions {
+  onDragStart?: (element: HTMLElement) => void;
+  onDrag?: (element: HTMLElement, x: number, y: number) => void;
+  onDragEnd?: (element: HTMLElement) => void;
+  handle?: string; // CSS selector for drag handle
+  containment?: 'parent' | 'window';
+}
+
+class DraggableDirective extends Directive {
+  private options: DragOptions;
+  private state: DragState | null = null;
+
+  constructor(options: DragOptions = {}) {
+    super();
+    this.options = options;
+  }
+
+  render(container: Node, previousState?: DragState): DragState {
+    const element = container as HTMLElement;
+
+    // First render - setup
+    if (!previousState) {
+      element.style.position = 'absolute';
+      element.style.cursor = 'move';
+
+      const handlers = {
+        mouseDown: (e: MouseEvent) => this.handleMouseDown(e, element),
+        mouseMove: (e: MouseEvent) => this.handleMouseMove(e, element),
+        mouseUp: (e: MouseEvent) => this.handleMouseUp(e, element)
+      };
+
+      // Setup drag handle or use entire element
+      const dragHandle = this.options.handle
+        ? element.querySelector(this.options.handle) as HTMLElement
+        : element;
+
+      if (dragHandle) {
+        dragHandle.addEventListener('mousedown', handlers.mouseDown);
+      }
+
+      this.state = {
+        isDragging: false,
+        startX: 0,
+        startY: 0,
+        offsetX: 0,
+        offsetY: 0,
+        handlers
+      };
+
+      return this.state;
+    }
+
+    this.state = previousState;
+    return previousState;
+  }
+
+  private handleMouseDown(e: MouseEvent, element: HTMLElement): void {
+    if (!this.state) return;
+
+    e.preventDefault();
+
+    const rect = element.getBoundingClientRect();
+    this.state.isDragging = true;
+    this.state.startX = e.clientX - rect.left;
+    this.state.startY = e.clientY - rect.top;
+
+    // Add styles during drag
+    element.style.opacity = '0.8';
+    element.style.zIndex = '1000';
+
+    // Attach global listeners
+    document.addEventListener('mousemove', this.state.handlers.mouseMove);
+    document.addEventListener('mouseup', this.state.handlers.mouseUp);
+
+    // Call user callback
+    this.options.onDragStart?.(element);
+  }
+
+  private handleMouseMove(e: MouseEvent, element: HTMLElement): void {
+    if (!this.state || !this.state.isDragging) return;
+
+    e.preventDefault();
+
+    let newX = e.clientX - this.state.startX;
+    let newY = e.clientY - this.state.startY;
+
+    // Apply containment constraints
+    if (this.options.containment === 'parent') {
+      const parent = element.parentElement;
+      if (parent) {
+        const bounds = this.calculateBounds(element, parent);
+        newX = Math.max(bounds.minX, Math.min(newX, bounds.maxX));
+        newY = Math.max(bounds.minY, Math.min(newY, bounds.maxY));
+      }
+    }
+
+    // Update position
+    element.style.left = `${newX}px`;
+    element.style.top = `${newY}px`;
+
+    // Call user callback
+    this.options.onDrag?.(element, newX, newY);
+  }
+
+  private handleMouseUp(e: MouseEvent, element: HTMLElement): void {
+    if (!this.state) return;
+
+    this.state.isDragging = false;
+
+    // Remove global listeners
+    document.removeEventListener('mousemove', this.state.handlers.mouseMove);
+    document.removeEventListener('mouseup', this.state.handlers.mouseUp);
+
+    // Restore styles
+    element.style.opacity = '1';
+    element.style.zIndex = '';
+
+    // Call user callback
+    this.options.onDragEnd?.(element);
+  }
+
+  private calculateBounds(
+    element: HTMLElement,
+    parent: HTMLElement
+  ): { minX: number; maxX: number; minY: number; maxY: number } {
+    const parentRect = parent.getBoundingClientRect();
+    const elementRect = element.getBoundingClientRect();
+
+    return {
+      minX: 0,
+      maxX: parentRect.width - elementRect.width,
+      minY: 0,
+      maxY: parentRect.height - elementRect.height
+    };
+  }
+}
+
+export function draggable(options?: DragOptions): DirectiveResult {
+  return new DraggableDirective(options);
+}
+
+// Usage in component:
+html`
+  <div ${draggable({
+    containment: 'parent',
+    onDragStart: (el) => console.log('Started dragging'),
+    onDrag: (el, x, y) => console.log(`Position: ${x}, ${y}`),
+    onDragEnd: (el) => console.log('Stopped dragging')
+  })}>
+    <div class="drag-handle">📌 Drag me!</div>
+    <div class="content">Draggable content here</div>
+  </div>
+`
+```
+
+### When to Use Class-Based vs Function-Based
+
+**Use Class-Based (`extends Directive`) when:**
+- You need multiple helper methods for organization
+- Complex state management with private fields
+- Constructor configuration is cleaner than closure parameters
+- You prefer object-oriented patterns
+
+**Use Function-Based (`directive()`) when:**
+- Simple, straightforward logic
+- Minimal state tracking
+- You prefer functional programming style
+- Quick prototyping
+
+**Key insight:** Both approaches are equally powerful. Choose based on complexity and personal preference. All built-in Melodic directives use the function-based approach, but class-based can be cleaner for complex scenarios like the drag-and-drop example above.
+
+---
+
 ## Best Practices
 
 ### ✅ DO:
