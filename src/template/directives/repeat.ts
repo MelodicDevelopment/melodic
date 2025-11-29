@@ -2,6 +2,7 @@
  * Repeat directive - Efficient keyed list rendering
  */
 
+import { directive } from '../directive';
 import type { DirectiveResult } from '../directive';
 import type { TemplateResult } from '../template';
 
@@ -34,39 +35,36 @@ export function repeat<T>(
 	keyFn: (item: T, index: number) => unknown,
 	template: (item: T, index: number) => TemplateResult
 ): DirectiveResult {
-	return {
-		__directive: true,
-		render(container: Node, previousState?: RepeatState): RepeatState {
-			// First render - setup markers
-			if (!previousState) {
-				const parent = container.parentNode;
-				if (!parent) {
-					throw new Error('repeat() directive: container must be attached to a parent node');
-				}
-
-				const startMarker = document.createComment('repeat-start');
-				const endMarker = document.createComment('repeat-end');
-
-				parent.replaceChild(startMarker, container);
-				parent.insertBefore(endMarker, startMarker.nextSibling);
-
-				const state: RepeatState = {
-					keyToIndex: new Map(),
-					items: [],
-					startMarker,
-					endMarker
-				};
-
-				// Initial render
-				updateList(items, keyFn, template, state);
-				return state;
+	return directive((container: Node, previousState?: RepeatState): RepeatState => {
+		// First render - setup markers
+		if (!previousState) {
+			const parent = container.parentNode;
+			if (!parent) {
+				throw new Error('repeat() directive: container must be attached to a parent node');
 			}
 
-			// Update existing list
-			updateList(items, keyFn, template, previousState);
-			return previousState;
+			const startMarker = document.createComment('repeat-start');
+			const endMarker = document.createComment('repeat-end');
+
+			parent.replaceChild(startMarker, container);
+			parent.insertBefore(endMarker, startMarker.nextSibling);
+
+			const state: RepeatState = {
+				keyToIndex: new Map(),
+				items: [],
+				startMarker,
+				endMarker
+			};
+
+			// Initial render
+			updateList(items, keyFn, template, state);
+			return state;
 		}
-	};
+
+		// Update existing list
+		updateList(items, keyFn, template, previousState);
+		return previousState;
+	});
 }
 
 function updateList<T>(

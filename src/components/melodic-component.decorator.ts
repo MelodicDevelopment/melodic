@@ -1,8 +1,8 @@
 import type { INewable } from '../interfaces/inewable.interface';
 import { ComponentBase } from './component-base.class';
-import type { IComponentMeta } from './interfaces/icomponent-meta.interface';
+import type { TypedComponentMeta } from './types/component-meta.type';
 
-export function MelodicComponent(meta: IComponentMeta): <T extends INewable>(component: T) => void {
+export function MelodicComponent<C>(meta: TypedComponentMeta<C>): <T extends INewable>(component: T) => void {
 	return function <T extends INewable>(component: T): void {
 		if (customElements.get(meta.selector) === undefined) {
 			const webComponent = class extends ComponentBase {

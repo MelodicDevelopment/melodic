@@ -1,14 +1,14 @@
-import type { IComponentMeta } from './interfaces/icomponent-meta.interface';
-import type { IComponent } from './interfaces/icomponent.interface';
+import type { ComponentMeta } from './types/component-meta.type';
+import type { Component } from './types/component.type';
 import { render } from '../template/template';
 
 export abstract class ComponentBase extends HTMLElement {
-	#meta: IComponentMeta;
-	#component: IComponent;
+	#meta: ComponentMeta;
+	#component: Component;
 	#root: ShadowRoot;
 	#style: HTMLStyleElement;
 
-	constructor(meta: IComponentMeta, component: IComponent) {
+	constructor(meta: ComponentMeta, component: Component) {
 		super();
 
 		this.#meta = meta;
@@ -50,25 +50,20 @@ export abstract class ComponentBase extends HTMLElement {
 	}
 
 	#render(): void {
-		// Render template if provided
 		if (this.#meta.template) {
 			const templateResult = this.#meta.template(this.#component, this.#getAttributeValues());
 
 			if (typeof templateResult === 'string') {
-				// Simple string template
 				this.#root.innerHTML = templateResult;
 			} else {
-				// TemplateResult from html`` tagged template
 				render(templateResult, this.#root);
 			}
 		}
 
-		// Render styles if provided
 		if (this.#meta.styles) {
 			const stylesResult = this.#meta.styles(this.#component);
 			this.#style.textContent = typeof stylesResult === 'string' ? stylesResult : '';
 
-			// Ensure style element is in the shadow root (re-append if removed)
 			if (!this.#style.parentNode) {
 				this.#root.appendChild(this.#style);
 			}
@@ -85,63 +80,33 @@ export abstract class ComponentBase extends HTMLElement {
 	}
 
 	#observe(): void {
-		const properties: string[] = Object.getOwnPropertyNames(this.#component);
-		properties.forEach((prop) => {
+		const properties = Object.getOwnPropertyNames(this.#component);
+
+		for (const prop of properties) {
 			const descriptor = Object.getOwnPropertyDescriptor(this.#component, prop);
 
-			// Skip if it's already a getter/setter (accessor property)
-			if (descriptor && descriptor.get) {
-				return;
+			// Skip getters/setters and functions
+			if (descriptor?.get || typeof (this.#component as any)[prop] === 'function') {
+				continue;
 			}
 
-			// Skip if it's a function
-			if (typeof (this.#component as any)[prop] === 'function') {
-				return;
-			}
+			// Initialize value (sync with HTMLElement property if exists)
+			let _val = this[prop as keyof this] !== undefined ? this[prop as keyof this] : (this.#component as any)[prop];
 
-			const self: any = this;
-
-			let _val: unknown = (this.#component as any)[prop];
-
-			if (self[prop] !== undefined) {
-				_val = self[prop];
-			}
-
-			const getter = () => _val;
-			const setter = (newVal: unknown) => {
-				if (_val !== newVal) {
-					if (this.#component.onPropertyChange !== undefined) {
-						this.#component.onPropertyChange(prop, _val, newVal);
+			Object.defineProperty(this.#component, prop, {
+				get: () => _val,
+				set: (newVal) => {
+					if (_val !== newVal) {
+						this.#component.onPropertyChange?.(prop, _val, newVal);
+						_val = newVal;
+						this.#render();
 					}
-
-					_val = newVal;
-					this.#render();
-				}
-			};
-
-			Object.defineProperty(this.#component, prop, { get: getter, set: setter });
-		});
+				},
+				enumerable: true,
+				configurable: true
+			});
+		}
 	}
-
-	// #getTemplate(): ((...args: any[]) => TemplateResult) | null {
-	// 	const template = this.#meta.template;
-
-	// 	if (typeof template === 'string') {
-	// 		return () => template;
-	// 	}
-
-	// 	return template ?? null;
-	// }
-
-	// #getStyles(): ((...args: any[]) => TemplateResult) | null {
-	// 	const styles = this.#meta.styles;
-
-	// 	if (typeof styles === 'string') {
-	// 		return () => styles;
-	// 	}
-
-	// 	return styles ?? null;
-	// }
 
 	#getAttributeValues(): Record<string, string> {
 		const attributes: Record<string, string> = {};

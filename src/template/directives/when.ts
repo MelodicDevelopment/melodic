@@ -5,6 +5,7 @@
  * Removes from DOM when false, adds back when true.
  */
 
+import { directive } from '../directive';
 import type { DirectiveResult } from '../directive';
 import type { TemplateResult } from '../template';
 
@@ -30,67 +31,64 @@ export function when(
 	condition: boolean,
 	template: () => TemplateResult
 ): DirectiveResult {
-	return {
-		__directive: true,
-		render(container: Node, previousState?: WhenState): WhenState {
-			// First render - setup markers
-			if (!previousState) {
-				const parent = container.parentNode;
-				if (!parent) {
-					throw new Error('when() directive: container must be attached to a parent node');
-				}
-
-				const startMarker = document.createComment('when-start');
-				const endMarker = document.createComment('when-end');
-
-				parent.replaceChild(startMarker, container);
-				parent.insertBefore(endMarker, startMarker.nextSibling);
-
-				const state: WhenState = {
-					condition: false,
-					template: template(),
-					container: null,
-					startMarker,
-					endMarker,
-					nodes: []
-				};
-
-				if (condition) {
-					renderContent(state);
-				}
-
-				state.condition = condition;
-				return state;
-			}
-
-			// Get parent from the markers (which are still in the DOM)
-			const parent = previousState.startMarker.parentNode;
+	return directive((container: Node, previousState?: WhenState): WhenState => {
+		// First render - setup markers
+		if (!previousState) {
+			const parent = container.parentNode;
 			if (!parent) {
-				throw new Error('when() directive: markers were removed from DOM');
+				throw new Error('when() directive: container must be attached to a parent node');
 			}
 
-			// Condition changed from false to true
-			if (condition && !previousState.condition) {
-				previousState.template = template();
-				renderContent(previousState);
-			}
-			// Condition changed from true to false
-			else if (!condition && previousState.condition) {
-				removeContent(previousState);
-			}
-			// Condition still true - update template
-			else if (condition && previousState.condition) {
-				const newTemplate = template();
-				if (previousState.container) {
-					newTemplate.renderInto(previousState.container);
-				}
-				previousState.template = newTemplate;
+			const startMarker = document.createComment('when-start');
+			const endMarker = document.createComment('when-end');
+
+			parent.replaceChild(startMarker, container);
+			parent.insertBefore(endMarker, startMarker.nextSibling);
+
+			const state: WhenState = {
+				condition: false,
+				template: template(),
+				container: null,
+				startMarker,
+				endMarker,
+				nodes: []
+			};
+
+			if (condition) {
+				renderContent(state);
 			}
 
-			previousState.condition = condition;
-			return previousState;
+			state.condition = condition;
+			return state;
 		}
-	};
+
+		// Get parent from the markers (which are still in the DOM)
+		const parent = previousState.startMarker.parentNode;
+		if (!parent) {
+			throw new Error('when() directive: markers were removed from DOM');
+		}
+
+		// Condition changed from false to true
+		if (condition && !previousState.condition) {
+			previousState.template = template();
+			renderContent(previousState);
+		}
+		// Condition changed from true to false
+		else if (!condition && previousState.condition) {
+			removeContent(previousState);
+		}
+		// Condition still true - update template
+		else if (condition && previousState.condition) {
+			const newTemplate = template();
+			if (previousState.container) {
+				newTemplate.renderInto(previousState.container);
+			}
+			previousState.template = newTemplate;
+		}
+
+		previousState.condition = condition;
+		return previousState;
+	});
 }
 
 function renderContent(state: WhenState): void {

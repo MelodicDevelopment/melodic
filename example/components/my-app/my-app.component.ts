@@ -1,4 +1,4 @@
-import { MelodicComponent } from '../../../src/index';
+import { MelodicComponent } from '../../../src/components/melodic-component.decorator';
 import { myAppTemplate } from './my-app.template';
 import { myAppStyles } from './my-app.styles';
 
@@ -14,7 +14,7 @@ export interface Todo {
 	template: myAppTemplate,
 	styles: myAppStyles
 })
-export class MyApp {
+export class MyAppComponent {
 	title = 'Melodic Directives Showcase';
 	count = 0;
 	message = '';
@@ -53,7 +53,7 @@ export class MyApp {
 	showCompleted = true;
 
 	get filteredTodos() {
-		return this.showCompleted ? this.todos : this.todos.filter(t => !t.completed);
+		return this.showCompleted ? this.todos : this.todos.filter((t) => !t.completed);
 	}
 
 	// Counter methods
@@ -135,11 +135,11 @@ export class MyApp {
 	};
 
 	removeTodo = (id: number) => {
-		this.todos = this.todos.filter(todo => todo.id !== id);
+		this.todos = this.todos.filter((todo) => todo.id !== id);
 	};
 
 	toggleTodo = (id: number) => {
-		this.todos = this.todos.map(todo => (todo.id === id ? { ...todo, completed: !todo.completed } : todo));
+		this.todos = this.todos.map((todo) => (todo.id === id ? { ...todo, completed: !todo.completed } : todo));
 	};
 
 	toggleShowCompleted = () => {
@@ -165,7 +165,7 @@ export class MyApp {
 	};
 
 	clearCompleted = () => {
-		this.todos = this.todos.filter(todo => !todo.completed);
+		this.todos = this.todos.filter((todo) => !todo.completed);
 	};
 
 	getPriorityColor = (priority: 'low' | 'medium' | 'high'): string => {

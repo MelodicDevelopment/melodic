@@ -22,7 +22,7 @@ export interface OnPropertyChange {
 	onPropertyChange: (property: string, oldVal: unknown, newVal: unknown) => void;
 }
 
-export interface IComponent
+export interface ILifeCycleHooks
 	extends Partial<OnInit>,
 		Partial<OnCreate>,
 		Partial<OnRender>,

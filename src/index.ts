@@ -1,7 +1,7 @@
 // Component system
 export { MelodicComponent } from './components/melodic-component.decorator';
-export type { IComponent } from './components/interfaces/icomponent.interface';
-export type { IComponentMeta } from './components/interfaces/icomponent-meta.interface';
+export type { Component } from './components/types/component.type';
+export type { ComponentMeta } from './components/types/component-meta.type';
 
 // Template system
 export { html, render } from './template/template';

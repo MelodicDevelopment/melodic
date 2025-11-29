@@ -1,7 +1,7 @@
 import { html, repeat, when, classMap, styleMap, unsafeHTML } from '../../../src/index';
-import type { MyApp } from './my-app.component';
+import type { MyAppComponent } from './my-app.component';
 
-export function myAppTemplate(component: MyApp) {
+export function myAppTemplate(component: MyAppComponent) {
 	return html`
 		<div class="container">
 			<h1>${component.title}</h1>
@@ -13,23 +13,8 @@ export function myAppTemplate(component: MyApp) {
 				<button @click=${component.reset}>Reset</button>
 
 				<!-- when() directive demo -->
-				${when(
-					component.count >= 10,
-					() => html`
-						<div class="alert alert-success">
-							<� You've reached 10! Great job!
-						</div>
-					`
-				)}
-
-				${when(
-					component.count < 0,
-					() => html`
-						<div class="alert alert-warning">
-							� Count is negative!
-						</div>
-					`
-				)}
+				${when(component.count >= 10, () => html` <div class="alert alert-success"><� You've reached 10! Great job!</div> `)}
+				${when(component.count < 0, () => html` <div class="alert alert-warning">� Count is negative!</div> `)}
 			</section>
 
 			<hr />
@@ -49,14 +34,7 @@ export function myAppTemplate(component: MyApp) {
 					You typed: ${component.message} (${component.message.length} characters)
 				</p>
 
-				${when(
-					component.message.length > 20,
-					() => html`
-						<div class="alert alert-info">
-							( Wow, that's a long message!
-						</div>
-					`
-				)}
+				${when(component.message.length > 20, () => html` <div class="alert alert-info">( Wow, that's a long message!</div> `)}
 			</section>
 
 			<hr />
@@ -68,9 +46,7 @@ export function myAppTemplate(component: MyApp) {
 					<div class="showcase-card">
 						<h3>when() - Conditional Rendering</h3>
 						<p>Toggle to see content appear/disappear:</p>
-						<button @click=${component.toggleFeature} class="secondary">
-							Toggle Feature
-						</button>
+						<button @click=${component.toggleFeature} class="secondary">Toggle Feature</button>
 						${when(
 							component.showFeature,
 							() => html`
@@ -89,9 +65,9 @@ export function myAppTemplate(component: MyApp) {
 						<div
 							class=${classMap({
 								'demo-box': true,
-								active: component.isActive,
-								disabled: !component.isEnabled,
-								pulsing: component.isPulsing
+								'active': component.isActive,
+								'disabled': !component.isEnabled,
+								'pulsing': component.isPulsing
 							})}
 						>
 							Dynamic Box
@@ -121,25 +97,12 @@ export function myAppTemplate(component: MyApp) {
 							</label>
 							<label>
 								Scale:
-								<input
-									type="range"
-									min="0.5"
-									max="2"
-									step="0.1"
-									.value=${String(component.boxScale)}
-									@input=${component.updateBoxScale}
-								/>
+								<input type="range" min="0.5" max="2" step="0.1" .value=${String(component.boxScale)} @input=${component.updateBoxScale} />
 								${component.boxScale}x
 							</label>
 							<label>
 								Radius:
-								<input
-									type="range"
-									min="0"
-									max="50"
-									.value=${String(component.boxRadius)}
-									@input=${component.updateBoxRadius}
-								/>
+								<input type="range" min="0" max="50" .value=${String(component.boxRadius)} @input=${component.updateBoxRadius} />
 								${component.boxRadius}px
 							</label>
 						</div>
@@ -148,9 +111,7 @@ export function myAppTemplate(component: MyApp) {
 					<div class="showcase-card">
 						<h3>unsafeHTML() - Raw HTML</h3>
 						<p class="warning">� Only use with trusted content!</p>
-						<div class="html-demo">
-							${unsafeHTML(component.safeHTMLContent)}
-						</div>
+						<div class="html-demo">${unsafeHTML(component.safeHTMLContent)}</div>
 						<button @click=${component.cycleSafeHTML} class="secondary">Change Content</button>
 					</div>
 				</div>
@@ -161,8 +122,7 @@ export function myAppTemplate(component: MyApp) {
 			<section class="list-demo">
 				<h2>Keyed List Demo (repeat directive)</h2>
 				<p class="info">
-					( Using <code>repeat()</code> directive for optimal DOM updates! Try adding, removing, or reordering items - only
-					changed nodes are updated.
+					( Using <code>repeat()</code> directive for optimal DOM updates! Try adding, removing, or reordering items - only changed nodes are updated.
 				</p>
 
 				<div class="todo-input">
@@ -199,11 +159,11 @@ export function myAppTemplate(component: MyApp) {
 				<ul class="todo-list">
 					${repeat(
 						component.filteredTodos,
-						todo => todo.id,
+						(todo) => todo.id,
 						(todo) => html`
 							<li
 								class=${classMap({
-									completed: todo.completed,
+									'completed': todo.completed,
 									'priority-high': todo.priority === 'high',
 									'priority-medium': todo.priority === 'medium',
 									'priority-low': todo.priority === 'low'
@@ -231,16 +191,14 @@ export function myAppTemplate(component: MyApp) {
 					component.filteredTodos.length === 0,
 					() => html`
 						<div class="empty-state">
-							${component.showCompleted
-								? '<� No todos! You\'re all done!'
-								: '( No active todos. Add one above or show completed todos.'}
+							${component.showCompleted ? "<� No todos! You're all done!" : '( No active todos. Add one above or show completed todos.'}
 						</div>
 					`
 				)}
 
 				<p class="stats">
-					Total: ${component.todos.length} | Active: ${component.todos.filter(t => !t.completed).length} | Completed:
-					${component.todos.filter(t => t.completed).length}
+					Total: ${component.todos.length} | Active: ${component.todos.filter((t) => !t.completed).length} | Completed:
+					${component.todos.filter((t) => t.completed).length}
 				</p>
 			</section>
 		</div>
