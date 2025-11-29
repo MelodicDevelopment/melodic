@@ -4,7 +4,7 @@ export type { Component } from './components/types/component.type';
 export type { ComponentMeta } from './components/types/component-meta.type';
 
 // Template system
-export { html, render } from './template/template';
+export { html, css, render } from './template/template';
 export type { TemplateResult } from './template/template';
 
 // Directive system

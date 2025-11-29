@@ -5,7 +5,7 @@
 import { isDirective } from './directive';
 
 // Unique marker for identifying dynamic positions
-const MARKER = `m${Math.random().toString(36).slice(2,9)}`;
+const MARKER = `m${Math.random().toString(36).slice(2, 9)}`;
 const COMMENT_NODE_MARKER = `<!--${MARKER}-->`;
 
 interface Part {
@@ -30,6 +30,8 @@ const templateCache = new Map<string, TemplateCache>();
 export function html(strings: TemplateStringsArray, ...values: unknown[]): TemplateResult {
 	return new TemplateResult(strings, values);
 }
+
+export const css = html;
 
 export class TemplateResult {
 	strings: TemplateStringsArray;
@@ -135,7 +137,7 @@ export class TemplateResult {
 				const comment = node as Comment;
 				if (comment.data === MARKER) {
 					// Find corresponding part
-					const part = templateParts.find(p => p.type === 'node' && !parts.find(pp => pp.index === p.index));
+					const part = templateParts.find((p) => p.type === 'node' && !parts.find((pp) => pp.index === p.index));
 					if (part) {
 						// Create a text node to replace the comment
 						const textNode = document.createTextNode('');
@@ -156,7 +158,7 @@ export class TemplateResult {
 
 					if (attr.name.startsWith('__event-')) {
 						const index = parseInt(attr.name.match(/__event-(\d+)__/)?.[1] || '0');
-						const part = templateParts.find(p => p.index === index && p.type === 'event');
+						const part = templateParts.find((p) => p.index === index && p.type === 'event');
 						if (part) {
 							parts.push({
 								...part,
@@ -166,7 +168,7 @@ export class TemplateResult {
 						element.removeAttribute(attr.name);
 					} else if (attr.name.startsWith('__prop-')) {
 						const index = parseInt(attr.name.match(/__prop-(\d+)__/)?.[1] || '0');
-						const part = templateParts.find(p => p.index === index && p.type === 'property');
+						const part = templateParts.find((p) => p.index === index && p.type === 'property');
 						if (part) {
 							parts.push({
 								...part,
@@ -176,7 +178,7 @@ export class TemplateResult {
 						element.removeAttribute(attr.name);
 					} else if (attr.value.includes(MARKER)) {
 						// Regular attribute with marker
-						const part = templateParts.find(p => p.type === 'attribute' && p.name === attr.name && !parts.find(pp => pp.index === p.index));
+						const part = templateParts.find((p) => p.type === 'attribute' && p.name === attr.name && !parts.find((pp) => pp.index === p.index));
 						if (part) {
 							parts.push({
 								...part,

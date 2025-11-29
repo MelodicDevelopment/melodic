@@ -1,6 +1,8 @@
 import { MelodicComponent } from '../../../src/components/melodic-component.decorator';
 import { myAppTemplate } from './my-app.template';
 import { myAppStyles } from './my-app.styles';
+import type { IElementRef } from '../../../src/components/interfaces/ielement-ref.interface';
+import type { OnInit } from '../../../src/components/interfaces/ilife-cycle-hooks.interface';
 
 export interface Todo {
 	id: number;
@@ -14,7 +16,9 @@ export interface Todo {
 	template: myAppTemplate,
 	styles: myAppStyles
 })
-export class MyAppComponent {
+export class MyAppComponent implements IElementRef, OnInit {
+	elementRef!: HTMLElement;
+
 	title = 'Melodic Directives Showcase';
 	count = 0;
 	message = '';
@@ -54,6 +58,11 @@ export class MyAppComponent {
 
 	get filteredTodos() {
 		return this.showCompleted ? this.todos : this.todos.filter((t) => !t.completed);
+	}
+
+	onInit(): void {
+		console.log('MyAppComponent initialized!');
+		console.log(this.elementRef);
 	}
 
 	// Counter methods

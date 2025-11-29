@@ -13,8 +13,9 @@ export abstract class ComponentBase extends HTMLElement {
 
 		this.#meta = meta;
 		this.#component = component;
+		this.#component.elementRef = this;
 		this.#root = this.attachShadow({ mode: 'open' });
-		this.#style = this.#attachStyle();
+		this.#style = this.#renderStyles();
 
 		this.#observe();
 
@@ -49,22 +50,23 @@ export abstract class ComponentBase extends HTMLElement {
 		}
 	}
 
+	#renderStyles(): HTMLStyleElement {
+		const styleNode: HTMLStyleElement = document.createElement('style');
+
+		if (this.#meta.styles) {
+			const stylesResult = this.#meta.styles();
+			render(stylesResult, styleNode);
+		}
+
+		return this.#root.appendChild(styleNode);
+	}
+
 	#render(): void {
 		if (this.#meta.template) {
 			const templateResult = this.#meta.template(this.#component, this.#getAttributeValues());
+			render(templateResult, this.#root);
 
-			if (typeof templateResult === 'string') {
-				this.#root.innerHTML = templateResult;
-			} else {
-				render(templateResult, this.#root);
-			}
-		}
-
-		if (this.#meta.styles) {
-			const stylesResult = this.#meta.styles(this.#component);
-			this.#style.textContent = typeof stylesResult === 'string' ? stylesResult : '';
-
-			if (!this.#style.parentNode) {
+			if (this.#style.parentNode !== this.#root) {
 				this.#root.appendChild(this.#style);
 			}
 		}
@@ -72,11 +74,6 @@ export abstract class ComponentBase extends HTMLElement {
 		if (this.#component.onRender !== undefined) {
 			this.#component.onRender();
 		}
-	}
-
-	#attachStyle(): HTMLStyleElement {
-		const styleNode: HTMLStyleElement = document.createElement('style');
-		return this.#root.appendChild(styleNode);
 	}
 
 	#observe(): void {

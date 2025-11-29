@@ -1,5 +1,23 @@
+import { css } from '../../../src/template/template';
+
 export function myAppStyles() {
-	return `
+	return css`
+		/* ============================================
+		   STATIC CSS
+		   ============================================
+		   Styles are rendered once when the component is created.
+		   For dynamic styling, use:
+		   - styleMap() directive in templates for inline styles
+		   - classMap() directive for conditional classes
+		   - CSS classes toggled via component state
+		*/
+
+		:host {
+			/* CSS variables with default values */
+			--primary-color: #007bff;
+			--secondary-color: #6c757d;
+		}
+
 		.container {
 			padding: 20px;
 			font-family: system-ui, -apple-system, sans-serif;
@@ -10,6 +28,7 @@ export function myAppStyles() {
 		h1 {
 			color: #333;
 			margin-bottom: 30px;
+			transition: color 0.3s ease;
 		}
 
 		h2 {
@@ -207,6 +226,8 @@ export function myAppStyles() {
 			color: white;
 			font-weight: bold;
 			transition: all 0.3s;
+			background-color: #007bff;
+			box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 		}
 
 		.controls {
