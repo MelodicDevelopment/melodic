@@ -85,12 +85,10 @@ export abstract class ComponentBase extends HTMLElement {
 		for (const prop of properties) {
 			const descriptor = Object.getOwnPropertyDescriptor(this.#component, prop);
 
-			// Skip getters/setters and functions
 			if (descriptor?.get || typeof (this.#component as any)[prop] === 'function') {
 				continue;
 			}
 
-			// Initialize value (sync with HTMLElement property if exists)
 			let _val = this[prop as keyof this] !== undefined ? this[prop as keyof this] : (this.#component as any)[prop];
 
 			Object.defineProperty(this.#component, prop, {
