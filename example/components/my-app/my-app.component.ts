@@ -3,13 +3,8 @@ import { myAppTemplate } from './my-app.template';
 import { myAppStyles } from './my-app.styles';
 import type { IElementRef } from '../../../src/components/interfaces/ielement-ref.interface';
 import type { OnInit } from '../../../src/components/interfaces/ilife-cycle-hooks.interface';
-
-export interface Todo {
-	id: number;
-	text: string;
-	completed: boolean;
-	priority: 'low' | 'medium' | 'high';
-}
+import { Injector } from '../../../src/injection';
+import { TodoService, type Todo } from '../../services/todo.service';
 
 @MelodicComponent({
 	selector: 'my-app',
@@ -18,6 +13,9 @@ export interface Todo {
 })
 export class MyAppComponent implements IElementRef, OnInit {
 	elementRef!: HTMLElement;
+
+	// Injected service
+	#todoService = Injector.get<TodoService>('TodoService');
 
 	title = 'Melodic Directives Showcase';
 	count = 0;
@@ -45,24 +43,20 @@ export class MyAppComponent implements IElementRef, OnInit {
 		return this.safeHTMLExamples[this.safeHTMLIndex];
 	}
 
-	// Todo list state
-	todos: Todo[] = [
-		{ id: 1, text: 'Learn Melodic framework', completed: false, priority: 'high' },
-		{ id: 2, text: 'Build awesome app', completed: false, priority: 'medium' },
-		{ id: 3, text: 'Deploy to production', completed: false, priority: 'low' }
-	];
+	// Todo list state (delegated to service)
+	todos: Todo[] = this.#todoService.getTodos();
 	newTodoText = '';
 	newTodoPriority: 'low' | 'medium' | 'high' = 'medium';
-	nextId = 4;
 	showCompleted = true;
 
-	get filteredTodos() {
+	get filteredTodos(): Todo[] {
 		return this.showCompleted ? this.todos : this.todos.filter((t) => !t.completed);
 	}
 
 	onInit(): void {
-		console.log('MyAppComponent initialized!');
-		console.log(this.elementRef);
+		console.log('MyAppComponent initialized with TodoService!');
+		console.log('ElementRef:', this.elementRef);
+		console.log('TodoService instance:', this.#todoService);
 	}
 
 	// Counter methods
@@ -112,7 +106,6 @@ export class MyAppComponent implements IElementRef, OnInit {
 		this.safeHTMLIndex = (this.safeHTMLIndex + 1) % this.safeHTMLExamples.length;
 	};
 
-	// Todo methods
 	updateNewTodo = (e: Event) => {
 		this.newTodoText = (e.target as HTMLInputElement).value;
 	};
@@ -129,26 +122,18 @@ export class MyAppComponent implements IElementRef, OnInit {
 
 	addTodo = () => {
 		if (this.newTodoText.trim()) {
-			this.todos = [
-				...this.todos,
-				{
-					id: this.nextId++,
-					text: this.newTodoText.trim(),
-					completed: false,
-					priority: this.newTodoPriority
-				}
-			];
+			this.todos = this.#todoService.addTodo(this.newTodoText, this.newTodoPriority);
 			this.newTodoText = '';
 			this.newTodoPriority = 'medium';
 		}
 	};
 
 	removeTodo = (id: number) => {
-		this.todos = this.todos.filter((todo) => todo.id !== id);
+		this.todos = this.#todoService.removeTodo(id);
 	};
 
 	toggleTodo = (id: number) => {
-		this.todos = this.todos.map((todo) => (todo.id === id ? { ...todo, completed: !todo.completed } : todo));
+		this.todos = this.#todoService.toggleTodo(id);
 	};
 
 	toggleShowCompleted = () => {
@@ -156,33 +141,22 @@ export class MyAppComponent implements IElementRef, OnInit {
 	};
 
 	reverseList = () => {
-		this.todos = [...this.todos].reverse();
+		this.todos = this.#todoService.reverseList();
 	};
 
 	shuffleList = () => {
-		const shuffled = [...this.todos];
-		for (let i = shuffled.length - 1; i > 0; i--) {
-			const j = Math.floor(Math.random() * (i + 1));
-			[shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-		}
-		this.todos = shuffled;
+		this.todos = this.#todoService.shuffleList();
 	};
 
 	sortByPriority = () => {
-		const priorityOrder = { high: 0, medium: 1, low: 2 };
-		this.todos = [...this.todos].sort((a, b) => priorityOrder[a.priority] - priorityOrder[b.priority]);
+		this.todos = this.#todoService.sortByPriority();
 	};
 
 	clearCompleted = () => {
-		this.todos = this.todos.filter((todo) => !todo.completed);
+		this.todos = this.#todoService.clearCompleted();
 	};
 
 	getPriorityColor = (priority: 'low' | 'medium' | 'high'): string => {
-		const colors = {
-			high: '#dc3545',
-			medium: '#ffc107',
-			low: '#28a745'
-		};
-		return colors[priority];
+		return this.#todoService.getPriorityColor(priority);
 	};
 }
