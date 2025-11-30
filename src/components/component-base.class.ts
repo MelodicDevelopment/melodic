@@ -76,7 +76,7 @@ export abstract class ComponentBase extends HTMLElement {
 		}
 	}
 
-	observe(): void {
+	private observe(): void {
 		const properties = Object.getOwnPropertyNames(this._component);
 
 		for (const prop of properties) {

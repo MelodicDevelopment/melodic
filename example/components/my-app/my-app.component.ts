@@ -43,10 +43,7 @@ export class MyAppComponent implements IElementRef, OnInit {
 		return this.safeHTMLExamples[this.safeHTMLIndex];
 	}
 
-	// Todo list state (delegated to service)
-	get todos(): Todo[] {
-		return this.todoService.getTodos();
-	}
+	todos: Todo[] = this.todoService.getTodos();
 
 	newTodoText = '';
 	newTodoPriority: 'low' | 'medium' | 'high' = 'medium';
