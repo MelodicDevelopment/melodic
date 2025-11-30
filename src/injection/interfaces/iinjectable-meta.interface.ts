@@ -1,4 +1,4 @@
-import type { Token } from '../injection-engine.class';
+import type { Token } from '../types/token.type';
 
 export interface IInjectableMeta {
 	token?: Token; // Optional - defaults to the class itself

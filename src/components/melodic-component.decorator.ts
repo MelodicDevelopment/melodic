@@ -9,7 +9,6 @@ export function MelodicComponent<C extends Component>(meta: TypedComponentMeta<C
 		if (customElements.get(meta.selector) === undefined) {
 			const webComponent = class extends ComponentBase {
 				constructor() {
-					// Resolve constructor dependencies from @Inject decorators
 					const dependencies: unknown[] = [];
 					const paramTokens = (component as any).params;
 
