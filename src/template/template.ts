@@ -44,12 +44,12 @@ export class TemplateResult {
 
 	renderInto(container: Element | DocumentFragment): void {
 		// Get or create template
-		const { element: template, parts: templateParts } = this.#getTemplate();
+		const { element: template, parts: templateParts } = this.getTemplate();
 
 		// First render - clone and prepare
 		if (!(container as any).__parts) {
 			const clone = template.content.cloneNode(true);
-			const parts = this.#prepareParts(clone, templateParts);
+			const parts = this.prepareParts(clone, templateParts);
 
 			container.textContent = '';
 			container.appendChild(clone);
@@ -58,10 +58,10 @@ export class TemplateResult {
 
 		// Update values
 		const parts = (container as any).__parts as Part[];
-		this.#commit(parts);
+		this.commit(parts);
 	}
 
-	#getTemplate(): TemplateCache {
+	private getTemplate(): TemplateCache {
 		const key = this.strings.join(MARKER);
 		let cached = templateCache.get(key);
 
@@ -128,7 +128,7 @@ export class TemplateResult {
 		return cached;
 	}
 
-	#prepareParts(clone: Node, templateParts: Part[]): Part[] {
+	private prepareParts(clone: Node, templateParts: Part[]): Part[] {
 		const parts: Part[] = [];
 
 		// Recursive walk to find all nodes
@@ -203,7 +203,7 @@ export class TemplateResult {
 		return parts;
 	}
 
-	#commit(parts: Part[]): void {
+	private commit(parts: Part[]): void {
 		for (const part of parts) {
 			const value = this.values[part.index];
 

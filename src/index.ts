@@ -17,3 +17,9 @@ export { when } from './template/directives/when.directive';
 export { classMap } from './template/directives/class-map.directive';
 export { styleMap } from './template/directives/style-map.directive';
 export { unsafeHTML } from './template/directives/unsafe-html.directive';
+
+// Dependency injection
+export { Injectable, Inject, Service } from './injection/decorators';
+export { Injector } from './injection/injection-engine.class';
+export type { Token } from './injection/injection-engine.class';
+export type { IInjectableMeta } from './injection/interfaces/iinjectable-meta.interface';

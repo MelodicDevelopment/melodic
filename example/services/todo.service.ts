@@ -8,7 +8,6 @@ export interface Todo {
 }
 
 @Injectable({
-	token: 'TodoService',
 	singleton: true
 })
 export class TodoService {

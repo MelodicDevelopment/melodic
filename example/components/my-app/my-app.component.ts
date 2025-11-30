@@ -3,7 +3,7 @@ import { myAppTemplate } from './my-app.template';
 import { myAppStyles } from './my-app.styles';
 import type { IElementRef } from '../../../src/components/interfaces/ielement-ref.interface';
 import type { OnInit } from '../../../src/components/interfaces/ilife-cycle-hooks.interface';
-import { Injector } from '../../../src/injection';
+import { Service } from '../../../src/injection';
 import { TodoService, type Todo } from '../../services/todo.service';
 
 @MelodicComponent({
@@ -15,7 +15,7 @@ export class MyAppComponent implements IElementRef, OnInit {
 	elementRef!: HTMLElement;
 
 	// Injected service
-	#todoService = Injector.get<TodoService>('TodoService');
+	@Service(TodoService) todoService!: TodoService;
 
 	title = 'Melodic Directives Showcase';
 	count = 0;
@@ -44,7 +44,10 @@ export class MyAppComponent implements IElementRef, OnInit {
 	}
 
 	// Todo list state (delegated to service)
-	todos: Todo[] = this.#todoService.getTodos();
+	get todos(): Todo[] {
+		return this.todoService.getTodos();
+	}
+
 	newTodoText = '';
 	newTodoPriority: 'low' | 'medium' | 'high' = 'medium';
 	showCompleted = true;
@@ -56,7 +59,7 @@ export class MyAppComponent implements IElementRef, OnInit {
 	onInit(): void {
 		console.log('MyAppComponent initialized with TodoService!');
 		console.log('ElementRef:', this.elementRef);
-		console.log('TodoService instance:', this.#todoService);
+		console.log('TodoService instance:', this.todoService);
 	}
 
 	// Counter methods
@@ -120,43 +123,43 @@ export class MyAppComponent implements IElementRef, OnInit {
 		}
 	};
 
-	addTodo = () => {
+	addTodo = (): void => {
 		if (this.newTodoText.trim()) {
-			this.todos = this.#todoService.addTodo(this.newTodoText, this.newTodoPriority);
+			this.todoService.addTodo(this.newTodoText, this.newTodoPriority);
 			this.newTodoText = '';
 			this.newTodoPriority = 'medium';
 		}
 	};
 
-	removeTodo = (id: number) => {
-		this.todos = this.#todoService.removeTodo(id);
+	removeTodo = (id: number): void => {
+		this.todoService.removeTodo(id);
 	};
 
-	toggleTodo = (id: number) => {
-		this.todos = this.#todoService.toggleTodo(id);
+	toggleTodo = (id: number): void => {
+		this.todoService.toggleTodo(id);
 	};
 
 	toggleShowCompleted = () => {
 		this.showCompleted = !this.showCompleted;
 	};
 
-	reverseList = () => {
-		this.todos = this.#todoService.reverseList();
+	reverseList = (): void => {
+		this.todoService.reverseList();
 	};
 
-	shuffleList = () => {
-		this.todos = this.#todoService.shuffleList();
+	shuffleList = (): void => {
+		this.todoService.shuffleList();
 	};
 
-	sortByPriority = () => {
-		this.todos = this.#todoService.sortByPriority();
+	sortByPriority = (): void => {
+		this.todoService.sortByPriority();
 	};
 
-	clearCompleted = () => {
-		this.todos = this.#todoService.clearCompleted();
+	clearCompleted = (): void => {
+		this.todoService.clearCompleted();
 	};
 
 	getPriorityColor = (priority: 'low' | 'medium' | 'high'): string => {
-		return this.#todoService.getPriorityColor(priority);
+		return this.todoService.getPriorityColor(priority);
 	};
 }

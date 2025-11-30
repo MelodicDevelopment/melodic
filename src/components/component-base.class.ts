@@ -3,38 +3,38 @@ import type { Component } from './types/component.type';
 import { render } from '../template/template';
 
 export abstract class ComponentBase extends HTMLElement {
-	#meta: ComponentMeta;
-	#component: Component;
-	#root: ShadowRoot;
-	#style: HTMLStyleElement;
+	private _meta: ComponentMeta;
+	private _component: Component;
+	private _root: ShadowRoot;
+	private _style: HTMLStyleElement;
 
 	constructor(meta: ComponentMeta, component: Component) {
 		super();
 
-		this.#meta = meta;
-		this.#component = component;
-		this.#component.elementRef = this;
-		this.#root = this.attachShadow({ mode: 'open' });
-		this.#style = this.#renderStyles();
+		this._meta = meta;
+		this._component = component;
+		this._component.elementRef = this;
+		this._root = this.attachShadow({ mode: 'open' });
+		this._style = this.renderStyles();
 
-		this.#observe();
+		this.observe();
 
-		if (this.#component.onInit) {
-			this.#component.onInit();
+		if (this._component.onInit) {
+			this._component.onInit();
 		}
 	}
 
 	connectedCallback(): void {
-		this.#render();
+		this.render();
 
-		if (this.#component.onCreate !== undefined) {
-			this.#component.onCreate();
+		if (this._component.onCreate !== undefined) {
+			this._component.onCreate();
 		}
 	}
 
 	disconnectedCallback(): void {
-		if (this.#component.onDestroy !== undefined) {
-			this.#component.onDestroy();
+		if (this._component.onDestroy !== undefined) {
+			this._component.onDestroy();
 		}
 	}
 
@@ -43,58 +43,58 @@ export abstract class ComponentBase extends HTMLElement {
 			(this[attribute as keyof this] as unknown) = newVal;
 		}
 
-		this.#render();
+		this.render();
 
-		if (this.#component.onAttributeChange !== undefined) {
-			this.#component.onAttributeChange(attribute, oldVal, newVal);
+		if (this._component.onAttributeChange !== undefined) {
+			this._component.onAttributeChange(attribute, oldVal, newVal);
 		}
 	}
 
-	#renderStyles(): HTMLStyleElement {
+	private renderStyles(): HTMLStyleElement {
 		const styleNode: HTMLStyleElement = document.createElement('style');
 
-		if (this.#meta.styles) {
-			const stylesResult = this.#meta.styles();
+		if (this._meta.styles) {
+			const stylesResult = this._meta.styles();
 			render(stylesResult, styleNode);
 		}
 
-		return this.#root.appendChild(styleNode);
+		return this._root.appendChild(styleNode);
 	}
 
-	#render(): void {
-		if (this.#meta.template) {
-			const templateResult = this.#meta.template(this.#component, this.#getAttributeValues());
-			render(templateResult, this.#root);
+	private render(): void {
+		if (this._meta.template) {
+			const templateResult = this._meta.template(this._component, this.getAttributeValues());
+			render(templateResult, this._root);
 
-			if (this.#style.parentNode !== this.#root) {
-				this.#root.appendChild(this.#style);
+			if (this._style.parentNode !== this._root) {
+				this._root.appendChild(this._style);
 			}
 		}
 
-		if (this.#component.onRender !== undefined) {
-			this.#component.onRender();
+		if (this._component.onRender !== undefined) {
+			this._component.onRender();
 		}
 	}
 
-	#observe(): void {
-		const properties = Object.getOwnPropertyNames(this.#component);
+	observe(): void {
+		const properties = Object.getOwnPropertyNames(this._component);
 
 		for (const prop of properties) {
-			const descriptor = Object.getOwnPropertyDescriptor(this.#component, prop);
+			const descriptor = Object.getOwnPropertyDescriptor(this._component, prop);
 
-			if (descriptor?.get || typeof (this.#component as any)[prop] === 'function') {
+			if (descriptor?.get || typeof (this._component as any)[prop] === 'function') {
 				continue;
 			}
 
-			let _val = this[prop as keyof this] !== undefined ? this[prop as keyof this] : (this.#component as any)[prop];
+			let _val = this[prop as keyof this] !== undefined ? this[prop as keyof this] : (this._component as any)[prop];
 
-			Object.defineProperty(this.#component, prop, {
+			Object.defineProperty(this._component, prop, {
 				get: () => _val,
 				set: (newVal) => {
 					if (_val !== newVal) {
-						this.#component.onPropertyChange?.(prop, _val, newVal);
+						this._component.onPropertyChange?.(prop, _val, newVal);
 						_val = newVal;
-						this.#render();
+						this.render();
 					}
 				},
 				enumerable: true,
@@ -103,7 +103,7 @@ export abstract class ComponentBase extends HTMLElement {
 		}
 	}
 
-	#getAttributeValues(): Record<string, string> {
+	private getAttributeValues(): Record<string, string> {
 		const attributes: Record<string, string> = {};
 		this.getAttributeNames().forEach((attrName: string) => {
 			attributes[attrName] = this.getAttribute(attrName) ?? '';
