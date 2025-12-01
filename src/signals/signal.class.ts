@@ -1,12 +1,10 @@
-import type { Effect } from './effect.class';
 import type { Subscriber } from './types/subscriber.type';
 import type { Unsubscriber } from './types/unsubscriber.type';
+import { getActiveEffect } from './functions/active-effect.functions';
 
 export class Signal<T> {
 	private _value: T;
 	private _subscribers = new Set<Subscriber<T>>();
-
-	static ActiveEffect: Effect | null = null;
 
 	constructor(initialValue: T) {
 		this._value = initialValue;
@@ -14,9 +12,10 @@ export class Signal<T> {
 
 	get value(): T {
 		/** for tracking dependencies in computed signals */
-		if (Signal.ActiveEffect) {
-			Signal.ActiveEffect.dependencies.add(this);
-			this._subscribers.add(Signal.ActiveEffect.execute);
+		const activeEffect = getActiveEffect();
+		if (activeEffect) {
+			activeEffect.dependencies.add(this);
+			this._subscribers.add(activeEffect.execute);
 		}
 
 		return this._value;
@@ -32,6 +31,10 @@ export class Signal<T> {
 	subscribe(subscriber: Subscriber<T>): Unsubscriber {
 		this._subscribers.add(subscriber);
 		return () => this._subscribers.delete(subscriber);
+	}
+
+	unsubscribe(subscriber: Subscriber<T>): void {
+		this._subscribers.delete(subscriber);
 	}
 
 	update(updater: (current: T) => T): void {

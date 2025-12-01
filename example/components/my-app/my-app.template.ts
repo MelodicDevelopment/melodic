@@ -4,7 +4,17 @@ import type { MyAppComponent } from './my-app.component';
 export function myAppTemplate(component: MyAppComponent) {
 	return html`
 		<div class="container">
-			<h1>${component.title}</h1>
+			<h1>${component.title.value}</h1>
+
+			<hr />
+
+			<!-- Input to update title signal -->
+			<section class="title-update">
+				<h2>Update Title</h2>
+				<input type="text" .value=${component.title.value} @input=${component.updateTitle} placeholder="Update title..." />
+			</section>
+
+			<hr />
 
 			<section class="counter">
 				<h2>Counter Demo</h2>

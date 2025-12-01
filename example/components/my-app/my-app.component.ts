@@ -5,6 +5,7 @@ import type { IElementRef } from '../../../src/components/interfaces/ielement-re
 import type { OnInit } from '../../../src/components/interfaces/ilife-cycle-hooks.interface';
 import { Inject, Service } from '../../../src/injection';
 import { TodoService, type Todo } from '../../services/todo.service';
+import { signal } from '../../../src/signals/functions/signal.function';
 
 @MelodicComponent({
 	selector: 'my-app',
@@ -17,7 +18,7 @@ export class MyAppComponent implements IElementRef, OnInit {
 	// Injected service
 	// @Service(TodoService) private _todoService!: TodoService;
 
-	title = 'Melodic Directives Showcase';
+	title = signal<string>('Melodic Directives Showcase');
 	count = 0;
 	message = '';
 
@@ -60,6 +61,10 @@ export class MyAppComponent implements IElementRef, OnInit {
 		console.log('ElementRef:', this.elementRef);
 		console.log('TodoService instance:', this._todoService);
 	}
+
+	updateTitle = (e: Event) => {
+		this.title.value = (e.target as HTMLInputElement).value;
+	};
 
 	// Counter methods
 	increment = () => {
