@@ -1,12 +1,15 @@
 import type { ComponentMeta } from './types/component-meta.type';
 import type { Component } from './types/component.type';
 import { render } from '../template/template';
+import type { Unsubscriber } from '../signals/types/unsubscriber.type';
+import { Signal } from '../signals/signal.class';
 
 export abstract class ComponentBase extends HTMLElement {
 	private _meta: ComponentMeta;
 	private _component: Component;
 	private _root: ShadowRoot;
 	private _style: HTMLStyleElement;
+	private _unsubscribers: Array<Unsubscriber> = [];
 
 	constructor(meta: ComponentMeta, component: Component) {
 		super();
@@ -33,6 +36,9 @@ export abstract class ComponentBase extends HTMLElement {
 	}
 
 	disconnectedCallback(): void {
+		this._unsubscribers.forEach((unsubscribe) => unsubscribe());
+		this._unsubscribers = [];
+
 		if (this._component.onDestroy !== undefined) {
 			this._component.onDestroy();
 		}
@@ -86,6 +92,13 @@ export abstract class ComponentBase extends HTMLElement {
 				continue;
 			}
 
+			const value = (this._component as any)[prop];
+
+			if (value instanceof Signal) {
+				this.subscribeToSignal(value);
+				continue;
+			}
+
 			let _val = this[prop as keyof this] !== undefined ? this[prop as keyof this] : (this._component as any)[prop];
 
 			Object.defineProperty(this._component, prop, {
@@ -110,5 +123,10 @@ export abstract class ComponentBase extends HTMLElement {
 		});
 
 		return attributes;
+	}
+
+	private subscribeToSignal<T>(signal: Signal<T>): void {
+		const unsubscriber = signal.subscribe(() => this.render());
+		this._unsubscribers.push(unsubscriber);
 	}
 }
