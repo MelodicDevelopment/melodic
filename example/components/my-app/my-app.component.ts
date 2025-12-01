@@ -3,7 +3,7 @@ import { myAppTemplate } from './my-app.template';
 import { myAppStyles } from './my-app.styles';
 import type { IElementRef } from '../../../src/components/interfaces/ielement-ref.interface';
 import type { OnInit } from '../../../src/components/interfaces/ilife-cycle-hooks.interface';
-import { Inject, Service } from '../../../src/injection';
+import { Inject } from '../../../src/injection';
 import { TodoService, type Todo } from '../../services/todo.service';
 import { signal } from '../../../src/signals/functions/signal.function';
 import type { Signal } from '../../../src/signals/types/signal.type';
