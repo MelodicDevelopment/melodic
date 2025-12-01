@@ -1,17 +1,21 @@
-import { Signal } from './signal.class';
+import type { Signal } from './types/signal.type';
 import { getActiveEffect, setActiveEffect } from './functions/active-effect.functions';
 
 export class Effect {
-	dependencies = new Set<Signal<any>>();
+	private _dependencies = new Set<Signal<unknown>>();
 
 	constructor(public execute: () => void) {}
 
+	addDependency<T>(signal: Signal<T>): void {
+		this._dependencies.add(signal);
+	}
+
 	run(): void {
-		this.dependencies.forEach((signal) => {
-			signal['_subscribers'].delete(this.execute);
+		this._dependencies.forEach((signal) => {
+			signal.unsubscribe(this.execute);
 		});
 
-		this.dependencies.clear();
+		this._dependencies.clear();
 
 		const prevEffect = getActiveEffect();
 		setActiveEffect(this);
@@ -22,10 +26,10 @@ export class Effect {
 	}
 
 	destroy(): void {
-		this.dependencies.forEach((signal) => {
+		this._dependencies.forEach((signal) => {
 			signal.unsubscribe(this.execute);
 		});
 
-		this.dependencies.clear();
+		this._dependencies.clear();
 	}
 }

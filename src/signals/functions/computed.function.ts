@@ -1,21 +1,22 @@
+import { signal } from '../functions/signal.function';
 import { Effect } from '../effect.class';
-import { Signal } from '../signal.class';
+import type { Signal } from '../types/signal.type';
 
 export function computed<T>(computation: () => T): Signal<T> {
-	const signal = new Signal<T>(undefined as T);
+	const computedSignal = signal<T>(undefined as T);
 
 	const effect = new Effect(() => {
-		signal.value = computation();
+		computedSignal.set(computation());
 	});
 
 	effect.run();
 
-	const originalDestroy = signal.destroy.bind(signal);
+	const originalDestroy = computedSignal.destroy;
 
-	signal.destroy = () => {
+	computedSignal.destroy = () => {
 		effect.destroy();
 		originalDestroy();
 	};
 
-	return signal;
+	return computedSignal;
 }

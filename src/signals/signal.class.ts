@@ -14,7 +14,7 @@ export class Signal<T> {
 		/** for tracking dependencies in computed signals */
 		const activeEffect = getActiveEffect();
 		if (activeEffect) {
-			activeEffect.dependencies.add(this);
+			activeEffect.addDependency<T>(this);
 			this._subscribers.add(activeEffect.execute);
 		}
 

@@ -2,7 +2,8 @@ import type { ComponentMeta } from './types/component-meta.type';
 import type { Component } from './types/component.type';
 import { render } from '../template/template';
 import type { Unsubscriber } from '../signals/types/unsubscriber.type';
-import { Signal } from '../signals/signal.class';
+import type { Signal } from '../signals/types/signal.type';
+import { isSignal } from '../signals/functions/is-signal.function';
 
 export abstract class ComponentBase extends HTMLElement {
 	private _meta: ComponentMeta;
@@ -88,25 +89,43 @@ export abstract class ComponentBase extends HTMLElement {
 		for (const prop of properties) {
 			const descriptor = Object.getOwnPropertyDescriptor(this._component, prop);
 
-			if (descriptor?.get || typeof (this._component as any)[prop] === 'function') {
+			if (descriptor?.get) {
 				continue;
 			}
 
-			const value = (this._component as any)[prop];
+			let value = (this._component as any)[prop];
 
-			if (value instanceof Signal) {
+			if (descriptor?.set) {
+				const originalSetter = descriptor.set;
+
+				Object.defineProperty(this._component, prop, {
+					get: () => value,
+					set: (newVal) => {
+						originalSetter.call(this._component, newVal);
+						this.render();
+					},
+					enumerable: true,
+					configurable: true
+				});
+
+				continue;
+			}
+
+			if (isSignal(value)) {
 				this.subscribeToSignal(value);
 				continue;
 			}
 
-			let _val = this[prop as keyof this] !== undefined ? this[prop as keyof this] : (this._component as any)[prop];
+			if (typeof value === 'function') {
+				continue;
+			}
 
 			Object.defineProperty(this._component, prop, {
-				get: () => _val,
+				get: () => value,
 				set: (newVal) => {
-					if (_val !== newVal) {
-						this._component.onPropertyChange?.(prop, _val, newVal);
-						_val = newVal;
+					if (value !== newVal) {
+						this._component.onPropertyChange?.(prop, value, newVal);
+						value = newVal;
 						this.render();
 					}
 				},

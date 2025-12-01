@@ -6,6 +6,7 @@ import type { OnInit } from '../../../src/components/interfaces/ilife-cycle-hook
 import { Inject, Service } from '../../../src/injection';
 import { TodoService, type Todo } from '../../services/todo.service';
 import { signal } from '../../../src/signals/functions/signal.function';
+import type { Signal } from '../../../src/signals/types/signal.type';
 
 @MelodicComponent({
 	selector: 'my-app',
@@ -44,15 +45,12 @@ export class MyAppComponent implements IElementRef, OnInit {
 		return this.safeHTMLExamples[this.safeHTMLIndex];
 	}
 
-	todos: Todo[] = this._todoService.getTodos();
+	todos: Signal<Todo[]> = this._todoService.todos;
+	filteredTodos: Signal<Todo[]> = this._todoService.filteredTodos;
+	showCompleted: Signal<boolean> = this._todoService.showCompleted;
 
 	newTodoText = '';
 	newTodoPriority: 'low' | 'medium' | 'high' = 'medium';
-	showCompleted = true;
-
-	get filteredTodos(): Todo[] {
-		return this.showCompleted ? this.todos : this.todos.filter((t) => !t.completed);
-	}
 
 	constructor(@Inject(TodoService) private _todoService: TodoService) {}
 
@@ -63,7 +61,7 @@ export class MyAppComponent implements IElementRef, OnInit {
 	}
 
 	updateTitle = (e: Event) => {
-		this.title.value = (e.target as HTMLInputElement).value;
+		this.title.set((e.target as HTMLInputElement).value);
 	};
 
 	// Counter methods
@@ -144,7 +142,7 @@ export class MyAppComponent implements IElementRef, OnInit {
 	};
 
 	toggleShowCompleted = () => {
-		this.showCompleted = !this.showCompleted;
+		this.showCompleted.set(!this.showCompleted());
 	};
 
 	reverseList = (): void => {

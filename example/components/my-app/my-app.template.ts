@@ -4,14 +4,14 @@ import type { MyAppComponent } from './my-app.component';
 export function myAppTemplate(component: MyAppComponent) {
 	return html`
 		<div class="container">
-			<h1>${component.title.value}</h1>
+			<h1>${component.title()}</h1>
 
 			<hr />
 
 			<!-- Input to update title signal -->
 			<section class="title-update">
 				<h2>Update Title</h2>
-				<input type="text" .value=${component.title.value} @input=${component.updateTitle} placeholder="Update title..." />
+				<input type="text" .value=${component.title()} @input=${component.updateTitle} placeholder="Update title..." />
 			</section>
 
 			<hr />
@@ -168,7 +168,7 @@ export function myAppTemplate(component: MyAppComponent) {
 
 				<ul class="todo-list">
 					${repeat(
-						component.filteredTodos,
+						component.filteredTodos(),
 						(todo) => todo.id,
 						(todo) => html`
 							<li
@@ -201,14 +201,14 @@ export function myAppTemplate(component: MyAppComponent) {
 					component.filteredTodos.length === 0,
 					() => html`
 						<div class="empty-state">
-							${component.showCompleted ? "<� No todos! You're all done!" : '( No active todos. Add one above or show completed todos.'}
+							${component.showCompleted() ? "<� No todos! You're all done!" : '( No active todos. Add one above or show completed todos.'}
 						</div>
 					`
 				)}
 
 				<p class="stats">
-					Total: ${component.todos.length} | Active: ${component.todos.filter((t) => !t.completed).length} | Completed:
-					${component.todos.filter((t) => t.completed).length}
+					Total: ${component.todos().length} | Active: ${component.todos().filter((t) => !t.completed).length} | Completed:
+					${component.todos().filter((t) => t.completed).length}
 				</p>
 			</section>
 		</div>
