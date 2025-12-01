@@ -175,6 +175,135 @@ const fullName = computed(() => `${firstName.value} ${lastName.value}`);
 firstName.value = 'Jane'; // fullName automatically updates to "Jane Doe"
 ```
 
+### Can a computed signal handle multiple dependencies?
+
+**Yes, absolutely!** The `dependencies` property is a `Set<Signal<any>>`, which can track any number of signals. Every signal accessed during the computation automatically adds itself to the dependencies set.
+
+**How it works:**
+
+When you create a computed signal with multiple dependencies:
+
+```typescript
+const firstName = signal('John');
+const lastName = signal('Doe');
+const age = signal(30);
+const title = signal('Dr.');
+
+// This computed depends on FOUR signals
+const profile = computed(() =>
+  `${title.value} ${firstName.value} ${lastName.value}, age ${age.value}`
+);
+```
+
+**Step-by-step execution:**
+
+1. `effect.run()` sets `activeEffect = effect` (global tracking enabled)
+2. Computation executes and accesses `title.value` → `title` adds itself to `effect.dependencies`
+3. Accesses `firstName.value` → `firstName` adds itself to `effect.dependencies`
+4. Accesses `lastName.value` → `lastName` adds itself to `effect.dependencies`
+5. Accesses `age.value` → `age` adds itself to `effect.dependencies`
+6. `activeEffect = null` (global tracking disabled)
+
+**Result:** `effect.dependencies = Set { title, firstName, lastName, age }`
+
+Now when **any** of these signals changes, the computed recalculates:
+
+```typescript
+firstName.value = 'Jane';  // profile recalculates!
+lastName.value = 'Smith';  // profile recalculates!
+title.value = 'Prof.';     // profile recalculates!
+age.value = 35;            // profile recalculates!
+```
+
+### Dynamic Dependencies
+
+The really powerful feature is that dependencies can **change** between runs based on conditional logic:
+
+```typescript
+const showDetails = signal(true);
+const firstName = signal('John');
+const lastName = signal('Doe');
+const username = signal('jdoe');
+
+const display = computed(() => {
+  if (showDetails.value) {
+    // Dependencies: [showDetails, firstName, lastName]
+    return `${firstName.value} ${lastName.value}`;
+  } else {
+    // Dependencies: [showDetails, username]
+    return username.value;
+  }
+});
+```
+
+**When `showDetails = true`:**
+- Dependencies: `[showDetails, firstName, lastName]`
+- Changing `username` does **nothing** (not a dependency)
+
+**When `showDetails = false`:**
+- Dependencies: `[showDetails, username]`
+- Changing `firstName` or `lastName` does **nothing** (not dependencies anymore!)
+
+This works because the `Effect.run()` method clears old dependencies and re-tracks new ones on every computation:
+
+```typescript
+run(): void {
+  // Clear old dependencies
+  this.dependencies.forEach((signal) => {
+    signal['_subscribers'].delete(this.execute);
+  });
+  this.dependencies.clear();
+
+  // Track new dependencies (may be different based on logic!)
+  activeEffect = this;
+  this.execute();
+  activeEffect = prevEffect;
+}
+```
+
+### The `activeEffect` Global Explained
+
+The `activeEffect` global variable is the key to automatic dependency tracking. It's a pointer to the "currently running computation" that enables signals to detect when they're being accessed inside a computed signal.
+
+**Why use a global?**
+
+It enables **implicit context passing** - signals can detect their usage context without you manually specifying dependencies:
+
+```typescript
+// Without activeEffect (manual dependencies - tedious!)
+const fullName = computed([firstName, lastName], () =>
+  `${firstName.value} ${lastName.value}`
+);
+
+// With activeEffect (automatic - just works!)
+const fullName = computed(() =>
+  `${firstName.value} ${lastName.value}`
+);
+```
+
+**How it works:**
+
+1. When `computed()` is created, it creates an `Effect` object
+2. `effect.run()` sets `activeEffect = this` (the global is now set)
+3. The computation executes: `firstName.value`
+4. The `Signal.value` getter sees `activeEffect` is set
+5. Adds itself to `activeEffect.dependencies`
+6. After computation completes, `activeEffect = null` (cleared)
+
+This pattern is inspired by reactive frameworks like **Solid.js**, **Vue 3**, and **Preact Signals**.
+
+**Important limitation:** Async computations don't work because `activeEffect` is cleared before async operations complete:
+
+```typescript
+// ❌ Won't track dependencies correctly
+const data = computed(async () => {
+  await delay(100);
+  return count.value; // activeEffect already null!
+});
+```
+
+See `multi-dependency-example.ts` for 6 comprehensive examples demonstrating multiple dependencies, dynamic dependencies, nested computed signals, and complex business logic scenarios.
+
 ## Advantages Over Current System
 
 ### Current System (Property Observation)
