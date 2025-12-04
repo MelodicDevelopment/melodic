@@ -3,9 +3,9 @@
  * This is a POC showing how to integrate signals with the existing component system
  */
 
-import type { ComponentMeta } from '../components/types/component-meta.type';
-import type { Component } from '../components/types/component.type';
-import { render } from '../template/template';
+import type { ComponentMeta } from '../../components/types/component-meta.type';
+import type { Component } from '../../components/types/component.type';
+import { render } from '../../template/template';
 import { Signal } from './signal.class';
 
 export abstract class ComponentBase extends HTMLElement {

@@ -3,7 +3,7 @@
  * Demonstrates accessing signal values in templates
  */
 
-import { html } from '../template/template';
+import { html } from '../../template/template';
 import type { CounterComponent } from './counter.component';
 
 export function counterTemplate(component: CounterComponent) {
@@ -27,18 +27,10 @@ export function counterTemplate(component: CounterComponent) {
 			</div>
 
 			<div style="display: flex; gap: 10px; margin: 20px 0;">
-				<button @click=${component.increment} style="padding: 10px 20px; cursor: pointer;">
-					Increment (+1)
-				</button>
-				<button @click=${component.decrement} style="padding: 10px 20px; cursor: pointer;">
-					Decrement (-1)
-				</button>
-				<button @click=${component.incrementByFive} style="padding: 10px 20px; cursor: pointer;">
-					Add Five (+5)
-				</button>
-				<button @click=${component.reset} style="padding: 10px 20px; cursor: pointer; background: #ff4444; color: white; border: none;">
-					Reset
-				</button>
+				<button @click=${component.increment} style="padding: 10px 20px; cursor: pointer;">Increment (+1)</button>
+				<button @click=${component.decrement} style="padding: 10px 20px; cursor: pointer;">Decrement (-1)</button>
+				<button @click=${component.incrementByFive} style="padding: 10px 20px; cursor: pointer;">Add Five (+5)</button>
+				<button @click=${component.reset} style="padding: 10px 20px; cursor: pointer; background: #ff4444; color: white; border: none;">Reset</button>
 			</div>
 
 			<div style="margin: 20px 0;">

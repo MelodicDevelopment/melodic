@@ -3,10 +3,10 @@
  * Demonstrates cleaner template syntax with count() instead of count.value
  */
 
-import { MelodicComponent } from '../components/melodic-component.decorator';
+import { MelodicComponent } from '../../components/melodic-component.decorator';
 import { signal, computed } from './signal-function-based.class';
 import { counterFunctionTemplate } from './counter-function-based.template';
-import type { IElementRef } from '../components/interfaces/ielement-ref.interface';
+import type { IElementRef } from '../../components/interfaces/ielement-ref.interface';
 
 @MelodicComponent({
 	selector: 'signal-counter-function',

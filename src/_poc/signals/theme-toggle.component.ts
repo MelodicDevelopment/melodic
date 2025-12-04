@@ -3,11 +3,11 @@
  * Demonstrates how multiple components can share state via signals in a service
  */
 
-import { MelodicComponent } from '../components/melodic-component.decorator';
-import { Service } from '../injection/decorators/service.decorator';
+import { MelodicComponent } from '../../components/melodic-component.decorator';
+import { Service } from '../../injection/decorators/service.decorator';
 import { AppStateService } from './app-state.service';
 import { themeToggleTemplate } from './theme-toggle.template';
-import type { IElementRef } from '../components/interfaces/ielement-ref.interface';
+import type { IElementRef } from '../../components/interfaces/ielement-ref.interface';
 
 @MelodicComponent({
 	selector: 'theme-toggle',
@@ -35,13 +35,7 @@ export class ThemeToggleComponent implements IElementRef {
 	};
 
 	addNotification = () => {
-		const messages = [
-			'New message received',
-			'Task completed successfully',
-			'Update available',
-			'Meeting in 10 minutes',
-			'File uploaded'
-		];
+		const messages = ['New message received', 'Task completed successfully', 'Update available', 'Meeting in 10 minutes', 'File uploaded'];
 		const message = messages[Math.floor(Math.random() * messages.length)];
 		this.appState.addNotification(message);
 	};

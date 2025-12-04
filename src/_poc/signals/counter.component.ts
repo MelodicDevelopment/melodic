@@ -3,10 +3,10 @@
  * This demonstrates how signals work with the Melodic framework
  */
 
-import { MelodicComponent } from '../components/melodic-component.decorator';
-import { signal, computed } from './signal.class';
+import { MelodicComponent } from '../../components/melodic-component.decorator';
+import { signal, computed } from '../signal.class';
 import { counterTemplate } from './counter.template';
-import type { IElementRef } from '../components/interfaces/ielement-ref.interface';
+import type { IElementRef } from '../../components/interfaces/ielement-ref.interface';
 
 @MelodicComponent({
 	selector: 'signal-counter',

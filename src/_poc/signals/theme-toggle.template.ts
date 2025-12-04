@@ -3,7 +3,7 @@
  * Shows how to access shared state signals from a service
  */
 
-import { html } from '../template/template';
+import { html } from '../../template/template';
 import type { ThemeToggleComponent } from './theme-toggle.component';
 
 export function themeToggleTemplate(component: ThemeToggleComponent) {
@@ -50,11 +50,7 @@ export function themeToggleTemplate(component: ThemeToggleComponent) {
 
 				<div style="display: flex; gap: 10px; margin: 10px 0;">
 					<button @click=${component.addNotification} style="padding: 8px 16px; cursor: pointer;">Add Notification</button>
-					<button
-						@click=${() => appState.markAllAsRead()}
-						style="padding: 8px 16px; cursor: pointer;"
-						?disabled=${!appState.hasUnread.value}
-					>
+					<button @click=${() => appState.markAllAsRead()} style="padding: 8px 16px; cursor: pointer;" ?disabled=${!appState.hasUnread.value}>
 						Mark All Read
 					</button>
 					<button @click=${() => appState.clearNotifications()} style="padding: 8px 16px; cursor: pointer;">Clear All</button>
@@ -74,21 +70,24 @@ export function themeToggleTemplate(component: ThemeToggleComponent) {
 										>
 											${notif.message}
 											${!notif.read
-												? html` <button @click=${() => appState.markAsRead(notif.id)} style="margin-left: 10px; padding: 2px 8px; cursor: pointer;">
+												? html` <button
+														@click=${() => appState.markAsRead(notif.id)}
+														style="margin-left: 10px; padding: 2px 8px; cursor: pointer;"
+												  >
 														Mark Read
-													</button>`
+												  </button>`
 												: ''}
 										</li>
 									`
 								)}
 							</ul>
-						`
+					  `
 					: html` <p style="font-style: italic; margin-top: 15px;">No notifications</p> `}
 			</div>
 
 			<div style="margin-top: 30px; padding: 15px; background: ${appState.isDarkMode.value ? '#555' : '#e8f4f8'}; border-left: 4px solid #0088cc;">
-				<strong>Key Point:</strong> Any component can inject AppStateService and access these same signals. When one component
-				updates a signal, ALL components subscribed to it automatically re-render!
+				<strong>Key Point:</strong> Any component can inject AppStateService and access these same signals. When one component updates a signal, ALL
+				components subscribed to it automatically re-render!
 			</div>
 		</div>
 	`;

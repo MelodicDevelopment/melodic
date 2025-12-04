@@ -3,7 +3,7 @@
  * Notice the cleaner syntax: count() instead of count.value
  */
 
-import { html } from '../template/template';
+import { html } from '../../template/template';
 import type { CounterFunctionComponent } from './counter-function-based.component';
 
 export function counterFunctionTemplate(component: CounterFunctionComponent) {
@@ -32,9 +32,7 @@ export function counterFunctionTemplate(component: CounterFunctionComponent) {
 				<button @click=${component.increment} style="padding: 10px 20px; cursor: pointer;">Increment (+1)</button>
 				<button @click=${component.decrement} style="padding: 10px 20px; cursor: pointer;">Decrement (-1)</button>
 				<button @click=${component.incrementByFive} style="padding: 10px 20px; cursor: pointer;">Add Five (+5)</button>
-				<button @click=${component.reset} style="padding: 10px 20px; cursor: pointer; background: #ff4444; color: white; border: none;">
-					Reset
-				</button>
+				<button @click=${component.reset} style="padding: 10px 20px; cursor: pointer; background: #ff4444; color: white; border: none;">Reset</button>
 			</div>
 
 			<div style="margin: 20px 0;">
@@ -47,12 +45,8 @@ export function counterFunctionTemplate(component: CounterFunctionComponent) {
 			<div style="margin-top: 30px; padding: 15px; background: #e8f4f8; border-left: 4px solid #0088cc;">
 				<strong>Comparison:</strong>
 				<ul style="margin: 10px 0; padding-left: 20px;">
-					<li>
-						<strong>Property-based:</strong> <code>\${component.count.value}</code>
-					</li>
-					<li>
-						<strong>Function-based:</strong> <code>\${component.count()}</code> ← Cleaner!
-					</li>
+					<li><strong>Property-based:</strong> <code>\${component.count.value}</code></li>
+					<li><strong>Function-based:</strong> <code>\${component.count()}</code> ← Cleaner!</li>
 				</ul>
 			</div>
 		</div>

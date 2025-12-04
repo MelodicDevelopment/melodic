@@ -3,8 +3,8 @@
  * This allows swapping implementations without changing component code
  */
 
-import { Injector } from '../injection';
-import { Service } from '../injection/decorators/service.decorator';
+import { Injector } from '../../injection';
+import { Service } from '../../injection/decorators/service.decorator';
 
 // ============================================================================
 // PATTERN 1: String Tokens with Interfaces
