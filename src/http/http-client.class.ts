@@ -3,6 +3,7 @@ import type { IHttpClientConfig } from './interfaces/ihttp-client-config.interfa
 import type { IHttpRequestInterceptor } from './interfaces/ihttp-request-interceptor.interface';
 import type { IHttpResponseInterceptor } from './interfaces/ihttp-response-interceptor.interface';
 import type { IHttpResponse } from './interfaces/ihttp-response.interface';
+import type { IInterceptorApi } from './interfaces/iinterceptor-api.interface';
 import type { IProgressEvent } from './interfaces/iprogress-event.interface';
 import type { IRequestConfig } from './interfaces/irequest-config.interface';
 import type { HttpRequestBody } from './types/http-request-body.type';
@@ -17,16 +18,14 @@ export class HttpClient {
 		response: []
 	};
 
-	public get interceptors() {
-		return {
-			request: (interceptor: IHttpRequestInterceptor): void => {
-				this._interceptors.request.push(interceptor);
-			},
-			response: (interceptor: IHttpResponseInterceptor): void => {
-				this._interceptors.response.push(interceptor);
-			}
-		};
-	}
+	public interceptors: IInterceptorApi = {
+		request: (interceptor: IHttpRequestInterceptor): void => {
+			this._interceptors.request.push(interceptor);
+		},
+		response: (interceptor: IHttpResponseInterceptor): void => {
+			this._interceptors.response.push(interceptor);
+		}
+	};
 
 	constructor(config: IHttpClientConfig) {
 		this._clientConfig = {
