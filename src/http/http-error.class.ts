@@ -25,14 +25,6 @@ export class NetworkError extends HttpBaseError {
 	}
 }
 
-export class TimeoutError extends HttpBaseError {
-	constructor(public readonly timeout: number, config: IRequestConfig) {
-		super(`Request timeout after ${timeout}ms`, config, 'TIMEOUT');
-		this.name = 'TimeoutError';
-		Object.setPrototypeOf(this, TimeoutError.prototype);
-	}
-}
-
 export class AbortError extends HttpBaseError {
 	constructor(message: string, config: IRequestConfig) {
 		super(message, config, 'ABORTED');

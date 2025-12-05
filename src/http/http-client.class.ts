@@ -39,7 +39,7 @@ export class HttpClient {
 		return this.internalRequest<T>({ method: 'GET', ...config, url });
 	}
 
-	public async post<T>(url: string, body?: any, config?: IRequestConfig): Promise<IHttpResponse<T>> {
+	public async post<T>(url: string, body?: HttpRequestBody, config?: IRequestConfig): Promise<IHttpResponse<T>> {
 		return this.internalRequest<T>({ method: 'POST', ...config, url, body });
 	}
 
@@ -57,16 +57,10 @@ export class HttpClient {
 
 	private async internalRequest<T>(config: IRequestConfig): Promise<IHttpResponse<T>> {
 		let requestConfig: IRequestConfig = this.mergeConfig(config);
-
-		for (const interceptor of this._interceptors.request) {
-			requestConfig = await interceptor.intercept(requestConfig);
-		}
+		requestConfig = await this.executeRequestInterceptors(requestConfig);
 
 		let response = await this.executeRequest<T>(requestConfig);
-
-		for (const interceptor of this._interceptors.response) {
-			response = await interceptor.intercept(response);
-		}
+		response = await this.executeResponseInterceptors(response);
 
 		return response;
 	}
@@ -108,6 +102,36 @@ export class HttpClient {
 		return httpResponse;
 	}
 
+	private async executeRequestInterceptors(config: IRequestConfig): Promise<IRequestConfig> {
+		for (const interceptor of this._interceptors.request) {
+			try {
+				config = await interceptor.intercept(config);
+			} catch (error) {
+				if (interceptor.error) {
+					await interceptor.error(error as Error);
+				}
+				throw error;
+			}
+		}
+
+		return config;
+	}
+
+	private async executeResponseInterceptors<T>(response: IHttpResponse<T>): Promise<IHttpResponse<T>> {
+		for (const interceptor of this._interceptors.response) {
+			try {
+				response = await interceptor.intercept(response);
+			} catch (error) {
+				if (interceptor.error) {
+					await interceptor.error(error as Error);
+				}
+				throw error;
+			}
+		}
+
+		return response;
+	}
+
 	private mergeConfig(config: IRequestConfig): IRequestConfig {
 		return {
 			...this._clientConfig,
@@ -128,7 +152,7 @@ export class HttpClient {
 			const queryString = Object.entries(params)
 				.map(([key, value]) => `${encodeURIComponent(key)}=${encodeURIComponent(String(value))}`)
 				.join('&');
-			fullUrl += `?${queryString}`;
+			fullUrl += `${fullUrl.includes('?') ? '&' : '?'}${queryString}`;
 		}
 
 		return fullUrl;
@@ -174,8 +198,7 @@ export class HttpClient {
 				onProgress({
 					loaded,
 					total: contentLength,
-					percentage: (loaded / contentLength) * 100,
-					phase: 'download'
+					percentage: (loaded / contentLength) * 100
 				});
 			}
 
