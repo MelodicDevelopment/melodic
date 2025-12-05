@@ -1,5 +1,6 @@
 import type { HttpMethod } from '../types/http-method.type';
 import type { HttpRequestBody } from '../types/http-request-body.type';
+import type { IProgressEvent } from './iprogress-event.interface';
 
 export interface IRequestConfig {
 	url?: string;
@@ -11,7 +12,7 @@ export interface IRequestConfig {
 	//cache?: CacheStrategy;
 	//cacheTTL?: number;
 	//retry?: RetryConfig;
-	onProgress?: (progress: ProgressEvent) => void;
+	onProgress?: (progress: IProgressEvent) => void;
 	abortSignal?: AbortSignal;
 	credentials?: RequestCredentials;
 	mode?: RequestMode;
