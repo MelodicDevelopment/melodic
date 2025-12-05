@@ -31,7 +31,7 @@ export class HttpClient {
 
 	constructor(private _clientConfig: IHttpClientConfig) {
 		this._clientConfig = {
-			headers: {},
+			defaultHeaders: {},
 			..._clientConfig
 		};
 	}
@@ -142,7 +142,7 @@ export class HttpClient {
 
 const client = new HttpClient({
 	baseURL: 'https://api.example.com',
-	headers: {
+	defaultHeaders: {
 		'Content-Type': 'application/json'
 	}
 });
