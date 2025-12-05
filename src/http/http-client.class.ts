@@ -31,13 +31,11 @@ export class HttpClient {
 	}
 
 	public async get<T>(url: string, config?: IRequestConfig): Promise<T> {
-		const requestConfig: IRequestConfig = {
-			method: 'GET',
-			...config,
-			url
-		};
+		return this.internalRequest<T>({ method: 'GET', ...config, url });
+	}
 
-		return this.internalRequest<T>(requestConfig);
+	public async post<T>(url: string, body?: any, config?: IRequestConfig): Promise<T> {
+		return this.internalRequest<T>({ method: 'POST', ...config, url, body });
 	}
 
 	private async internalRequest<T>(config: IRequestConfig): Promise<T> {
