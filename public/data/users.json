@@ -1,0 +1,22 @@
+[
+	{
+		"userID": 1,
+		"username": "rick.hopkins",
+		"email": "rick.hopkins@example.com"
+	},
+	{
+		"userID": 2,
+		"username": "jane.doe",
+		"email": "jane.doe@example.com"
+	},
+	{
+		"userID": 3,
+		"username": "john.smith",
+		"email": "john.smith@example.com"
+	},
+	{
+		"userID": 4,
+		"username": "alice.jones",
+		"email": "alice.jones@example.com"
+	}
+]

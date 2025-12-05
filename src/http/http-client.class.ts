@@ -27,7 +27,7 @@ export class HttpClient {
 		}
 	};
 
-	constructor(config: IHttpClientConfig) {
+	constructor(config?: IHttpClientConfig) {
 		this._clientConfig = {
 			defaultHeaders: {},
 			...config
