@@ -1,12 +1,12 @@
 # Interface-Based Injection Patterns
 
-This guide shows you how to inject by interface/contract instead of concrete implementations, making it easy to swap out services.
+How to inject by interface/contract instead of concrete implementations for loose coupling and easy testing.
 
 ## The Problem
 
 ```typescript
-// ❌ Tightly coupled to implementation
-export class MyComponent {
+// Tightly coupled to implementation
+class MyComponent {
   @Service(TodoService) private todos!: TodoService;
 }
 
@@ -14,296 +14,293 @@ export class MyComponent {
 // You'd have to change the component code!
 ```
 
-## The Solution: Inject by Contract
+## The Solution
 
 ```typescript
-// ✅ Loosely coupled to interface
-export class MyComponent {
-  @Service(ITodoService) private todos!: ITodoService;
+// Loosely coupled to interface
+const TODO_SERVICE = createToken<ITodoService>('ITodoService');
+
+class MyComponent {
+  @Service(TODO_SERVICE) private todos!: ITodoService;
 }
 
-// Now you can swap implementations without touching component code
+// Swap implementations without touching component code
+injector.bind(TODO_SERVICE, ApiTodoService);   // Production
+injector.bind(TODO_SERVICE, MockTodoService);  // Testing
 ```
 
-## Available Patterns
-
-### 1. String Tokens (Simple)
+## Pattern 1: createToken (Recommended for Interfaces)
 
 ```typescript
-export interface ILogger {
+import { createToken, GlobalInjector, Inject } from 'melodic/injection';
+
+// Define interface
+interface ILogger {
   log(message: string): void;
+  error(message: string): void;
 }
 
-export const LOGGER_TOKEN = 'ILogger';
+// Create typed token
+const LOGGER = createToken<ILogger>('ILogger');
 
-class ConsoleLogger implements ILogger { ... }
-class MockLogger implements ILogger { ... }
+// Implementations
+class ConsoleLogger implements ILogger {
+  log(message: string) { console.log(message); }
+  error(message: string) { console.error(message); }
+}
+
+class MockLogger implements ILogger {
+  logs: string[] = [];
+  log(message: string) { this.logs.push(message); }
+  error(message: string) { this.logs.push(`ERROR: ${message}`); }
+}
 
 // Register
-Injector.bind(LOGGER_TOKEN, ConsoleLogger).asSingleton();
+GlobalInjector.bind(LOGGER, ConsoleLogger);
 
 // Use
-export class MyComponent {
-  @Service(LOGGER_TOKEN) private logger!: ILogger;
+class UserService {
+  constructor(@Inject(LOGGER) private logger: ILogger) { }
 }
 
-// Swap
-Injector.bind(LOGGER_TOKEN, MockLogger).asSingleton();
+// Swap for testing
+GlobalInjector.bind(LOGGER, MockLogger);
 ```
 
 **Pros:**
-- Simple and straightforward
-- Already supported by your system
+- Full type safety
+- Works with interfaces (which don't exist at runtime)
+- Clean syntax with `createToken<T>()`
 
-**Cons:**
-- No compile-time type checking on token string
-- Potential for typos and collisions
+## Pattern 2: Abstract Classes
 
----
-
-### 2. InjectionToken Class (Angular-style)
+Abstract classes exist at runtime, so they can be used directly as tokens:
 
 ```typescript
-export class InjectionToken<T> {
-  constructor(public readonly key: string) {}
-  toString() { return this.key; }
-}
-
-export const LOGGER = new InjectionToken<ILogger>('ILogger');
-
-// Register
-Injector.bind(LOGGER.toString(), ConsoleLogger).asSingleton();
-
-// Use
-export class MyComponent {
-  @Service(LOGGER.toString()) private logger!: ILogger;
-}
-```
-
-**Pros:**
-- Type-safe token definition
-- Self-documenting code
-
-**Cons:**
-- Need to call `.toString()` everywhere
-- Slight verbosity
-
----
-
-### 3. Abstract Classes ⭐ **RECOMMENDED**
-
-```typescript
-export abstract class DataService {
+// Define contract as abstract class
+abstract class DataService {
   abstract getData(): Promise<string[]>;
   abstract saveData(data: string[]): Promise<void>;
 }
 
-class ApiDataService extends DataService { ... }
-class LocalStorageDataService extends DataService { ... }
+// Implementations
+class ApiDataService extends DataService {
+  async getData() { return fetch('/api/data').then(r => r.json()); }
+  async saveData(data: string[]) { await fetch('/api/data', { method: 'POST', body: JSON.stringify(data) }); }
+}
 
-// Register (abstract class as token!)
-Injector.bind(DataService, ApiDataService).asSingleton();
+class LocalStorageDataService extends DataService {
+  async getData() { return JSON.parse(localStorage.getItem('data') || '[]'); }
+  async saveData(data: string[]) { localStorage.setItem('data', JSON.stringify(data)); }
+}
+
+// Register - abstract class IS the token
+GlobalInjector.bind(DataService, ApiDataService);
 
 // Use
-export class MyComponent {
+class MyComponent {
   @Service(DataService) private dataService!: DataService;
 }
 
 // Swap
-Injector.bind(DataService, LocalStorageDataService).asSingleton();
+GlobalInjector.bind(DataService, LocalStorageDataService);
 ```
 
 **Pros:**
-- ✅ Abstract classes exist at runtime (unlike interfaces)
-- ✅ Can use class directly as token
-- ✅ Full type safety
-- ✅ No string tokens needed
-- ✅ Clean, readable code
+- No separate token needed
+- Abstract class serves as both contract and token
+- Full type safety
 
 **Cons:**
 - Must use abstract class instead of interface
 
-**Why this is best for Melodic:**
-Abstract classes give you the best of both worlds - they act as contracts like interfaces, but exist at runtime so they can be used as tokens directly!
-
----
-
-### 4. Symbol Tokens (Collision-Free)
+## Pattern 3: String Tokens (Simple)
 
 ```typescript
-export const LOGGER_SYMBOL = Symbol.for('ILogger');
+const LOGGER_TOKEN = 'ILogger';
 
-Injector.bind(LOGGER_SYMBOL.toString(), ConsoleLogger).asSingleton();
+GlobalInjector.bind(LOGGER_TOKEN, ConsoleLogger);
 
-export class MyComponent {
-  @Service(LOGGER_SYMBOL.toString()) private logger!: ILogger;
+class MyComponent {
+  @Service(LOGGER_TOKEN) private logger!: ILogger;
+}
+```
+
+**Pros:**
+- Simple and straightforward
+- No imports needed for token
+
+**Cons:**
+- No compile-time type checking on token
+- Potential for typos
+
+## Pattern 4: Symbol Tokens (Unique)
+
+```typescript
+const LOGGER = Symbol('ILogger');
+
+GlobalInjector.bind(LOGGER, ConsoleLogger);
+
+class MyComponent {
+  constructor(@Inject(LOGGER) private logger: ILogger) { }
 }
 ```
 
 **Pros:**
 - Guaranteed unique (no collisions)
-- Global symbol registry with `Symbol.for()`
+- Good for large systems
 
 **Cons:**
-- Need to call `.toString()`
-- Less readable
+- Less readable in debugging
 
----
+## Comparison
 
-### 5. Factory Pattern
-
-```typescript
-class NotificationServiceFactory {
-  static create(): INotificationService {
-    if (isProduction) return new EmailNotificationService();
-    return new MockNotificationService();
-  }
-}
-
-Injector.bind('INotificationService', {
-  getInstance: () => NotificationServiceFactory.create()
-} as any).asSingleton();
-```
-
-**Pros:**
-- Complex creation logic
-- Runtime environment detection
-
-**Cons:**
-- More complex setup
-
----
-
-## Quick Comparison
-
-| Pattern | Type Safety | Clean Syntax | Swap Ease | Best For |
-|---------|-------------|--------------|-----------|----------|
-| String Tokens | Manual | ⚠️ Fair | ⭐⭐⭐ | Quick prototypes |
-| InjectionToken | ✅ Yes | ⚠️ Fair | ⭐⭐⭐ | Medium projects |
-| Abstract Classes | ✅ Yes | ⭐⭐⭐ | ⭐⭐⭐ | **Most projects** |
-| Symbol Tokens | Manual | ⚠️ Fair | ⭐⭐⭐ | Large systems |
-| Factory | ✅ Yes | ⚠️ Fair | ⭐⭐ | Complex logic |
-
----
+| Pattern | Type Safety | Runtime Token | Best For |
+|---------|-------------|---------------|----------|
+| `createToken<T>()` | Full | Symbol | Interfaces |
+| Abstract Class | Full | Class | Class hierarchies |
+| String Token | Manual | String | Simple cases |
+| Symbol Token | Manual | Symbol | Large systems |
 
 ## Real-World Example
 
-Let's build a data service that can swap between API and mock:
-
 ```typescript
-// 1. Define contract as abstract class
-export abstract class TodoRepository {
-  abstract getAll(): Promise<Todo[]>;
-  abstract add(todo: Todo): Promise<void>;
-  abstract remove(id: number): Promise<void>;
+import { createToken, GlobalInjector, Injectable, Inject } from 'melodic/injection';
+
+// Tokens
+const TODO_REPO = createToken<ITodoRepository>('ITodoRepository');
+const LOGGER = createToken<ILogger>('ILogger');
+
+// Interfaces
+interface ITodoRepository {
+  getAll(): Promise<Todo[]>;
+  add(todo: Todo): Promise<void>;
+  remove(id: number): Promise<void>;
 }
 
-// 2. Create implementations
-export class ApiTodoRepository extends TodoRepository {
-  async getAll(): Promise<Todo[]> {
-    const response = await fetch('/api/todos');
-    return response.json();
+interface ILogger {
+  log(message: string): void;
+}
+
+// Production implementations
+class ApiTodoRepository implements ITodoRepository {
+  constructor(@Inject(LOGGER) private logger: ILogger) { }
+
+  async getAll() {
+    this.logger.log('Fetching todos from API');
+    return fetch('/api/todos').then(r => r.json());
   }
 
-  async add(todo: Todo): Promise<void> {
-    await fetch('/api/todos', {
-      method: 'POST',
-      body: JSON.stringify(todo)
-    });
+  async add(todo: Todo) {
+    await fetch('/api/todos', { method: 'POST', body: JSON.stringify(todo) });
   }
 
-  async remove(id: number): Promise<void> {
+  async remove(id: number) {
     await fetch(`/api/todos/${id}`, { method: 'DELETE' });
   }
 }
 
-export class MockTodoRepository extends TodoRepository {
-  private todos: Todo[] = [
-    { id: 1, text: 'Mock todo 1', completed: false },
-    { id: 2, text: 'Mock todo 2', completed: true }
+class ConsoleLogger implements ILogger {
+  log(message: string) {
+    console.log(`[${new Date().toISOString()}] ${message}`);
+  }
+}
+
+// Mock implementations for testing
+class MockTodoRepository implements ITodoRepository {
+  todos: Todo[] = [
+    { id: 1, text: 'Test todo', completed: false }
   ];
 
-  async getAll(): Promise<Todo[]> {
-    return [...this.todos];
-  }
-
-  async add(todo: Todo): Promise<void> {
-    this.todos.push(todo);
-  }
-
-  async remove(id: number): Promise<void> {
-    this.todos = this.todos.filter(t => t.id !== id);
-  }
+  async getAll() { return [...this.todos]; }
+  async add(todo: Todo) { this.todos.push(todo); }
+  async remove(id: number) { this.todos = this.todos.filter(t => t.id !== id); }
 }
 
-// 3. Register implementation
-// For development:
-Injector.bind(TodoRepository, MockTodoRepository).asSingleton();
+class MockLogger implements ILogger {
+  messages: string[] = [];
+  log(message: string) { this.messages.push(message); }
+}
 
-// For production:
-// Injector.bind(TodoRepository, ApiTodoRepository).asSingleton();
+// Production setup
+function setupProduction() {
+  GlobalInjector.bind(LOGGER, ConsoleLogger);
+  GlobalInjector.bind(TODO_REPO, ApiTodoRepository);
+}
 
-// 4. Use in components (no changes needed when swapping!)
-export class TodoListComponent {
-  @Service(TodoRepository) private repo!: TodoRepository;
+// Test setup
+function setupTesting() {
+  GlobalInjector.bind(LOGGER, MockLogger);
+  GlobalInjector.bind(TODO_REPO, MockTodoRepository);
+}
+
+// Component - same code works with both setups
+@Injectable()
+class TodoListComponent {
+  constructor(@Inject(TODO_REPO) private repo: ITodoRepository) { }
 
   async loadTodos() {
-    const todos = await this.repo.getAll();
-    // Component doesn't care if it's API or mock!
+    return this.repo.getAll();
   }
 }
+```
 
-// 5. For testing, easily swap:
-import { test } from 'vitest';
+## Testing Example
 
-test('loads todos', () => {
-  // Swap to mock for this test
-  Injector.bind(TodoRepository, MockTodoRepository).asSingleton();
+```typescript
+import { describe, it, expect, beforeEach } from 'vitest';
+import { GlobalInjector } from 'melodic/injection';
 
-  const component = new TodoListComponent();
-  // Test with mock data
+describe('TodoListComponent', () => {
+  let mockRepo: MockTodoRepository;
+
+  beforeEach(() => {
+    // Clear and setup mocks
+    GlobalInjector.clear();
+    mockRepo = new MockTodoRepository();
+    GlobalInjector.bindValue(TODO_REPO, mockRepo);
+    GlobalInjector.bind(TodoListComponent);
+  });
+
+  it('loads todos from repository', async () => {
+    const component = GlobalInjector.get(TodoListComponent);
+    const todos = await component.loadTodos();
+
+    expect(todos).toHaveLength(1);
+    expect(todos[0].text).toBe('Test todo');
+  });
+
+  it('works with empty repository', async () => {
+    mockRepo.todos = [];
+
+    const component = GlobalInjector.get(TodoListComponent);
+    const todos = await component.loadTodos();
+
+    expect(todos).toHaveLength(0);
+  });
 });
 ```
 
----
+## Recommendation
 
-## Migration Guide
+Use **`createToken<T>()`** for interfaces and **abstract classes** for class hierarchies:
 
-If you have existing concrete class injection:
-
-### Before (Concrete)
 ```typescript
-@Service(TodoService) private todos!: TodoService;
+// For interfaces
+const LOGGER = createToken<ILogger>('ILogger');
+const CONFIG = createToken<AppConfig>('AppConfig');
+
+// For class hierarchies
+abstract class Repository<T> { ... }
+class UserRepository extends Repository<User> { ... }
+
+// Register
+injector.bind(LOGGER, ConsoleLogger);
+injector.bind(Repository, UserRepository);  // If you only need one
 ```
-
-### After (Interface-based)
-```typescript
-// Option 1: Abstract class (recommended)
-abstract class ITodoService { ... }
-class TodoService extends ITodoService { ... }
-@Service(ITodoService) private todos!: ITodoService;
-
-// Option 2: String token
-const TODO_SERVICE = 'ITodoService';
-@Service(TODO_SERVICE) private todos!: ITodoService;
-```
-
----
-
-## Recommendation for Melodic
-
-**Use Abstract Classes** as your primary pattern:
-
-1. Define contracts as abstract classes (not interfaces)
-2. Use the abstract class as the injection token
-3. Extend the abstract class for each implementation
-4. Register the concrete implementation against the abstract class
 
 This gives you:
-- ✅ Full TypeScript type safety
-- ✅ No string tokens to manage
-- ✅ Clean, readable code
-- ✅ Easy testing (swap to mocks)
-- ✅ Runtime token support (unlike interfaces)
-
-See `interface-injection-patterns.ts` for complete working examples!
+- Full TypeScript type safety
+- Easy swapping for tests
+- Clean, readable code
+- Runtime token support
