@@ -17,7 +17,7 @@ export interface Todo {
 export class TodoService {
 	private nextId = 4;
 
-	private _httpClient: HttpClient = new HttpClient();
+	private _httpClient: HttpClient = new HttpClient({ baseURL: '/data' });
 
 	public showCompleted: Signal<boolean> = signal(true);
 
@@ -28,7 +28,7 @@ export class TodoService {
 	});
 
 	constructor() {
-		this._httpClient.get<Todo[]>('/data/todos.json').then((response) => {
+		this._httpClient.get<Todo[]>('/todos.json').then((response) => {
 			this.todos.set(response.data);
 		});
 	}
