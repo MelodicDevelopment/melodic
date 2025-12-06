@@ -1,3 +1,4 @@
+import { HttpClient } from '../../src/http';
 import { Injectable } from '../../src/injection';
 import { computed } from '../../src/signals/functions/computed.function';
 import { signal } from '../../src/signals/functions/signal.function';
@@ -16,17 +17,21 @@ export interface Todo {
 export class TodoService {
 	private nextId = 4;
 
+	private _httpClient: HttpClient = new HttpClient();
+
 	public showCompleted: Signal<boolean> = signal(true);
 
-	public todos: Signal<Todo[]> = signal([
-		{ id: 1, text: 'Learn Melodic framework', completed: false, priority: 'high' },
-		{ id: 2, text: 'Build awesome app', completed: false, priority: 'medium' },
-		{ id: 3, text: 'Deploy to production', completed: false, priority: 'low' }
-	]);
+	public todos: Signal<Todo[]> = signal([]);
 
 	public filteredTodos: Signal<Todo[]> = computed(() => {
 		return this.showCompleted() ? this.todos() : this.todos().filter((t) => !t.completed);
 	});
+
+	constructor() {
+		this._httpClient.get<Todo[]>('/data/todos.json').then((response) => {
+			this.todos.set(response.data);
+		});
+	}
 
 	addTodo(text: string, priority: 'low' | 'medium' | 'high' = 'medium'): void {
 		const newTodo: Todo = {
