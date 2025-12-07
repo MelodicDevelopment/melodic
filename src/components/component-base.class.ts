@@ -34,8 +34,6 @@ export abstract class ComponentBase extends HTMLElement {
 		if (this._component.onCreate !== undefined) {
 			this._component.onCreate();
 		}
-
-		console.log('Attributes', this.getAttributeNames());
 	}
 
 	disconnectedCallback(): void {
@@ -48,7 +46,6 @@ export abstract class ComponentBase extends HTMLElement {
 	}
 
 	attributeChangedCallback(attribute: string, oldVal: unknown, newVal: unknown): void {
-		// Set the property on the user's component, not on the wrapper
 		if ((this._component as any)[attribute] !== undefined) {
 			(this._component as any)[attribute] = newVal;
 		}
@@ -95,8 +92,7 @@ export abstract class ComponentBase extends HTMLElement {
 			const descriptor = Object.getOwnPropertyDescriptor(this._component, prop);
 
 			if (descriptor?.get) {
-				// Expose getter properties on wrapper for read access
-				console.log('Exposing getter property on wrapper:', prop);
+				console.log(`Property "${prop}" has a getter; exposing on wrapper.`);
 				this.exposePropertyOnWrapper(prop);
 				continue;
 			}
@@ -116,6 +112,7 @@ export abstract class ComponentBase extends HTMLElement {
 					configurable: true
 				});
 
+				console.log(`Property "${prop}" has a setter; exposing on wrapper.`);
 				this.exposePropertyOnWrapper(prop);
 				continue;
 			}
@@ -143,6 +140,7 @@ export abstract class ComponentBase extends HTMLElement {
 			});
 
 			// Expose data properties on wrapper for property binding (.prop=${value})
+			console.log(`Exposing property "${prop}" on wrapper.`);
 			this.exposePropertyOnWrapper(prop);
 		}
 	}
@@ -152,7 +150,6 @@ export abstract class ComponentBase extends HTMLElement {
 	 * This enables property binding (.prop=${value}) from parent templates.
 	 */
 	private exposePropertyOnWrapper(prop: string): void {
-		// Skip internal properties
 		if (prop === 'elementRef') {
 			return;
 		}

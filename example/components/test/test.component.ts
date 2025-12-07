@@ -5,7 +5,7 @@ import { signal } from '../../../src/signals/functions/signal.function';
 
 @MelodicComponent({
 	selector: 'test-component',
-	template: (self: TestComponent) => html`
+	template: (self: TestComponent, attributes?: Record<string, string>) => html`
 		<div class="test-container">
 			<h3>Test Component (Independent State)</h3>
 			<p class="label">Label from parent: <strong>${self.label}</strong></p>
@@ -13,6 +13,7 @@ import { signal } from '../../../src/signals/functions/signal.function';
 			<button @click="${self.increment}">Increment</button>
 			<button @click="${self.decrement}">Decrement</button>
 			<button @click="${self.reset}">Reset</button>
+			<p>Title from attribute: ${attributes?.title}</p>
 		</div>
 	`,
 	styles: () => css`
