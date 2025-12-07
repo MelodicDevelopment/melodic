@@ -3,7 +3,7 @@ import { myAppTemplate } from './my-app.template';
 import { myAppStyles } from './my-app.styles';
 import type { IElementRef } from '../../../src/components/interfaces/ielement-ref.interface';
 import type { OnInit } from '../../../src/components/interfaces/ilife-cycle-hooks.interface';
-import { Inject } from '../../../src/injection';
+import { Inject, Service } from '../../../src/injection';
 import { TodoService, type Todo } from '../../services/todo.service';
 import { signal } from '../../../src/signals/functions/signal.function';
 import type { Signal } from '../../../src/signals/types/signal.type';
@@ -17,7 +17,7 @@ export class MyAppComponent implements IElementRef, OnInit {
 	elementRef!: HTMLElement;
 
 	// Injected service
-	// @Service(TodoService) private _todoService!: TodoService;
+	@Service(TodoService) private readonly _todoService!: TodoService;
 
 	title = signal<string>('Melodic Directives Showcase');
 	count = 0;
@@ -52,7 +52,7 @@ export class MyAppComponent implements IElementRef, OnInit {
 	newTodoText = '';
 	newTodoPriority: 'low' | 'medium' | 'high' = 'medium';
 
-	constructor(@Inject(TodoService) private _todoService: TodoService) {}
+	// constructor(@Inject(TodoService) private _todoService: TodoService) {}
 
 	onInit(): void {
 		console.log('MyAppComponent initialized with TodoService!');

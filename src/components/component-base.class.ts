@@ -84,84 +84,72 @@ export abstract class ComponentBase extends HTMLElement {
 	}
 
 	private observe(): void {
-		const properties = Object.getOwnPropertyNames(this._component);
-
-		console.log('Observing component properties:', properties);
-
-		for (const prop of properties) {
-			const descriptor = Object.getOwnPropertyDescriptor(this._component, prop);
-
-			if (descriptor?.get) {
-				console.log(`Property "${prop}" has a getter; exposing on wrapper.`);
-				this.exposePropertyOnWrapper(prop);
-				continue;
-			}
-
+		const properties = Object.getOwnPropertyNames(this._component).filter((prop) => {
 			let value = (this._component as any)[prop];
 
-			if (descriptor?.set) {
-				const originalSetter = descriptor.set;
-
-				Object.defineProperty(this._component, prop, {
-					get: () => value,
-					set: (newVal) => {
-						originalSetter.call(this._component, newVal);
-						this.render();
-					},
-					enumerable: true,
-					configurable: true
-				});
-
-				console.log(`Property "${prop}" has a setter; exposing on wrapper.`);
-				this.exposePropertyOnWrapper(prop);
-				continue;
+			// Skip private properties (convention)
+			if (prop.startsWith('_')) {
+				return false;
 			}
 
 			if (isSignal(value)) {
 				this.subscribeToSignal(value);
-				continue;
+				return false;
 			}
 
 			if (typeof value === 'function') {
-				continue;
+				return false;
 			}
 
+			return prop !== 'elementRef';
+		});
+
+		for (const prop of properties) {
+			const descriptor = Object.getOwnPropertyDescriptor(this._component, prop);
+			let value = (this._component as any)[prop];
+
+			// Build getter/setter for the component's property
+			let componentGetter = () => value;
+			let componentSetter = (newVal: unknown) => {
+				if (value !== newVal) {
+					this._component.onPropertyChange?.(prop, value, newVal);
+					value = newVal;
+					this.render();
+				}
+			};
+
+			// Preserve existing getters
+			if (descriptor?.get) {
+				const originalGetter = descriptor.get;
+				componentGetter = () => originalGetter.call(this._component) ?? value;
+			}
+
+			// Preserve existing setters
+			if (descriptor?.set) {
+				const originalSetter = descriptor.set;
+				const baseSetter = componentSetter;
+				componentSetter = (newVal) => {
+					originalSetter.call(this._component, newVal);
+					baseSetter(newVal);
+				};
+			}
+
+			// Make the component's property reactive
 			Object.defineProperty(this._component, prop, {
-				get: () => value,
-				set: (newVal) => {
-					if (value !== newVal) {
-						this._component.onPropertyChange?.(prop, value, newVal);
-						value = newVal;
-						this.render();
-					}
-				},
+				get: componentGetter,
+				set: componentSetter,
 				enumerable: true,
 				configurable: true
 			});
 
-			// Expose data properties on wrapper for property binding (.prop=${value})
-			console.log(`Exposing property "${prop}" on wrapper.`);
-			this.exposePropertyOnWrapper(prop);
+			// Expose on wrapper for property binding (.prop=${value})
+			Object.defineProperty(this, prop, {
+				get: componentGetter,
+				set: componentSetter,
+				enumerable: true,
+				configurable: true
+			});
 		}
-	}
-
-	/**
-	 * Exposes a property on the wrapper element that proxies to the internal component.
-	 * This enables property binding (.prop=${value}) from parent templates.
-	 */
-	private exposePropertyOnWrapper(prop: string): void {
-		if (prop === 'elementRef') {
-			return;
-		}
-
-		Object.defineProperty(this, prop, {
-			get: () => (this._component as any)[prop],
-			set: (newVal) => {
-				(this._component as any)[prop] = newVal;
-			},
-			enumerable: true,
-			configurable: true
-		});
 	}
 
 	private getAttributeValues(): Record<string, string> {
