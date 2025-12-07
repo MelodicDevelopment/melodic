@@ -34,6 +34,8 @@ export abstract class ComponentBase extends HTMLElement {
 		if (this._component.onCreate !== undefined) {
 			this._component.onCreate();
 		}
+
+		console.log('Attributes', this.getAttributeNames());
 	}
 
 	disconnectedCallback(): void {
@@ -87,10 +89,15 @@ export abstract class ComponentBase extends HTMLElement {
 	private observe(): void {
 		const properties = Object.getOwnPropertyNames(this._component);
 
+		console.log('Observing component properties:', properties);
+
 		for (const prop of properties) {
 			const descriptor = Object.getOwnPropertyDescriptor(this._component, prop);
 
 			if (descriptor?.get) {
+				// Expose getter properties on wrapper for read access
+				console.log('Exposing getter property on wrapper:', prop);
+				this.exposePropertyOnWrapper(prop);
 				continue;
 			}
 
@@ -109,6 +116,7 @@ export abstract class ComponentBase extends HTMLElement {
 					configurable: true
 				});
 
+				this.exposePropertyOnWrapper(prop);
 				continue;
 			}
 
@@ -133,7 +141,30 @@ export abstract class ComponentBase extends HTMLElement {
 				enumerable: true,
 				configurable: true
 			});
+
+			// Expose data properties on wrapper for property binding (.prop=${value})
+			this.exposePropertyOnWrapper(prop);
 		}
+	}
+
+	/**
+	 * Exposes a property on the wrapper element that proxies to the internal component.
+	 * This enables property binding (.prop=${value}) from parent templates.
+	 */
+	private exposePropertyOnWrapper(prop: string): void {
+		// Skip internal properties
+		if (prop === 'elementRef') {
+			return;
+		}
+
+		Object.defineProperty(this, prop, {
+			get: () => (this._component as any)[prop],
+			set: (newVal) => {
+				(this._component as any)[prop] = newVal;
+			},
+			enumerable: true,
+			configurable: true
+		});
 	}
 
 	private getAttributeValues(): Record<string, string> {

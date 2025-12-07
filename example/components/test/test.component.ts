@@ -1,6 +1,6 @@
 import { css, html } from '../../../src';
+import type { OnAttributeChange } from '../../../src/components';
 import { MelodicComponent } from '../../../src/components/melodic-component.decorator';
-import type { IElementRef } from '../../../src/components/interfaces/ielement-ref.interface';
 import { signal } from '../../../src/signals/functions/signal.function';
 
 @MelodicComponent({
@@ -47,11 +47,9 @@ import { signal } from '../../../src/signals/functions/signal.function';
 			background: #45a049;
 		}
 	`,
-	attributes: ['label']
+	attributes: ['title']
 })
-export class TestComponent implements IElementRef {
-	elementRef!: HTMLElement;
-
+export class TestComponent implements OnAttributeChange {
 	// Property passed from parent via attribute
 	label = 'Default Label';
 
@@ -69,4 +67,8 @@ export class TestComponent implements IElementRef {
 	reset = () => {
 		this.count.set(0);
 	};
+
+	onAttributeChange(attribute: string, oldVal: unknown, newVal: unknown): void {
+		console.log(`Attribute changed: ${attribute} from "${oldVal}" to "${newVal}"`);
+	}
 }

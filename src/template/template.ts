@@ -50,10 +50,15 @@ export class TemplateResult {
 		if (!(container as any).__parts) {
 			const clone = template.content.cloneNode(true);
 			const parts = this.prepareParts(clone, templateParts);
+			(container as any).__parts = parts;
+
+			// Commit values BEFORE appending to DOM so attributes are set
+			// before connectedCallback fires on child custom elements
+			this.commit(parts);
 
 			container.textContent = '';
 			container.appendChild(clone);
-			(container as any).__parts = parts;
+			return;
 		}
 
 		// Update values

@@ -16,7 +16,7 @@ export function myAppTemplate(component: MyAppComponent) {
 
 			<hr />
 
-			<test-component label="${`Passed from MyApp (count: ${component.count})`}"></test-component>
+			<test-component .title=${`Just A Test ${component.count}`} .label=${`Passed from MyApp (count: ${component.count})`}></test-component>
 
 			<hr />
 

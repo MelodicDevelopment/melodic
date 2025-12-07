@@ -4,8 +4,8 @@ import type { TypedComponentMeta } from './types/component-meta.type';
 import type { Component } from './types/component.type';
 import { Injector } from '../injection';
 
-export function MelodicComponent<C extends Component>(meta: TypedComponentMeta<C>): <T extends INewable<C>>(component: T) => void {
-	return function <T extends INewable<C>>(component: T): void {
+export function MelodicComponent<C extends Component>(meta: TypedComponentMeta<C>): (component: INewable<C>) => void {
+	return function (component: INewable<C>): void {
 		if (customElements.get(meta.selector) === undefined) {
 			const webComponent = class extends ComponentBase {
 				constructor() {

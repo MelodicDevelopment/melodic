@@ -7,6 +7,6 @@ export type ComponentMeta = {
 	attributes?: string[];
 };
 
-export type TypedComponentMeta<T> = Omit<ComponentMeta, 'template'> & {
-	template?: (component: T, attributes?: Record<string, string>) => TemplateResult;
+export type TypedComponentMeta<Component> = Omit<ComponentMeta, 'template'> & {
+	template?: (component: Component, attributes?: Record<string, string>) => TemplateResult;
 };
