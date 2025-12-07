@@ -2,7 +2,7 @@ import type { INewable } from '../interfaces';
 import type { Token } from './types/token.type';
 import { Binding } from './binding.class';
 import { getTokenKey } from './function/get-token-key.function';
-import type { IClassBindingOptions } from './interfaces/Iclass-binding-options.interface';
+import type { IClassBindingOptions } from './interfaces/iclass-binding-options.interface';
 import type { IFactoryBindingOptions } from './interfaces/ifactory-binding-options.interface';
 
 export class InjectionEngine {

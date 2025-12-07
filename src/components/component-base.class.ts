@@ -46,8 +46,9 @@ export abstract class ComponentBase extends HTMLElement {
 	}
 
 	attributeChangedCallback(attribute: string, oldVal: unknown, newVal: unknown): void {
-		if (this[attribute as keyof this] !== undefined) {
-			(this[attribute as keyof this] as unknown) = newVal;
+		// Set the property on the user's component, not on the wrapper
+		if ((this._component as any)[attribute] !== undefined) {
+			(this._component as any)[attribute] = newVal;
 		}
 
 		this.render();

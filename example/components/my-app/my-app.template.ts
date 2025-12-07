@@ -16,6 +16,10 @@ export function myAppTemplate(component: MyAppComponent) {
 
 			<hr />
 
+			<test-component label="${`Passed from MyApp (count: ${component.count})`}"></test-component>
+
+			<hr />
+
 			<section class="counter">
 				<h2>Counter Demo</h2>
 				<p>Count: ${component.count}</p>
