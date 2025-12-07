@@ -1,27 +1,18 @@
-import { Dependency } from '../dependency.class';
+import type { INewable } from '../../interfaces';
 import { getTokenKey } from '../function/get-token-key.function';
 import { Injector } from '../injection-engine.class';
-import type { IDependency } from '../interfaces/idependency.interface';
 import type { IInjectableMeta } from '../interfaces/iinjectable-meta.interface';
 
-export function Injectable(meta: IInjectableMeta = {}): <T>(target: IDependency<T>) => IDependency<T> {
-	return function <T>(target: IDependency<T>): IDependency<T> {
+export function Injectable<T>(meta: IInjectableMeta<T> = {}): (target: INewable<T>) => INewable<T> {
+	return function (target: INewable<T>): INewable<T> {
 		const token = meta.token ?? target;
-		const dependency: Dependency<T> = Injector.bind(token, target);
+		const dependencies = meta.dependencies?.map((dep) => getTokenKey(dep));
 
-		if (meta.dependencies !== undefined) {
-			// Convert Token[] to string[] for storage
-			const dependencyKeys = meta.dependencies.map((dep) => getTokenKey(dep));
-			dependency.addDependencies(dependencyKeys);
-		}
-
-		if (meta.args !== undefined) {
-			dependency.addArgs(meta.args);
-		}
-
-		if (meta.singleton !== undefined) {
-			dependency.setSingleton(meta.singleton);
-		}
+		Injector.bind(token, target, {
+			singleton: meta.singleton,
+			dependencies,
+			args: meta.args
+		});
 
 		return target;
 	};

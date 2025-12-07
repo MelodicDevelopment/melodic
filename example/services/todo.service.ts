@@ -1,5 +1,5 @@
 import { HttpClient } from '../../src/http';
-import { Injectable } from '../../src/injection';
+import { Injectable, Service } from '../../src/injection';
 import { computed } from '../../src/signals/functions/computed.function';
 import { signal } from '../../src/signals/functions/signal.function';
 import type { Signal } from '../../src/signals/types/signal.type';
@@ -17,7 +17,7 @@ export interface Todo {
 export class TodoService {
 	private nextId = 4;
 
-	private _httpClient: HttpClient = new HttpClient({ baseURL: '/data' });
+	@Service(HttpClient) private _httpClient!: HttpClient;
 
 	public showCompleted: Signal<boolean> = signal(true);
 

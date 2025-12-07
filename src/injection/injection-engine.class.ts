@@ -1,115 +1,190 @@
+import type { INewable } from '../interfaces';
 import type { Token } from './types/token.type';
-import { Dependency } from './dependency.class';
+import { Binding } from './binding.class';
 import { getTokenKey } from './function/get-token-key.function';
-import type { IDependency } from './interfaces/idependency.interface';
+import type { IClassBindingOptions } from './interfaces/Iclass-binding-options.interface';
+import type { IFactoryBindingOptions } from './interfaces/ifactory-binding-options.interface';
 
 export class InjectionEngine {
-	private _dependencies: Dependency<unknown>[] = [];
-	private _constructionStack: Set<string> = new Set(); // Track construction chain for circular dependency detection
+	private _bindings: Map<string, Binding<unknown>> = new Map();
+	private _constructionStack: Set<string> = new Set();
 
-	bind<T>(token: Token<T>, item: IDependency<T>): Dependency<T> {
-		const tokenKey = getTokenKey(token);
-		const dependency = new Dependency<T>(tokenKey, item);
-		this._dependencies.push(dependency);
-		return dependency;
+	/**
+	 * Bind a class to the injector
+	 * @overload bind(cls) - Use class as its own token
+	 * @overload bind(cls, options) - Use class as token with options
+	 * @overload bind(token, cls) - Use custom token with class
+	 * @overload bind(token, cls, options) - Use custom token with class and options
+	 */
+	bind<T>(cls: INewable<T>, options?: IClassBindingOptions): Binding<T>;
+	bind<T>(token: Token<T>, cls: INewable<T>, options?: IClassBindingOptions): Binding<T>;
+	bind<T>(tokenOrClass: Token<T> | INewable<T>, clsOrOptions?: INewable<T> | IClassBindingOptions, maybeOptions?: IClassBindingOptions): Binding<T> {
+		let token: Token<T>;
+		let cls: INewable<T>;
+		let options: IClassBindingOptions | undefined;
+
+		if (typeof clsOrOptions === 'function') {
+			// bind(token, cls) or bind(token, cls, options)
+			token = tokenOrClass as Token<T>;
+			cls = clsOrOptions as INewable<T>;
+			options = maybeOptions;
+		} else {
+			// bind(cls) or bind(cls, options)
+			token = tokenOrClass as INewable<T>;
+			cls = tokenOrClass as INewable<T>;
+			options = clsOrOptions as IClassBindingOptions | undefined;
+		}
+
+		const key = getTokenKey(token);
+		const binding = new Binding<T>(key, token, 'class');
+		binding.setClass(cls);
+
+		if (options?.singleton !== undefined) {
+			binding.setSingleton(options.singleton);
+		}
+		if (options?.dependencies) {
+			binding.withDependencies(options.dependencies);
+		}
+		if (options?.args) {
+			binding.withArgs(options.args);
+		}
+
+		this._bindings.set(key, binding as Binding<unknown>);
+		return binding;
+	}
+
+	bindValue<T>(token: Token<T>, value: T): Binding<T> {
+		const key = getTokenKey(token);
+		const binding = new Binding<T>(key, token, 'value');
+		binding.setInstance(value);
+		binding.setSingleton(true);
+		this._bindings.set(key, binding as Binding<unknown>);
+
+		return binding;
+	}
+
+	bindFactory<T>(token: Token<T>, factory: () => T, options?: IFactoryBindingOptions): Binding<T> {
+		const key = getTokenKey(token);
+		const binding = new Binding<T>(key, token, 'factory');
+		binding.setFactory(factory);
+
+		if (options?.singleton !== undefined) {
+			binding.setSingleton(options.singleton);
+		}
+
+		this._bindings.set(key, binding as Binding<unknown>);
+
+		return binding;
 	}
 
 	get<T>(token: Token<T>): T {
-		const tokenKey = getTokenKey(token);
-		const dependencyRef = this.getDependency<T>(tokenKey);
+		const key = getTokenKey(token);
+		const binding = this._bindings.get(key) as Binding<T> | undefined;
 
-		if (dependencyRef === undefined) {
-			throw new Error(`Dependency could not be found: ${tokenKey}`);
+		if (!binding) {
+			throw new Error(`Dependency could not be found: ${key}`);
 		}
 
-		let instance = dependencyRef.getInstance();
-		if (instance === undefined) {
-			instance = this.construct(dependencyRef.item, dependencyRef.dependencies, dependencyRef.args, tokenKey);
-			if (dependencyRef.isSingleton()) {
-				dependencyRef.setInstance(instance);
+		return this.resolve(binding, key);
+	}
+
+	has<T>(token: Token<T>): boolean {
+		const key = getTokenKey(token);
+		return this._bindings.has(key);
+	}
+
+	getBinding<T>(token: Token<T>): Binding<T> | undefined {
+		const key = getTokenKey(token);
+		return this._bindings.get(key) as Binding<T> | undefined;
+	}
+
+	unbind<T>(token: Token<T>): boolean {
+		const key = getTokenKey(token);
+		return this._bindings.delete(key);
+	}
+
+	clear(): void {
+		this._bindings.clear();
+	}
+
+	private resolve<T>(binding: Binding<T>, key: string): T {
+		if (binding.type === 'value') {
+			return binding.getInstance()!;
+		}
+
+		const existing = binding.getInstance();
+		if (existing !== undefined && binding.isSingleton) {
+			return existing;
+		}
+
+		// Circular dependency detection
+		if (this._constructionStack.has(key)) {
+			const chain = Array.from(this._constructionStack).join(' -> ') + ` -> ${key}`;
+			throw new Error(`Circular dependency detected: ${chain}`);
+		}
+
+		this._constructionStack.add(key);
+
+		try {
+			let instance: T;
+
+			if (binding.type === 'factory') {
+				instance = binding.factory!();
+			} else {
+				instance = this.construct(binding, key);
 			}
+
+			if (binding.isSingleton) {
+				binding.setInstance(instance);
+			}
+
+			return instance;
+		} finally {
+			this._constructionStack.delete(key);
 		}
-
-		return instance as T;
 	}
 
-	getDependency<T>(tokenKey: string): Dependency<T> {
-		return this._dependencies.find((d) => d.token === tokenKey) as Dependency<T>;
-	}
-
-	construct<T>(dependent: IDependency<T>, tokens: string[] = [], args: unknown[] = [], currentToken?: string): T {
+	private construct<T>(binding: Binding<T>, currentToken: string): T {
+		const cls = binding.targetClass!;
 		let dependencies: unknown[] = [];
 
-		const paramTokens = (dependent as any).params;
+		// Check for @Inject decorated parameters
+		const paramTokens = (cls as any).params;
 
 		if (paramTokens && Array.isArray(paramTokens)) {
-			// Resolve dependencies from @Inject decorators
 			for (let i = 0; i < paramTokens.length; i++) {
 				const param = paramTokens[i];
 				if (param && typeof param === 'object' && param.__injectionToken) {
-					const token = param.__injectionToken;
+					const depKey = param.__injectionToken;
+					const depBinding = this._bindings.get(depKey);
 
-					// Circular dependency detection
-					if (this._constructionStack.has(token)) {
-						const chain = Array.from(this._constructionStack).join(' -> ') + ` -> ${token}`;
-						throw new Error(`Circular dependency detected: ${chain}`);
+					if (!depBinding) {
+						throw new Error(`Dependency '${depKey}' not found (required by '${currentToken}')`);
 					}
 
-					const dependencyRef = this.getDependency(token);
-					if (!dependencyRef) {
-						throw new Error(`Dependency '${token}' not found (required by '${currentToken || 'unknown'}')`);
-					}
-
-					dependencies.push(this.get(token));
+					dependencies.push(this.resolve(depBinding as Binding<unknown>, depKey));
 				} else {
-					// No injection metadata for this parameter
 					dependencies.push(undefined);
 				}
 			}
-		} else if (tokens.length > 0) {
-			// Use legacy token-based dependency resolution
-			tokens.forEach((token) => {
-				// Circular dependency detection
-				if (this._constructionStack.has(token)) {
-					const chain = Array.from(this._constructionStack).join(' -> ') + ` -> ${token}`;
-					throw new Error(`Circular dependency detected: ${chain}`);
+		} else if (binding.dependencies.length > 0) {
+			// Legacy token-based dependency resolution
+			for (const depKey of binding.dependencies) {
+				const depBinding = this._bindings.get(depKey);
+
+				if (!depBinding) {
+					throw new Error(`Dependency '${depKey}' not found (required by '${currentToken}')`);
 				}
 
-				const dependencyRef: Dependency<T> = this.getDependency(token);
-
-				if (!dependencyRef) {
-					throw new Error(`Dependency '${token}' not found (required by '${currentToken || 'unknown'}')`);
-				}
-
-				let dependency = dependencyRef.getInstance();
-
-				// Fixed: Check undefined instead of null for consistency
-				if ((dependencyRef.isSingleton() && dependency === undefined) || !dependencyRef.isSingleton()) {
-					// Add to construction stack
-					this._constructionStack.add(token);
-
-					try {
-						dependency = this.construct(dependencyRef.item, dependencyRef.dependencies, dependencyRef.args, token);
-					} finally {
-						// Always remove from stack, even if construction fails
-						this._constructionStack.delete(token);
-					}
-				}
-
-				// Fixed: Check undefined instead of null
-				if (dependencyRef.isSingleton() && dependencyRef.getInstance() === undefined) {
-					dependencyRef.setInstance(dependency);
-				}
-
-				dependencies.push(dependency);
-			});
+				dependencies.push(this.resolve(depBinding as Binding<unknown>, depKey));
+			}
 		}
 
-		if (args.length > 0) {
-			dependencies = dependencies.concat(args);
+		if (binding.args.length > 0) {
+			dependencies = dependencies.concat(binding.args);
 		}
 
-		return Reflect.construct(dependent, dependencies);
+		return Reflect.construct(cls, dependencies);
 	}
 }
 

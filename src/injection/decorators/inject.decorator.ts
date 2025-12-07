@@ -1,9 +1,8 @@
 import { getTokenKey } from '../function/get-token-key.function';
-import type { IDependency } from '../interfaces';
 import type { Token } from '../types/token.type';
 
 export function Inject<T>(token: Token<T>): (target: any, _: string | undefined, index: number) => void {
-	return function <T>(target: IDependency<T>, _: string | undefined, index: number): void {
+	return function (target: any, _: string | undefined, index: number): void {
 		if (!target.params) {
 			target.params = [];
 		}

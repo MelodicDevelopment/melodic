@@ -4,5 +4,9 @@ export const getTokenKey = <T>(token: Token<T>): string => {
 	if (typeof token === 'string') {
 		return token;
 	}
-	return token.name || token.toString();
+	if (typeof token === 'symbol') {
+		return token.toString();
+	}
+
+	return (token as { name: string }).name;
 };
