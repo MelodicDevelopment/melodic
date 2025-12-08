@@ -1,21 +1,21 @@
 import type { ActionEffectsMap, ActionReducerMap, State } from '../../src/state';
 import { createState } from '../../src/state';
-import { type CounterState, initialCounterState, counterReducers, CounterEffects } from './counter';
+import { type TodosState, initialTodosState, todosReducers, TodosEffects } from './todos';
 
 export interface AppState {
-	counter: CounterState;
+	todos: TodosState;
 }
 
 const initialAppState: AppState = {
-	counter: initialCounterState
+	todos: initialTodosState
 };
 
 export const appState: State<AppState> = createState<AppState>(initialAppState);
 
 export const appReducers: ActionReducerMap<AppState> = {
-	counter: counterReducers
+	todos: todosReducers
 };
 
 export const appEffects: ActionEffectsMap<AppState> = {
-	counter: CounterEffects
+	todos: TodosEffects
 };

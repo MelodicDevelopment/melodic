@@ -1,4 +1,3 @@
-import './services/todo.service';
 import './components';
 import { bootstrap } from '../src/bootstrap';
 import { provideHttp } from '../src/http/provide-http.function';

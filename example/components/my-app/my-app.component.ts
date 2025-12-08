@@ -4,12 +4,13 @@ import { myAppStyles } from './my-app.styles';
 import type { IElementRef } from '../../../src/components/interfaces/ielement-ref.interface';
 import type { OnInit } from '../../../src/components/interfaces/ilife-cycle-hooks.interface';
 import { Service } from '../../../src/injection';
-import { TodoService, type Todo } from '../../services/todo.service';
-import { signal } from '../../../src/signals/functions/signal.function';
+import { signal, computed } from '../../../src/signals';
 import type { Signal } from '../../../src/signals/types/signal.type';
 import { SignalStoreService } from '../../../src/state';
-import * as counterActions from '../../state/counter/counter.actions';
 import type { AppState } from '../../state/app.state';
+import type { Todo } from '../../state/todos/todos.state';
+import * as todoActions from '../../state/todos/todos.actions';
+import { MyAppStateService } from './my-app-state.service';
 
 @MelodicComponent({
 	selector: 'my-app',
@@ -20,15 +21,15 @@ export class MyAppComponent implements IElementRef, OnInit {
 	elementRef!: HTMLElement;
 
 	// Injected services
-	@Service(TodoService) private readonly _todoService!: TodoService;
 	@Service(SignalStoreService) private readonly _store!: SignalStoreService<AppState>;
+	@Service(MyAppStateService) private readonly _appState!: MyAppStateService;
 
 	title = signal<string>('Melodic Directives Showcase');
 	message = '';
 
-	// Counter state from store
-	count: Signal<number> = this._store.select('counter', (state) => state.count);
-	lastAction: Signal<string | null> = this._store.select('counter', (state) => state.lastAction);
+	// Counter state from component state service
+	count: Signal<number> = this._appState.count;
+	lastAction: Signal<string | null> = this._appState.lastAction;
 
 	// Directive demo state
 	showFeature = false;
@@ -52,38 +53,44 @@ export class MyAppComponent implements IElementRef, OnInit {
 		return this.safeHTMLExamples[this.safeHTMLIndex];
 	}
 
-	todos: Signal<Todo[]> = this._todoService.todos;
-	filteredTodos: Signal<Todo[]> = this._todoService.filteredTodos;
-	showCompleted: Signal<boolean> = this._todoService.showCompleted;
+	// Todo state from global store
+	todos: Signal<Todo[]> = this._store.select('todos', (state) => state.todos);
+	loading: Signal<boolean> = this._store.select('todos', (state) => state.loading);
+	showCompleted: Signal<boolean> = this._store.select('todos', (state) => state.showCompleted);
+
+	filteredTodos: Signal<Todo[]> = computed(() => {
+		const todos = this.todos();
+		return this.showCompleted() ? todos : todos.filter((t) => !t.completed);
+	});
 
 	newTodoText = '';
 	newTodoPriority: 'low' | 'medium' | 'high' = 'medium';
 
 	onInit(): void {
-		console.log('MyAppComponent initialized with TodoService!');
-		console.log('ElementRef:', this.elementRef);
-		console.log('TodoService instance:', this._todoService);
+		console.log('MyAppComponent initialized!');
+		console.log('Loading todos via global store...');
+		this._store.dispatch(todoActions.loadTodos());
 	}
 
 	updateTitle = (e: Event) => {
 		this.title.set((e.target as HTMLInputElement).value);
 	};
 
-	// Counter methods (using store dispatch)
+	// Counter methods (using component state service)
 	increment = () => {
-		this._store.dispatch(counterActions.increment());
+		this._appState.increment();
 	};
 
 	decrement = () => {
-		this._store.dispatch(counterActions.decrement());
+		this._appState.decrement();
 	};
 
 	reset = () => {
-		this._store.dispatch(counterActions.reset());
+		this._appState.reset();
 	};
 
 	incrementAsync = () => {
-		this._store.dispatch(counterActions.incrementAsync());
+		this._appState.incrementAsync();
 	};
 
 	// Input methods
@@ -140,41 +147,46 @@ export class MyAppComponent implements IElementRef, OnInit {
 
 	addTodo = (): void => {
 		if (this.newTodoText.trim()) {
-			this._todoService.addTodo(this.newTodoText, this.newTodoPriority);
+			this._store.dispatch(todoActions.addTodo({ text: this.newTodoText, priority: this.newTodoPriority }));
 			this.newTodoText = '';
 			this.newTodoPriority = 'medium';
 		}
 	};
 
 	removeTodo = (id: number): void => {
-		this._todoService.removeTodo(id);
+		this._store.dispatch(todoActions.removeTodo({ id }));
 	};
 
 	toggleTodo = (id: number): void => {
-		this._todoService.toggleTodo(id);
+		this._store.dispatch(todoActions.toggleTodo({ id }));
 	};
 
 	toggleShowCompleted = () => {
-		this.showCompleted.set(!this.showCompleted());
+		this._store.dispatch(todoActions.toggleShowCompleted());
 	};
 
 	reverseList = (): void => {
-		this._todoService.reverseList();
+		this._store.dispatch(todoActions.reverseList());
 	};
 
 	shuffleList = (): void => {
-		this._todoService.shuffleList();
+		this._store.dispatch(todoActions.shuffleList());
 	};
 
 	sortByPriority = (): void => {
-		this._todoService.sortByPriority();
+		this._store.dispatch(todoActions.sortByPriority());
 	};
 
 	clearCompleted = (): void => {
-		this._todoService.clearCompleted();
+		this._store.dispatch(todoActions.clearCompleted());
 	};
 
 	getPriorityColor = (priority: 'low' | 'medium' | 'high'): string => {
-		return this._todoService.getPriorityColor(priority);
+		const colors = {
+			high: '#dc3545',
+			medium: '#ffc107',
+			low: '#28a745'
+		};
+		return colors[priority];
 	};
 }
