@@ -47,6 +47,16 @@ export async function bootstrap(config: IAppConfig = {}): Promise<IMelodicApp> {
 		}
 	}
 
+	if (config.providers) {
+		for (const provider of config.providers) {
+			provider(Injector);
+		}
+
+		if (devMode) {
+			console.log('[Melodic] Custom providers registered');
+		}
+	}
+
 	let rootElement: HTMLElement | undefined;
 	if (config.rootComponent && config.target) {
 		const targetEl = typeof config.target === 'string' ? document.querySelector<HTMLElement>(config.target) : config.target;

@@ -53,11 +53,15 @@ export class InjectionEngine {
 		return binding;
 	}
 
-	bindValue<T>(token: Token<T>, value: T): Binding<T> {
+	bindValue<T>(token: Token<T>, value: T): Binding<T>;
+	bindValue<T, V>(token: Token<T>, value: V): Binding<T>;
+	bindValue<T>(token: Token<T>, value: unknown): Binding<T> {
 		const key = getTokenKey(token);
 		const binding = new Binding<T>(key, token, 'value');
-		binding.setInstance(value);
+
+		binding.setInstance(value as T);
 		binding.setSingleton(true);
+
 		this._bindings.set(key, binding as Binding<unknown>);
 
 		return binding;

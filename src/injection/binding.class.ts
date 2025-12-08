@@ -1,6 +1,7 @@
 import type { INewable } from '../interfaces';
 import type { BindingType } from './types/binding-type.type';
 import type { Token } from './types/token.type';
+import { getTokenKey } from './function/get-token-key.function';
 
 export class Binding<T> {
 	readonly key: string;
@@ -60,8 +61,8 @@ export class Binding<T> {
 		return this;
 	}
 
-	withDependencies(deps: string[]): this {
-		this._dependencies = deps;
+	withDependencies(deps: Token<unknown>[]): this {
+		this._dependencies = deps.map((dep) => getTokenKey(dep));
 		return this;
 	}
 

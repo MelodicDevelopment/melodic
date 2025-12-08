@@ -1,5 +1,7 @@
+import type { Token } from '../types/token.type';
+
 export interface IClassBindingOptions {
 	singleton?: boolean;
-	dependencies?: string[];
+	dependencies?: Token<unknown>[];
 	args?: unknown[];
 }
