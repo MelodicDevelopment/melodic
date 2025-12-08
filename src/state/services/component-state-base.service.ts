@@ -1,130 +1,66 @@
-import type { Action, ActionPayload, TypedAction, ActionEffect, ActionReducer, ActionReducerMap, State } from '../types';
+import type { Action, ActionPayload, TypedAction, ActionEffect, ActionReducer } from '../types';
 import { EffectsBase } from './effects.base.class';
-import { createState } from '../functions';
-import { type Signal, computed } from '../../signals';
+import { type Signal, signal, computed } from '../../signals';
 
 export abstract class ComponentStateBaseService<S extends object> extends EffectsBase {
-	private _state: State<S>;
+	private _state: Signal<S>;
+	private _debug = false;
 
-	constructor(private _initState: S, private _reducerMap: ActionReducerMap<S> = {}) {
+	constructor(private _initState: S, private _reducers: ActionReducer<S, Action>[] = [], debug: boolean = false) {
 		super();
+		this._state = signal(_initState);
+		this._debug = debug;
+	}
 
-		this._state = createState<S>(_initState);
+	protected get state(): S {
+		return this._state();
 	}
 
 	resetState(): void {
-		this._state = createState<S>(this._initState);
+		this._state.set(this._initState);
 	}
 
-	select<T, K extends keyof S>(key: K, selectFn: (state: S[K]) => T): Signal<T> {
-		return computed(() => {
-			return selectFn(this._state[key]());
-		});
+	select<T>(selectFn: (state: S) => T): Signal<T> {
+		return computed(() => selectFn(this._state()));
 	}
 
-	dispatch<T extends string, P extends ActionPayload>(action: TypedAction<T, P>): void;
-	dispatch<K extends keyof S, T extends string, P extends ActionPayload>(key: K, action: TypedAction<T, P>): void;
-	dispatch<K extends keyof S, T extends string, P extends ActionPayload>(x: K | TypedAction<T, P>, y?: TypedAction<T, P>): void {
-		const key = typeof x === 'string' ? x : undefined;
-		const action: TypedAction<T, P> = (typeof x === 'string' ? y : x) as TypedAction<T, P>;
-
-		console.log(`Action: ${action.type}`);
-		console.log(`Payload:`, action.payload);
-		console.log(`Current State:`, this.getCurrentState());
-
-		if (key) {
-			this.dispatchWithKey(key, action);
-		} else {
-			this.dispatchWithoutKey(action);
-		}
-	}
-
-	private dispatchWithKey<K extends keyof S, T extends string, P extends ActionPayload>(key: K, action: TypedAction<T, P>): void {
-		if (!this._reducerMap[key]) {
-			throw new Error(`Reducer not found for key: ${key as string}`);
+	dispatch<T extends string, P extends ActionPayload>(action: TypedAction<T, P>): void {
+		if (this._debug) {
+			console.log(`[ComponentState] Action: ${action.type}`);
+			console.log(`[ComponentState] Payload:`, action.payload);
+			console.log(`[ComponentState] Before:`, this._state());
 		}
 
-		const reducers = this._reducerMap[key].reducers;
+		// Find and execute reducer
+		const reducer = this._reducers.find((r) => r.action.type === action.type);
+		if (reducer) {
+			this._state.update((state) => reducer.reducer(state, action));
 
-		const reducer = reducers.find((reducer) => reducer.action.type === action.type);
-		if (reducer !== undefined) {
-			const newState = reducer.reducer(this._state[key](), action);
-			(this._state[key]() as Signal<S[K]>).set(newState);
-
-			console.log(`New State:`, this.getCurrentState());
-		}
-
-		const actionEffects: ActionEffect[] = this.getEffectsForAction(action);
-		actionEffects.forEach((effect) => {
-			effect.effect(action).then((newAction) => {
-				if (newAction === undefined) {
-					return;
-				}
-
-				if (!Array.isArray(newAction)) {
-					newAction = [newAction];
-				}
-
-				newAction.forEach((na) => {
-					this.dispatch(na as TypedAction<T, P>);
-				});
-			});
-		});
-	}
-
-	private dispatchWithoutKey<T extends string, P extends ActionPayload>(action: TypedAction<T, P>): void {
-		const reducerWithKey = this.getReducerForAction(action);
-		if (reducerWithKey !== undefined) {
-			const newState = reducerWithKey.actionReducer.reducer(this._state[reducerWithKey.key](), action);
-			(this._state[reducerWithKey.key] as Signal<S[keyof S]>).set(newState);
-
-			console.log(`New State:`, this.getCurrentState());
-		}
-
-		const actionEffects: ActionEffect[] = this.getEffectsForAction(action);
-		actionEffects.forEach((effect) => {
-			effect.effect(action).then((newAction) => {
-				if (newAction === undefined) {
-					return;
-				}
-
-				if (!Array.isArray(newAction)) {
-					newAction = [newAction];
-				}
-
-				newAction.forEach((na) => {
-					this.dispatch(na as TypedAction<T, P>);
-				});
-			});
-		});
-	}
-
-	private getReducerForAction<T extends string, P extends ActionPayload>(
-		action: TypedAction<T, P>
-	): { key: keyof S; actionReducer: ActionReducer<S[keyof S], Action> } | undefined {
-		const keys: (keyof S)[] = Object.keys(this._reducerMap) as (keyof S)[];
-
-		for (const key of keys) {
-			const reducers = this._reducerMap[key]?.reducers || [];
-			const reducer = reducers.find((reducer) => reducer.action.type === action.type);
-
-			if (reducer) {
-				return { key, actionReducer: reducer };
+			if (this._debug) {
+				console.log(`[ComponentState] After:`, this._state());
 			}
 		}
 
-		return undefined;
+		// Execute effects
+		this.executeEffects(action);
 	}
 
-	private getEffectsForAction<T extends string, P extends ActionPayload>(action: TypedAction<T, P>): ActionEffect[] {
-		const effects = this.getEffects().filter((effect) => effect.actions.some((a) => a().type === action.type));
-		return effects;
+	protected patchState(partial: Partial<S>): void {
+		this._state.update((state) => ({ ...state, ...partial }));
 	}
 
-	private getCurrentState(): S {
-		return Object.keys(this._state).reduce((acc, key) => {
-			acc[key as keyof S] = this._state[key as keyof S]();
-			return acc;
-		}, {} as S);
+	private executeEffects<T extends string, P extends ActionPayload>(action: TypedAction<T, P>): void {
+		const actionEffects: ActionEffect[] = this.getEffects().filter((effect) => effect.actions.some((a) => a().type === action.type));
+
+		actionEffects.forEach((effect) => {
+			effect.effect(action).then((newAction) => {
+				if (newAction === undefined) {
+					return;
+				}
+
+				const actions = Array.isArray(newAction) ? newAction : [newAction];
+				actions.forEach((na) => this.dispatch(na as TypedAction<T, P>));
+			});
+		});
 	}
 }

@@ -2,12 +2,15 @@ import './services/todo.service';
 import './components';
 import { bootstrap } from '../src/bootstrap';
 import { provideHttp } from '../src/http/provide-http.function';
+import { provideRX } from '../src/state';
+import { appState, appReducers, appEffects } from './state/app.state';
 
 await bootstrap({
 	target: '#my-app',
 	rootComponent: 'my-app',
 	devMode: true,
 	providers: [
+		provideRX(appState, appReducers, appEffects, true),
 		provideHttp(
 			{ baseURL: '/data' },
 			{

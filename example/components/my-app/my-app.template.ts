@@ -16,19 +16,22 @@ export function myAppTemplate(component: MyAppComponent) {
 
 			<hr />
 
-			<test-component .title=${`Just A Test ${component.count}`} .label=${`Passed from MyApp (count: ${component.count})`}></test-component>
+			<test-component .title=${`Just A Test ${component.count()}`} .label=${`Passed from MyApp (count: ${component.count()})`}></test-component>
 
 			<hr />
 
 			<section class="counter">
-				<h2>Counter Demo</h2>
-				<p>Count: ${component.count}</p>
+				<h2>Counter Demo (Signal Store)</h2>
+				<p>Count: ${component.count()}</p>
+				<p class="last-action">Last action: ${component.lastAction() ?? 'none'}</p>
 				<button @click=${component.increment}>Increment</button>
+				<button @click=${component.decrement}>Decrement</button>
 				<button @click=${component.reset}>Reset</button>
+				<button @click=${component.incrementAsync}>Async +1 (1s)</button>
 
 				<!-- when() directive demo -->
-				${when(component.count >= 10, () => html` <div class="alert alert-success"><� You've reached 10! Great job!</div> `)}
-				${when(component.count < 0, () => html` <div class="alert alert-warning">� Count is negative!</div> `)}
+				${when(component.count() >= 10, () => html` <div class="alert alert-success">You've reached 10! Great job!</div> `)}
+				${when(component.count() < 0, () => html` <div class="alert alert-warning">Count is negative!</div> `)}
 			</section>
 
 			<hr />

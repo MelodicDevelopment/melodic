@@ -7,6 +7,9 @@ import { Service } from '../../../src/injection';
 import { TodoService, type Todo } from '../../services/todo.service';
 import { signal } from '../../../src/signals/functions/signal.function';
 import type { Signal } from '../../../src/signals/types/signal.type';
+import { SignalStoreService } from '../../../src/state';
+import * as counterActions from '../../state/counter/counter.actions';
+import type { AppState } from '../../state/app.state';
 
 @MelodicComponent({
 	selector: 'my-app',
@@ -16,12 +19,16 @@ import type { Signal } from '../../../src/signals/types/signal.type';
 export class MyAppComponent implements IElementRef, OnInit {
 	elementRef!: HTMLElement;
 
-	// Injected service
+	// Injected services
 	@Service(TodoService) private readonly _todoService!: TodoService;
+	@Service(SignalStoreService) private readonly _store!: SignalStoreService<AppState>;
 
 	title = signal<string>('Melodic Directives Showcase');
-	count = 0;
 	message = '';
+
+	// Counter state from store
+	count: Signal<number> = this._store.select('counter', (state) => state.count);
+	lastAction: Signal<string | null> = this._store.select('counter', (state) => state.lastAction);
 
 	// Directive demo state
 	showFeature = false;
@@ -62,13 +69,21 @@ export class MyAppComponent implements IElementRef, OnInit {
 		this.title.set((e.target as HTMLInputElement).value);
 	};
 
-	// Counter methods
+	// Counter methods (using store dispatch)
 	increment = () => {
-		this.count++;
+		this._store.dispatch(counterActions.increment());
+	};
+
+	decrement = () => {
+		this._store.dispatch(counterActions.decrement());
 	};
 
 	reset = () => {
-		this.count = 0;
+		this._store.dispatch(counterActions.reset());
+	};
+
+	incrementAsync = () => {
+		this._store.dispatch(counterActions.incrementAsync());
 	};
 
 	// Input methods
