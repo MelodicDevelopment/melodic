@@ -1,10 +1,12 @@
-import { computed, Signal, WritableSignal, Injectable, inject, Injector } from '@angular/core';
-import { State } from '../types/state.type';
-import { Action, ActionPayload, TypedAction } from '../types/action.type';
-import { ActionEffect, ActionEffects, ActionEffectsMap } from '../types/action-effect.type';
-import { ActionReducerMap } from '../types/reducer-config.type';
+// import { computed, Signal, WritableSignal, Injectable, inject, Injector } from '@angular/core';
+import type { State } from '../types/state.type';
+import type { Action, ActionPayload, TypedAction } from '../types/action.type';
+import type { ActionEffect, ActionEffects, ActionEffectsMap } from '../types/action-effect.type';
+import type { ActionReducerMap } from '../types/reducer-config.type';
 import { RX_INIT_STATE, RX_ACTION_PROVIDERS, RX_EFFECTS_PROVIDERS, RX_STATE_DEBUG } from '../injection.tokens';
-import { ActionReducer } from '../types/action-reducer.type';
+import type { ActionReducer } from '../types/action-reducer.type';
+import { Injectable, Injector } from '../../injection';
+import { type Signal, computed } from '../../signals';
 
 @Injectable()
 export class SignalStoreService<S> {

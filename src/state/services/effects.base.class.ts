@@ -1,5 +1,5 @@
-import { ActionEffect, ActionEffects } from '../types/action-effect.type';
-import { Action, ActionPayload, ActionRef, TypedAction, TypedActionRef } from '../types/action.type';
+import type { ActionEffect, ActionEffects } from '../types/action-effect.type';
+import type { Action, ActionPayload, ActionRef, TypedAction, TypedActionRef } from '../types/action.type';
 
 export abstract class EffectsBase implements ActionEffects {
 	private _effects: ActionEffect[] = [];
