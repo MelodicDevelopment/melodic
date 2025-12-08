@@ -1,5 +1,4 @@
 import { Injector } from '../injection';
-import { HttpClient } from '../http';
 import type { IAppConfig } from './interfaces/iapp-config.interface';
 import type { IMelodicApp } from './interfaces/imelodic-app.interface';
 import type { Token } from '../injection';
@@ -35,16 +34,6 @@ export async function bootstrap(config: IAppConfig = {}): Promise<IMelodicApp> {
 		}
 
 		await config.onBefore();
-	}
-
-	let httpClient: HttpClient | undefined;
-	if (config.http) {
-		httpClient = new HttpClient(config.http);
-		Injector.bindValue(HttpClient, httpClient);
-
-		if (devMode) {
-			console.log('[Melodic] HTTP client configured', { baseURL: config.http.baseURL });
-		}
 	}
 
 	if (config.providers) {
@@ -85,7 +74,6 @@ export async function bootstrap(config: IAppConfig = {}): Promise<IMelodicApp> {
 
 	const app: IMelodicApp = {
 		isDevMode: devMode,
-		http: httpClient,
 		rootElement,
 
 		get<T>(token: Token<T>): T {
