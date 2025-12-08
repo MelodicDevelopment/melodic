@@ -9,6 +9,8 @@ export function provideHttp(
 	return (injector) => {
 		const httpClient = new HttpClient(httpClientConfig);
 
+		injector.bindValue(HttpClient, httpClient);
+
 		if (interceptors?.request) {
 			interceptors.request.forEach((interceptor) => {
 				httpClient.interceptors.request(interceptor);
@@ -20,7 +22,5 @@ export function provideHttp(
 				httpClient.interceptors.response(interceptor);
 			});
 		}
-
-		injector.bindValue(HttpClient, httpClient);
 	};
 }
