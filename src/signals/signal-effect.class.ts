@@ -1,7 +1,7 @@
 import type { Signal } from './types/signal.type';
 import { getActiveEffect, setActiveEffect } from './functions/active-effect.functions';
 
-export class Effect {
+export class SignalEffect {
 	private _dependencies = new Set<Signal<unknown>>();
 
 	constructor(public execute: () => void) {}

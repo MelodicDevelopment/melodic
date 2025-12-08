@@ -1,16 +1,12 @@
-import { computed, Signal, WritableSignal } from '@angular/core';
-import { Action, ActionPayload, TypedAction } from '../types/action.type';
-import { ActionEffect, ActionReducer, ActionReducerMap, State } from '../types';
+import type { Action, ActionPayload, TypedAction, ActionEffect, ActionReducer, ActionReducerMap, State } from '../types';
 import { EffectsBase } from './effects.base.class';
 import { createState } from '../functions';
+import { type Signal, computed } from '../../signals';
 
 export abstract class ComponentStateBaseService<S extends object> extends EffectsBase {
 	private _state: State<S>;
 
-	constructor(
-		private _initState: S,
-		private _reducerMap: ActionReducerMap<S> = {}
-	) {
+	constructor(private _initState: S, private _reducerMap: ActionReducerMap<S> = {}) {
 		super();
 
 		this._state = createState<S>(_initState);
@@ -53,7 +49,7 @@ export abstract class ComponentStateBaseService<S extends object> extends Effect
 		const reducer = reducers.find((reducer) => reducer.action.type === action.type);
 		if (reducer !== undefined) {
 			const newState = reducer.reducer(this._state[key](), action);
-			(this._state[key]() as WritableSignal<S[K]>).set(newState);
+			(this._state[key]() as Signal<S[K]>).set(newState);
 
 			console.log(`New State:`, this.getCurrentState());
 		}
@@ -80,7 +76,7 @@ export abstract class ComponentStateBaseService<S extends object> extends Effect
 		const reducerWithKey = this.getReducerForAction(action);
 		if (reducerWithKey !== undefined) {
 			const newState = reducerWithKey.actionReducer.reducer(this._state[reducerWithKey.key](), action);
-			(this._state[reducerWithKey.key] as WritableSignal<S[keyof S]>).set(newState);
+			(this._state[reducerWithKey.key] as Signal<S[keyof S]>).set(newState);
 
 			console.log(`New State:`, this.getCurrentState());
 		}

@@ -3,8 +3,8 @@ import { getTokenKey } from '../function/get-token-key.function';
 import { Injector } from '../injection-engine.class';
 import type { IInjectableMeta } from '../interfaces/iinjectable-meta.interface';
 
-export function Injectable<T>(meta: IInjectableMeta<T> = {}): (target: INewable<T>) => INewable<T> {
-	return function (target: INewable<T>): INewable<T> {
+export function Injectable<T>(meta: IInjectableMeta<T> = {}): (target: INewable<T>) => void {
+	return function (target: INewable<T>): void {
 		const token = meta.token ?? target;
 		const dependencies = meta.dependencies?.map((dep) => getTokenKey(dep));
 
@@ -13,7 +13,5 @@ export function Injectable<T>(meta: IInjectableMeta<T> = {}): (target: INewable<
 			dependencies,
 			args: meta.args
 		});
-
-		return target;
 	};
 }

@@ -1,9 +1,9 @@
-import type { Effect } from '../effect.class';
+import type { SignalEffect } from '../signal-effect.class';
 
-let activeEffect: Effect | null = null;
+let activeEffect: SignalEffect | null = null;
 
-export const setActiveEffect = (effect: Effect | null): void => {
+export const setActiveEffect = (effect: SignalEffect | null): void => {
 	activeEffect = effect;
 };
 
-export const getActiveEffect = (): Effect | null => activeEffect;
+export const getActiveEffect = (): SignalEffect | null => activeEffect;

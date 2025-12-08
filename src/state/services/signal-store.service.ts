@@ -1,20 +1,18 @@
-// import { computed, Signal, WritableSignal, Injectable, inject, Injector } from '@angular/core';
 import type { State } from '../types/state.type';
 import type { Action, ActionPayload, TypedAction } from '../types/action.type';
 import type { ActionEffect, ActionEffects, ActionEffectsMap } from '../types/action-effect.type';
 import type { ActionReducerMap } from '../types/reducer-config.type';
 import { RX_INIT_STATE, RX_ACTION_PROVIDERS, RX_EFFECTS_PROVIDERS, RX_STATE_DEBUG } from '../injection.tokens';
 import type { ActionReducer } from '../types/action-reducer.type';
-import { Injectable, Injector } from '../../injection';
+import { Injectable, Injector, Service } from '../../injection';
 import { type Signal, computed } from '../../signals';
 
 @Injectable()
 export class SignalStoreService<S> {
-	private _injector: Injector = inject(Injector);
-	private _state: State<S> = inject(RX_INIT_STATE) as State<S>;
-	private _reducerMap: ActionReducerMap<S> = inject(RX_ACTION_PROVIDERS) as ActionReducerMap<S>;
-	private _effectMap: ActionEffectsMap<S> = inject(RX_EFFECTS_PROVIDERS) as ActionEffectsMap<S>;
-	private _debug: boolean = inject(RX_STATE_DEBUG) as boolean;
+	@Service(RX_INIT_STATE) private _state!: State<S>;
+	@Service(RX_ACTION_PROVIDERS) private _reducerMap!: ActionReducerMap<S>;
+	@Service(RX_EFFECTS_PROVIDERS) private _effectMap!: ActionEffectsMap<S>;
+	@Service(RX_STATE_DEBUG) private _debug!: boolean;
 
 	constructor() {
 		if (this._debug) {
@@ -61,7 +59,7 @@ export class SignalStoreService<S> {
 		const reducer = reducers.find((reducer) => reducer.action.type === action.type);
 		if (reducer !== undefined) {
 			const newState = reducer.reducer(this._state[key](), action);
-			(this._state[key] as WritableSignal<S[K]>).set(newState);
+			(this._state[key] as Signal<S[K]>).set(newState);
 
 			if (this._debug) {
 				console.log(`New State:`, this.getCurrentState());
@@ -90,7 +88,7 @@ export class SignalStoreService<S> {
 		const reducerWithKey = this.getReducerForAction(action);
 		if (reducerWithKey !== undefined) {
 			const newState = reducerWithKey.actionReducer.reducer(this._state[reducerWithKey.key](), action);
-			(this._state[reducerWithKey.key] as WritableSignal<S[keyof S]>).set(newState);
+			(this._state[reducerWithKey.key] as Signal<S[keyof S]>).set(newState);
 
 			if (this._debug) {
 				console.log(`New State:`, this.getCurrentState());
@@ -158,7 +156,7 @@ export class SignalStoreService<S> {
 			const effectClass = this._effectMap[key];
 
 			if (effectClass) {
-				const effectService: ActionEffects = this._injector.get(effectClass);
+				const effectService: ActionEffects = Injector.get(effectClass);
 				const effects = effectService.getEffects().filter((effect) => effect.actions.some((a) => a().type === action.type));
 
 				if (effects.length > 0) {
@@ -173,7 +171,7 @@ export class SignalStoreService<S> {
 	private getEffectsForActionWithKey<K extends keyof S, T extends string, P extends ActionPayload>(key: K, action: TypedAction<T, P>): ActionEffect[] {
 		const effectClass = this._effectMap[key as keyof S];
 		if (effectClass) {
-			const effectService: ActionEffects = this._injector.get(effectClass);
+			const effectService: ActionEffects = Injector.get(effectClass);
 			return effectService.getEffects().filter((effect) => effect.actions.some((a) => a().type === action.type));
 		}
 

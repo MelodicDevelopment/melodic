@@ -1,11 +1,9 @@
-import { computed, signal, Signal, WritableSignal } from '@angular/core';
-import { Action, ActionPayload, ActionRef, TypedAction, TypedActionRef } from '../types/action.type';
-import { Reducer } from '../types/reducer.type';
-import { Effect } from '../types/effect.type';
+import type { Action, ActionPayload, ActionRef, TypedAction, TypedActionRef, Reducer, Effect } from '../types';
 import { createAction } from '../functions';
+import { type Signal, signal, computed } from '../../signals';
 
 export abstract class ComponentStateBaseAltService<S extends object> {
-	private _state: WritableSignal<S> = signal({} as S);
+	private _state: Signal<S> = signal({} as S);
 	private _actionReducerMap: {
 		[key: string]: {
 			action: Action;
