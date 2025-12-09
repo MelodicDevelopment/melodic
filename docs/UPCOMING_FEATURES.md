@@ -6,13 +6,27 @@ This document outlines planned features to make Melodic a more full-featured fra
 
 ### 1. Router
 
-- Route definitions with path matching
-- Child/nested routes
-- Lazy loading modules
-- Route guards (canActivate, canDeactivate)
-- Route params and query params
-- Router outlet component
-- Navigation service with `navigate()`, `back()`, etc.
+**Existing implementation to port:** `/Users/rick.hopkins/Source/MelodicDevelopment/melodic-components/src/routing/`
+
+The previous Melodic iteration has a router with solid foundations:
+- `RouteMatcher` class - parameterized routes (`:id`, `*wildcard`), validation rules
+- `RouterService` - intercepts history API, dispatches navigation events, `navigate()` method
+- `RouterOutletComponent` - listens for navigation, renders matched component
+- `RouterLinkComponent` - declarative navigation links
+
+**To port/refactor:**
+- Update imports to current Melodic paths
+- Update DI decorators to match current `@Injectable`/`@Service` pattern
+
+**Features to add:**
+- Child/nested routes (`children: []` in route config)
+- Lazy loading via dynamic `import()`
+- Route guards (`canActivate`, `canDeactivate`)
+- Route params accessible in routed components
+- Query params handling
+- Active link styling (`routerLinkActive` equivalent)
+- Browser back/forward button support (popstate)
+- Signals integration for reactive route state
 
 ### 2. HTTP Client Enhancements
 
