@@ -1,9 +1,10 @@
 import type { INewable } from '../../interfaces';
-import type { Action, ActionRef } from './action.type';
+import type { ActionRef } from './action.type';
+import type { Effect } from './effect.type';
 
 export type ActionEffect = {
 	actions: ActionRef[];
-	effect: (action: Action) => Promise<Action | Action[] | void>;
+	effect: Effect;
 };
 
 export type ActionEffects = {

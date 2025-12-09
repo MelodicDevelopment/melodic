@@ -1,4 +1,3 @@
-export { SignalEffect as Effect } from './signal-effect.class';
-
+export * from './signal-effect.class';
 export * from './functions';
 export * from './types';

@@ -1,6 +1,7 @@
 import type { Action } from './action.type';
+import type { Reducer } from './reducer.type';
 
 export type ActionReducer<S, V extends Action> = {
 	action: V;
-	reducer: (state: S, action: V) => S;
+	reducer: Reducer<S, V>;
 };

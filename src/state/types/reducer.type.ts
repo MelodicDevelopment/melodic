@@ -1,3 +1,3 @@
-import type { ActionPayload } from './action.type';
+import type { Action } from './action.type';
 
-export type Reducer<S> = <P extends ActionPayload>(state: S, payload?: P) => S;
+export type Reducer<S, V extends Action = Action> = (state: S, action: V) => S;
