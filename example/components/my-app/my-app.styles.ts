@@ -387,6 +387,18 @@ export function myAppStyles() {
 				font-size: 14px;
 				color: #666;
 			}
+
+			/* Slots Demo */
+			.slots-demo .cards-row {
+				display: grid;
+				grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+				gap: 20px;
+				margin-top: 20px;
+			}
+
+			.slots-demo ui-card button {
+				margin: 0;
+			}
 		}
 	`;
 }

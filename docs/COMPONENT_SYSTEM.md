@@ -13,6 +13,7 @@ The Melodic component system provides a decorator-based approach for creating we
 - [Accessing the Host Element](#accessing-the-host-element)
 - [Attributes](#attributes)
 - [Complete Example](#complete-example)
+- [Content Projection (Slots)](#content-projection-slots)
 
 ## Overview
 
@@ -521,3 +522,100 @@ export class TodoItem {
     item.addEventListener('remove', (e) => console.log('Remove:', e.detail));
 </script>
 ```
+
+## Content Projection (Slots)
+
+Melodic components use native Shadow DOM slots for content projection - no special framework syntax needed.
+
+### Basic Slots
+
+Define a `<slot>` in your component template to accept projected content:
+
+```typescript
+@MelodicComponent({
+    selector: 'ui-card',
+    template: () => html`
+        <div class="card">
+            <div class="card-body">
+                <slot>Default content if nothing projected</slot>
+            </div>
+        </div>
+    `
+})
+export class CardComponent {}
+```
+
+**Usage:**
+```html
+<ui-card>
+    <p>This content is projected into the slot</p>
+</ui-card>
+```
+
+### Named Slots
+
+Use named slots for multiple projection points:
+
+```typescript
+@MelodicComponent({
+    selector: 'ui-card',
+    template: () => html`
+        <div class="card">
+            <div class="card-header">
+                <slot name="header">Default Header</slot>
+            </div>
+            <div class="card-body">
+                <slot>Default content</slot>
+            </div>
+            <div class="card-footer">
+                <slot name="footer"></slot>
+            </div>
+        </div>
+    `,
+    styles: () => css`
+        .card-footer:empty {
+            display: none;
+        }
+    `
+})
+export class CardComponent {}
+```
+
+**Usage:**
+```html
+<ui-card>
+    <span slot="header">Custom Header</span>
+    <p>Main content goes in the default slot</p>
+    <button slot="footer">Action Button</button>
+</ui-card>
+```
+
+### Slot Features
+
+| Feature | Description |
+|---------|-------------|
+| Default slot | `<slot>` without a name receives unassigned content |
+| Named slots | `<slot name="x">` receives content with `slot="x"` attribute |
+| Fallback content | Content inside `<slot>` shows when nothing is projected |
+| CSS `:empty` | Hide slots when nothing is projected |
+| `::slotted()` | Style projected content from within the component |
+
+### Styling Slotted Content
+
+Use the `::slotted()` pseudo-element to style projected content:
+
+```typescript
+styles: () => css`
+    ::slotted(p) {
+        margin: 0;
+        color: #333;
+    }
+
+    ::slotted([slot="header"]) {
+        font-weight: bold;
+        font-size: 1.2em;
+    }
+`
+```
+
+**Note:** `::slotted()` only selects top-level projected elements, not their descendants.

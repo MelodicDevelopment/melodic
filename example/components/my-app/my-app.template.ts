@@ -20,6 +20,35 @@ export function myAppTemplate(component: MyAppComponent) {
 
 			<hr />
 
+			<!-- Content Projection with Slots -->
+			<section class="slots-demo">
+				<h2>Content Projection (Slots)</h2>
+				<p class="info">Native Shadow DOM slots for content projection - no special syntax needed!</p>
+
+				<div class="cards-row">
+					<!-- Card with all slots filled -->
+					<ui-card>
+						<span slot="header">Custom Header</span>
+						<p>This is the main content projected into the default slot.</p>
+						<p>You can put anything here!</p>
+						<button slot="footer" @click=${component.increment}>Footer Action</button>
+					</ui-card>
+
+					<!-- Card with only default slot -->
+					<ui-card>
+						<span slot="header">Minimal Card</span>
+						<p>This card has no footer - it will be hidden automatically.</p>
+					</ui-card>
+
+					<!-- Card using default fallback content -->
+					<ui-card>
+						<p>Only body content - header shows default text.</p>
+					</ui-card>
+				</div>
+			</section>
+
+			<hr />
+
 			<section class="counter">
 				<h2>Counter Demo (Signal Store)</h2>
 				<p>Count: ${component.count()}</p>
