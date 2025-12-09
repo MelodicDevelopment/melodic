@@ -64,12 +64,40 @@ Formatters should be memoized to avoid redundant computation during re-renders. 
 1. Built-in memoization with LRU cache (simpler for users)
 2. Provide a `memoize()` utility for user control (more flexible)
 
-### 5. Lifecycle Improvements
+### 5. Advanced Content Projection
+
+Building on native Shadow DOM slots, add Angular-inspired features:
+
+**Template as Input** - Pass template functions to components for custom rendering:
+```typescript
+<data-table
+  .items=${users}
+  .rowTemplate=${(user) => html`
+    <td>${user.name}</td>
+    <td>${user.email}</td>
+  `}
+></data-table>
+```
+
+**Query Projected Content** - Access slotted elements programmatically:
+```typescript
+@SlotContent('header') headerEl: HTMLElement;
+@SlotChildren('items') itemEls: HTMLElement[];
+```
+
+**Slot Change Detection** - React when slotted content changes (using native `slotchange` event):
+```typescript
+onSlotChange(slotName: string, elements: Element[]) {
+  console.log(`Slot "${slotName}" now has ${elements.length} elements`);
+}
+```
+
+### 6. Lifecycle Improvements
 
 - `onChanges` with change detection info
 - `afterViewInit` / `afterContentInit` equivalents
 
-### 6. Module System
+### 7. Module System
 
 - Lazy loading boundaries
 - Feature modules
@@ -77,19 +105,19 @@ Formatters should be memoized to avoid redundant computation during re-renders. 
 
 ## Lower Priority (Nice to Have)
 
-### 7. Animations
+### 8. Animations
 
 - Declarative animation API
 - Enter/leave transitions
 - State-based animations
 
-### 8. i18n
+### 9. i18n
 
 - Translation service
 - Locale handling
 - Pluralization
 
-### 9. Testing Utilities
+### 10. Testing Utilities
 
 - Component test harness
 - Mock services
