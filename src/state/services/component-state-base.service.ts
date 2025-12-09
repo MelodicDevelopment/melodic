@@ -1,15 +1,16 @@
-import type { ActionPayload, TypedAction, ActionEffect, ActionReducer } from '../types';
+import type { ActionPayload, TypedAction, ActionEffect, ReducerConfig, Action } from '../types';
 import { EffectsBase } from './effects.base.class';
 import { type Signal, signal, computed } from '../../signals';
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type AnyActionReducer<S> = ActionReducer<S, any>;
 
 export abstract class ComponentStateBaseService<S extends object> extends EffectsBase {
 	private _state: Signal<S>;
 	private _debug = false;
 
-	constructor(private _initState: S, private _reducers: AnyActionReducer<S>[] = [], debug: boolean = false) {
+	constructor(
+		private _initState: S,
+		private _reducerConfig: ReducerConfig<S, Action> = { reducers: [] },
+		debug: boolean = false
+	) {
 		super();
 		this._state = signal(_initState);
 		this._debug = debug;
@@ -35,7 +36,7 @@ export abstract class ComponentStateBaseService<S extends object> extends Effect
 		}
 
 		// Find and execute reducer
-		const reducer = this._reducers.find((r) => r.action.type === action.type);
+		const reducer = this._reducerConfig.reducers.find((r) => r.action.type === action.type);
 		if (reducer) {
 			this._state.update((state) => reducer.reducer(state, action));
 
