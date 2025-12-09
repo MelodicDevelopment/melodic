@@ -20,13 +20,15 @@ The previous Melodic iteration has a router with solid foundations:
 
 **Features to add:**
 - Child/nested routes (`children: []` in route config)
-- Lazy loading via dynamic `import()`
+- Lazy loading via dynamic `import()` (depends on Module System - see #7)
 - Route guards (`canActivate`, `canDeactivate`)
 - Route params accessible in routed components
 - Query params handling
 - Active link styling (`routerLinkActive` equivalent)
 - Browser back/forward button support (popstate)
 - Signals integration for reactive route state
+
+**Note:** Basic routing can be implemented first. Lazy loading routes requires the Module System (#7) to be in place.
 
 ### 2. HTTP Client Enhancements
 
