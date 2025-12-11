@@ -6,7 +6,7 @@ import type { IRoute } from '../../../src/routing/interfaces/iroute.interface';
 const routes: IRoute[] = [
 	{ path: '', redirectTo: '/home' },
 	{ path: 'home', component: 'home-page' },
-	{ path: 'demos', component: 'directives-demo' },
+	{ path: 'demos', component: 'feature-demo' },
 	{ path: 'about', component: 'about-page' },
 	{ path: 'contact', component: 'contact-page' },
 	{

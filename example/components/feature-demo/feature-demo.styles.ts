@@ -1,6 +1,6 @@
 import { css } from '../../../src/template/template';
 
-export function directivesDemoStyles() {
+export function featureDemoStyles() {
 	return css`
 		:host {
 			--primary-color: #007bff;

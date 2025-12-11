@@ -1,7 +1,7 @@
 import { html, repeat, when, classMap, styleMap, unsafeHTML } from '../../../src/index';
-import type { DirectivesDemoComponent } from './directives-demo.component';
+import type { FeatureDemoComponent } from './feature-demo.component';
 
-export function directivesDemoTemplate(component: DirectivesDemoComponent) {
+export function featureDemoTemplate(component: FeatureDemoComponent) {
 	return html`
 		<div class="container">
 			<h1>${component.title()}</h1>

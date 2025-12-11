@@ -1,6 +1,6 @@
 import { MelodicComponent } from '../../../src/components/melodic-component.decorator';
-import { directivesDemoTemplate } from './directives-demo.template';
-import { directivesDemoStyles } from './directives-demo.styles';
+import { featureDemoTemplate } from './feature-demo.template';
+import { featureDemoStyles } from './feature-demo.styles';
 import type { IElementRef } from '../../../src/components/interfaces/ielement-ref.interface';
 import type { OnInit } from '../../../src/components/interfaces/ilife-cycle-hooks.interface';
 import { Service } from '../../../src/injection';
@@ -10,26 +10,26 @@ import { SignalStoreService } from '../../../src/state';
 import type { AppState } from '../../state/app.state';
 import type { Todo } from '../../state/todos/todos.state';
 import * as todoActions from '../../state/todos/todos.actions';
-import { MyAppStateService } from '../my-app/my-app-state.service';
+import { FeatureDemoComponentStateService } from './feature-demo-component-state.service';
 
 @MelodicComponent({
-	selector: 'directives-demo',
-	template: directivesDemoTemplate,
-	styles: directivesDemoStyles
+	selector: 'feature-demo',
+	template: featureDemoTemplate,
+	styles: featureDemoStyles
 })
-export class DirectivesDemoComponent implements IElementRef, OnInit {
+export class FeatureDemoComponent implements IElementRef, OnInit {
 	elementRef!: HTMLElement;
 
 	// Injected services
 	@Service(SignalStoreService) private readonly _store!: SignalStoreService<AppState>;
-	@Service(MyAppStateService) private readonly _appState!: MyAppStateService;
+	@Service(FeatureDemoComponentStateService) private readonly _componentStateService!: FeatureDemoComponentStateService;
 
 	title = signal<string>('Melodic Directives Showcase');
 	message = '';
 
 	// Counter state from component state service
-	count: Signal<number> = this._appState.count;
-	lastAction: Signal<string | null> = this._appState.lastAction;
+	count: Signal<number> = this._componentStateService.count;
+	lastAction: Signal<string | null> = this._componentStateService.lastAction;
 
 	// Directive demo state
 	showFeature = false;
@@ -77,19 +77,19 @@ export class DirectivesDemoComponent implements IElementRef, OnInit {
 
 	// Counter methods (using component state service)
 	increment = () => {
-		this._appState.increment();
+		this._componentStateService.increment();
 	};
 
 	decrement = () => {
-		this._appState.decrement();
+		this._componentStateService.decrement();
 	};
 
 	reset = () => {
-		this._appState.reset();
+		this._componentStateService.reset();
 	};
 
 	incrementAsync = () => {
-		this._appState.incrementAsync();
+		this._componentStateService.incrementAsync();
 	};
 
 	// Input methods

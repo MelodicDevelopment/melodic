@@ -50,7 +50,7 @@ const reducers = createReducer<MyAppState>(
 );
 
 @Injectable()
-export class MyAppStateService extends ComponentStateBaseService<MyAppState> {
+export class FeatureDemoComponentStateService extends ComponentStateBaseService<MyAppState> {
 	// Selectors
 	count = this.select((state) => state.count);
 	lastAction = this.select((state) => state.lastAction);
