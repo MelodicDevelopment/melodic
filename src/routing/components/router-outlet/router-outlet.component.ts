@@ -44,7 +44,7 @@ export class RouterOutletComponent {
 		}
 	}
 
-	#renderPath(currentPath: string): void {
+	async #renderPath(currentPath: string): Promise<void> {
 		const shadowRoot = this.elementRef.shadowRoot;
 		if (!shadowRoot) return;
 
@@ -62,6 +62,11 @@ export class RouterOutletComponent {
 
 		// Only re-render if component changed
 		if (route.component && route.component !== this.#currentComponent) {
+			// Lazy load the component if loadComponent is defined
+			if (route.loadComponent) {
+				await route.loadComponent();
+			}
+
 			this.#currentComponent = route.component;
 
 			const existingContent = shadowRoot.querySelector(':not(style):not(slot)');

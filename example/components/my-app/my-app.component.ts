@@ -8,6 +8,11 @@ const routes: IRoute[] = [
 	{ path: 'demos', component: 'directives-demo' },
 	{ path: 'about', component: 'about-page' },
 	{ path: 'contact', component: 'contact-page' },
+	{
+		path: 'settings',
+		component: 'settings-page',
+		loadComponent: () => import('./../../components/pages/settings/settings-page.component')
+	},
 	{ path: '404', component: 'not-found-page' }
 ];
 
@@ -22,6 +27,7 @@ const routes: IRoute[] = [
 					<router-link href="/demos">Demos</router-link>
 					<router-link href="/about">About</router-link>
 					<router-link href="/contact">Contact</router-link>
+					<router-link href="/settings">Settings</router-link>
 				</nav>
 			</header>
 			<main class="content">
