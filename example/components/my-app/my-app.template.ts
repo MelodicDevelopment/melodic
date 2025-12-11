@@ -5,7 +5,9 @@ export function myAppTemplate(self: MyAppComponent) {
 	return html`
 		<div class="app">
 			<header class="header">
-				<h1 class="logo">Melodic</h1>
+				<a href="/" class="logo">
+					<img src="/img/melodic-development.svg" alt="Melodic Development" />
+				</a>
 				<nav class="nav">
 					<router-link href="/home">Home</router-link>
 					<router-link href="/demos">Demos</router-link>

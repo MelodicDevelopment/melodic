@@ -18,16 +18,20 @@ export function myAppStyles() {
 			align-items: center;
 			justify-content: space-between;
 			padding: 1rem 2rem;
-			background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-			color: white;
-			box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+			background: #f8f9fa;
+			color: #333;
+			box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
 		}
 
 		.logo {
-			margin: 0;
-			font-size: 1.5rem;
-			font-weight: 700;
-			letter-spacing: -0.5px;
+			display: flex;
+			align-items: center;
+			text-decoration: none;
+		}
+
+		.logo img {
+			height: 36px;
+			width: auto;
 		}
 
 		.nav {
@@ -36,7 +40,7 @@ export function myAppStyles() {
 		}
 
 		router-link {
-			color: rgba(255, 255, 255, 0.9);
+			color: #49216d;
 			text-decoration: none;
 			padding: 0.5rem 1rem;
 			border-radius: 6px;
@@ -46,8 +50,8 @@ export function myAppStyles() {
 		}
 
 		router-link:hover {
-			background: rgba(255, 255, 255, 0.15);
-			color: white;
+			background: rgba(73, 33, 109, 0.1);
+			color: #ff0082;
 		}
 
 		.content {
