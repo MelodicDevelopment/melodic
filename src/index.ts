@@ -22,3 +22,7 @@ export { unsafeHTML } from './template/directives/unsafe-html.directive';
 export { Injectable, Inject, Service } from './injection/decorators';
 export { Injector } from './injection/injection-engine.class';
 export type { IInjectableMeta } from './injection/interfaces/iinjectable-meta.interface';
+
+// Routing
+export { RouterService, RouterOutletComponent, RouterLinkComponent, RouteMatcher } from './routing';
+export type { IRoute, IRouterEventState, RouterStateEvent } from './routing';

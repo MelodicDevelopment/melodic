@@ -245,10 +245,9 @@ export class TemplateResult {
 
 				case 'property':
 					if (part.node && part.name) {
-						const element = part.node as Element;
 						// Handle directives
 						if (isDirective(value)) {
-							part.directiveState = value.render(element, part.directiveState);
+							part.directiveState = value.render(part.node as Element, part.directiveState);
 						} else {
 							(part.node as any)[part.name] = value;
 						}

@@ -4,6 +4,11 @@ import { provideHttp } from '../src/http/provide-http.function';
 import { provideRX } from '../src/state';
 import { appState, appReducers, appEffects } from './state/app.state';
 
+// Import routing components to register them
+import '../src/routing/components/router-outlet/router-outlet.component';
+import '../src/routing/components/router-link/router-link.component';
+import '../src/routing/services/router.service';
+
 await bootstrap({
 	target: '#my-app',
 	rootComponent: 'my-app',

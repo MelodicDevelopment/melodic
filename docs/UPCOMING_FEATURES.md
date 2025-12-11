@@ -115,9 +115,39 @@ onSlotChange(slotName: string, elements: Element[]) {
 
 ### 7. Module System
 
-- Lazy loading boundaries
-- Feature modules
-- Shared modules
+Melodic supports lazy loading through native ES module dynamic imports. Since components self-register via the `@MelodicComponent` decorator, lazy loading is straightforward:
+
+**Create a module file that imports components:**
+```typescript
+// features/dashboard/dashboard.module.ts
+import './dashboard.component';
+import './widgets/chart.component';
+import './widgets/stats.component';
+
+// Importing them registers the custom elements
+```
+
+**Dynamically import on demand:**
+```typescript
+// Load on button click
+async loadDashboard() {
+  await import('./features/dashboard/dashboard.module');
+  // <dashboard-component>, <chart-widget>, etc. are now available
+}
+
+// Or with route-based lazy loading
+async navigateToDashboard() {
+  await import('./features/dashboard/dashboard.module');
+  this.currentView = html`<dashboard-component></dashboard-component>`;
+}
+```
+
+Vite automatically code-splits dynamic imports into separate chunks.
+
+**Still needed:**
+- Feature modules with provider scoping
+- Shared modules for common dependencies
+- Module-level guards and resolvers
 
 ## Lower Priority (Nice to Have)
 

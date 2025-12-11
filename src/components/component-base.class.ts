@@ -106,7 +106,10 @@ export abstract class ComponentBase extends HTMLElement {
 
 		for (const prop of properties) {
 			const descriptor = Object.getOwnPropertyDescriptor(this._component, prop);
-			let value = (this._component as any)[prop];
+
+			// Check if wrapper already has a value set (from property binding before observe ran)
+			const wrapperValue = Object.getOwnPropertyDescriptor(this, prop)?.value;
+			let value = wrapperValue !== undefined ? wrapperValue : (this._component as any)[prop];
 
 			// Build getter/setter for the component's property
 			let componentGetter = () => value;
