@@ -54,6 +54,21 @@ export function myAppStyles() {
 			color: #ff0082;
 		}
 
+		.github-link {
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			color: #49216d;
+			padding: 0.5rem;
+			border-radius: 6px;
+			transition: all 0.2s ease;
+		}
+
+		.github-link:hover {
+			background: rgba(73, 33, 109, 0.1);
+			color: #ff0082;
+		}
+
 		.content {
 			flex: 1;
 			background: #f5f7fa;
