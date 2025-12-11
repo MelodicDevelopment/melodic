@@ -2,35 +2,33 @@
 
 This document outlines planned features to make Melodic a more full-featured framework.
 
-## High Priority
+## Implemented
 
-### 1. Router
+### Router
 
-**Existing implementation to port:** `/Users/rick.hopkins/Source/MelodicDevelopment/melodic-components/src/routing/`
+The router has been ported and enhanced. See [ROUTING.md](./ROUTING.md) for full documentation.
 
-The previous Melodic iteration has a router with solid foundations:
+**Implemented features:**
 - `RouteMatcher` class - parameterized routes (`:id`, `*wildcard`), validation rules
-- `RouterService` - intercepts history API, dispatches navigation events, `navigate()` method
+- `RouterService` - intercepts history API, dispatches navigation events, `navigate()` and `replace()` methods
 - `RouterOutletComponent` - listens for navigation, renders matched component
 - `RouterLinkComponent` - declarative navigation links
+- Lazy loading via dynamic `import()` with `loadComponent` route property
+- Browser back/forward button support (popstate)
 
-**To port/refactor:**
-- Update imports to current Melodic paths
-- Update DI decorators to match current `@Injectable`/`@Service` pattern
-
-**Features to add:**
+**Still to add:**
 - Child/nested routes (`children: []` in route config)
-- Lazy loading via dynamic `import()` (depends on Module System - see #7)
 - Route guards (`canActivate`, `canDeactivate`)
 - Route params accessible in routed components
 - Query params handling
 - Active link styling (`routerLinkActive` equivalent)
-- Browser back/forward button support (popstate)
 - Signals integration for reactive route state
 
-**Note:** Basic routing can be implemented first. Lazy loading routes requires the Module System (#7) to be in place.
+---
 
-### 2. HTTP Client Enhancements
+## High Priority
+
+### HTTP Client Enhancements
 
 The HTTP client already supports:
 - Fetch-based requests (GET, POST, PUT, PATCH, DELETE)
@@ -46,7 +44,7 @@ Still needed:
 - Response caching
 - Automatic cancellation for repeated requests (cancel previous when new request to same endpoint is made)
 
-### 3. Forms
+### Forms
 
 - Reactive forms with validation
 - Form controls, groups, arrays
@@ -57,7 +55,7 @@ Still needed:
 
 ## Medium Priority
 
-### 4. Formatters
+### Formatters
 
 Unlike Angular's pipe system, Melodic can use simple formatter functions directly in templates:
 
@@ -80,7 +78,7 @@ Formatters should be memoized to avoid redundant computation during re-renders. 
 1. Built-in memoization with LRU cache (simpler for users)
 2. Provide a `memoize()` utility for user control (more flexible)
 
-### 5. Advanced Content Projection
+### Advanced Content Projection
 
 Building on native Shadow DOM slots, add Angular-inspired features:
 
@@ -108,12 +106,12 @@ onSlotChange(slotName: string, elements: Element[]) {
 }
 ```
 
-### 6. Lifecycle Improvements
+### Lifecycle Improvements
 
 - `onChanges` with change detection info
 - `afterViewInit` / `afterContentInit` equivalents
 
-### 7. Module System
+### Module System
 
 Melodic supports lazy loading through native ES module dynamic imports. Since components self-register via the `@MelodicComponent` decorator, lazy loading is straightforward:
 
@@ -151,19 +149,19 @@ Vite automatically code-splits dynamic imports into separate chunks.
 
 ## Lower Priority (Nice to Have)
 
-### 8. Animations
+### Animations
 
 - Declarative animation API
 - Enter/leave transitions
 - State-based animations
 
-### 9. i18n
+### i18n
 
 - Translation service
 - Locale handling
 - Pluralization
 
-### 10. Testing Utilities
+### Testing Utilities
 
 - Component test harness
 - Mock services
@@ -176,10 +174,6 @@ Vite automatically code-splits dynamic imports into separate chunks.
 ### Component Library (Untitled UI inspired)
 
 A built-in component library with a clean, modern design inspired by [Untitled UI](https://www.untitledui.com/).
-
-**Routing**
-- `<router-outlet>` - renders the matched route component
-- `<router-link>` - navigation links with active state
 
 **Layout**
 - `<app-shell>` - application wrapper with header/sidebar/content slots
