@@ -13,7 +13,7 @@ const routes: IRoute[] = [
 
 @MelodicComponent({
 	selector: 'router-demo',
-	template: (self: RouterDemoComponent) => html`
+	template: (_self: RouterDemoComponent) => html`
 		<div class="app">
 			<nav class="nav">
 				<router-link href="/home">Home</router-link>

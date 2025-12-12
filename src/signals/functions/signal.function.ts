@@ -14,14 +14,18 @@ export function signal<T>(initialValue?: T): Signal<T | undefined> {
 	const _subscribers = new Set<Subscriber<T | undefined>>();
 
 	const notify = (): void => {
-		_subscribers.forEach((subscriber) => subscriber(_value));
+		// Copy subscribers to avoid issues if subscribers modify the set during iteration
+		const subscribersToNotify = [..._subscribers];
+		subscribersToNotify.forEach((subscriber) => subscriber(_value));
 	};
 
 	const read = (() => {
 		const activeEffect = getActiveEffect();
 		if (activeEffect) {
 			activeEffect.addDependency<T | undefined>(read);
-			_subscribers.add(activeEffect.execute);
+			// Subscribe to run() instead of execute() so that re-execution
+			// happens within a tracking context and dynamic dependencies are captured
+			_subscribers.add(activeEffect.run);
 		}
 
 		return _value;

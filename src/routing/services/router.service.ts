@@ -46,18 +46,34 @@ history.replaceState = (data: unknown, title: string, url?: string | URL | null)
 })
 export class RouterService {
 	#route: IRouterEventState | undefined;
+	#navigationHandler: ((event: Event) => void) | null = null;
+	#popstateHandler: ((event: PopStateEvent) => void) | null = null;
 
 	constructor() {
-		window.addEventListener('NavigationEvent', (event: Event) => {
+		this.#navigationHandler = (event: Event) => {
 			this.#route = ((event as CustomEvent).detail as PopStateEvent).state;
-		});
+		};
 
-		window.addEventListener('popstate', (event: PopStateEvent) => {
+		this.#popstateHandler = (event: PopStateEvent) => {
 			const navigationEvent = new CustomEvent('NavigationEvent', {
 				detail: routerStateEvent('push', event.state, '', window.location.pathname)
 			});
 			window.dispatchEvent(navigationEvent);
-		});
+		};
+
+		window.addEventListener('NavigationEvent', this.#navigationHandler);
+		window.addEventListener('popstate', this.#popstateHandler);
+	}
+
+	destroy(): void {
+		if (this.#navigationHandler) {
+			window.removeEventListener('NavigationEvent', this.#navigationHandler);
+			this.#navigationHandler = null;
+		}
+		if (this.#popstateHandler) {
+			window.removeEventListener('popstate', this.#popstateHandler);
+			this.#popstateHandler = null;
+		}
 	}
 
 	getRoute(): IRouterEventState {

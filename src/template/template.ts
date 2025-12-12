@@ -15,6 +15,10 @@ interface Part {
 	node?: Node;
 	previousValue?: unknown;
 	directiveState?: any; // State for directives (like repeat())
+	// For node parts that render nested templates/nodes, track the rendered nodes
+	renderedNodes?: Node[];
+	startMarker?: Comment;
+	endMarker?: Comment;
 }
 
 interface TemplateCache {
@@ -208,6 +212,106 @@ export class TemplateResult {
 		return parts;
 	}
 
+	/**
+	 * Sets up markers for a node part to enable complex content rendering
+	 */
+	private ensureMarkers(part: Part): void {
+		if (part.startMarker) return; // Already set up
+
+		const parent = part.node!.parentNode;
+		if (!parent) return;
+
+		const startMarker = document.createComment('part-start');
+		const endMarker = document.createComment('part-end');
+
+		parent.insertBefore(startMarker, part.node!);
+		parent.insertBefore(endMarker, part.node!.nextSibling);
+
+		part.startMarker = startMarker;
+		part.endMarker = endMarker;
+	}
+
+	/**
+	 * Clears previously rendered nodes between markers
+	 */
+	private clearRenderedNodes(part: Part): void {
+		if (!part.renderedNodes || part.renderedNodes.length === 0) return;
+
+		for (const node of part.renderedNodes) {
+			node.parentNode?.removeChild(node);
+		}
+		part.renderedNodes = [];
+	}
+
+	/**
+	 * Renders a nested TemplateResult into a node part
+	 */
+	private renderNestedTemplate(part: Part, template: TemplateResult): void {
+		this.ensureMarkers(part);
+		this.clearRenderedNodes(part);
+
+		// Hide the original text node
+		part.node!.textContent = '';
+
+		const fragment = document.createDocumentFragment();
+		template.renderInto(fragment);
+
+		const nodes = Array.from(fragment.childNodes);
+		part.renderedNodes = nodes;
+
+		const parent = part.endMarker!.parentNode!;
+		parent.insertBefore(fragment, part.endMarker!);
+	}
+
+	/**
+	 * Renders a DOM Node into a node part
+	 */
+	private renderNode(part: Part, node: Node): void {
+		this.ensureMarkers(part);
+		this.clearRenderedNodes(part);
+
+		// Hide the original text node
+		part.node!.textContent = '';
+
+		part.renderedNodes = [node];
+
+		const parent = part.endMarker!.parentNode!;
+		parent.insertBefore(node, part.endMarker!);
+	}
+
+	/**
+	 * Renders an array of values into a node part
+	 */
+	private renderArray(part: Part, values: unknown[]): void {
+		this.ensureMarkers(part);
+		this.clearRenderedNodes(part);
+
+		// Hide the original text node
+		part.node!.textContent = '';
+
+		const parent = part.endMarker!.parentNode!;
+		const renderedNodes: Node[] = [];
+
+		for (const value of values) {
+			if (value instanceof TemplateResult) {
+				const fragment = document.createDocumentFragment();
+				value.renderInto(fragment);
+				const nodes = Array.from(fragment.childNodes);
+				renderedNodes.push(...nodes);
+				parent.insertBefore(fragment, part.endMarker!);
+			} else if (value instanceof Node) {
+				renderedNodes.push(value);
+				parent.insertBefore(value, part.endMarker!);
+			} else if (value != null) {
+				const textNode = document.createTextNode(String(value));
+				renderedNodes.push(textNode);
+				parent.insertBefore(textNode, part.endMarker!);
+			}
+		}
+
+		part.renderedNodes = renderedNodes;
+	}
+
 	private commit(parts: Part[]): void {
 		for (const part of parts) {
 			const value = this.values[part.index];
@@ -223,7 +327,18 @@ export class TemplateResult {
 						// Handle directives
 						if (isDirective(value)) {
 							part.directiveState = value.render(part.node, part.directiveState);
+						} else if (value instanceof TemplateResult) {
+							// Handle nested TemplateResult
+							this.renderNestedTemplate(part, value);
+						} else if (value instanceof Node) {
+							// Handle DOM Node
+							this.renderNode(part, value);
+						} else if (Array.isArray(value)) {
+							// Handle arrays of values
+							this.renderArray(part, value);
 						} else {
+							// Clear any previously rendered complex content
+							this.clearRenderedNodes(part);
 							part.node.textContent = String(value ?? '');
 						}
 					}
@@ -235,8 +350,12 @@ export class TemplateResult {
 						// Handle directives
 						if (isDirective(value)) {
 							part.directiveState = value.render(element, part.directiveState);
-						} else if (value == null) {
+						} else if (value == null || value === false) {
+							// Remove attribute for null, undefined, or false (boolean attributes)
 							element.removeAttribute(part.name);
+						} else if (value === true) {
+							// Boolean true sets empty attribute (e.g., disabled="")
+							element.setAttribute(part.name, '');
 						} else {
 							element.setAttribute(part.name, String(value));
 						}

@@ -21,11 +21,20 @@ export class RouterOutletComponent {
 
 	#currentComponent: string | null = null;
 	#initialized = false;
+	#navigationHandler: (() => void) | null = null;
 
 	onInit(): void {
-		window.addEventListener('NavigationEvent', () => {
+		this.#navigationHandler = () => {
 			this.#renderPath(window.location.pathname);
-		});
+		};
+		window.addEventListener('NavigationEvent', this.#navigationHandler);
+	}
+
+	onDestroy(): void {
+		if (this.#navigationHandler) {
+			window.removeEventListener('NavigationEvent', this.#navigationHandler);
+			this.#navigationHandler = null;
+		}
 	}
 
 	onCreate(): void {
