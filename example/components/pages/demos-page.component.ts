@@ -3,7 +3,7 @@ import { html, css } from '../../../src/template/template';
 
 @MelodicComponent({
 	selector: 'demos-page',
-	template: () => html`<directives-demo></directives-demo>`,
+	template: () => html`<feature-demo></feature-demo>`,
 	styles: () => css``
 })
 export class DemosPageComponent {}

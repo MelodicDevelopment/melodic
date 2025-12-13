@@ -78,13 +78,12 @@ export class RouterOutletComponent {
 
 			this.#currentComponent = route.component;
 
-			const existingContent = shadowRoot.querySelector(':not(style):not(slot)');
-			if (existingContent) {
-				existingContent.remove();
+			while (this.elementRef.firstChild) {
+				this.elementRef.firstChild.remove();
 			}
 
 			const component: HTMLElement = document.createElement(route.component);
-			shadowRoot.appendChild(component);
+			this.elementRef.appendChild(component);
 		}
 	}
 
