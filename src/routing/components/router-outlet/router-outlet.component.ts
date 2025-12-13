@@ -14,52 +14,52 @@ interface IRouteWithMatcher extends IRoute {
 	template: () => html`<slot></slot>`
 })
 export class RouterOutletComponent {
-	@Service('Router') private _router!: RouterService;
+	@Service(RouterService) private _router!: RouterService;
 
 	elementRef!: HTMLElement;
 	routes: IRouteWithMatcher[] = [];
 
-	#currentComponent: string | null = null;
-	#initialized = false;
-	#navigationHandler: (() => void) | null = null;
+	private _currentComponent: string | null = null;
+	private _initialized = false;
+	private _navigationHandler: (() => void) | null = null;
 
 	onInit(): void {
-		this.#navigationHandler = () => {
-			this.#renderPath(window.location.pathname);
+		this._navigationHandler = () => {
+			this.renderPath(window.location.pathname);
 		};
-		window.addEventListener('NavigationEvent', this.#navigationHandler);
+		window.addEventListener('NavigationEvent', this._navigationHandler);
 	}
 
 	onDestroy(): void {
-		if (this.#navigationHandler) {
-			window.removeEventListener('NavigationEvent', this.#navigationHandler);
-			this.#navigationHandler = null;
+		if (this._navigationHandler) {
+			window.removeEventListener('NavigationEvent', this._navigationHandler);
+			this._navigationHandler = null;
 		}
 	}
 
 	onCreate(): void {
 		// Defer initial render to allow property binding to complete
 		queueMicrotask(() => {
-			this.#initialized = true;
-			this.#renderPath(window.location.pathname);
+			this._initialized = true;
+			this.renderPath(window.location.pathname);
 		});
 	}
 
 	onPropertyChange(name: string): void {
 		// Re-render when routes are set
-		if (name === 'routes' && this.#initialized) {
-			this.#currentComponent = null; // Reset to force re-render
-			this.#renderPath(window.location.pathname);
+		if (name === 'routes' && this._initialized) {
+			this._currentComponent = null; // Reset to force re-render
+			this.renderPath(window.location.pathname);
 		}
 	}
 
-	async #renderPath(currentPath: string): Promise<void> {
+	private async renderPath(currentPath: string): Promise<void> {
 		const shadowRoot = this.elementRef.shadowRoot;
 		if (!shadowRoot) return;
 
 		// Remove leading slash for matching
 		const pathToMatch = currentPath.startsWith('/') ? currentPath.substring(1) : currentPath;
-		const route: IRoute = this.#findRouteMatch(pathToMatch);
+		const route: IRoute = this.findRouteMatch(pathToMatch);
 
 		if (route.redirectTo) {
 			// Only redirect if we're not already at the target
@@ -70,13 +70,13 @@ export class RouterOutletComponent {
 		}
 
 		// Only re-render if component changed
-		if (route.component && route.component !== this.#currentComponent) {
+		if (route.component && route.component !== this._currentComponent) {
 			// Lazy load the component if loadComponent is defined
 			if (route.loadComponent) {
 				await route.loadComponent();
 			}
 
-			this.#currentComponent = route.component;
+			this._currentComponent = route.component;
 
 			while (this.elementRef.firstChild) {
 				this.elementRef.firstChild.remove();
@@ -87,7 +87,7 @@ export class RouterOutletComponent {
 		}
 	}
 
-	#findRouteMatch(path: string): IRoute {
+	private findRouteMatch(path: string): IRoute {
 		const route: IRoute | undefined = this.routes.find((r) => {
 			const routeMatcher: RouteMatcher = new RouteMatcher(r.path);
 			const result = routeMatcher.parse(path);

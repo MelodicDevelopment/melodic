@@ -9,7 +9,7 @@ import { RouterService } from '../../services/router.service';
 	attributes: ['href']
 })
 export class RouterLinkComponent {
-	@Service('Router') private _router!: RouterService;
+	@Service(RouterService) private _router!: RouterService;
 
 	elementRef!: HTMLElement;
 	href: string = '';
