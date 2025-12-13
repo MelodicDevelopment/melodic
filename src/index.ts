@@ -24,5 +24,39 @@ export { Injector } from './injection/injection-engine.class';
 export type { IInjectableMeta } from './injection/interfaces/iinjectable-meta.interface';
 
 // Routing
-export { RouterService, RouterOutletComponent, RouterLinkComponent, RouteMatcher } from './routing';
-export type { IRoute, IRouterEventState, RouterStateEvent } from './routing';
+export {
+	RouterService,
+	RouterOutletComponent,
+	RouterLinkComponent,
+	RouteMatcher,
+	RouteContextService,
+	RouteContextEvent,
+	ROUTE_CONTEXT_EVENT,
+	matchRouteTree,
+	findRouteByName,
+	buildPathFromRoute,
+	createGuard,
+	createDeactivateGuard,
+	createResolver
+} from './routing';
+export type {
+	IRoute,
+	IResolvedRoute,
+	IRouteMatch,
+	IRouteMatchResult,
+	IRouterEventState,
+	RouterStateEvent,
+	INavigationOptions,
+	INavigationResult,
+	GuardResult,
+	AsyncGuardResult,
+	IGuardContext,
+	IRouteGuard,
+	GuardFunction,
+	IResolverContext,
+	ResolverResult,
+	IRouteResolver,
+	ResolverFunction,
+	IRouteContext,
+	IRouteContextChangeEvent
+} from './routing';
