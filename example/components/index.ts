@@ -3,3 +3,4 @@ export * from './test/test.component';
 export * from './card/card.component';
 export * from './feature-demo';
 export * from './pages';
+export * from './router-demo';

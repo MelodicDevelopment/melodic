@@ -28,6 +28,10 @@ export abstract class ComponentBase extends HTMLElement {
 		}
 	}
 
+	get component(): Component {
+		return this._component;
+	}
+
 	connectedCallback(): void {
 		this.render();
 

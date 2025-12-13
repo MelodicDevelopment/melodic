@@ -54,6 +54,38 @@ export function myAppStyles() {
 			color: #ff0082;
 		}
 
+		router-link.active {
+			background: #49216d;
+			color: white;
+		}
+
+		.header-actions {
+			display: flex;
+			align-items: center;
+			gap: 0.75rem;
+		}
+
+		.auth-btn {
+			padding: 0.5rem 1rem;
+			border: none;
+			border-radius: 6px;
+			cursor: pointer;
+			font-size: 0.875rem;
+			font-weight: 500;
+			transition: all 0.2s ease;
+			background: #e74c3c;
+			color: white;
+		}
+
+		.auth-btn.logged-in {
+			background: #27ae60;
+		}
+
+		.auth-btn:hover {
+			opacity: 0.9;
+			transform: translateY(-1px);
+		}
+
 		.github-link {
 			display: flex;
 			align-items: center;

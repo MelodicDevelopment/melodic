@@ -59,22 +59,24 @@ export class RouterOutletComponent {
 	#navigationCleanup: (() => void) | null = null;
 
 	onInit(): void {
-		// Determine depth by finding parent outlet
-		this.#findParentOutlet();
-
 		// Listen for navigation events
 		const handler = () => this.#onNavigate();
 		window.addEventListener('NavigationEvent', handler);
 		this.#navigationCleanup = () => window.removeEventListener('NavigationEvent', handler);
 
-		// Listen for child outlet registrations
+		// Listen for child outlet registrations (ignore events from self)
 		this.elementRef.addEventListener(OUTLET_REGISTER_EVENT, ((event: CustomEvent<IOutletRegistration>) => {
+			if (event.detail.outlet === this) return;
 			event.stopPropagation();
 			this.#registerChildOutlet(event.detail);
 		}) as EventListener);
 	}
 
 	onCreate(): void {
+		// Find parent outlet AFTER element is connected to DOM
+		// (getRootNode() returns the element itself when disconnected)
+		this.#findParentOutlet();
+
 		// Defer initial render to allow property binding to complete
 		queueMicrotask(() => {
 			this.#initialized = true;
@@ -130,7 +132,7 @@ export class RouterOutletComponent {
 				if (element.tagName.toLowerCase() !== 'router-outlet') {
 					const parentOutlet = element.shadowRoot?.querySelector('router-outlet');
 					if (parentOutlet && parentOutlet !== this.elementRef) {
-						this.#parentOutlet = (parentOutlet as any).__component as RouterOutletComponent;
+						this.#parentOutlet = (parentOutlet as any).component as RouterOutletComponent;
 						this._depth = (this.#parentOutlet?._depth ?? -1) + 1;
 						return;
 					}
@@ -139,7 +141,7 @@ export class RouterOutletComponent {
 				// Regular DOM - look for parent outlet
 				const parentOutlet = element.closest?.('router-outlet');
 				if (parentOutlet && parentOutlet !== this.elementRef) {
-					this.#parentOutlet = (parentOutlet as any).__component as RouterOutletComponent;
+					this.#parentOutlet = (parentOutlet as any).component as RouterOutletComponent;
 					this._depth = (this.#parentOutlet?._depth ?? -1) + 1;
 					return;
 				}
