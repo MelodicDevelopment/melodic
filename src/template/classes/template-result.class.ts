@@ -1,7 +1,7 @@
-import { getAttributeDirective } from './directives/functions/attribute-directive.functions';
-import type { ITemplatePart } from './interfaces/itemplate-part.interface';
-import type { ITemplateCache } from './interfaces/itemplate-cache.interface';
-import { isDirective } from './directives/functions/is-directive.function';
+import { getAttributeDirective } from '../directives/functions/attribute-directive.functions';
+import type { ITemplatePart } from '../interfaces/itemplate-part.interface';
+import type { ITemplateCache } from '../interfaces/itemplate-cache.interface';
+import { isDirective } from '../directives/functions/is-directive.function';
 
 // Unique marker for identifying dynamic positions
 const MARKER = `m${Math.random().toString(36).slice(2, 9)}`;

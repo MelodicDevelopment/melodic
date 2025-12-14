@@ -2,7 +2,7 @@
  * Repeat directive - Efficient keyed list rendering
  */
 
-import type { TemplateResult } from '../../template-result.class';
+import type { TemplateResult } from '../../classes/template-result.class';
 import { directive } from '../functions/directive.function';
 import type { IDirectiveResult } from '../interfaces/idirective-result.interface';
 

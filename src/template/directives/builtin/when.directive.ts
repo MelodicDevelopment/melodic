@@ -5,7 +5,7 @@
  * Removes from DOM when false, adds back when true.
  */
 
-import type { TemplateResult } from '../../template-result.class';
+import type { TemplateResult } from '../../classes/template-result.class';
 import { directive } from '../functions/directive.function';
 import { type IDirectiveResult } from '../interfaces/idirective-result.interface';
 
