@@ -4,7 +4,7 @@ import type { IRoute, IRouteMatch, IRouteMatchResult } from '../interfaces/irout
 import type { IGuardContext, IRouteGuard, AsyncGuardResult } from '../interfaces/iroute-guard.interface';
 import type { IResolverContext, IRouteResolver } from '../interfaces/iroute-resolver.interface';
 import type { RouterStateEvent } from '../types/router-state-event.type';
-import { matchRouteTree, buildPathFromRoute } from '../route-matcher.class';
+import { matchRouteTree, buildPathFromRoute } from '../classes/route-matcher.class';
 import { RouteContextService } from './route-context.service';
 
 /**

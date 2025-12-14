@@ -1,2 +1,2 @@
-export * from './itemplate-cache.interface';
-export * from './itemplate-part.interface';
+export type * from './itemplate-cache.interface';
+export type * from './itemplate-part.interface';

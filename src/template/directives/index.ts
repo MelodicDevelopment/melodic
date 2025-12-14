@@ -1,5 +1,6 @@
 export * from './builtin';
 export * from './functions';
-export * from './interfaces';
-export * from './types';
 export * from './directive.class';
+
+export type * from './interfaces';
+export type * from './types';
