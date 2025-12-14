@@ -1,5 +1,5 @@
 import { MelodicComponent } from '../../../src/components/melodic-component.decorator';
-import { html, css } from '../../../src/template/template-result.class';
+import { html, css } from '../../../src/template/functions/html.function';
 
 @MelodicComponent({
 	selector: 'home-page',

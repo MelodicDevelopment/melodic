@@ -1,4 +1,4 @@
-import { css } from '../../../src/template/template-result.class';
+import { css } from '../../../src/template/functions/html.function';
 
 export function myAppStyles() {
 	return css`

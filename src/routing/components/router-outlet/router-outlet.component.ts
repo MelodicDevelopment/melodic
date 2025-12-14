@@ -1,10 +1,10 @@
 import { MelodicComponent } from '../../../components/melodic-component.decorator';
-import { html } from '../../../template/template-result.class';
 import { Service } from '../../../injection/decorators/service.decorator';
-import { matchRouteTree } from '../../classes/route-matcher.class';
 import { RouterService } from '../../services/router.service';
 import type { IRoute, IRouteMatch, IRouteMatchResult } from '../../interfaces/iroute.interface';
 import type { IRouteContext } from '../../interfaces/iroute-context.interface';
+import { html } from '../../../template/functions/html.function';
+import { matchRouteTree } from '../../route-matcher.class';
 
 /**
  * Custom event for child outlets to request their context from parent.

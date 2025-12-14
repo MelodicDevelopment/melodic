@@ -4,16 +4,13 @@ const directiveRegistry = new Map<string, AttributeDirectiveFunction>();
 
 const findAttributeDirective = (name: string): AttributeDirectiveFunction | undefined => {
 	if (directiveRegistry.has(name)) {
-		const exact = directiveRegistry.get(name);
-		if (exact) {
-			return exact;
-		}
+		return directiveRegistry.get(name);
+	}
 
-		const lowerName = name.toLowerCase();
-		for (const [key, value] of directiveRegistry) {
-			if (key.toLowerCase() === lowerName) {
-				return value;
-			}
+	const lowerName = name.toLowerCase();
+	for (const [key, value] of directiveRegistry) {
+		if (key.toLowerCase() === lowerName) {
+			return value;
 		}
 	}
 

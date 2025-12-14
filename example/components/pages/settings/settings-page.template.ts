@@ -1,4 +1,4 @@
-import { html } from '../../../../src/template/template-result.class';
+import { html } from '../../../../src/template/functions/html.function';
 
 export function settingsPageTemplate() {
 	return html`

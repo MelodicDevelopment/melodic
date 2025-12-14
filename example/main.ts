@@ -1,8 +1,8 @@
 // Import routing components and directives FIRST (before app components)
 import '../src/routing/directives';
+import '../src/routing/services/router.service';
 import '../src/routing/components/router-outlet/router-outlet.component';
 import '../src/routing/components/router-link/router-link.component';
-import '../src/routing/services/router.service';
 
 // Now import app components (which may use routing directives in templates)
 import './components';

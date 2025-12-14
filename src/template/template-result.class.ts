@@ -26,6 +26,7 @@ export class TemplateResult {
 		if (!(container as any).__parts) {
 			const clone = template.content.cloneNode(true);
 			const parts = this.prepareParts(clone, templateParts);
+
 			(container as any).__parts = parts;
 
 			// Commit values BEFORE appending to DOM so attributes are set
@@ -50,61 +51,27 @@ export class TemplateResult {
 			return cached;
 		}
 
-		// Build HTML with markers
 		const parts: ITemplatePart[] = [];
 		let html = this.strings[0];
+
+		const attrPreProcessor = this.getAttributePreProcessor(parts);
 
 		for (let i = 1; i < this.strings.length; i++) {
 			const s = this.strings[i];
 
-			// Check if we're in an attribute position (include @, ., :, etc.)
 			const match = /([@.:]?[\w-]+)\s*=\s*["']?$/.exec(html);
+			let attrKey: string = '___';
 
 			if (match) {
-				const attrName = match[1];
+				attrKey = '__';
+				const attrPrefix: string = match[1].charAt(0);
 
-				if (attrName.startsWith('@')) {
-					// Event binding
-					parts.push({
-						type: 'event',
-						index: i - 1,
-						name: attrName.slice(1)
-					});
-					html = html.slice(0, -match[0].length) + `__event-${i - 1}__=""`;
-				} else if (attrName.startsWith('.')) {
-					// Property binding
-					parts.push({
-						type: 'property',
-						index: i - 1,
-						name: attrName.slice(1)
-					});
-					html = html.slice(0, -match[0].length) + `__prop-${i - 1}__=""`;
-				} else if (attrName.startsWith(':')) {
-					// Action directive binding
-					parts.push({
-						type: 'action',
-						index: i - 1,
-						name: attrName.slice(1)
-					});
-					html = html.slice(0, -match[0].length) + `__action-${i - 1}__=""`;
-				} else {
-					// Regular attribute
-					parts.push({
-						type: 'attribute',
-						index: i - 1,
-						name: attrName
-					});
-					html += MARKER;
+				if (Object.keys(attrPreProcessor).includes(attrPrefix)) {
+					attrKey = attrPrefix;
 				}
-			} else {
-				// Text position
-				parts.push({
-					type: 'node',
-					index: i - 1
-				});
-				html += COMMENT_NODE_MARKER;
 			}
 
+			html = attrPreProcessor[attrKey](i - 1, html, match ? match[1] : undefined, match);
 			html += s;
 		}
 
@@ -115,6 +82,57 @@ export class TemplateResult {
 		templateCache.set(key, cached);
 
 		return cached;
+	}
+
+	private getAttributePreProcessor(
+		parts: ITemplatePart[]
+	): Record<string, (index: number, html: string, attrName?: string, match?: RegExpExecArray | null) => string> {
+		return {
+			'@': (index: number, html: string, attrName?: string, match?: RegExpExecArray | null) => {
+				// Event binding
+				parts.push({
+					type: 'event',
+					index: index,
+					name: attrName?.slice(1)
+				});
+				return html.slice(0, -(match?.[0].length ?? 0)) + `__event-${index}__=""`;
+			},
+			'.': (index: number, html: string, attrName?: string, match?: RegExpExecArray | null) => {
+				// Property binding
+				parts.push({
+					type: 'property',
+					index: index,
+					name: attrName?.slice(1)
+				});
+				return html.slice(0, -(match?.[0].length ?? 0)) + `__prop-${index}__=""`;
+			},
+			':': (index: number, html: string, attrName?: string, match?: RegExpExecArray | null) => {
+				// Action directive binding
+				parts.push({
+					type: 'action',
+					index: index,
+					name: attrName?.slice(1)
+				});
+				return html.slice(0, -(match?.[0].length ?? 0)) + `__action-${index}__=""`;
+			},
+			'__': (index: number, html: string, attrName?: string) => {
+				// Regular attribute
+				parts.push({
+					type: 'attribute',
+					index: index,
+					name: attrName
+				});
+				return html + MARKER;
+			},
+			'___': (index: number, html: string) => {
+				// Text position
+				parts.push({
+					type: 'node',
+					index: index
+				});
+				return html + COMMENT_NODE_MARKER;
+			}
+		};
 	}
 
 	private prepareParts(clone: Node, templateParts: ITemplatePart[]): ITemplatePart[] {

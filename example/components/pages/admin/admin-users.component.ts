@@ -1,8 +1,8 @@
 import { MelodicComponent } from '../../../../src/components/melodic-component.decorator';
 import { Service } from '../../../../src/injection/decorators/service.decorator';
 import { RouterService } from '../../../../src/routing';
-import { html, css } from '../../../../src/template/template-result.class';
-import { repeat } from '../../../../src/template/directives/repeat.directive';
+import { repeat } from '../../../../src/template/directives/builtin/repeat.directive';
+import { html, css } from '../../../../src/template/functions/html.function';
 import type { User } from '../../../routing';
 
 /**

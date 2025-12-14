@@ -1,6 +1,6 @@
 import { MelodicComponent } from '../../../src/components/melodic-component.decorator';
 import { Service } from '../../../src/injection/decorators/service.decorator';
-import { html, css } from '../../../src/template/template-result.class';
+import { html, css } from '../../../src/template/functions/html.function';
 import { RouterService } from '../../../src/routing';
 import type { IRoute } from '../../../src/routing';
 
