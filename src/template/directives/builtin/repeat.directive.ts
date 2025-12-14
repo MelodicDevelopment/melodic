@@ -2,9 +2,9 @@
  * Repeat directive - Efficient keyed list rendering
  */
 
-import { directive } from '../directive';
-import type { DirectiveResult } from '../directive';
-import type { TemplateResult } from '../template';
+import type { TemplateResult } from '../../template-result.class';
+import { directive } from '../functions/directive.function';
+import type { IDirectiveResult } from '../interfaces/idirective-result.interface';
 
 interface RepeatState {
 	keyToIndex: Map<unknown, number>;
@@ -30,11 +30,7 @@ interface RepeatItem {
  * @param keyFn - Function to extract unique key from each item
  * @param template - Template function to render each item
  */
-export function repeat<T>(
-	items: T[],
-	keyFn: (item: T, index: number) => unknown,
-	template: (item: T, index: number) => TemplateResult
-): DirectiveResult {
+export function repeat<T>(items: T[], keyFn: (item: T, index: number) => unknown, template: (item: T, index: number) => TemplateResult): IDirectiveResult {
 	return directive((container: Node, previousState?: RepeatState): RepeatState => {
 		// First render - setup markers
 		if (!previousState) {
@@ -145,7 +141,7 @@ function updateList<T>(
 
 	// Remove old items that are no longer needed
 	for (const oldItem of oldItemsToReuse.values()) {
-		oldItem.nodes.forEach(node => node.parentNode?.removeChild(node));
+		oldItem.nodes.forEach((node) => node.parentNode?.removeChild(node));
 	}
 
 	// Update DOM to match new order

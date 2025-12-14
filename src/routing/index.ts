@@ -14,7 +14,7 @@ export { createResolver } from './interfaces';
 export type { IRouteContext, IRouteContextChangeEvent } from './interfaces';
 
 // Classes
-export { RouteMatcher, matchRouteTree, findRouteByName, buildPathFromRoute } from './classes';
+export { RouteMatcher, matchRouteTree, findRouteByName, buildPathFromRoute } from './route-matcher.class';
 
 // Services
 export { RouterService, RouteContextService, RouteContextEvent, ROUTE_CONTEXT_EVENT } from './services';

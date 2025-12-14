@@ -1,45 +1,13 @@
-/**
- * Ultra-fast template system with minimal overhead
- */
-
-import { isDirective } from './directive';
-import { getAttributeDirective } from './attribute-directive';
+import { getAttributeDirective } from './directives/functions/attribute-directive.functions';
+import type { ITemplatePart } from './interfaces/itemplate-part.interface';
+import type { ITemplateCache } from './interfaces/itemplate-cache.interface';
+import { isDirective } from './directives/functions/is-directive.function';
 
 // Unique marker for identifying dynamic positions
 const MARKER = `m${Math.random().toString(36).slice(2, 9)}`;
 const COMMENT_NODE_MARKER = `<!--${MARKER}-->`;
 
-interface Part {
-	type: 'node' | 'attribute' | 'property' | 'event' | 'action';
-	index: number;
-	name?: string;
-	node?: Node;
-	previousValue?: unknown;
-	directiveState?: any; // State for directives (like repeat())
-	// For node parts that render nested templates/nodes, track the rendered nodes
-	renderedNodes?: Node[];
-	startMarker?: Comment;
-	endMarker?: Comment;
-	// For action directives, store cleanup function and static value
-	actionCleanup?: () => void;
-	staticValue?: string; // For static :directive="value" attributes
-}
-
-interface TemplateCache {
-	element: HTMLTemplateElement;
-	parts: Part[];
-}
-
-const templateCache = new Map<string, TemplateCache>();
-
-/**
- * Tagged template function - main API
- */
-export function html(strings: TemplateStringsArray, ...values: unknown[]): TemplateResult {
-	return new TemplateResult(strings, values);
-}
-
-export const css = html;
+const templateCache = new Map<string, ITemplateCache>();
 
 export class TemplateResult {
 	strings: TemplateStringsArray;
@@ -70,11 +38,11 @@ export class TemplateResult {
 		}
 
 		// Update values
-		const parts = (container as any).__parts as Part[];
+		const parts = (container as any).__parts as ITemplatePart[];
 		this.commit(parts);
 	}
 
-	private getTemplate(): TemplateCache {
+	private getTemplate(): ITemplateCache {
 		const key = this.strings.join(MARKER);
 		let cached = templateCache.get(key);
 
@@ -83,7 +51,7 @@ export class TemplateResult {
 		}
 
 		// Build HTML with markers
-		const parts: Part[] = [];
+		const parts: ITemplatePart[] = [];
 		let html = this.strings[0];
 
 		for (let i = 1; i < this.strings.length; i++) {
@@ -149,8 +117,8 @@ export class TemplateResult {
 		return cached;
 	}
 
-	private prepareParts(clone: Node, templateParts: Part[]): Part[] {
-		const parts: Part[] = [];
+	private prepareParts(clone: Node, templateParts: ITemplatePart[]): ITemplatePart[] {
+		const parts: ITemplatePart[] = [];
 
 		// Recursive walk to find all nodes
 		const walk = (node: Node) => {
@@ -249,7 +217,7 @@ export class TemplateResult {
 	/**
 	 * Sets up markers for a node part to enable complex content rendering
 	 */
-	private ensureMarkers(part: Part): void {
+	private ensureMarkers(part: ITemplatePart): void {
 		if (part.startMarker) return; // Already set up
 
 		const parent = part.node!.parentNode;
@@ -268,7 +236,7 @@ export class TemplateResult {
 	/**
 	 * Clears previously rendered nodes between markers
 	 */
-	private clearRenderedNodes(part: Part): void {
+	private clearRenderedNodes(part: ITemplatePart): void {
 		if (!part.renderedNodes || part.renderedNodes.length === 0) return;
 
 		for (const node of part.renderedNodes) {
@@ -280,7 +248,7 @@ export class TemplateResult {
 	/**
 	 * Renders a nested TemplateResult into a node part
 	 */
-	private renderNestedTemplate(part: Part, template: TemplateResult): void {
+	private renderNestedTemplate(part: ITemplatePart, template: TemplateResult): void {
 		this.ensureMarkers(part);
 		this.clearRenderedNodes(part);
 
@@ -300,7 +268,7 @@ export class TemplateResult {
 	/**
 	 * Renders a DOM Node into a node part
 	 */
-	private renderNode(part: Part, node: Node): void {
+	private renderNode(part: ITemplatePart, node: Node): void {
 		this.ensureMarkers(part);
 		this.clearRenderedNodes(part);
 
@@ -316,7 +284,7 @@ export class TemplateResult {
 	/**
 	 * Renders an array of values into a node part
 	 */
-	private renderArray(part: Part, values: unknown[]): void {
+	private renderArray(part: ITemplatePart, values: unknown[]): void {
 		this.ensureMarkers(part);
 		this.clearRenderedNodes(part);
 
@@ -346,7 +314,7 @@ export class TemplateResult {
 		part.renderedNodes = renderedNodes;
 	}
 
-	private commit(parts: Part[]): void {
+	private commit(parts: ITemplatePart[]): void {
 		for (const part of parts) {
 			const value = this.values[part.index];
 
@@ -467,8 +435,4 @@ export class TemplateResult {
 			part.previousValue = value;
 		}
 	}
-}
-
-export function render(result: TemplateResult, container: Element | DocumentFragment): void {
-	result.renderInto(container);
 }

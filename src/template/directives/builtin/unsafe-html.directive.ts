@@ -4,7 +4,8 @@
  * ⚠️ WARNING: Only use with trusted content! This can expose you to XSS attacks.
  */
 
-import { directive, type DirectiveResult } from '../directive';
+import { directive } from '../functions/directive.function';
+import type { IDirectiveResult } from '../interfaces/idirective-result.interface';
 
 /**
  * Renders raw HTML string into the DOM.
@@ -24,7 +25,7 @@ interface UnsafeHTMLState {
 	nodes: Node[];
 }
 
-export function unsafeHTML(html: string): DirectiveResult {
+export function unsafeHTML(html: string): IDirectiveResult {
 	return directive((container: Node, previousState?: UnsafeHTMLState) => {
 		// First render - setup markers
 		if (!previousState) {

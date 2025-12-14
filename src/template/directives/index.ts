@@ -1,5 +1,5 @@
-export { classMap } from './class-map.directive';
-export { repeat } from './repeat.directive';
-export { styleMap } from './style-map.directive';
-export { unsafeHTML } from './unsafe-html.directive';
-export { when } from './when.directive';
+export * from './builtin';
+export * from './functions';
+export * from './interfaces';
+export * from './types';
+export * from './directive.class';

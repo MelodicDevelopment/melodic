@@ -1,5 +1,5 @@
 import { MelodicComponent } from '../../../components/melodic-component.decorator';
-import { html } from '../../../template/template';
+import { html } from '../../../template/template-result.class';
 import { Service } from '../../../injection/decorators/service.decorator';
 import { matchRouteTree } from '../../classes/route-matcher.class';
 import { RouterService } from '../../services/router.service';

@@ -1,6 +1,6 @@
 import type { ComponentMeta } from './types/component-meta.type';
 import type { Component } from './types/component.type';
-import { render } from '../template/template';
+import { render } from '../template/template-result.class';
 import type { Unsubscriber } from '../signals/types/unsubscriber.type';
 import type { Signal } from '../signals/types/signal.type';
 import { isSignal } from '../signals/functions/is-signal.function';

@@ -1,4 +1,4 @@
-import { css } from '../../../src/template/template';
+import { css } from '../../../src/template/template-result.class';
 
 export function featureDemoStyles() {
 	return css`

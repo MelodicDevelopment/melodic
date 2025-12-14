@@ -4,7 +4,8 @@
  * Efficiently applies inline styles based on an object.
  */
 
-import { directive, type DirectiveResult } from '../directive';
+import { directive } from '../functions/directive.function';
+import type { IDirectiveResult } from '../interfaces/idirective-result.interface';
 
 /**
  * Applies inline styles based on an object mapping.
@@ -14,7 +15,7 @@ import { directive, type DirectiveResult } from '../directive';
  *
  * @param styles - Object mapping CSS property names to values
  */
-export function styleMap(styles: Record<string, string | number | undefined>): DirectiveResult {
+export function styleMap(styles: Record<string, string | number | undefined>): IDirectiveResult {
 	return directive((container: Node, previousStyles?: Set<string>) => {
 		const element = container as HTMLElement;
 		const currentStyles = new Set<string>();

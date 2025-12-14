@@ -1,5 +1,5 @@
 import { MelodicComponent } from '../../../components/melodic-component.decorator';
-import { html, css } from '../../../template/template';
+import { html, css } from '../../../template/template-result.class';
 import { Service } from '../../../injection/decorators/service.decorator';
 import { RouterService } from '../../services/router.service';
 import type { INavigationOptions } from '../../services/router.service';

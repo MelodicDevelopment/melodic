@@ -1,4 +1,4 @@
-import type { TemplateResult } from '../../template/template';
+import type { TemplateResult } from '../../template/template-result.class';
 
 export type ComponentMeta = {
 	selector: string;

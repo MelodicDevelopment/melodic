@@ -5,9 +5,9 @@
  * Removes from DOM when false, adds back when true.
  */
 
-import { directive } from '../directive';
-import type { DirectiveResult } from '../directive';
-import type { TemplateResult } from '../template';
+import type { TemplateResult } from '../../template-result.class';
+import { directive } from '../functions/directive.function';
+import { type IDirectiveResult } from '../interfaces/idirective-result.interface';
 
 interface WhenState {
 	condition: boolean;
@@ -27,7 +27,7 @@ interface WhenState {
  * @param condition - When true, renders the template. When false, removes from DOM.
  * @param template - Template function to render when condition is true
  */
-export function when(condition: boolean, template: () => TemplateResult): DirectiveResult {
+export function when(condition: boolean, template: () => TemplateResult): IDirectiveResult {
 	return directive((container: Node, previousState?: WhenState): WhenState => {
 		// First render - setup markers
 		if (!previousState) {

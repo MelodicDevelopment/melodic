@@ -4,7 +4,8 @@
  * Efficiently applies CSS classes based on an object of conditions.
  */
 
-import { directive, type DirectiveResult } from '../directive';
+import { directive } from '../functions/directive.function';
+import type { IDirectiveResult } from '../interfaces/idirective-result.interface';
 
 /**
  * Applies CSS classes based on an object mapping.
@@ -16,7 +17,7 @@ import { directive, type DirectiveResult } from '../directive';
  *
  * @param classes - Object mapping class names to boolean conditions
  */
-export function classMap(classes: Record<string, boolean | undefined>): DirectiveResult {
+export function classMap(classes: Record<string, boolean | undefined>): IDirectiveResult {
 	return directive((container: Node, previousClasses?: Set<string>) => {
 		const element = container as Element;
 		const currentClasses = new Set<string>();

@@ -1,5 +1,6 @@
 import { Injector } from '../../injection';
-import { registerAttributeDirective } from '../../template/attribute-directive';
+import { registerAttributeDirective } from '../../template/directives/functions/attribute-directive.functions';
+import type { AttributeDirectiveCleanupFunction } from '../../template/directives/types/attribute-directive-cleanup-function.type';
 import { RouterService } from '../services/router.service';
 import type { INavigationOptions } from '../services/router.service';
 
@@ -148,10 +149,10 @@ function routerLinkDirective(element: Element, value: unknown, _name: string): (
 	updateActiveState();
 
 	// Return cleanup function
-	return () => {
+	return (() => {
 		element.removeEventListener('click', handleClick);
 		window.removeEventListener('NavigationEvent', handleNavigation);
-	};
+	}) as AttributeDirectiveCleanupFunction;
 }
 
 // Auto-register the directive

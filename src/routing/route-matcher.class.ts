@@ -1,4 +1,4 @@
-import type { IRoute, IRouteMatch, IRouteMatchResult } from '../interfaces/iroute.interface';
+import type { IRoute, IRouteMatch, IRouteMatchResult } from './interfaces/iroute.interface';
 
 type RuleCheck = (value: string) => boolean;
 type Rule = RegExp | RuleCheck | string;
