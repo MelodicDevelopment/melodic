@@ -39,7 +39,7 @@ export function myAppStyles() {
 			gap: 0.5rem;
 		}
 
-		router-link {
+		a[router-link] {
 			color: #49216d;
 			text-decoration: none;
 			padding: 0.5rem 1rem;
@@ -49,12 +49,12 @@ export function myAppStyles() {
 			font-weight: 500;
 		}
 
-		router-link:hover {
+		a[router-link]:hover {
 			background: rgba(73, 33, 109, 0.1);
 			color: #ff0082;
 		}
 
-		router-link.active {
+		a[router-link].active {
 			background: #49216d;
 			color: white;
 		}

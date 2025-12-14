@@ -49,11 +49,7 @@ export interface IRouterLinkOptions {
  * - Manages active class based on current route
  * - Listens for navigation events to update active state
  */
-function routerLinkDirective(
-	element: Element,
-	value: unknown,
-	_name: string
-): (() => void) | void {
+function routerLinkDirective(element: Element, value: unknown, _name: string): (() => void) | void {
 	// Parse value - can be string or options object
 	let options: IRouterLinkOptions;
 
@@ -66,14 +62,7 @@ function routerLinkDirective(
 		return;
 	}
 
-	const {
-		href,
-		activeClass = 'active',
-		exactMatch = false,
-		replace = false,
-		data = null,
-		queryParams = {}
-	} = options;
+	const { href, activeClass = 'active', exactMatch = false, replace = false, data = null, queryParams = {} } = options;
 
 	const router = Injector.get<RouterService>(RouterService);
 
@@ -104,8 +93,7 @@ function routerLinkDirective(
 		if (exactMatch) {
 			isActive = normalizedCurrentPath === normalizedLinkPath;
 		} else {
-			isActive = normalizedCurrentPath === normalizedLinkPath ||
-				normalizedCurrentPath.startsWith(normalizedLinkPath + '/');
+			isActive = normalizedCurrentPath === normalizedLinkPath || normalizedCurrentPath.startsWith(normalizedLinkPath + '/');
 		}
 
 		if (isActive) {
@@ -117,6 +105,8 @@ function routerLinkDirective(
 			element.classList.remove(activeClass);
 			element.removeAttribute('aria-current');
 		}
+
+		element.setAttribute('router-link', '');
 	};
 
 	// Click handler
