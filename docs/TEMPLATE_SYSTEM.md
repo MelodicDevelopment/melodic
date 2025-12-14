@@ -13,6 +13,7 @@ Melodic's template system provides an ultra-fast, declarative way to define comp
   - [Attribute Binding](#attribute-binding)
   - [Property Binding](#property-binding)
   - [Event Binding](#event-binding)
+  - [Action Directive Binding](#action-directive-binding)
 - [How It Works](#how-it-works)
 - [TemplateResult Class](#templateresult-class)
 - [Performance Optimizations](#performance-optimizations)
@@ -233,6 +234,63 @@ html`
     <button @click=${(e) => this.handleClick(e, 'extra')}>With Args</button>
 `
 ```
+
+### Action Directive Binding
+
+Attach registered attribute directives to elements using the `:` prefix:
+
+```typescript
+html`
+    <a :routerLink="/home">Home</a>
+    <button :tooltip="Click to save">Save</button>
+    <div :clickOutside=${() => this.closeMenu()}>Menu</div>
+`
+```
+
+**Syntax:** `:directiveName="value"` or `:directiveName=${dynamicValue}`
+
+**Features:**
+- Directives are looked up by name from a global registry
+- Can use static string values or dynamic interpolated values
+- Directives receive the element, value, and directive name
+- Cleanup functions are called automatically when values change or element is removed
+
+**Static vs Dynamic values:**
+
+```typescript
+// Static string value
+html`<a :routerLink="/home">Home</a>`
+
+// Dynamic value
+html`<a :routerLink=${currentPath}>Dynamic</a>`
+
+// Object value with options
+html`<a :routerLink=${{ href: '/about', exactMatch: true }}>About</a>`
+```
+
+**Built-in directives:**
+- `routerLink` - Router navigation with active state management
+
+**Creating custom directives:**
+
+```typescript
+import { registerAttributeDirective } from 'melodic';
+
+registerAttributeDirective('highlight', (element, value) => {
+    element.style.backgroundColor = String(value);
+    return () => {
+        element.style.backgroundColor = '';
+    };
+});
+```
+
+Then use in templates:
+
+```typescript
+html`<span :highlight="yellow">Highlighted text</span>`
+```
+
+See [Attribute Directives](./ATTRIBUTE_DIRECTIVES.md) for full documentation.
 
 ## How It Works
 

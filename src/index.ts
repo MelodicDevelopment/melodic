@@ -11,6 +11,10 @@ export type { TemplateResult } from './template/template';
 export { Directive, directive, isDirective } from './template/directive';
 export type { DirectiveResult } from './template/directive';
 
+// Attribute directive system
+export { registerAttributeDirective } from './template/attribute-directive';
+export type { AttributeDirectiveFunction } from './template/attribute-directive';
+
 // Built-in directives
 export { repeat } from './template/directives/repeat.directive';
 export { when } from './template/directives/when.directive';
@@ -37,7 +41,8 @@ export {
 	buildPathFromRoute,
 	createGuard,
 	createDeactivateGuard,
-	createResolver
+	createResolver,
+	routerLinkDirective
 } from './routing';
 export type {
 	IRoute,
@@ -58,5 +63,6 @@ export type {
 	IRouteResolver,
 	ResolverFunction,
 	IRouteContext,
-	IRouteContextChangeEvent
+	IRouteContextChangeEvent,
+	IRouterLinkOptions
 } from './routing';

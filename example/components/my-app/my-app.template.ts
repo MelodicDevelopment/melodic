@@ -9,12 +9,12 @@ export function myAppTemplate(self: MyAppComponent) {
 					<img src="/img/melodic-development.svg" alt="Melodic Development" />
 				</a>
 				<nav class="nav">
-					<router-link href="/home">Home</router-link>
-					<router-link href="/demos">Demos</router-link>
-					<router-link href="/about">About</router-link>
-					<router-link href="/contact">Contact</router-link>
-					<router-link href="/settings">Settings</router-link>
-					<router-link href="/admin">Admin</router-link>
+					<a :routerLink="/home">Home</a>
+					<a :routerLink="/demos">Demos</a>
+					<a :routerLink="/about">About</a>
+					<a :routerLink="/contact">Contact</a>
+					<a :routerLink="/settings">Settings</a>
+					<a :routerLink="/admin">Admin</a>
 				</nav>
 				<div class="header-actions">
 					<button class=${classMap({ 'auth-btn': true, 'logged-in': self.isLoggedIn })} @click=${() => self.toggleAuth()}>

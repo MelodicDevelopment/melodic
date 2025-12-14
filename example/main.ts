@@ -1,13 +1,15 @@
+// Import routing components and directives FIRST (before app components)
+import '../src/routing/directives';
+import '../src/routing/components/router-outlet/router-outlet.component';
+import '../src/routing/components/router-link/router-link.component';
+import '../src/routing/services/router.service';
+
+// Now import app components (which may use routing directives in templates)
 import './components';
 import { bootstrap } from '../src/bootstrap';
 import { provideHttp } from '../src/http/provide-http.function';
 import { provideRX } from '../src/state';
 import { appState, appReducers, appEffects } from './state/app.state';
-
-// Import routing components to register them
-import '../src/routing/components/router-outlet/router-outlet.component';
-import '../src/routing/components/router-link/router-link.component';
-import '../src/routing/services/router.service';
 
 await bootstrap({
 	target: '#my-app',

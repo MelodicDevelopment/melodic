@@ -3,13 +3,14 @@
  */
 
 import { isDirective } from './directive';
+import { getAttributeDirective } from './attribute-directive';
 
 // Unique marker for identifying dynamic positions
 const MARKER = `m${Math.random().toString(36).slice(2, 9)}`;
 const COMMENT_NODE_MARKER = `<!--${MARKER}-->`;
 
 interface Part {
-	type: 'node' | 'attribute' | 'property' | 'event';
+	type: 'node' | 'attribute' | 'property' | 'event' | 'action';
 	index: number;
 	name?: string;
 	node?: Node;
@@ -19,6 +20,9 @@ interface Part {
 	renderedNodes?: Node[];
 	startMarker?: Comment;
 	endMarker?: Comment;
+	// For action directives, store cleanup function and static value
+	actionCleanup?: () => void;
+	staticValue?: string; // For static :directive="value" attributes
 }
 
 interface TemplateCache {
@@ -107,6 +111,14 @@ export class TemplateResult {
 						name: attrName.slice(1)
 					});
 					html = html.slice(0, -match[0].length) + `__prop-${i - 1}__=""`;
+				} else if (attrName.startsWith(':')) {
+					// Action directive binding
+					parts.push({
+						type: 'action',
+						index: i - 1,
+						name: attrName.slice(1)
+					});
+					html = html.slice(0, -match[0].length) + `__action-${i - 1}__=""`;
 				} else {
 					// Regular attribute
 					parts.push({
@@ -184,6 +196,28 @@ export class TemplateResult {
 								node: element
 							});
 						}
+						element.removeAttribute(attr.name);
+					} else if (attr.name.startsWith('__action-')) {
+						const index = parseInt(attr.name.match(/__action-(\d+)__/)?.[1] || '0');
+						const part = templateParts.find((p) => p.index === index && p.type === 'action');
+						if (part) {
+							parts.push({
+								...part,
+								node: element
+							});
+						}
+						element.removeAttribute(attr.name);
+					} else if (attr.name.startsWith(':')) {
+						// Static action directive (e.g., :routerLink="/home")
+						// Browser lowercases attribute names, so directive lookup is case-insensitive
+						const directiveName = attr.name.slice(1);
+						parts.push({
+							type: 'action',
+							index: -1, // No dynamic index for static directives
+							name: directiveName,
+							node: element,
+							staticValue: attr.value
+						});
 						element.removeAttribute(attr.name);
 					} else if (attr.value.includes(MARKER)) {
 						// Regular attribute with marker
@@ -316,8 +350,9 @@ export class TemplateResult {
 		for (const part of parts) {
 			const value = this.values[part.index];
 
-			// Skip unchanged values (but not for directives - they manage their own state)
-			if (!isDirective(value) && part.previousValue === value) {
+			// Skip unchanged values (but not for directives or action parts - they manage their own state)
+			// Action parts with index < 0 are static and have their own skip logic
+			if (!isDirective(value) && part.type !== 'action' && part.previousValue === value) {
 				continue;
 			}
 
@@ -385,6 +420,45 @@ export class TemplateResult {
 						// Add new listener
 						if (typeof value === 'function') {
 							element.addEventListener(part.name, value as EventListener);
+						}
+					}
+					break;
+
+				case 'action':
+					if (part.node && part.name) {
+						const element = part.node as Element;
+
+						// Get directive value: dynamic (from values array) or static (from attribute)
+						const directiveValue = part.index >= 0 ? value : part.staticValue;
+
+						// Skip if value hasn't changed (for dynamic values)
+						if (part.index >= 0 && part.previousValue === directiveValue) {
+							continue;
+						}
+
+						// For static directives, only run once (when actionCleanup is undefined)
+						if (part.index < 0 && part.actionCleanup !== undefined) {
+							continue;
+						}
+
+						// Call previous cleanup if exists
+						if (part.actionCleanup) {
+							part.actionCleanup();
+							part.actionCleanup = undefined;
+						}
+
+						// Look up directive from registry
+						const directive = getAttributeDirective(part.name);
+						if (directive) {
+							const cleanup = directive(element, directiveValue, part.name);
+							if (typeof cleanup === 'function') {
+								part.actionCleanup = cleanup;
+							} else {
+								// Mark as initialized even without cleanup
+								part.actionCleanup = () => {};
+							}
+						} else {
+							console.warn(`Attribute directive ':${part.name}' not found in registry`);
 						}
 					}
 					break;

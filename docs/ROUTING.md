@@ -48,7 +48,7 @@ Renders the matched route's component:
 <router-outlet .routes=${routes}></router-outlet>
 ```
 
-### `<router-link>`
+### `<router-link>` Component
 
 Navigation links that use the router instead of full page loads:
 
@@ -56,6 +56,30 @@ Navigation links that use the router instead of full page loads:
 <router-link href="/home">Home</router-link>
 <router-link href="/users/123">View User</router-link>
 ```
+
+### `:routerLink` Directive
+
+An attribute directive that adds router navigation to any element:
+
+```html
+<!-- On anchor tags (automatically sets href) -->
+<a :routerLink="/home">Home</a>
+<a :routerLink="/users/123">View User</a>
+
+<!-- On any element -->
+<button :routerLink="/settings">Settings</button>
+
+<!-- With options -->
+<a :routerLink=${{ href: '/about', exactMatch: true, activeClass: 'current' }}>About</a>
+```
+
+The directive automatically:
+- Sets `href` on anchor elements for accessibility
+- Manages active class based on current route
+- Handles modifier keys (Ctrl/Cmd+click opens new tab)
+- Cleans up event listeners when element is removed
+
+See [Attribute Directives](./ATTRIBUTE_DIRECTIVES.md) for full documentation.
 
 ## Programmatic Navigation
 

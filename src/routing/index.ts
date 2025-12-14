@@ -22,3 +22,8 @@ export type { INavigationOptions, INavigationResult } from './services';
 
 // Components
 export { RouterOutletComponent, RouterLinkComponent } from './components';
+
+// Directives (import to auto-register)
+import './directives';
+export { routerLinkDirective } from './directives';
+export type { IRouterLinkOptions } from './directives';
