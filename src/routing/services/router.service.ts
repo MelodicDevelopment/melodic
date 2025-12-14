@@ -91,6 +91,7 @@ export class RouterService {
 	#routes: IRoute[] = [];
 	#contextService: RouteContextService;
 	#currentMatches: IRouteMatch[] = [];
+	#resolversExecutedForPath: string | null = null;
 
 	constructor() {
 		this.#contextService = new RouteContextService();
@@ -195,6 +196,24 @@ export class RouterService {
 	}
 
 	/**
+	 * Run resolvers for a match result (used by router outlet on initial page load).
+	 * Skips execution if resolvers already ran for the current path (e.g., during navigate()).
+	 */
+	async runResolvers(matchResult: IRouteMatchResult): Promise<{ success: boolean; error?: string }> {
+		const currentPath = window.location.pathname;
+
+		// Skip if resolvers already ran for this path (e.g., from navigate())
+		if (this.#resolversExecutedForPath === currentPath) {
+			this.#resolversExecutedForPath = null; // Clear for next navigation
+			return { success: true };
+		}
+
+		const result = await this.#runResolvers(matchResult);
+		this.#resolversExecutedForPath = null; // Clear after execution
+		return result;
+	}
+
+	/**
 	 * Navigate to a path with optional configuration.
 	 */
 	async navigate(path: string, options: INavigationOptions = {}): Promise<INavigationResult> {
@@ -241,6 +260,9 @@ export class RouterService {
 					error: resolverResult.error ?? 'Navigation blocked by resolver'
 				};
 			}
+
+			// Mark resolvers as executed for this path to avoid running twice
+			this.#resolversExecutedForPath = fullPath;
 		}
 
 		// Perform the navigation

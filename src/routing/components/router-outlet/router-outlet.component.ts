@@ -251,6 +251,16 @@ export class RouterOutletComponent {
 			return;
 		}
 
+		// Run resolvers before rendering (for initial page load)
+		if (matchResult.matches.length > 0) {
+			const resolverResult = await this._router.runResolvers(matchResult);
+			if (!resolverResult.success) {
+				console.error('Resolver failed:', resolverResult.error);
+				await this.#render404();
+				return;
+			}
+		}
+
 		// Update router with match result
 		this._router.setCurrentMatches(matchResult);
 

@@ -49,9 +49,8 @@ export class RouteContextService {
 		this.#currentMatchResult = result;
 		this.#matchStack = result.matches;
 
-		// Clear old contexts and resolved data
+		// Clear old contexts (resolved data is cleared by #runResolvers before storing new data)
 		this.#contexts.clear();
-		this.#resolvedData.clear();
 
 		// Build contexts for each depth level
 		let basePath = '';
