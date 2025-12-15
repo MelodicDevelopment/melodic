@@ -1,4 +1,4 @@
-import { MelodicComponent } from '../../../../src/components/melodic-component.decorator';
+import { MelodicComponent } from '../../../../src/components';
 import { html, css } from '../../../../src/template/functions/html.function';
 
 /**

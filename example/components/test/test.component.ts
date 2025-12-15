@@ -1,6 +1,6 @@
 import { css, html } from '../../../src';
 import type { OnAttributeChange } from '../../../src/components';
-import { MelodicComponent } from '../../../src/components/melodic-component.decorator';
+import { MelodicComponent } from '../../../src/components';
 import { signal } from '../../../src/signals/functions/signal.function';
 
 @MelodicComponent({

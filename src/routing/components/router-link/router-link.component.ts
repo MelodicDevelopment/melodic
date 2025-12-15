@@ -1,4 +1,4 @@
-import { MelodicComponent } from '../../../components/melodic-component.decorator';
+import { MelodicComponent } from '../../../components/decorators/melodic-component.decorator';
 import { Service } from '../../../injection/decorators/service.decorator';
 import { css, html } from '../../../template/functions/html.function';
 import type { INavigationOptions } from '../../interfaces/inavigation-options.interface';

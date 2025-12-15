@@ -7,7 +7,7 @@ import '../src/routing/components/router-link/router-link.component';
 // Now import app components (which may use routing directives in templates)
 import './components';
 import { bootstrap } from '../src/bootstrap';
-import { provideHttp } from '../src/http/provide-http.function';
+import { provideHttp } from '../src/http/functions/provide-http.function';
 import { provideRX } from '../src/state';
 import { appState, appReducers, appEffects } from './state/app.state';
 

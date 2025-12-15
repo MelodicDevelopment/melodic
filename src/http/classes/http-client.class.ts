@@ -1,12 +1,12 @@
 import { AbortError, HttpError, NetworkError } from './http-error.class';
-import type { IHttpClientConfig } from './interfaces/ihttp-client-config.interface';
-import type { IHttpRequestInterceptor } from './interfaces/ihttp-request-interceptor.interface';
-import type { IHttpResponseInterceptor } from './interfaces/ihttp-response-interceptor.interface';
-import type { IHttpResponse } from './interfaces/ihttp-response.interface';
-import type { IInterceptorApi } from './interfaces/iinterceptor-api.interface';
-import type { IProgressEvent } from './interfaces/iprogress-event.interface';
-import type { IRequestConfig } from './interfaces/irequest-config.interface';
-import type { HttpRequestBody } from './types/http-request-body.type';
+import type { IHttpClientConfig } from '../interfaces/ihttp-client-config.interface';
+import type { IHttpRequestInterceptor } from '../interfaces/ihttp-request-interceptor.interface';
+import type { IHttpResponseInterceptor } from '../interfaces/ihttp-response-interceptor.interface';
+import type { IHttpResponse } from '../interfaces/ihttp-response.interface';
+import type { IInterceptorApi } from '../interfaces/iinterceptor-api.interface';
+import type { IProgressEvent } from '../interfaces/iprogress-event.interface';
+import type { IRequestConfig } from '../interfaces/irequest-config.interface';
+import type { HttpRequestBody } from '../types/http-request-body.type';
 
 export class HttpClient {
 	private _clientConfig: IHttpClientConfig;

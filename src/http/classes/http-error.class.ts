@@ -1,5 +1,5 @@
-import type { IHttpResponse } from './interfaces/ihttp-response.interface';
-import type { IRequestConfig } from './interfaces/irequest-config.interface';
+import type { IHttpResponse } from '../interfaces/ihttp-response.interface';
+import type { IRequestConfig } from '../interfaces/irequest-config.interface';
 
 export abstract class HttpBaseError extends Error {
 	constructor(message: string, public readonly config: IRequestConfig, public readonly code?: string) {

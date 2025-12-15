@@ -1,4 +1,4 @@
-import { MelodicComponent } from '../../../../src/components/melodic-component.decorator';
+import { MelodicComponent } from '../../../../src/components';
 import { settingsPageTemplate } from './settings-page.template';
 import { settingsPageStyles } from './settings-page.styles';
 

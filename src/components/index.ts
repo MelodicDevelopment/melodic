@@ -1,5 +1,5 @@
-export { ComponentBase } from './component-base.class';
-export { MelodicComponent } from './melodic-component.decorator';
+export { ComponentBase } from './classes/component-base.class';
+export { MelodicComponent } from './decorators/melodic-component.decorator';
 
 export type * from './interfaces';
 export type * from './types';

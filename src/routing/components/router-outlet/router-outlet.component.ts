@@ -1,4 +1,4 @@
-import { MelodicComponent } from '../../../components/melodic-component.decorator';
+import { MelodicComponent } from '../../../components/decorators/melodic-component.decorator';
 import { Service } from '../../../injection/decorators/service.decorator';
 import { RouterService } from '../../services/router.service';
 import type { IRoute } from '../../interfaces/iroute.interface';

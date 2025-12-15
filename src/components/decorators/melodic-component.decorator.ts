@@ -1,8 +1,8 @@
-import type { INewable } from '../interfaces/inewable.interface';
-import { ComponentBase } from './component-base.class';
-import type { TypedComponentMeta } from './types/component-meta.type';
-import type { Component } from './types/component.type';
-import { Injector } from '../injection';
+import type { INewable } from '../../interfaces/inewable.interface';
+import { ComponentBase } from '../classes/component-base.class';
+import type { TypedComponentMeta } from '../types/component-meta.type';
+import type { Component } from '../types/component.type';
+import { Injector } from '../../injection/classes/injection-engine.class';
 
 export function MelodicComponent<C extends Component>(meta: TypedComponentMeta<C>): (component: INewable<C>) => void {
 	return function (component: INewable<C>): void {

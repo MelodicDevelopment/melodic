@@ -1,4 +1,4 @@
-import { MelodicComponent } from '../../../src/components/melodic-component.decorator';
+import { MelodicComponent } from '../../../src/components';
 import { featureDemoTemplate } from './feature-demo.template';
 import { featureDemoStyles } from './feature-demo.styles';
 import type { IElementRef } from '../../../src/components/interfaces/ielement-ref.interface';

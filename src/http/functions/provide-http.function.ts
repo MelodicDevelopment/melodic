@@ -1,6 +1,6 @@
-import type { Provider } from '../bootstrap/types/provider.type';
-import { HttpClient } from './http-client.class';
-import type { IHttpClientConfig, IHttpRequestInterceptor, IHttpResponseInterceptor } from './interfaces';
+import type { Provider } from '../../bootstrap/types/provider.type';
+import { HttpClient } from '../classes/http-client.class';
+import type { IHttpClientConfig, IHttpRequestInterceptor, IHttpResponseInterceptor } from '../interfaces';
 
 export function provideHttp(
 	httpClientConfig: IHttpClientConfig,

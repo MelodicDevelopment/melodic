@@ -1,4 +1,4 @@
-import { MelodicComponent } from '../../../src/components/melodic-component.decorator';
+import { MelodicComponent } from '../../../src/components';
 import { Service } from '../../../src/injection/decorators/service.decorator';
 import { RouterService } from '../../../src/routing';
 import { myAppTemplate } from './my-app.template';

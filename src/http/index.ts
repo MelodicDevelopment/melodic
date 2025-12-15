@@ -1,5 +1,4 @@
-export { HttpClient } from './http-client.class';
-export { HttpBaseError, HttpError, NetworkError, AbortError } from './http-error.class';
-
+export * from './classes';
+export * from './functions';
 export type * from './interfaces';
 export type * from './types';

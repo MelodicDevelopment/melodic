@@ -1,9 +1,9 @@
-import type { ComponentMeta } from './types/component-meta.type';
-import type { Component } from './types/component.type';
-import { render } from '../template/functions/render.function';
-import type { Unsubscriber } from '../signals/types/unsubscriber.type';
-import type { Signal } from '../signals/types/signal.type';
-import { isSignal } from '../signals/functions/is-signal.function';
+import type { ComponentMeta } from '../types/component-meta.type';
+import type { Component } from '../types/component.type';
+import { render } from '../../template/functions/render.function';
+import type { Unsubscriber } from '../../signals/types/unsubscriber.type';
+import type { Signal } from '../../signals/types/signal.type';
+import { isSignal } from '../../signals/functions/is-signal.function';
 
 export abstract class ComponentBase extends HTMLElement {
 	private _meta: ComponentMeta;

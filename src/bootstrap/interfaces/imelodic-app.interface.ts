@@ -1,4 +1,4 @@
-import type { HttpClient } from '../../http/http-client.class';
+import type { HttpClient } from '../../http/classes';
 import type { Token } from '../../injection';
 
 export interface IMelodicApp {
