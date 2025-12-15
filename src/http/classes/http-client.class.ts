@@ -7,9 +7,11 @@ import type { IInterceptorApi } from '../interfaces/iinterceptor-api.interface';
 import type { IProgressEvent } from '../interfaces/iprogress-event.interface';
 import type { IRequestConfig } from '../interfaces/irequest-config.interface';
 import type { HttpRequestBody } from '../types/http-request-body.type';
+import { RequestManager } from './request-manager.class';
 
 export class HttpClient {
 	private _clientConfig: IHttpClientConfig;
+	private _requestManager = new RequestManager();
 	private _interceptors: {
 		request: IHttpRequestInterceptor[];
 		response: IHttpResponseInterceptor[];
@@ -35,7 +37,7 @@ export class HttpClient {
 	}
 
 	public async get<T>(url: string, config?: IRequestConfig): Promise<IHttpResponse<T>> {
-		return this.internalRequest<T>({ method: 'GET', ...config, url });
+		return this.internalRequest<T>({ method: 'GET', ...config, url, deduplicate: config?.deduplicate ?? true });
 	}
 
 	public async post<T>(url: string, body?: HttpRequestBody, config?: IRequestConfig): Promise<IHttpResponse<T>> {
@@ -78,6 +80,11 @@ export class HttpClient {
 			return Promise.resolve(cancelledResponse);
 		}
 
+		if (requestConfig.abortController === undefined) {
+			const abortController = new AbortController();
+			requestConfig.abortController = abortController;
+		}
+
 		let response = await this.executeRequest<T>(requestConfig);
 		response = await this.executeResponseInterceptors(response);
 
@@ -85,17 +92,45 @@ export class HttpClient {
 	}
 
 	private async executeRequest<T>(config: IRequestConfig): Promise<IHttpResponse<T>> {
-		let response: Response;
-
 		try {
-			response = await fetch(config.url!, {
+			if (config.deduplicate === true) {
+				const requestKey = this._requestManager.generateRequestKey(config.method!, config.url!, config.body);
+
+				if (this._requestManager.hasPendingRequest(requestKey)) {
+					return this._requestManager.getPendingRequest<T>(requestKey)!;
+				}
+			}
+
+			const fetchPromise = fetch(config.url!, {
 				method: config.method,
 				headers: config.headers,
 				body: this.prepareBody(config.body),
 				credentials: config.credentials,
 				mode: config.mode,
-				signal: config.abortSignal
+				signal: config.abortController?.signal
+			}).then(async (response) => {
+				const data = await this.parseResponse<T>(response, config.onProgress);
+
+				const httpResponse: IHttpResponse<T> = {
+					data,
+					status: response.status,
+					statusText: response.statusText,
+					headers: response.headers,
+					config
+				};
+
+				if (!response.ok) {
+					throw new HttpError(`HTTP Error: ${response.status} ${response.statusText}`, httpResponse, config);
+				}
+
+				return httpResponse;
 			});
+
+			if (config.deduplicate === true) {
+				this._requestManager.addPendingRequest<T>(config, fetchPromise);
+			}
+
+			return await fetchPromise;
 		} catch (error: unknown) {
 			if (error instanceof Error && error.name === 'AbortError') {
 				throw new AbortError('Request aborted', config);
@@ -103,22 +138,6 @@ export class HttpClient {
 			const message = error instanceof Error ? error.message : 'Network error';
 			throw new NetworkError(message || 'Network error', config);
 		}
-
-		const data = await this.parseResponse<T>(response, config.onProgress);
-
-		const httpResponse: IHttpResponse<T> = {
-			data,
-			status: response.status,
-			statusText: response.statusText,
-			headers: response.headers,
-			config
-		};
-
-		if (!response.ok) {
-			throw new HttpError(`HTTP Error: ${response.status} ${response.statusText}`, httpResponse, config);
-		}
-
-		return httpResponse;
 	}
 
 	private async executeRequestInterceptors(config: IRequestConfig): Promise<IRequestConfig> {

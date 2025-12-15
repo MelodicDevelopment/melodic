@@ -13,9 +13,9 @@ export interface IRequestConfig {
 	//cache?: CacheStrategy;
 	//cacheTTL?: number;
 	//retry?: RetryConfig;
-	// deduplicate?: boolean;
+	deduplicate?: boolean;
 	onProgress?: (progress: IProgressEvent) => void;
-	abortSignal?: AbortSignal;
+	abortController?: AbortController;
 	credentials?: RequestCredentials;
 	mode?: RequestMode;
 	cancel?: IRequestCancellation;
