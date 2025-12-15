@@ -1,7 +1,7 @@
-import { Injector } from '../injection';
-import type { IAppConfig } from './interfaces/iapp-config.interface';
-import type { IMelodicApp } from './interfaces/imelodic-app.interface';
-import type { Token } from '../injection';
+import { Injector } from '../../injection';
+import type { IAppConfig } from '../interfaces/iapp-config.interface';
+import type { IMelodicApp } from '../interfaces/imelodic-app.interface';
+import type { Token } from '../../injection';
 
 export async function bootstrap(config: IAppConfig = {}): Promise<IMelodicApp> {
 	const devMode = config.devMode ?? false;
