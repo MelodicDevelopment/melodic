@@ -1,9 +1,9 @@
-import type { INewable } from '../interfaces';
-import type { Token } from './types/token.type';
+import type { INewable } from '../../interfaces';
+import type { Token } from '../types/token.type';
 import { Binding } from './binding.class';
-import { getTokenKey } from './function/get-token-key.function';
-import type { IClassBindingOptions } from './interfaces/iclass-binding-options.interface';
-import type { IFactoryBindingOptions } from './interfaces/ifactory-binding-options.interface';
+import { getTokenKey } from '../function/get-token-key.function';
+import type { IClassBindingOptions } from '../interfaces/iclass-binding-options.interface';
+import type { IFactoryBindingOptions } from '../interfaces/ifactory-binding-options.interface';
 
 export class InjectionEngine {
 	private _bindings: Map<string, Binding<unknown>> = new Map();

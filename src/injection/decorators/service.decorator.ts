@@ -1,4 +1,4 @@
-import { Injector } from '../injection-engine.class';
+import { Injector } from '../classes/injection-engine.class';
 import type { Token } from '../types/token.type';
 
 export function Service<T>(token: Token<T>) {

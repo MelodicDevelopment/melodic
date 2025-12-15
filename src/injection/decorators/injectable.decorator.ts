@@ -1,6 +1,6 @@
 import type { INewable } from '../../interfaces';
 import { getTokenKey } from '../function/get-token-key.function';
-import { Injector } from '../injection-engine.class';
+import { Injector } from '../';
 import type { IInjectableMeta } from '../interfaces/iinjectable-meta.interface';
 
 export function Injectable<T>(meta: IInjectableMeta<T> = {}): (target: INewable<T>) => void {
