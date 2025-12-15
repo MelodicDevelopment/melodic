@@ -1,6 +1,7 @@
 import type { HttpMethod } from '../types/http-method.type';
 import type { HttpRequestBody } from '../types/http-request-body.type';
 import type { IProgressEvent } from './iprogress-event.interface';
+import type { IRequestCancellation } from './irequest-cancellation.interface';
 
 export interface IRequestConfig {
 	url?: string;
@@ -12,9 +13,10 @@ export interface IRequestConfig {
 	//cache?: CacheStrategy;
 	//cacheTTL?: number;
 	//retry?: RetryConfig;
+	// deduplicate?: boolean;
 	onProgress?: (progress: IProgressEvent) => void;
 	abortSignal?: AbortSignal;
 	credentials?: RequestCredentials;
 	mode?: RequestMode;
-	// deduplicate?: boolean;
+	cancel?: IRequestCancellation;
 }

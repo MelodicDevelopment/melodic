@@ -58,6 +58,26 @@ export class HttpClient {
 		let requestConfig: IRequestConfig = this.mergeConfig(config);
 		requestConfig = await this.executeRequestInterceptors(requestConfig);
 
+		if (requestConfig.cancel?.cancelled) {
+			if (requestConfig.cancel.cancelReason) {
+				console.log('[HttpClient] Request cancelled:', requestConfig.cancel.cancelReason);
+			}
+
+			let cancelledResponse: IHttpResponse<T> = {
+				data: null as any,
+				status: 0,
+				statusText: 'Request Cancelled',
+				headers: new Headers(),
+				config: requestConfig
+			};
+
+			if (requestConfig.cancel.cancelledResponse) {
+				cancelledResponse = { ...cancelledResponse, ...(requestConfig.cancel.cancelledResponse as IHttpResponse<T>) };
+			}
+
+			return Promise.resolve(cancelledResponse);
+		}
+
 		let response = await this.executeRequest<T>(requestConfig);
 		response = await this.executeResponseInterceptors(response);
 
@@ -105,6 +125,10 @@ export class HttpClient {
 		for (const interceptor of this._interceptors.request) {
 			try {
 				config = await interceptor.intercept(config);
+
+				if (config.cancel?.cancelled) {
+					break;
+				}
 			} catch (error) {
 				if (interceptor.error) {
 					await interceptor.error(error as Error);
