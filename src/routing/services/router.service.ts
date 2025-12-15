@@ -1,48 +1,19 @@
 import { Injectable } from '../../injection/decorators/injectable.decorator';
 import type { IRouterEventState } from '../interfaces/irouter-event-state.interface';
-import type { IRoute, IRouteMatch, IRouteMatchResult } from '../interfaces/iroute.interface';
-import type { IGuardContext, IRouteGuard, AsyncGuardResult } from '../interfaces/iroute-guard.interface';
-import type { IResolverContext, IRouteResolver } from '../interfaces/iroute-resolver.interface';
+import type { IRouteGuard } from '../interfaces/iroute-guard.interface';
+import type { IRouteResolver } from '../interfaces/iroute-resolver.interface';
 import type { RouterStateEvent } from '../types/router-state-event.type';
-import { matchRouteTree, buildPathFromRoute } from '../classes/route-matcher.class';
 import { RouteContextService } from './route-context.service';
-
-/**
- * Navigation options for programmatic navigation.
- */
-export interface INavigationOptions {
-	/** Custom data to pass with the navigation */
-	data?: unknown;
-
-	/** Replace current history entry instead of pushing */
-	replace?: boolean;
-
-	/** Query parameters to append to the URL */
-	queryParams?: Record<string, string>;
-
-	/** Skip guard checks (use with caution) */
-	skipGuards?: boolean;
-
-	/** Skip resolver execution (use with caution) */
-	skipResolvers?: boolean;
-}
-
-/**
- * Navigation result returned from navigation attempts.
- */
-export interface INavigationResult {
-	/** Whether navigation was successful */
-	success: boolean;
-
-	/** The final URL navigated to (may differ if redirected) */
-	url?: string;
-
-	/** Error message if navigation failed */
-	error?: string;
-
-	/** If blocked by guard, the redirect path */
-	redirectTo?: string;
-}
+import type { IResolverContext } from '../interfaces/iresolver-context.interface';
+import type { AsyncGuardResult } from '../types/guard-result.type';
+import type { IGuardContext } from '../interfaces/iguard-context.interface';
+import type { INavigationOptions } from '../interfaces/inavigation-options.interface';
+import type { INavigationResult } from '../interfaces/inavigation-result.interface';
+import type { IRoute } from '../interfaces/iroute.interface';
+import type { IRouteMatch } from '../interfaces/iroute-match.interface';
+import type { IRouteMatchResult } from '../interfaces/iroute-match-result.interface';
+import { matchRouteTree } from '../functions/match-route-tree.function';
+import { buildPathFromRoute } from '../functions/build-path-from-route.function';
 
 const routerStateEvent = (type: RouterStateEvent, data: unknown, title: string, url: string): PopStateEvent => {
 	return new PopStateEvent('History', {
@@ -62,7 +33,7 @@ const routerStateEvent = (type: RouterStateEvent, data: unknown, title: string, 
 	});
 };
 
-// Wrap history methods to emit navigation events
+// monkey-patch history methods to emit NavigationEvent
 const pushState = history.pushState;
 history.pushState = (data: unknown, title: string, url?: string | URL | null): void => {
 	pushState.apply(history, [data, title, url]);
@@ -83,21 +54,19 @@ history.replaceState = (data: unknown, title: string, url?: string | URL | null)
 	window.dispatchEvent(navigationEvent);
 };
 
-@Injectable({
-	singleton: true
-})
+@Injectable()
 export class RouterService {
-	#route: IRouterEventState | undefined;
-	#routes: IRoute[] = [];
-	#contextService: RouteContextService;
-	#currentMatches: IRouteMatch[] = [];
-	#resolversExecutedForPath: string | null = null;
+	private _route: IRouterEventState | undefined;
+	private _routes: IRoute[] = [];
+	private _contextService: RouteContextService;
+	private _currentMatches: IRouteMatch[] = [];
+	private _resolversExecutedForPath: string | null = null;
 
 	constructor() {
-		this.#contextService = new RouteContextService();
+		this._contextService = new RouteContextService();
 
 		window.addEventListener('NavigationEvent', (event: Event) => {
-			this.#route = ((event as CustomEvent).detail as PopStateEvent).state;
+			this._route = ((event as CustomEvent).detail as PopStateEvent).state;
 		});
 
 		window.addEventListener('popstate', (event: PopStateEvent) => {
@@ -108,139 +77,88 @@ export class RouterService {
 		});
 	}
 
-	/**
-	 * Register the root route configuration.
-	 */
 	setRoutes(routes: IRoute[]): void {
-		this.#routes = routes;
+		this._routes = routes;
 	}
 
-	/**
-	 * Get the registered routes.
-	 */
 	getRoutes(): IRoute[] {
-		return this.#routes;
+		return this._routes;
 	}
 
-	/**
-	 * Get the route context service for nested outlet communication.
-	 */
 	getContextService(): RouteContextService {
-		return this.#contextService;
+		return this._contextService;
 	}
 
-	/**
-	 * Get the current route state.
-	 */
 	getRoute(): IRouterEventState | undefined {
-		return this.#route;
+		return this._route;
 	}
 
-	/**
-	 * Get current route parameters from all matched routes.
-	 */
 	getParams(): Record<string, string> {
-		return this.#contextService.getCurrentParams();
+		return this._contextService.getCurrentParams();
 	}
 
-	/**
-	 * Get a specific route parameter.
-	 */
 	getParam(name: string): string | undefined {
-		return this.#contextService.getCurrentParams()[name];
+		return this._contextService.getCurrentParams()[name];
 	}
 
-	/**
-	 * Get current query parameters.
-	 */
 	getQueryParams(): URLSearchParams {
 		return new URLSearchParams(window.location.search);
 	}
 
-	/**
-	 * Get the current matched route stack.
-	 */
 	getCurrentMatches(): IRouteMatch[] {
-		return [...this.#currentMatches];
+		return [...this._currentMatches];
 	}
 
-	/**
-	 * Get merged route data from all matched routes.
-	 * @param depth Optional depth to limit how far up the route tree to merge
-	 */
 	getRouteData(depth?: number): Record<string, unknown> {
-		return this.#contextService.getMergedRouteData(depth);
+		return this._contextService.getMergedRouteData(depth);
 	}
 
-	/**
-	 * Get resolved data from all matched routes.
-	 * @param depth Optional depth to limit how far up the route tree to merge
-	 */
 	getResolvedData(depth?: number): Record<string, unknown> {
-		return this.#contextService.getMergedResolvedData(depth);
+		return this._contextService.getMergedResolvedData(depth);
 	}
 
-	/**
-	 * Match a path against the route configuration.
-	 */
 	matchPath(path: string): IRouteMatchResult {
-		return matchRouteTree(this.#routes, path);
+		return matchRouteTree(this._routes, path);
 	}
 
-	/**
-	 * Update the current match result (called by router outlet after matching).
-	 */
 	setCurrentMatches(result: IRouteMatchResult): void {
-		this.#currentMatches = result.matches;
-		this.#contextService.setMatchResult(result);
+		this._currentMatches = result.matches;
+		this._contextService.setMatchResult(result);
 	}
 
-	/**
-	 * Run resolvers for a match result (used by router outlet on initial page load).
-	 * Skips execution if resolvers already ran for the current path (e.g., during navigate()).
-	 */
 	async runResolvers(matchResult: IRouteMatchResult): Promise<{ success: boolean; error?: string }> {
 		const currentPath = window.location.pathname;
 
-		// Skip if resolvers already ran for this path (e.g., from navigate())
-		if (this.#resolversExecutedForPath === currentPath) {
-			this.#resolversExecutedForPath = null; // Clear for next navigation
+		if (this._resolversExecutedForPath === currentPath) {
+			this._resolversExecutedForPath = null; // Clear for next navigation
 			return { success: true };
 		}
 
-		const result = await this.#runResolvers(matchResult);
-		this.#resolversExecutedForPath = null; // Clear after execution
+		const result = await this.runResolversInternal(matchResult);
+		this._resolversExecutedForPath = null; // Clear after execution
 		return result;
 	}
 
-	/**
-	 * Navigate to a path with optional configuration.
-	 */
 	async navigate(path: string, options: INavigationOptions = {}): Promise<INavigationResult> {
 		const { data, replace = false, queryParams, skipGuards = false, skipResolvers = false } = options;
 
-		// Build full URL with query params
 		let fullPath = path;
 		if (queryParams && Object.keys(queryParams).length > 0) {
 			const params = new URLSearchParams(queryParams);
 			fullPath = `${path}?${params.toString()}`;
 		}
 
-		// Match the route to check guards
 		const matchResult = this.matchPath(path);
 
-		// Handle redirects from route config
 		if (matchResult.redirectTo) {
 			return this.navigate(matchResult.redirectTo, { ...options, replace: true });
 		}
 
-		// Run guards if not skipped
 		if (!skipGuards && matchResult.matches.length > 0) {
-			const guardResult = await this.#runGuards(matchResult);
+			const guardResult = await this.runGuards(matchResult);
 
 			if (guardResult !== true) {
 				if (typeof guardResult === 'string') {
-					// Redirect
 					return this.navigate(guardResult, { ...options, skipGuards: true });
 				}
 				return {
@@ -250,9 +168,8 @@ export class RouterService {
 			}
 		}
 
-		// Run resolvers if not skipped
 		if (!skipResolvers && matchResult.matches.length > 0) {
-			const resolverResult = await this.#runResolvers(matchResult);
+			const resolverResult = await this.runResolversInternal(matchResult);
 
 			if (!resolverResult.success) {
 				return {
@@ -261,11 +178,9 @@ export class RouterService {
 				};
 			}
 
-			// Mark resolvers as executed for this path to avoid running twice
-			this.#resolversExecutedForPath = fullPath;
+			this._resolversExecutedForPath = fullPath;
 		}
 
-		// Perform the navigation
 		if (replace) {
 			history.replaceState(data, '', fullPath);
 		} else {
@@ -278,11 +193,8 @@ export class RouterService {
 		};
 	}
 
-	/**
-	 * Navigate by route name with parameters.
-	 */
 	async navigateByName(name: string, params: Record<string, string> = {}, options: INavigationOptions = {}): Promise<INavigationResult> {
-		const path = buildPathFromRoute(this.#routes, name, params);
+		const path = buildPathFromRoute(this._routes, name, params);
 
 		if (!path) {
 			return {
@@ -294,70 +206,35 @@ export class RouterService {
 		return this.navigate(path, options);
 	}
 
-	/**
-	 * Replace current history entry (simple version without guards/resolvers).
-	 */
 	replace(path: string, data?: unknown): void {
 		history.replaceState(data, '', path);
 	}
 
-	/**
-	 * Go back in history.
-	 */
 	back(): void {
 		history.back();
 	}
 
-	/**
-	 * Go forward in history.
-	 */
 	forward(): void {
 		history.forward();
 	}
 
-	/**
-	 * Go to a specific point in history.
-	 */
 	go(delta: number): void {
 		history.go(delta);
 	}
 
-	/**
-	 * Run activation guards for matched routes.
-	 */
-	async #runGuards(matchResult: IRouteMatchResult): Promise<boolean | string> {
-		for (const match of matchResult.matches) {
-			const guards = match.route.canActivate ?? [];
-
-			for (const guard of guards) {
-				const context = this.#createGuardContext(match, matchResult);
-				const result = await this.#executeGuard(guard, 'canActivate', context);
-
-				if (result !== true) {
-					return result;
-				}
-			}
-		}
-
-		return true;
-	}
-
-	/**
-	 * Run deactivation guards for current routes.
-	 */
 	async runDeactivationGuards(targetPath: string): Promise<boolean | string> {
-		for (const match of this.#currentMatches) {
+		for (const match of this._currentMatches) {
 			const guards = match.route.canDeactivate ?? [];
 
 			for (const guard of guards) {
-				const context = this.#createGuardContext(match, {
-					matches: this.#currentMatches,
-					params: this.#contextService.getCurrentParams(),
+				const context = this.createGuardContext(match, {
+					matches: this._currentMatches,
+					params: this._contextService.getCurrentParams(),
 					isExactMatch: true
 				});
 				context.targetPath = targetPath;
 
-				const result = await this.#executeGuard(guard, 'canDeactivate', context);
+				const result = await this.executeGuard(guard, 'canDeactivate', context);
 
 				if (result !== true) {
 					return result;
@@ -368,12 +245,28 @@ export class RouterService {
 		return true;
 	}
 
-	/**
-	 * Execute a single guard.
-	 */
-	async #executeGuard(guard: IRouteGuard, method: 'canActivate' | 'canDeactivate', context: IGuardContext): Promise<boolean | string> {
+	private async runGuards(matchResult: IRouteMatchResult): Promise<boolean | string> {
+		for (const match of matchResult.matches) {
+			const guards = match.route.canActivate ?? [];
+
+			for (const guard of guards) {
+				const context = this.createGuardContext(match, matchResult);
+				const result = await this.executeGuard(guard, 'canActivate', context);
+
+				if (result !== true) {
+					return result;
+				}
+			}
+		}
+
+		return true;
+	}
+
+	private async executeGuard(guard: IRouteGuard, method: 'canActivate' | 'canDeactivate', context: IGuardContext): Promise<boolean | string> {
 		const fn = guard[method];
-		if (!fn) return true;
+		if (!fn) {
+			return true;
+		}
 
 		try {
 			const result: AsyncGuardResult = fn.call(guard, context);
@@ -384,10 +277,7 @@ export class RouterService {
 		}
 	}
 
-	/**
-	 * Create guard context.
-	 */
-	#createGuardContext(match: IRouteMatch, matchResult: IRouteMatchResult): IGuardContext {
+	private createGuardContext(match: IRouteMatch, matchResult: IRouteMatchResult): IGuardContext {
 		return {
 			route: match,
 			matchedRoutes: matchResult.matches,
@@ -399,26 +289,23 @@ export class RouterService {
 		};
 	}
 
-	/**
-	 * Run resolvers for matched routes.
-	 * Resolvers run after guards pass, and if any resolver fails, navigation is blocked.
-	 */
-	async #runResolvers(matchResult: IRouteMatchResult): Promise<{ success: boolean; error?: string }> {
-		// Clear previous resolved data
-		this.#contextService.clearResolvedData();
+	private async runResolversInternal(matchResult: IRouteMatchResult): Promise<{ success: boolean; error?: string }> {
+		this._contextService.clearResolvedData();
 
 		for (let depth = 0; depth < matchResult.matches.length; depth++) {
 			const match = matchResult.matches[depth];
 			const resolvers = match.route.resolve;
 
-			if (!resolvers) continue;
+			if (!resolvers) {
+				continue;
+			}
 
 			const resolvedData: Record<string, unknown> = {};
-			const context = this.#createResolverContext(match, matchResult);
+			const context = this.createResolverContext(match, matchResult);
 
 			for (const [key, resolver] of Object.entries(resolvers)) {
 				try {
-					const result = await this.#executeResolver(resolver, context);
+					const result = await this.executeResolver(resolver, context);
 					resolvedData[key] = result;
 				} catch (error) {
 					console.error(`Resolver '${key}' failed:`, error);
@@ -429,25 +316,18 @@ export class RouterService {
 				}
 			}
 
-			// Store resolved data for this depth
-			this.#contextService.setResolvedData(depth, resolvedData);
+			this._contextService.setResolvedData(depth, resolvedData);
 		}
 
 		return { success: true };
 	}
 
-	/**
-	 * Execute a single resolver.
-	 */
-	async #executeResolver(resolver: IRouteResolver, context: IResolverContext): Promise<unknown> {
+	private async executeResolver(resolver: IRouteResolver, context: IResolverContext): Promise<unknown> {
 		const result = resolver.resolve(context);
 		return result instanceof Promise ? await result : result;
 	}
 
-	/**
-	 * Create resolver context.
-	 */
-	#createResolverContext(match: IRouteMatch, matchResult: IRouteMatchResult): IResolverContext {
+	private createResolverContext(match: IRouteMatch, matchResult: IRouteMatchResult): IResolverContext {
 		return {
 			route: match,
 			matchedRoutes: matchResult.matches,

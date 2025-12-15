@@ -1,8 +1,8 @@
 import { MelodicComponent } from '../../../components/melodic-component.decorator';
 import { Service } from '../../../injection/decorators/service.decorator';
 import { css, html } from '../../../template/functions/html.function';
+import type { INavigationOptions } from '../../interfaces/inavigation-options.interface';
 import { RouterService } from '../../services/router.service';
-import type { INavigationOptions } from '../../services/router.service';
 
 @MelodicComponent({
 	selector: 'router-link',
@@ -24,34 +24,20 @@ import type { INavigationOptions } from '../../services/router.service';
 export class RouterLinkComponent {
 	@Service(RouterService) private _router!: RouterService;
 
-	elementRef!: HTMLElement;
+	private _anchorElement: HTMLAnchorElement | null = null;
+	private _navigationCleanup: (() => void) | null = null;
 
-	/** Target path for navigation */
-	href: string = '';
-
-	/** Custom data to pass with navigation */
-	data: unknown = null;
-
-	/** Query parameters to append */
-	queryParams: Record<string, string> = {};
-
-	/** CSS class to apply when this link is active */
-	activeClass: string = 'active';
-
-	/** Whether to match exact path or prefix */
-	exactMatch: boolean = false;
-
-	/** Whether to replace history instead of push */
-	replace: boolean = false;
-
-	#anchorElement: HTMLAnchorElement | null = null;
-	#navigationCleanup: (() => void) | null = null;
+	public href: string = '';
+	public data: unknown = null;
+	public queryParams: Record<string, string> = {};
+	public activeClass: string = 'active';
+	public exactMatch: boolean = false;
+	public replace: boolean = false;
+	public elementRef!: HTMLElement;
 
 	onCreate(): void {
-		// Get the anchor element
-		this.#anchorElement = this.elementRef.shadowRoot?.querySelector('a') ?? null;
+		this._anchorElement = this.elementRef.shadowRoot?.querySelector('a') ?? null;
 
-		// Read initial attributes
 		const initialHref = this.elementRef.getAttribute('href');
 		if (initialHref) {
 			this.href = initialHref;
@@ -62,10 +48,8 @@ export class RouterLinkComponent {
 			this.activeClass = initialActiveClass;
 		}
 
-		// Update anchor href for accessibility
-		this.#updateAnchorHref();
+		this.updateAnchorHref();
 
-		// Click handler
 		this.elementRef.addEventListener(
 			'click',
 			(e: MouseEvent) => {
@@ -73,50 +57,56 @@ export class RouterLinkComponent {
 
 				// Don't navigate if modifier keys are pressed (allow new tab, etc.)
 				if (e.ctrlKey || e.metaKey || e.shiftKey) {
-					window.open(this.#buildFullPath(), '_blank');
+					window.open(this.buildFullPath(), '_blank');
 					return;
 				}
 
-				this.#navigate();
+				this.navigate();
 			},
 			false
 		);
 
-		// Listen for navigation to update active state
-		const handler = () => this.#updateActiveState();
+		const handler = () => this.updateActiveState();
 		window.addEventListener('NavigationEvent', handler);
-		this.#navigationCleanup = () => window.removeEventListener('NavigationEvent', handler);
+		this._navigationCleanup = () => window.removeEventListener('NavigationEvent', handler);
 
-		// Initial active state
-		this.#updateActiveState();
+		this.updateActiveState();
 	}
 
 	onDestroy(): void {
-		this.#navigationCleanup?.();
+		this._navigationCleanup?.();
 	}
 
 	onAttributeChange(attribute: string, _oldVal: unknown, newVal: unknown): void {
 		if (attribute === 'href') {
 			this.href = newVal as string;
-			this.#updateAnchorHref();
-			this.#updateActiveState();
+			this.updateAnchorHref();
+			this.updateActiveState();
 		} else if (attribute === 'active-class') {
 			this.activeClass = newVal as string;
-			this.#updateActiveState();
+			this.updateActiveState();
 		}
 	}
 
 	onPropertyChange(name: string): void {
 		if (name === 'href' || name === 'queryParams') {
-			this.#updateAnchorHref();
-			this.#updateActiveState();
+			this.updateAnchorHref();
+			this.updateActiveState();
 		}
 	}
 
-	/**
-	 * Build the full path including query params.
-	 */
-	#buildFullPath(): string {
+	isActive(): boolean {
+		const currentPath = window.location.pathname;
+		const linkPath = this.href.startsWith('/') ? this.href : `/${this.href}`;
+
+		if (this.exactMatch) {
+			return currentPath === linkPath;
+		}
+
+		return currentPath.startsWith(linkPath);
+	}
+
+	private buildFullPath(): string {
 		let path = this.href;
 
 		if (this.queryParams && Object.keys(this.queryParams).length > 0) {
@@ -127,19 +117,13 @@ export class RouterLinkComponent {
 		return path;
 	}
 
-	/**
-	 * Update the anchor element's href attribute.
-	 */
-	#updateAnchorHref(): void {
-		if (this.#anchorElement) {
-			this.#anchorElement.href = this.#buildFullPath();
+	private updateAnchorHref(): void {
+		if (this._anchorElement) {
+			this._anchorElement.href = this.buildFullPath();
 		}
 	}
 
-	/**
-	 * Perform the navigation.
-	 */
-	async #navigate(): Promise<void> {
+	private async navigate(): Promise<void> {
 		const options: INavigationOptions = {
 			data: this.data,
 			replace: this.replace,
@@ -149,10 +133,7 @@ export class RouterLinkComponent {
 		await this._router.navigate(this.href, options);
 	}
 
-	/**
-	 * Update the active state based on current URL.
-	 */
-	#updateActiveState(): void {
+	private updateActiveState(): void {
 		const currentPath = window.location.pathname;
 		const linkPath = this.href.startsWith('/') ? this.href : `/${this.href}`;
 		const normalizedCurrentPath = currentPath.replace(/\/$/, '') || '/';
@@ -163,31 +144,15 @@ export class RouterLinkComponent {
 		if (this.exactMatch) {
 			isActive = normalizedCurrentPath === normalizedLinkPath;
 		} else {
-			// Prefix match - link is active if current path starts with link path
 			isActive = normalizedCurrentPath === normalizedLinkPath || normalizedCurrentPath.startsWith(normalizedLinkPath + '/');
 		}
 
-		// Update host element class
 		if (isActive) {
 			this.elementRef.classList.add(this.activeClass);
-			this.#anchorElement?.setAttribute('aria-current', 'page');
+			this._anchorElement?.setAttribute('aria-current', 'page');
 		} else {
 			this.elementRef.classList.remove(this.activeClass);
-			this.#anchorElement?.removeAttribute('aria-current');
+			this._anchorElement?.removeAttribute('aria-current');
 		}
-	}
-
-	/**
-	 * Programmatically check if this link is currently active.
-	 */
-	isActive(): boolean {
-		const currentPath = window.location.pathname;
-		const linkPath = this.href.startsWith('/') ? this.href : `/${this.href}`;
-
-		if (this.exactMatch) {
-			return currentPath === linkPath;
-		}
-
-		return currentPath.startsWith(linkPath);
 	}
 }

@@ -2,7 +2,7 @@ import { Injector } from '../../injection';
 import { registerAttributeDirective } from '../../template/directives/functions/attribute-directive.functions';
 import type { AttributeDirectiveCleanupFunction } from '../../template/directives/types/attribute-directive-cleanup-function.type';
 import { RouterService } from '../services/router.service';
-import type { INavigationOptions } from '../services/router.service';
+import type { INavigationOptions } from '../interfaces/inavigation-options.interface';
 
 /**
  * Options for the routerLink directive when using object syntax.
