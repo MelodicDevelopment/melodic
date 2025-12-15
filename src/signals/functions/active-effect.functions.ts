@@ -1,4 +1,4 @@
-import type { SignalEffect } from '../signal-effect.class';
+import type { SignalEffect } from '../classes/signal-effect.class';
 
 let activeEffect: SignalEffect | null = null;
 

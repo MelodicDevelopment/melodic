@@ -1,5 +1,5 @@
 import { signal } from '../functions/signal.function';
-import { SignalEffect } from '../signal-effect.class';
+import { SignalEffect } from '../classes/signal-effect.class';
 import type { Signal } from '../types/signal.type';
 
 export function computed<T>(computation: () => T): Signal<T> {

@@ -1,18 +1,15 @@
-import type { Signal } from './types/signal.type';
-import { getActiveEffect, setActiveEffect } from './functions/active-effect.functions';
+import type { Signal } from '../types/signal.type';
+import { getActiveEffect, setActiveEffect } from '../functions/active-effect.functions';
 
 export class SignalEffect {
 	private _dependencies = new Set<Signal<unknown>>();
 	private _isRunning = false;
 	private _needsRerun = false;
 
-	// Stable bound reference for subscribe/unsubscribe
 	readonly run: () => void;
 
 	constructor(public execute: () => void) {
-		// Bind once so the same reference is used for subscribe/unsubscribe
 		this.run = () => {
-			// Prevent re-entrancy - if we're already running, schedule a rerun
 			if (this._isRunning) {
 				this._needsRerun = true;
 				return;
@@ -23,7 +20,6 @@ export class SignalEffect {
 			do {
 				this._needsRerun = false;
 
-				// Clear old subscriptions before re-running
 				this._dependencies.forEach((signal) => {
 					signal.unsubscribe(this.run);
 				});
