@@ -6,5 +6,4 @@ export interface IHttpResponse<T = any> {
 	statusText: string;
 	headers: Headers;
 	config: IRequestConfig;
-	//timing?: ResponseTiming;
 }

@@ -92,23 +92,23 @@ export class HttpClient {
 	}
 
 	private async executeRequest<T>(config: IRequestConfig): Promise<IHttpResponse<T>> {
-		try {
-			if (config.deduplicate === true) {
-				const requestKey = this._requestManager.generateRequestKey(config.method!, config.url!, config.body);
+		if (config.deduplicate === true) {
+			const requestKey = this._requestManager.generateRequestKey(config.method!, config.url!, config.body);
 
-				if (this._requestManager.hasPendingRequest(requestKey)) {
-					return this._requestManager.getPendingRequest<T>(requestKey)!;
-				}
+			if (this._requestManager.hasPendingRequest(requestKey)) {
+				return this._requestManager.getPendingRequest<T>(requestKey)!;
 			}
+		}
 
-			const fetchPromise = fetch(config.url!, {
-				method: config.method,
-				headers: config.headers,
-				body: this.prepareBody(config.body),
-				credentials: config.credentials,
-				mode: config.mode,
-				signal: config.abortController?.signal
-			}).then(async (response) => {
+		const fetchPromise = fetch(config.url!, {
+			method: config.method,
+			headers: config.headers,
+			body: this.prepareBody(config.body),
+			credentials: config.credentials,
+			mode: config.mode,
+			signal: config.abortController?.signal
+		})
+			.then(async (response) => {
 				const data = await this.parseResponse<T>(response, config.onProgress);
 
 				const httpResponse: IHttpResponse<T> = {
@@ -124,20 +124,20 @@ export class HttpClient {
 				}
 
 				return httpResponse;
+			})
+			.catch((error) => {
+				if (error instanceof Error && error.name === 'AbortError') {
+					throw new AbortError('Request aborted', config);
+				}
+				const message = error instanceof Error ? error.message : 'Network error';
+				throw new NetworkError(message || 'Network error', config);
 			});
 
-			if (config.deduplicate === true) {
-				this._requestManager.addPendingRequest<T>(config, fetchPromise);
-			}
-
-			return await fetchPromise;
-		} catch (error: unknown) {
-			if (error instanceof Error && error.name === 'AbortError') {
-				throw new AbortError('Request aborted', config);
-			}
-			const message = error instanceof Error ? error.message : 'Network error';
-			throw new NetworkError(message || 'Network error', config);
+		if (config.deduplicate === true) {
+			this._requestManager.addPendingRequest<T>(config, fetchPromise);
 		}
+
+		return await fetchPromise;
 	}
 
 	private async executeRequestInterceptors(config: IRequestConfig): Promise<IRequestConfig> {
