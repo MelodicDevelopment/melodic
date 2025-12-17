@@ -6,7 +6,7 @@ import type { ActionPayload, EmptyActionPayload } from '../types/action-payload.
 export abstract class Store<S extends object> {
 	private _state: Signal<S>;
 
-	private _actions: {
+	private _actionReducers: {
 		[key: string]: Reducer<S>;
 	} = {};
 
@@ -21,7 +21,7 @@ export abstract class Store<S extends object> {
 	}
 
 	protected addAction<T extends string, P extends ActionPayload = EmptyActionPayload>(type: T, reducer: (state: S, payload?: P) => S): TypedAction<T, P> {
-		this._actions[type] = reducer as (state: S, payload?: unknown) => S;
+		this._actionReducers[type] = reducer as (state: S, payload?: unknown) => S;
 
 		const actionRef: TypedAction<T, P> = {
 			type: type,
@@ -31,7 +31,13 @@ export abstract class Store<S extends object> {
 		return actionRef;
 	}
 
-	// public dispatch<P>(type: string, payload?: P): void {
+	public dispatch<T extends string, P extends ActionPayload = EmptyActionPayload>(action: TypedAction<T, P>, payload?: P): void {
+		const reducer = this._actionReducers[action.type];
 
-	// }
+		if (reducer) {
+			this._state.update((state) => reducer(state, payload));
+		} else {
+			throw new Error(`Action of type "${action.type}" is not registered in the store.`);
+		}
+	}
 }
