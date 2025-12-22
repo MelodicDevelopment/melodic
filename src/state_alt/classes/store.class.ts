@@ -7,6 +7,7 @@ import type { ActionEffect } from '../types/action-effect.type';
 export abstract class Store<S extends object> {
 	private _state: Signal<S>;
 
+	private _actions: Action[] = [];
 	private _actionReducers: {
 		[key: string]: Reducer<S>;
 	} = {};
@@ -33,6 +34,10 @@ export abstract class Store<S extends object> {
 		this.executeEffects(action);
 	}
 
+	public get actions(): Action[] {
+		return this._actions;
+	}
+
 	protected patchState(partial: Partial<S>): void {
 		this._state.update((state) => ({ ...state, ...partial }));
 	}
@@ -44,6 +49,8 @@ export abstract class Store<S extends object> {
 			type: type,
 			payload: {} as P
 		};
+
+		this._actions.push(actionRef);
 
 		return actionRef;
 	}

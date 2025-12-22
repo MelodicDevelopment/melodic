@@ -7,7 +7,8 @@ Attribute directives allow you to attach behavior to any element using a clean, 
 - [Overview](#overview)
 - [Using Attribute Directives](#using-attribute-directives)
 - [Built-in Directives](#built-in-directives)
-  - [routerLink](#routerlink)
+   - [routerLink](#routerlink)
+
 - [Creating Custom Directives](#creating-custom-directives)
 - [Directive Lifecycle](#directive-lifecycle)
 - [Examples](#examples)
@@ -284,6 +285,7 @@ Cleanup functions are called when:
 - The component is destroyed
 
 **Always return a cleanup function** if your directive:
+
 - Adds event listeners
 - Creates DOM elements
 - Sets up timers or intervals
