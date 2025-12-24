@@ -1,5 +1,5 @@
 import type { State } from '../types/state.type';
-import type { Action, ActionPayload, TypedAction } from '../types/action.type';
+import type { Action, ActionIdentifier, ActionPayload, TypedAction } from '../types/action.type';
 import type { ActionEffect, ActionEffects, ActionEffectsMap } from '../types/action-effect.type';
 import type { ActionReducerMap } from '../types/reducer-config.type';
 import { RX_INIT_STATE, RX_ACTION_PROVIDERS, RX_EFFECTS_PROVIDERS, RX_STATE_DEBUG } from '../injection.tokens';
@@ -9,10 +9,10 @@ import { type Signal, computed } from '../../signals';
 
 @Injectable()
 export class SignalStoreService<S> {
-	@Service(RX_INIT_STATE) private _state!: State<S>;
-	@Service(RX_ACTION_PROVIDERS) private _reducerMap!: ActionReducerMap<S>;
-	@Service(RX_EFFECTS_PROVIDERS) private _effectMap!: ActionEffectsMap<S>;
-	@Service(RX_STATE_DEBUG) private _debug!: boolean;
+	@Service(RX_INIT_STATE) private readonly _state!: State<S>;
+	@Service(RX_ACTION_PROVIDERS) private readonly _reducerMap!: ActionReducerMap<S>;
+	@Service(RX_EFFECTS_PROVIDERS) private readonly _effectMap!: ActionEffectsMap<S>;
+	@Service(RX_STATE_DEBUG) private readonly _debug!: boolean;
 
 	constructor() {
 		if (this._debug) {
@@ -30,9 +30,9 @@ export class SignalStoreService<S> {
 		console.log(this.getCurrentState());
 	}
 
-	dispatch<T extends string, P extends ActionPayload>(action: TypedAction<T, P>): void;
-	dispatch<K extends keyof S, T extends string, P extends ActionPayload>(key: K, action: TypedAction<T, P>): void;
-	dispatch<K extends keyof S, T extends string, P extends ActionPayload>(x: K | TypedAction<T, P>, y?: TypedAction<T, P>): void {
+	dispatch<T extends ActionIdentifier, P extends ActionPayload>(action: TypedAction<T, P>): void;
+	dispatch<K extends keyof S, T extends ActionIdentifier, P extends ActionPayload>(key: K, action: TypedAction<T, P>): void;
+	dispatch<K extends keyof S, T extends ActionIdentifier, P extends ActionPayload>(x: K | TypedAction<T, P>, y?: TypedAction<T, P>): void {
 		const key = typeof x === 'string' ? x : undefined;
 		const action: TypedAction<T, P> = (typeof x === 'string' ? y : x) as TypedAction<T, P>;
 
@@ -49,7 +49,7 @@ export class SignalStoreService<S> {
 		}
 	}
 
-	private dispatchWithKey<K extends keyof S, T extends string, P extends ActionPayload>(key: K, action: TypedAction<T, P>): void {
+	private dispatchWithKey<K extends keyof S, T extends ActionIdentifier, P extends ActionPayload>(key: K, action: TypedAction<T, P>): void {
 		if (!this._reducerMap[key]) {
 			throw new Error(`Reducer not found for key: ${key as string}`);
 		}
@@ -84,7 +84,7 @@ export class SignalStoreService<S> {
 		});
 	}
 
-	private dispatchWithoutKey<T extends string, P extends ActionPayload>(action: TypedAction<T, P>): void {
+	private dispatchWithoutKey<T extends ActionIdentifier, P extends ActionPayload>(action: TypedAction<T, P>): void {
 		const reducerWithKey = this.getReducerForAction(action);
 		if (reducerWithKey !== undefined) {
 			const newState = reducerWithKey.actionReducer.reducer(this._state[reducerWithKey.key](), action);
@@ -115,7 +115,7 @@ export class SignalStoreService<S> {
 		}
 	}
 
-	private getReducerForAction<T extends string, P extends ActionPayload>(
+	private getReducerForAction<T extends ActionIdentifier, P extends ActionPayload>(
 		action: TypedAction<T, P>
 	): { key: keyof S; actionReducer: ActionReducer<S[keyof S], Action> } | undefined {
 		const keys: (keyof S)[] = Object.keys(this._reducerMap) as (keyof S)[];
@@ -132,11 +132,11 @@ export class SignalStoreService<S> {
 		return undefined;
 	}
 
-	private getEffectsForAction<T extends string, P extends ActionPayload>(
+	private getEffectsForAction<T extends ActionIdentifier, P extends ActionPayload>(
 		action: TypedAction<T, P>
 	): { key: keyof S; actionEffects: ActionEffect[] } | undefined;
-	private getEffectsForAction<K extends keyof S, T extends string, P extends ActionPayload>(key: K, action: TypedAction<T, P>): ActionEffect[];
-	private getEffectsForAction<K extends keyof S, T extends string, P extends ActionPayload>(
+	private getEffectsForAction<K extends keyof S, T extends ActionIdentifier, P extends ActionPayload>(key: K, action: TypedAction<T, P>): ActionEffect[];
+	private getEffectsForAction<K extends keyof S, T extends ActionIdentifier, P extends ActionPayload>(
 		key: K | TypedAction<T, P>,
 		action?: TypedAction<T, P>
 	): ActionEffect[] | { key: keyof S; actionEffects: ActionEffect[] } | undefined {
@@ -147,7 +147,7 @@ export class SignalStoreService<S> {
 		}
 	}
 
-	private getEffectsForActionWithoutKey<T extends string, P extends ActionPayload>(
+	private getEffectsForActionWithoutKey<T extends ActionIdentifier, P extends ActionPayload>(
 		action: TypedAction<T, P>
 	): { key: keyof S; actionEffects: ActionEffect[] } | undefined {
 		const keys: (keyof S)[] = Object.keys(this._reducerMap) as (keyof S)[];
@@ -168,7 +168,10 @@ export class SignalStoreService<S> {
 		return undefined;
 	}
 
-	private getEffectsForActionWithKey<K extends keyof S, T extends string, P extends ActionPayload>(key: K, action: TypedAction<T, P>): ActionEffect[] {
+	private getEffectsForActionWithKey<K extends keyof S, T extends ActionIdentifier, P extends ActionPayload>(
+		key: K,
+		action: TypedAction<T, P>
+	): ActionEffect[] {
 		const effectClass = this._effectMap[key as keyof S];
 		if (effectClass) {
 			const effectService: ActionEffects = Injector.get(effectClass);

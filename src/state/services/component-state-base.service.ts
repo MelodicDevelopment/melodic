@@ -1,19 +1,17 @@
-import type { ActionPayload, TypedAction, ActionEffect, ReducerConfig, Action } from '../types';
+import type { ActionPayload, TypedAction, ActionEffect, ReducerConfig, Action, ActionIdentifier } from '../types';
 import { EffectsBase } from './effects.base.class';
 import { type Signal, signal, computed } from '../../signals';
 
 export abstract class ComponentStateBaseService<S extends object> extends EffectsBase {
-	private _state: Signal<S>;
-	private _debug = false;
+	private readonly _state: Signal<S>;
 
 	constructor(
-		private _initState: S,
-		private _reducerConfig: ReducerConfig<S, Action> = { reducers: [] },
-		debug: boolean = false
+		private readonly _initState: S,
+		private readonly _reducerConfig: ReducerConfig<S, Action> = { reducers: [] },
+		private readonly _debug: boolean = false
 	) {
 		super();
 		this._state = signal(_initState);
-		this._debug = debug;
 	}
 
 	protected get state(): S {
@@ -28,7 +26,7 @@ export abstract class ComponentStateBaseService<S extends object> extends Effect
 		return computed(() => selectFn(this._state()));
 	}
 
-	dispatch<T extends string, P extends ActionPayload>(action: TypedAction<T, P>): void {
+	dispatch<T extends ActionIdentifier, P extends ActionPayload>(action: TypedAction<T, P>): void {
 		if (this._debug) {
 			console.log(`[ComponentState] Action: ${action.type}`);
 			console.log(`[ComponentState] Payload:`, action.payload);
@@ -53,7 +51,7 @@ export abstract class ComponentStateBaseService<S extends object> extends Effect
 		this._state.update((state) => ({ ...state, ...partial }));
 	}
 
-	private executeEffects<T extends string, P extends ActionPayload>(action: TypedAction<T, P>): void {
+	private executeEffects<T extends ActionIdentifier, P extends ActionPayload>(action: TypedAction<T, P>): void {
 		const actionEffects: ActionEffect[] = this.getEffects().filter((effect) => effect.actions.some((a) => a().type === action.type));
 
 		actionEffects.forEach((effect) => {
