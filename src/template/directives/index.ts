@@ -4,6 +4,8 @@ export { when } from './builtin/when.directive';
 export { classMap } from './builtin/class-map.directive';
 export { styleMap } from './builtin/style-map.directive';
 export { unsafeHTML } from './builtin/unsafe-html.directive';
+export { portalDirective } from './builtin/portal.directive';
+export type { PortalOptions, PortalValue } from './builtin/portal.directive';
 
 // Directive utilities
 export { directive } from './functions/directive.function';
