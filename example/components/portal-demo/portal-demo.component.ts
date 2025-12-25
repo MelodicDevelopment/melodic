@@ -19,7 +19,7 @@ export class PortalDemoComponent implements OnInit {
 	tooltipPosition = { x: 0, y: 0 };
 
 	// Notification state
-	notifications: Array<{ id: number; message: string }> = [];
+	notifications: Array<{ id: number; message: string; isNew: boolean }> = [];
 	private notificationId = 0;
 
 	onInit(): void {
@@ -62,7 +62,12 @@ export class PortalDemoComponent implements OnInit {
 		const messages = ['Action completed successfully!', 'Your changes have been saved.', 'New message received.', 'Update available.'];
 		const message = messages[Math.floor(Math.random() * messages.length)];
 
-		this.notifications = [...this.notifications, { id, message }];
+		this.notifications = [...this.notifications, { id, message, isNew: true }];
+
+		// Mark as not new after animation completes (300ms)
+		setTimeout(() => {
+			this.notifications = this.notifications.map((n) => (n.id === id ? { ...n, isNew: false } : n));
+		}, 350);
 
 		// Auto-remove after 3 seconds
 		setTimeout(() => {

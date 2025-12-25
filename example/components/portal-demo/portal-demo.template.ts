@@ -1,4 +1,4 @@
-import { html, repeat } from '../../../src/template';
+import { html, repeat, classMap } from '../../../src/template';
 import type { PortalDemoComponent } from './portal-demo.component';
 
 export function portalDemoTemplate(component: PortalDemoComponent) {
@@ -59,7 +59,7 @@ export function portalDemoTemplate(component: PortalDemoComponent) {
 						component.notifications,
 						(n) => n.id,
 						(notification) => html`
-							<div class="notification">
+							<div class=${classMap({ notification: true, 'notification--animating': notification.isNew })}>
 								<span>${notification.message}</span>
 								<button class="dismiss" @click=${() => component.removeNotification(notification.id)}>&times;</button>
 							</div>
