@@ -36,4 +36,38 @@ describe('router service', () => {
 		expect(result.success).toBe(true);
 		expect(router.getResolvedData()).toEqual({ status: 'ready' });
 	});
+
+	it('matches params and redirects', () => {
+		const router = new RouterService();
+		router.setRoutes([
+			{ path: 'users/:id' },
+			{ path: 'old', redirectTo: '/new' }
+		]);
+
+		const match = router.matchPath('/users/42');
+		expect(match.params).toEqual({ id: '42' });
+		expect(match.isExactMatch).toBe(true);
+
+		const redirectMatch = router.matchPath('/old');
+		expect(redirectMatch.redirectTo).toBe('/new');
+	});
+
+	it('blocks navigation when canDeactivate guard returns false', async () => {
+		const guard: IRouteGuard = {
+			canDeactivate: () => false
+		};
+		const router = new RouterService();
+		router.setRoutes([
+			{ path: 'page', canDeactivate: [guard] },
+			{ path: 'other' }
+		]);
+
+		history.replaceState(null, '', '/page');
+		const currentMatch = router.matchPath('/page');
+		router.setCurrentMatches(currentMatch);
+
+		const result = await router.navigate('/other');
+		expect(result.success).toBe(false);
+		expect(window.location.pathname).toBe('/page');
+	});
 });

@@ -58,4 +58,36 @@ describe('template attributes', () => {
 		expect(cleanups).toBe(1);
 		expect(element?.getAttribute('data-test')).toBe('two');
 	});
+
+	it('executes static action directives once (case-insensitive lookup)', () => {
+		let calls = 0;
+
+		registerAttributeDirective('MyAction', (element, value) => {
+			calls += 1;
+			element.setAttribute('data-action', String(value));
+		});
+
+		render(html`<div :myaction="static"></div>`, container);
+		const element = container.querySelector('div');
+		expect(calls).toBe(1);
+		expect(element?.getAttribute('data-action')).toBe('static');
+
+		render(html`<div :myaction="static"></div>`, container);
+		expect(calls).toBe(1);
+	});
+
+	it('cleans up action directives when template changes', () => {
+		let cleanups = 0;
+
+		registerAttributeDirective('cleanupSwitch', () => {
+			return () => {
+				cleanups += 1;
+			};
+		});
+
+		render(html`<div :cleanupSwitch=${'one'}></div>`, container);
+		render(html`<span>Next</span>`, container);
+
+		expect(cleanups).toBe(1);
+	});
 });

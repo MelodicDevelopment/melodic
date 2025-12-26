@@ -29,6 +29,13 @@ describe('template rendering', () => {
 		const el = container.querySelector('div');
 		expect(el?.classList.contains('active')).toBe(true);
 		expect(el?.classList.contains('disabled')).toBe(false);
+
+		render(
+			html`<div class=${classMap({ active: false, disabled: true })}></div>`,
+			container
+		);
+		expect(el?.classList.contains('active')).toBe(false);
+		expect(el?.classList.contains('disabled')).toBe(true);
 	});
 
 	it('supports when directives', () => {
@@ -37,5 +44,8 @@ describe('template rendering', () => {
 
 		render(html`<div>${when(false, () => html`<span>no</span>`)}</div>`, container);
 		expect(container.textContent).not.toContain('no');
+
+		render(html`<div>${when(true, () => html`<span>back</span>`)}</div>`, container);
+		expect(container.textContent).toContain('back');
 	});
 });
