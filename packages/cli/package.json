@@ -1,5 +1,5 @@
 {
-	"name": "@melodic/cli",
+	"name": "@melodicdev/cli",
 	"version": "0.0.0",
 	"type": "module",
 	"bin": {

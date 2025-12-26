@@ -1,5 +1,5 @@
 import './components/app.component';
-import { bootstrap } from '@melodic/core/bootstrap';
+import { bootstrap } from '@melodicdev/core/bootstrap';
 
 await bootstrap({
 	target: '#app',

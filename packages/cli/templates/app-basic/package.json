@@ -8,7 +8,7 @@
 		"preview": "vite preview"
 	},
 	"dependencies": {
-		"@melodic/core": "latest"
+		"@melodicdev/core": "latest"
 	},
 	"devDependencies": {
 		"typescript": "~5.9.3",

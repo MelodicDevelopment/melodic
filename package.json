@@ -1,7 +1,7 @@
 {
-	"name": "@melodic/core",
+	"name": "@melodicdev/core",
 	"private": false,
-	"version": "0.0.0",
+	"version": "0.0.2",
 	"type": "module",
 	"files": [
 		"lib",
@@ -62,7 +62,7 @@
 		"dev": "vite",
 		"build": "tsc && vite build",
 		"build:lib": "tsc -p tsconfig.build.json",
-		"build:cli": "npm --workspace @melodic/cli run build",
+		"build:cli": "npm --workspace @melodicdev/cli run build",
 		"prepublishOnly": "npm run build:lib",
 		"test": "vitest",
 		"test:unit": "vitest run",

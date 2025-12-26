@@ -6,64 +6,74 @@ A lightweight scaffolding tool for Melodic apps and monorepos.
 
 Build the CLI in this workspace:
 
-```
-npm --workspace @melodic/cli run build
+```sh
+npm --workspace @melodicdev/cli run build
 ```
 
 Run it directly:
 
-```
+```sh
 node packages/cli/dist/index.js --help
 ```
 
 ## Commands
 
 ### `melodic init <directory> [--monorepo] [--app-name <name>]`
+
 Create a new Melodic project.
 
 - Single app:
-  - `melodic init my-app`
+   - `melodic init my-app`
+
 - Monorepo with `apps/` and `packages/`:
-  - `melodic init my-repo --monorepo --app-name web`
+   - `melodic init my-repo --monorepo --app-name web`
 
 ### `melodic add app <name> [--dir apps]`
+
 Add a new app folder inside a monorepo.
 
-```
+```sh
 melodic add app admin
 ```
 
 ### `melodic add lib <name> [--dir packages]`
+
 Add a new shared library folder inside a monorepo.
 
-```
+```sh
 melodic add lib shared
 ```
 
 ### `melodic add testing [--path .]`
+
 Add a basic Vitest + happy-dom testing setup to the target path.
 
-```
+```sh
 melodic add testing --path apps/web
 ```
 
 ### `melodic generate component <name> [--path src/components]`
+
 Create a component with `.component.ts`, `.template.ts`, and `.styles.ts`.
 
-```
+```sh
 melodic generate component user-card --path apps/web/src/components
 ```
 
 ### `melodic generate directive <name> [--path src/directives]`
+
 Create a template directive.
 
 ### `melodic generate attribute-directive <name> [--path src/directives]`
+
 Create and register an attribute directive.
 
 ### `melodic generate service <name> [--path src/services]`
+
 Create an injectable service.
 
 ### `melodic generate interceptor <name> [--path src/http/interceptors]`
+
 Create HTTP request/response interceptors.
 
 ## Templates

@@ -202,17 +202,17 @@ const generateComponent = async (rootPath: string, name: string, dirName: string
 
 	await writeFileSafe(
 		templatePath,
-		`import { html } from '@melodic/core/template';\nimport type { ${className}Component } from './${fileBase}.component';\n\nexport const ${className}Template = (component: ${className}Component) => html\`\n\t<section>\n\t\t<h2>${className}</h2>\n\t</section>\n\`;\n`
+		`import { html } from '@melodicdev/core/template';\nimport type { ${className}Component } from './${fileBase}.component';\n\nexport const ${className}Template = (component: ${className}Component) => html\`\n\t<section>\n\t\t<h2>${className}</h2>\n\t</section>\n\`;\n`
 	);
 
 	await writeFileSafe(
 		stylesPath,
-		`import { css } from '@melodic/core/template';\n\nexport const ${className}Styles = () => css\`\n\t:host {\n\t\tdisplay: block;\n\t}\n\`;\n`
+		`import { css } from '@melodicdev/core/template';\n\nexport const ${className}Styles = () => css\`\n\t:host {\n\t\tdisplay: block;\n\t}\n\`;\n`
 	);
 
 	await writeFileSafe(
 		componentPath,
-		`import { MelodicComponent } from '@melodic/core/components';\nimport { ${className}Template } from './${fileBase}.template';\nimport { ${className}Styles } from './${fileBase}.styles';\n\n@MelodicComponent({\n\tselector: '${fileBase}',\n\ttemplate: ${className}Template,\n\tstyles: ${className}Styles\n})\nexport class ${className}Component {}\n`
+		`import { MelodicComponent } from '@melodicdev/core/components';\nimport { ${className}Template } from './${fileBase}.template';\nimport { ${className}Styles } from './${fileBase}.styles';\n\n@MelodicComponent({\n\tselector: '${fileBase}',\n\ttemplate: ${className}Template,\n\tstyles: ${className}Styles\n})\nexport class ${className}Component {}\n`
 	);
 };
 
@@ -222,7 +222,7 @@ const generateDirective = async (rootPath: string, name: string, dirName: string
 	const directivePath = path.join(rootPath, dirName, `${fileBase}.directive.ts`);
 	await writeFileSafe(
 		directivePath,
-		`import { directive } from '@melodic/core/template';\n\nexport const ${exportName}Directive = directive((container: Node) => {\n\tconst element = container as HTMLElement;\n\telement.textContent = element.textContent ?? '';\n\treturn undefined;\n});\n`
+		`import { directive } from '@melodicdev/core/template';\n\nexport const ${exportName}Directive = directive((container: Node) => {\n\tconst element = container as HTMLElement;\n\telement.textContent = element.textContent ?? '';\n\treturn undefined;\n});\n`
 	);
 };
 
@@ -231,7 +231,7 @@ const generateAttributeDirective = async (rootPath: string, name: string, dirNam
 	const directivePath = path.join(rootPath, dirName, `${fileBase}.attribute-directive.ts`);
 	await writeFileSafe(
 		directivePath,
-		`import { registerAttributeDirective } from '@melodic/core/template';\nimport type { AttributeDirectiveCleanupFunction } from '@melodic/core/template';\n\nconst ${fileBase.replace(/-/g, '_')}_directive = (element: Element, value: unknown): AttributeDirectiveCleanupFunction | void => {\n\telement.setAttribute('data-${fileBase}', String(value ?? ''));\n\treturn () => {\n\t\telement.removeAttribute('data-${fileBase}');\n\t};\n};\n\nregisterAttributeDirective('${fileBase}', ${fileBase.replace(/-/g, '_')}_directive);\n\nexport { ${fileBase.replace(/-/g, '_')}_directive as ${toPascalCase(name)}AttributeDirective };\n`
+		`import { registerAttributeDirective } from '@melodicdev/core/template';\nimport type { AttributeDirectiveCleanupFunction } from '@melodicdev/core/template';\n\nconst ${fileBase.replace(/-/g, '_')}_directive = (element: Element, value: unknown): AttributeDirectiveCleanupFunction | void => {\n\telement.setAttribute('data-${fileBase}', String(value ?? ''));\n\treturn () => {\n\t\telement.removeAttribute('data-${fileBase}');\n\t};\n};\n\nregisterAttributeDirective('${fileBase}', ${fileBase.replace(/-/g, '_')}_directive);\n\nexport { ${fileBase.replace(/-/g, '_')}_directive as ${toPascalCase(name)}AttributeDirective };\n`
 	);
 };
 
@@ -241,7 +241,7 @@ const generateService = async (rootPath: string, name: string, dirName: string):
 	const servicePath = path.join(rootPath, dirName, `${fileBase}.service.ts`);
 	await writeFileSafe(
 		servicePath,
-		`import { Injectable } from '@melodic/core/injection';\n\n@Injectable()\nexport class ${className}Service {\n\tgetStatus(): string {\n\t	return '${className} ready';\n\t}\n}\n`
+		`import { Injectable } from '@melodicdev/core/injection';\n\n@Injectable()\nexport class ${className}Service {\n\tgetStatus(): string {\n\t	return '${className} ready';\n\t}\n}\n`
 	);
 };
 
@@ -251,7 +251,7 @@ const generateInterceptor = async (rootPath: string, name: string, dirName: stri
 	const interceptorPath = path.join(rootPath, dirName, `${fileBase}.interceptor.ts`);
 	await writeFileSafe(
 		interceptorPath,
-		`import type { IHttpRequestInterceptor, IHttpResponseInterceptor, IRequestConfig, IHttpResponse } from '@melodic/core/http';\n\nexport const ${className}RequestInterceptor: IHttpRequestInterceptor = {\n\tintercept: async (request: IRequestConfig): Promise<IRequestConfig> => {\n\t	return request;\n\t},\n\terror: async (error: Error): Promise<unknown> => {\n\t	throw error;\n\t}\n};\n\nexport const ${className}ResponseInterceptor: IHttpResponseInterceptor = {\n\tintercept: async <T>(response: IHttpResponse<T>): Promise<IHttpResponse<T>> => {\n\t	return response;\n\t},\n\terror: async (error: Error): Promise<unknown> => {\n\t	throw error;\n\t}\n};\n`
+		`import type { IHttpRequestInterceptor, IHttpResponseInterceptor, IRequestConfig, IHttpResponse } from '@melodicdev/core/http';\n\nexport const ${className}RequestInterceptor: IHttpRequestInterceptor = {\n\tintercept: async (request: IRequestConfig): Promise<IRequestConfig> => {\n\t	return request;\n\t},\n\terror: async (error: Error): Promise<unknown> => {\n\t	throw error;\n\t}\n};\n\nexport const ${className}ResponseInterceptor: IHttpResponseInterceptor = {\n\tintercept: async <T>(response: IHttpResponse<T>): Promise<IHttpResponse<T>> => {\n\t	return response;\n\t},\n\terror: async (error: Error): Promise<unknown> => {\n\t	throw error;\n\t}\n};\n`
 	);
 };
 

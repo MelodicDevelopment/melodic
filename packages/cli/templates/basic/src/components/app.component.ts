@@ -1,6 +1,6 @@
-import { MelodicComponent } from '@melodic/core/components';
-import { html } from '@melodic/core/template';
-import { signal } from '@melodic/core/signals';
+import { MelodicComponent } from '@melodicdev/core/components';
+import { html } from '@melodicdev/core/template';
+import { signal } from '@melodicdev/core/signals';
 
 @MelodicComponent({
 	selector: 'app-root',
