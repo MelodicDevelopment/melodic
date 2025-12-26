@@ -1,11 +1,11 @@
 # Repository Guidelines
 
 ## Project Structure & Module Organization
-- `src/` holds the framework source code, split by domain (`components/`, `template/`, `signals/`, `routing/`, `state/`, `http/`).
-- `example/` contains demo components and usage samples.
-- `benchmark/` includes performance test pages and scripts.
-- `docs/` hosts supplemental documentation.
-- `dist/` is the build output (generated).
+- `src/` contains the framework source, split by domain (`components/`, `template/`, `signals/`, `routing/`, `state/`, `http/`).
+- `example/` hosts demo components and usage samples; add small demos here for new features.
+- `benchmark/` includes performance pages and scripts for regression checks.
+- `docs/` contains supplemental documentation.
+- `dist/` is generated build output; do not edit manually.
 
 ## Build, Test, and Development Commands
 - `npm run dev`: start the Vite dev server for local development.
@@ -15,21 +15,26 @@
 - `npm run benchmark:update`: rebuild and refresh benchmark baselines.
 
 ## Coding Style & Naming Conventions
-- Indentation: tabs are used in TypeScript sources; keep new files consistent.
-- Type-only imports: use `import type` where applicable (`tsconfig` uses `verbatimModuleSyntax`).
-- Component file pattern (when applicable):
+- Indentation: use tabs in TypeScript sources; match existing files in other directories.
+- Type-only imports: use `import type` where applicable (`verbatimModuleSyntax` is enabled).
+- Component files (when relevant):
   - `component-name.component.ts`
   - `component-name.template.ts`
   - `component-name.styles.ts`
+- Keep code examples concise and scoped to the impacted area (e.g., new demos in `example/`).
 
 ## Testing Guidelines
-- No automated test framework is configured yet; validate changes via manual usage or the benchmark flow.
-- Keep new code easy to exercise in `example/` or add focused demo entries when needed.
+- No automated test framework is configured yet.
+- Validate changes by running the dev server or benchmark flow.
+- If behavior needs manual coverage, add a focused example in `example/`.
 
 ## Commit & Pull Request Guidelines
-- Commit messages follow a short, imperative style with capitalized verbs (e.g., "Add effect system to Store").
-- PRs should include: a clear description, linked issues (if any), and screenshots or usage notes for UI/behavior changes.
+- Commit messages use short, imperative, capitalized verbs (e.g., "Add effect system to Store").
+- Pull requests should include:
+  - A clear description of changes and rationale.
+  - Linked issues or tickets when applicable.
+  - Screenshots or usage notes for UI/behavior changes.
 
-## Architecture & References
-- Public API exports are centralized in `src/index.ts`; update it when exposing new modules.
-- This repo does not rely on assistant-specific guidance files; treat them as optional or out-of-scope if present.
+## Architecture & Public API Notes
+- Public API exports are centralized in `src/index.ts`; update this file when exposing new modules.
+- Keep new modules aligned with existing domain folders to maintain structure.
