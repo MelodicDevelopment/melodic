@@ -177,7 +177,7 @@ export class TemplateResult {
 				});
 				return html.slice(0, -(match?.[0].length ?? 0)) + `__action-${index}__=""`;
 			},
-			'__': (index: number, html: string, attrName?: string) => {
+			'__': (index: number, html: string, _?: string) => {
 				// Regular attribute
 				return html + createAttributeMarker(index);
 			},
@@ -194,9 +194,7 @@ export class TemplateResult {
 
 	private prepareParts(clone: Node, templateParts: ITemplatePart[]): ITemplatePart[] {
 		const parts: ITemplatePart[] = [];
-		const nodeParts = templateParts
-			.filter((part) => part.type === 'node')
-			.sort((a, b) => a.index - b.index);
+		const nodeParts = templateParts.filter((part) => part.type === 'node').sort((a, b) => a.index - b.index);
 		let nodePartCursor = 0;
 		const eventPartsByIndex = new Map<number, ITemplatePart>();
 		const propertyPartsByIndex = new Map<number, ITemplatePart>();
@@ -281,8 +279,7 @@ export class TemplateResult {
 					} else if (attr.value.includes(ATTRIBUTE_MARKER_PREFIX)) {
 						const attributeInfo = this.parseAttributeValue(attr.value);
 						if (attributeInfo) {
-							const isComposite =
-								attributeInfo.indices.length > 1 || attributeInfo.strings.some((segment) => segment.length > 0);
+							const isComposite = attributeInfo.indices.length > 1 || attributeInfo.strings.some((segment) => segment.length > 0);
 							parts.push({
 								type: 'attribute',
 								index: attributeInfo.indices[0],
@@ -429,11 +426,10 @@ export class TemplateResult {
 		const keyedValues = this.getKeyedValues(values);
 
 		if (keyedValues) {
-			const state =
-				part.arrayState ?? {
-					items: new Map<unknown, { key: unknown; value: unknown; container: DocumentFragment; nodes: Node[] }>(),
-					keys: []
-				};
+			const state = part.arrayState ?? {
+				items: new Map<unknown, { key: unknown; value: unknown; container: DocumentFragment; nodes: Node[] }>(),
+				keys: []
+			};
 
 			const newItems = new Map<unknown, { key: unknown; value: unknown; container: DocumentFragment; nodes: Node[] }>();
 			const newKeys: unknown[] = [];
@@ -524,11 +520,7 @@ export class TemplateResult {
 		return keyedValues;
 	}
 
-	private createArrayItem(
-		value: unknown,
-		parent: Node,
-		endMarker: Comment
-	): { container: DocumentFragment; nodes: Node[] } {
+	private createArrayItem(value: unknown, parent: Node, endMarker: Comment): { container: DocumentFragment; nodes: Node[] } {
 		const container = document.createDocumentFragment();
 		if (value instanceof TemplateResult) {
 			value.renderInto(container);
