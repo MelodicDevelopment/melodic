@@ -2,6 +2,25 @@ import { css } from '../../../src/template/functions/html.function';
 
 export function featureDemoStyles() {
 	return css`
+		@keyframes fadeIn {
+			from {
+				opacity: 0;
+			}
+			to {
+				opacity: 1;
+			}
+		}
+
+		@keyframes pulse {
+			0%,
+			100% {
+				transform: scale(1);
+			}
+			50% {
+				transform: scale(1.05);
+			}
+		}
+
 		:host {
 			--primary-color: #007bff;
 			--secondary-color: #6c757d;
@@ -160,15 +179,6 @@ export function featureDemoStyles() {
 				animation: fadeIn 0.3s;
 			}
 
-			@keyframes fadeIn {
-				from {
-					opacity: 0;
-				}
-				to {
-					opacity: 1;
-				}
-			}
-
 			.demo-box {
 				padding: 20px;
 				border: 2px solid #ddd;
@@ -192,16 +202,6 @@ export function featureDemoStyles() {
 
 			.demo-box.pulsing {
 				animation: pulse 1s infinite;
-			}
-
-			@keyframes pulse {
-				0%,
-				100% {
-					transform: scale(1);
-				}
-				50% {
-					transform: scale(1.05);
-				}
 			}
 
 			.style-demo-box {

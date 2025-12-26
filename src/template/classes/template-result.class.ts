@@ -179,12 +179,7 @@ export class TemplateResult {
 			},
 			'__': (index: number, html: string, attrName?: string) => {
 				// Regular attribute
-				parts.push({
-					type: 'attribute',
-					index: index,
-					name: attrName
-				});
-				return html + MARKER;
+				return html + createAttributeMarker(index);
 			},
 			'___': (index: number, html: string) => {
 				// Text position
@@ -286,13 +281,15 @@ export class TemplateResult {
 					} else if (attr.value.includes(ATTRIBUTE_MARKER_PREFIX)) {
 						const attributeInfo = this.parseAttributeValue(attr.value);
 						if (attributeInfo) {
+							const isComposite =
+								attributeInfo.indices.length > 1 || attributeInfo.strings.some((segment) => segment.length > 0);
 							parts.push({
 								type: 'attribute',
 								index: attributeInfo.indices[0],
 								name: attr.name,
 								node: element,
-								attributeStrings: attributeInfo.strings,
-								attributeIndices: attributeInfo.indices
+								attributeStrings: isComposite ? attributeInfo.strings : undefined,
+								attributeIndices: isComposite ? attributeInfo.indices : undefined
 							});
 							element.removeAttribute(attr.name);
 						}
