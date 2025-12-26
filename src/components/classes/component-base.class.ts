@@ -12,6 +12,7 @@ export abstract class ComponentBase extends HTMLElement {
 	private _root: ShadowRoot;
 	private _style: HTMLStyleElement;
 	private _unsubscribers: Array<Unsubscriber> = [];
+	private _renderScheduled = false;
 
 	constructor(meta: ComponentMeta, component: Component) {
 		super();
@@ -70,7 +71,7 @@ export abstract class ComponentBase extends HTMLElement {
 			(this._component as any)[attribute] = newVal;
 		}
 
-		this.render();
+		this.scheduleRender();
 
 		if (this._component.onAttributeChange !== undefined) {
 			this._component.onAttributeChange(attribute, oldVal, newVal);
@@ -101,6 +102,20 @@ export abstract class ComponentBase extends HTMLElement {
 		if (this._component.onRender !== undefined) {
 			this._component.onRender();
 		}
+	}
+
+	private scheduleRender(): void {
+		if (this._renderScheduled) {
+			return;
+		}
+
+		this._renderScheduled = true;
+		queueMicrotask(() => {
+			this._renderScheduled = false;
+			if (this.isConnected) {
+				this.render();
+			}
+		});
 	}
 
 	private observe(): void {
@@ -151,7 +166,7 @@ export abstract class ComponentBase extends HTMLElement {
 				if (value !== newVal) {
 					this._component.onPropertyChange?.(prop, value, newVal);
 					value = newVal;
-					this.render();
+					this.scheduleRender();
 				}
 			};
 
@@ -213,7 +228,7 @@ export abstract class ComponentBase extends HTMLElement {
 	}
 
 	private subscribeToSignal<T>(signal: Signal<T>): void {
-		const unsubscriber = signal.subscribe(() => this.render());
+		const unsubscriber = signal.subscribe(() => this.scheduleRender());
 		this._unsubscribers.push(unsubscriber);
 	}
 }

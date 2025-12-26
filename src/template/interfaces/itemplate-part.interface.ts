@@ -14,4 +14,8 @@ export interface ITemplatePart {
 	staticValue?: string; // For static :directive="value" attributes
 	attributeStrings?: string[];
 	attributeIndices?: number[];
+	arrayState?: {
+		items: Map<unknown, { key: unknown; value: unknown; container: DocumentFragment; nodes: Node[] }>;
+		keys: unknown[];
+	};
 }

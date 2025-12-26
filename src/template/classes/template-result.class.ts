@@ -359,6 +359,7 @@ export class TemplateResult {
 			node.parentNode?.removeChild(node);
 		}
 		part.renderedNodes = [];
+		part.arrayState = undefined;
 	}
 
 	private cleanupParts(parts: ITemplatePart[]): void {
@@ -420,12 +421,69 @@ export class TemplateResult {
 	 */
 	private renderArray(part: ITemplatePart, values: unknown[]): void {
 		this.ensureMarkers(part);
-		this.clearRenderedNodes(part);
 
 		// Hide the original text node
 		part.node!.textContent = '';
 
 		const parent = part.endMarker!.parentNode!;
+		const keyedValues = this.getKeyedValues(values);
+
+		if (keyedValues) {
+			const state =
+				part.arrayState ?? {
+					items: new Map<unknown, { key: unknown; value: unknown; container: DocumentFragment; nodes: Node[] }>(),
+					keys: []
+				};
+
+			const newItems = new Map<unknown, { key: unknown; value: unknown; container: DocumentFragment; nodes: Node[] }>();
+			const newKeys: unknown[] = [];
+
+			for (const item of keyedValues) {
+				const existing = state.items.get(item.key);
+				if (existing) {
+					this.updateArrayItem(existing, item.value, parent, part.endMarker!);
+					newItems.set(item.key, existing);
+				} else {
+					const created = this.createArrayItem(item.value, parent, part.endMarker!);
+					newItems.set(item.key, {
+						key: item.key,
+						value: item.value,
+						container: created.container,
+						nodes: created.nodes
+					});
+				}
+				newKeys.push(item.key);
+			}
+
+			for (const [key, oldItem] of state.items.entries()) {
+				if (!newItems.has(key)) {
+					for (const node of oldItem.nodes) {
+						node.parentNode?.removeChild(node);
+					}
+				}
+			}
+
+			let referenceNode = part.startMarker!.nextSibling;
+			for (const key of newKeys) {
+				const item = newItems.get(key)!;
+				for (const node of item.nodes) {
+					if (node === referenceNode) {
+						referenceNode = referenceNode?.nextSibling ?? null;
+						continue;
+					}
+					parent.insertBefore(node, referenceNode ?? part.endMarker!);
+				}
+			}
+
+			part.arrayState = {
+				items: newItems,
+				keys: newKeys
+			};
+			part.renderedNodes = newKeys.flatMap((key) => newItems.get(key)!.nodes);
+			return;
+		}
+
+		this.clearRenderedNodes(part);
 		const renderedNodes: Node[] = [];
 
 		for (const value of values) {
@@ -446,6 +504,76 @@ export class TemplateResult {
 		}
 
 		part.renderedNodes = renderedNodes;
+	}
+
+	private getKeyedValues(values: unknown[]): Array<{ key: unknown; value: unknown }> | null {
+		if (values.length === 0) {
+			return null;
+		}
+
+		const keyedValues: Array<{ key: unknown; value: unknown }> = [];
+		for (const value of values) {
+			if (value && typeof value === 'object' && (value as { __keyed?: boolean }).__keyed === true) {
+				const keyed = value as { key: unknown; value: unknown };
+				keyedValues.push({ key: keyed.key, value: keyed.value });
+			} else {
+				return null;
+			}
+		}
+
+		return keyedValues;
+	}
+
+	private createArrayItem(
+		value: unknown,
+		parent: Node,
+		endMarker: Comment
+	): { container: DocumentFragment; nodes: Node[] } {
+		const container = document.createDocumentFragment();
+		if (value instanceof TemplateResult) {
+			value.renderInto(container);
+		} else if (value instanceof Node) {
+			container.appendChild(value);
+		} else if (value != null) {
+			container.appendChild(document.createTextNode(String(value)));
+		}
+
+		const nodes = Array.from(container.childNodes);
+		parent.insertBefore(container, endMarker);
+		return { container, nodes };
+	}
+
+	private updateArrayItem(
+		item: { key: unknown; value: unknown; container: DocumentFragment; nodes: Node[] },
+		value: unknown,
+		parent: Node,
+		endMarker: Comment
+	): void {
+		if (value instanceof TemplateResult) {
+			value.renderInto(item.container);
+			item.value = value;
+			item.nodes = Array.from(item.container.childNodes);
+			return;
+		}
+
+		if (value === item.value) {
+			return;
+		}
+
+		for (const node of item.nodes) {
+			node.parentNode?.removeChild(node);
+		}
+
+		item.container = document.createDocumentFragment();
+		if (value instanceof Node) {
+			item.container.appendChild(value);
+		} else if (value != null) {
+			item.container.appendChild(document.createTextNode(String(value)));
+		}
+
+		item.nodes = Array.from(item.container.childNodes);
+		parent.insertBefore(item.container, endMarker);
+		item.value = value;
 	}
 
 	private commit(parts: ITemplatePart[]): void {
