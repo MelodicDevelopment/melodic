@@ -124,7 +124,7 @@ export class TemplateResult {
 						activeAttributeName = null;
 						activeAttributeQuote = null;
 					}
-				} else if (/[\\s>]/.test(s)) {
+				} else if (/[\s>]/.test(s)) {
 					activeAttributeName = null;
 					activeAttributeQuote = null;
 				}

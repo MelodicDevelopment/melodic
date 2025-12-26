@@ -34,6 +34,19 @@ describe('template bindings', () => {
 		expect(second).toBe(1);
 	});
 
+	it('binds events after unquoted attributes', () => {
+		let clicks = 0;
+		const handler = () => {
+			clicks += 1;
+		};
+
+		render(html`<button class=${'primary'} @click=${handler}>Hit</button>`, container);
+		const button = container.querySelector('button') as HTMLButtonElement;
+		button.click();
+		expect(clicks).toBe(1);
+		expect(button.className).toBe('primary');
+	});
+
 	it('binds and updates element properties', () => {
 		render(html`<input .value=${'first'} />`, container);
 		const input = container.querySelector('input') as HTMLInputElement;
