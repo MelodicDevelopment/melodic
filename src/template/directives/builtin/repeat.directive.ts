@@ -147,16 +147,25 @@ function updateList<T>(
 	// Update DOM to match new order
 	const parent = state.startMarker.parentElement!;
 	const endMarker = state.endMarker;
+	const newNodes = new Set<Node>();
 
-	// Clear everything between markers
-	let node = state.startMarker.nextSibling;
-	while (node && node !== endMarker) {
-		const next = node.nextSibling;
-		parent.removeChild(node);
-		node = next;
+	for (const item of newRepeatItems) {
+		for (const node of item.nodes) {
+			newNodes.add(node);
+		}
 	}
 
-	// Insert items in new order
+	// Remove any stray nodes still between markers
+	let cursor = state.startMarker.nextSibling;
+	while (cursor && cursor !== endMarker) {
+		const next = cursor.nextSibling;
+		if (!newNodes.has(cursor)) {
+			parent.removeChild(cursor);
+		}
+		cursor = next;
+	}
+
+	// Insert items in new order (moves existing nodes as needed)
 	for (const item of newRepeatItems) {
 		for (const node of item.nodes) {
 			parent.insertBefore(node, endMarker);
