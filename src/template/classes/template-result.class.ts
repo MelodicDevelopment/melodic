@@ -6,6 +6,10 @@ import { isDirective } from '../directives/functions/is-directive.function';
 // Unique marker for identifying dynamic positions
 const MARKER = `m${Math.random().toString(36).slice(2, 9)}`;
 const COMMENT_NODE_MARKER = `<!--${MARKER}-->`;
+const ATTRIBUTE_MARKER_PREFIX = `__${MARKER}_`;
+const ATTRIBUTE_MARKER_REGEX = new RegExp(`${ATTRIBUTE_MARKER_PREFIX}(\\d+)__`, 'g');
+
+const createAttributeMarker = (index: number): string => `${ATTRIBUTE_MARKER_PREFIX}${index}__`;
 
 const templateCache = new Map<string, ITemplateCache>();
 
@@ -19,15 +23,27 @@ export class TemplateResult {
 	}
 
 	renderInto(container: Element | DocumentFragment): void {
+		const templateKey = this.strings.join(MARKER);
+
 		// Get or create template
 		const { element: template, parts: templateParts } = this.getTemplate();
 
 		// First render - clone and prepare
+		const existingKey = (container as any).__templateKey as string | undefined;
+		if (existingKey && existingKey !== templateKey) {
+			const existingParts = (container as any).__parts as ITemplatePart[] | undefined;
+			if (existingParts) {
+				this.cleanupParts(existingParts);
+			}
+			delete (container as any).__parts;
+		}
+
 		if (!(container as any).__parts) {
 			const clone = template.content.cloneNode(true);
 			const parts = this.prepareParts(clone, templateParts);
 
 			(container as any).__parts = parts;
+			(container as any).__templateKey = templateKey;
 
 			// Commit values BEFORE appending to DOM so attributes are set
 			// before connectedCallback fires on child custom elements
@@ -39,6 +55,9 @@ export class TemplateResult {
 		}
 
 		// Update values
+		if (!(container as any).__templateKey) {
+			(container as any).__templateKey = templateKey;
+		}
 		const parts = (container as any).__parts as ITemplatePart[];
 		this.commit(parts);
 	}
@@ -55,30 +74,73 @@ export class TemplateResult {
 		let html = this.strings[0];
 
 		const attrPreProcessor = this.getAttributePreProcessor(parts);
+		let activeAttributeName: string | null = null;
+		let activeAttributeQuote: string | null = null;
 
 		for (let i = 1; i < this.strings.length; i++) {
 			const s = this.strings[i];
+			const valueIndex = i - 1;
 
 			const match = /([@.:]?[\w-]+)\s*=\s*["']?$/.exec(html);
+			const quotedAttrMatch = /([@.:]?[\w-]+)\s*=\s*(["'])([^"']*)$/.exec(html);
 			let attrKey: string = '___';
 
-			if (match) {
-				attrKey = '__';
-				const attrPrefix: string = match[1].charAt(0);
+			if (activeAttributeName) {
+				html += createAttributeMarker(valueIndex);
+			} else {
+				const quotedName = quotedAttrMatch?.[1];
+				const quotedPrefix = quotedName?.charAt(0);
+				const hasSpecialPrefix = quotedPrefix !== undefined && Object.keys(attrPreProcessor).includes(quotedPrefix);
 
-				if (Object.keys(attrPreProcessor).includes(attrPrefix)) {
-					attrKey = attrPrefix;
+				if (quotedAttrMatch && !hasSpecialPrefix) {
+					html += createAttributeMarker(valueIndex);
+					activeAttributeName = quotedAttrMatch[1];
+					activeAttributeQuote = quotedAttrMatch[2];
+				} else {
+					if (match) {
+						attrKey = '__';
+						const attrPrefix: string = match[1].charAt(0);
+
+						if (Object.keys(attrPreProcessor).includes(attrPrefix)) {
+							attrKey = attrPrefix;
+						}
+					}
+
+					if (attrKey === '__' && match) {
+						html += createAttributeMarker(valueIndex);
+						activeAttributeName = match[1];
+						const quoteMatch = /(["'])$/.exec(match[0]);
+						activeAttributeQuote = quoteMatch ? quoteMatch[1] : null;
+					} else {
+						html = attrPreProcessor[attrKey](valueIndex, html, match ? match[1] : undefined, match);
+					}
 				}
 			}
-
-			html = attrPreProcessor[attrKey](i - 1, html, match ? match[1] : undefined, match);
 			html += s;
+
+			if (activeAttributeName) {
+				if (activeAttributeQuote) {
+					if (s.includes(activeAttributeQuote)) {
+						activeAttributeName = null;
+						activeAttributeQuote = null;
+					}
+				} else if (/[\\s>]/.test(s)) {
+					activeAttributeName = null;
+					activeAttributeQuote = null;
+				}
+			}
 		}
 
 		const element = document.createElement('template');
 		element.innerHTML = html;
 
 		cached = { element, parts };
+		if (templateCache.size >= 500) {
+			const oldestKey = templateCache.keys().next().value;
+			if (oldestKey) {
+				templateCache.delete(oldestKey);
+			}
+		}
 		templateCache.set(key, cached);
 
 		return cached;
@@ -137,6 +199,22 @@ export class TemplateResult {
 
 	private prepareParts(clone: Node, templateParts: ITemplatePart[]): ITemplatePart[] {
 		const parts: ITemplatePart[] = [];
+		const nodeParts = templateParts
+			.filter((part) => part.type === 'node')
+			.sort((a, b) => a.index - b.index);
+		let nodePartCursor = 0;
+		const eventPartsByIndex = new Map<number, ITemplatePart>();
+		const propertyPartsByIndex = new Map<number, ITemplatePart>();
+		const actionPartsByIndex = new Map<number, ITemplatePart>();
+		for (const part of templateParts) {
+			if (part.type === 'event') {
+				eventPartsByIndex.set(part.index, part);
+			} else if (part.type === 'property') {
+				propertyPartsByIndex.set(part.index, part);
+			} else if (part.type === 'action') {
+				actionPartsByIndex.set(part.index, part);
+			}
+		}
 
 		// Recursive walk to find all nodes
 		const walk = (node: Node) => {
@@ -144,7 +222,7 @@ export class TemplateResult {
 				const comment = node as Comment;
 				if (comment.data === MARKER) {
 					// Find corresponding part
-					const part = templateParts.find((p) => p.type === 'node' && !parts.find((pp) => pp.index === p.index));
+					const part = nodeParts[nodePartCursor++];
 					if (part) {
 						// Create a text node to replace the comment
 						const textNode = document.createTextNode('');
@@ -165,7 +243,7 @@ export class TemplateResult {
 
 					if (attr.name.startsWith('__event-')) {
 						const index = parseInt(attr.name.match(/__event-(\d+)__/)?.[1] || '0');
-						const part = templateParts.find((p) => p.index === index && p.type === 'event');
+						const part = eventPartsByIndex.get(index);
 						if (part) {
 							parts.push({
 								...part,
@@ -175,7 +253,7 @@ export class TemplateResult {
 						element.removeAttribute(attr.name);
 					} else if (attr.name.startsWith('__prop-')) {
 						const index = parseInt(attr.name.match(/__prop-(\d+)__/)?.[1] || '0');
-						const part = templateParts.find((p) => p.index === index && p.type === 'property');
+						const part = propertyPartsByIndex.get(index);
 						if (part) {
 							parts.push({
 								...part,
@@ -185,7 +263,7 @@ export class TemplateResult {
 						element.removeAttribute(attr.name);
 					} else if (attr.name.startsWith('__action-')) {
 						const index = parseInt(attr.name.match(/__action-(\d+)__/)?.[1] || '0');
-						const part = templateParts.find((p) => p.index === index && p.type === 'action');
+						const part = actionPartsByIndex.get(index);
 						if (part) {
 							parts.push({
 								...part,
@@ -205,15 +283,17 @@ export class TemplateResult {
 							staticValue: attr.value
 						});
 						element.removeAttribute(attr.name);
-					} else if (attr.value.includes(MARKER)) {
-						// Regular attribute with marker
-						const part = templateParts.find((p) => p.type === 'attribute' && p.name === attr.name && !parts.find((pp) => pp.index === p.index));
-						if (part) {
+					} else if (attr.value.includes(ATTRIBUTE_MARKER_PREFIX)) {
+						const attributeInfo = this.parseAttributeValue(attr.value);
+						if (attributeInfo) {
 							parts.push({
-								...part,
-								node: element
+								type: 'attribute',
+								index: attributeInfo.indices[0],
+								name: attr.name,
+								node: element,
+								attributeStrings: attributeInfo.strings,
+								attributeIndices: attributeInfo.indices
 							});
-							// Remove the marker attribute so directives can work with a clean element
 							element.removeAttribute(attr.name);
 						}
 					}
@@ -230,6 +310,27 @@ export class TemplateResult {
 		walk(clone);
 
 		return parts;
+	}
+
+	private parseAttributeValue(value: string): { strings: string[]; indices: number[] } | null {
+		const strings: string[] = [];
+		const indices: number[] = [];
+		let lastIndex = 0;
+		let match: RegExpExecArray | null;
+
+		ATTRIBUTE_MARKER_REGEX.lastIndex = 0;
+		while ((match = ATTRIBUTE_MARKER_REGEX.exec(value)) !== null) {
+			strings.push(value.slice(lastIndex, match.index));
+			indices.push(Number(match[1]));
+			lastIndex = match.index + match[0].length;
+		}
+
+		if (indices.length === 0) {
+			return null;
+		}
+
+		strings.push(value.slice(lastIndex));
+		return { strings, indices };
 	}
 
 	/**
@@ -261,6 +362,24 @@ export class TemplateResult {
 			node.parentNode?.removeChild(node);
 		}
 		part.renderedNodes = [];
+	}
+
+	private cleanupParts(parts: ITemplatePart[]): void {
+		for (const part of parts) {
+			if (part.actionCleanup) {
+				try {
+					part.actionCleanup();
+				} catch (error) {
+					console.error('Action directive cleanup failed:', error);
+				} finally {
+					part.actionCleanup = undefined;
+				}
+			}
+
+			if (part.renderedNodes && part.renderedNodes.length > 0) {
+				this.clearRenderedNodes(part);
+			}
+		}
 	}
 
 	/**
@@ -335,10 +454,11 @@ export class TemplateResult {
 	private commit(parts: ITemplatePart[]): void {
 		for (const part of parts) {
 			const value = this.values[part.index];
+			const isCompositeAttribute = part.type === 'attribute' && part.attributeIndices && part.attributeStrings;
 
 			// Skip unchanged values (but not for directives or action parts - they manage their own state)
 			// Action parts with index < 0 are static and have their own skip logic
-			if (!isDirective(value) && part.type !== 'action' && part.previousValue === value) {
+			if (!isCompositeAttribute && !isDirective(value) && part.type !== 'action' && part.previousValue === value) {
 				continue;
 			}
 
@@ -371,6 +491,28 @@ export class TemplateResult {
 						// Handle directives
 						if (isDirective(value)) {
 							part.directiveState = value.render(element, part.directiveState);
+						} else if (isCompositeAttribute) {
+							const strings = part.attributeStrings as string[];
+							const indices = part.attributeIndices as number[];
+							let composed = strings[0] ?? '';
+
+							for (let i = 0; i < indices.length; i++) {
+								const segmentValue = this.values[indices[i]];
+								composed += `${segmentValue ?? ''}${strings[i + 1] ?? ''}`;
+							}
+
+							if (part.previousValue === composed) {
+								break;
+							}
+
+							if (composed === '' && strings.every((segment) => segment === '')) {
+								element.removeAttribute(part.name);
+							} else {
+								element.setAttribute(part.name, composed);
+							}
+
+							part.previousValue = composed;
+							continue;
 						} else if (value == null || value === false) {
 							// Remove attribute for null, undefined, or false (boolean attributes)
 							element.removeAttribute(part.name);
@@ -397,6 +539,10 @@ export class TemplateResult {
 				case 'event':
 					if (part.node && part.name) {
 						const element = part.node as Element;
+
+						if (part.previousValue === value) {
+							break;
+						}
 
 						// Remove old listener
 						if (part.previousValue && typeof part.previousValue === 'function') {

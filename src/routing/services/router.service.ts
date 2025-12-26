@@ -61,6 +61,7 @@ export class RouterService {
 	private _contextService: RouteContextService;
 	private _currentMatches: IRouteMatch[] = [];
 	private _resolversExecutedForPath: string | null = null;
+	private _currentPath: string = `${window.location.pathname}${window.location.search}`;
 
 	constructor() {
 		this._contextService = new RouteContextService();
@@ -70,10 +71,7 @@ export class RouterService {
 		});
 
 		window.addEventListener('popstate', (event: PopStateEvent) => {
-			const navigationEvent = new CustomEvent('NavigationEvent', {
-				detail: routerStateEvent('push', event.state, '', window.location.pathname)
-			});
-			window.dispatchEvent(navigationEvent);
+			void this.handlePopState(event);
 		});
 	}
 
@@ -127,7 +125,7 @@ export class RouterService {
 	}
 
 	async runResolvers(matchResult: IRouteMatchResult): Promise<{ success: boolean; error?: string }> {
-		const currentPath = window.location.pathname;
+		const currentPath = `${window.location.pathname}${window.location.search}`;
 
 		if (this._resolversExecutedForPath === currentPath) {
 			this._resolversExecutedForPath = null; // Clear for next navigation
@@ -146,6 +144,19 @@ export class RouterService {
 		if (queryParams && Object.keys(queryParams).length > 0) {
 			const params = new URLSearchParams(queryParams);
 			fullPath = `${path}?${params.toString()}`;
+		}
+
+		if (!skipGuards && this._currentMatches.length > 0) {
+			const deactivateResult = await this.runDeactivationGuards(fullPath);
+			if (deactivateResult !== true) {
+				if (typeof deactivateResult === 'string') {
+					return this.navigate(deactivateResult, { ...options, skipGuards: true });
+				}
+				return {
+					success: false,
+					error: 'Navigation blocked by guard'
+				};
+			}
 		}
 
 		const matchResult = this.matchPath(path);
@@ -186,6 +197,7 @@ export class RouterService {
 		} else {
 			history.pushState(data, '', fullPath);
 		}
+		this._currentPath = fullPath;
 
 		return {
 			success: true,
@@ -208,6 +220,7 @@ export class RouterService {
 
 	replace(path: string, data?: unknown): void {
 		history.replaceState(data, '', path);
+		this._currentPath = `${window.location.pathname}${window.location.search}`;
 	}
 
 	back(): void {
@@ -320,6 +333,26 @@ export class RouterService {
 		}
 
 		return { success: true };
+	}
+
+	private async handlePopState(event: PopStateEvent): Promise<void> {
+		const targetPath = `${window.location.pathname}${window.location.search}`;
+		const guardResult = await this.runDeactivationGuards(targetPath);
+
+		if (guardResult !== true) {
+			if (typeof guardResult === 'string') {
+				await this.navigate(guardResult, { replace: true, skipGuards: true });
+			} else {
+				history.replaceState(event.state, '', this._currentPath);
+			}
+			return;
+		}
+
+		this._currentPath = targetPath;
+		const navigationEvent = new CustomEvent('NavigationEvent', {
+			detail: routerStateEvent('push', event.state, '', window.location.pathname)
+		});
+		window.dispatchEvent(navigationEvent);
 	}
 
 	private async executeResolver(resolver: IRouteResolver, context: IResolverContext): Promise<unknown> {

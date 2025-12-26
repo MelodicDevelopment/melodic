@@ -4,6 +4,7 @@ import { render } from '../../template/functions/render.function';
 import type { Unsubscriber } from '../../signals/types/unsubscriber.type';
 import type { Signal } from '../../signals/types/signal.type';
 import { isSignal } from '../../signals/functions/is-signal.function';
+import type { ITemplatePart } from '../../template/interfaces/itemplate-part.interface';
 
 export abstract class ComponentBase extends HTMLElement {
 	private _meta: ComponentMeta;
@@ -43,6 +44,21 @@ export abstract class ComponentBase extends HTMLElement {
 	disconnectedCallback(): void {
 		this._unsubscribers.forEach((unsubscribe) => unsubscribe());
 		this._unsubscribers = [];
+
+		const parts = (this._root as any).__parts as ITemplatePart[] | undefined;
+		if (parts) {
+			for (const part of parts) {
+				if (part.actionCleanup) {
+					try {
+						part.actionCleanup();
+					} catch (error) {
+						console.error('Action directive cleanup failed:', error);
+					} finally {
+						part.actionCleanup = undefined;
+					}
+				}
+			}
+		}
 
 		if (this._component.onDestroy !== undefined) {
 			this._component.onDestroy();
@@ -88,8 +104,22 @@ export abstract class ComponentBase extends HTMLElement {
 	}
 
 	private observe(): void {
-		const properties = Object.getOwnPropertyNames(this._component).filter((prop) => {
-			let value = (this._component as any)[prop];
+		const properties: string[] = [];
+		const seen = new Set<string>();
+		let proto: object | null = this._component;
+
+		while (proto && proto !== Object.prototype) {
+			for (const prop of Object.getOwnPropertyNames(proto)) {
+				if (!seen.has(prop)) {
+					seen.add(prop);
+					properties.push(prop);
+				}
+			}
+			proto = Object.getPrototypeOf(proto);
+		}
+
+		const filtered = properties.filter((prop) => {
+			const value = (this._component as any)[prop];
 
 			// Skip private properties (convention)
 			if (prop.startsWith('_')) {
@@ -105,11 +135,11 @@ export abstract class ComponentBase extends HTMLElement {
 				return false;
 			}
 
-			return prop !== 'elementRef';
+			return prop !== 'elementRef' && prop !== 'constructor';
 		});
 
-		for (const prop of properties) {
-			const descriptor = Object.getOwnPropertyDescriptor(this._component, prop);
+		for (const prop of filtered) {
+			const descriptor = this.getPropertyDescriptor(this._component, prop);
 
 			// Check if wrapper already has a value set (from property binding before observe ran)
 			const wrapperValue = Object.getOwnPropertyDescriptor(this, prop)?.value;
@@ -157,6 +187,20 @@ export abstract class ComponentBase extends HTMLElement {
 				configurable: true
 			});
 		}
+	}
+
+	private getPropertyDescriptor(target: object, prop: string): PropertyDescriptor | undefined {
+		let current: object | null = target;
+
+		while (current && current !== Object.prototype) {
+			const descriptor = Object.getOwnPropertyDescriptor(current, prop);
+			if (descriptor) {
+				return descriptor;
+			}
+			current = Object.getPrototypeOf(current);
+		}
+
+		return undefined;
 	}
 
 	private getAttributeValues(): Record<string, string> {

@@ -12,4 +12,6 @@ export interface ITemplatePart {
 	// For action directives, store cleanup function and static value
 	actionCleanup?: () => void;
 	staticValue?: string; // For static :directive="value" attributes
+	attributeStrings?: string[];
+	attributeIndices?: number[];
 }

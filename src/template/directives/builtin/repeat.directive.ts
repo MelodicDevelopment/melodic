@@ -144,22 +144,18 @@ function updateList<T>(
 		oldItem.nodes.forEach((node) => node.parentNode?.removeChild(node));
 	}
 
-	// Update DOM to match new order
+	// Update DOM to match new order with minimal moves
 	const parent = state.startMarker.parentElement!;
-	const endMarker = state.endMarker;
+	let referenceNode = state.startMarker.nextSibling;
 
-	// Clear everything between markers
-	let node = state.startMarker.nextSibling;
-	while (node && node !== endMarker) {
-		const next = node.nextSibling;
-		parent.removeChild(node);
-		node = next;
-	}
-
-	// Insert items in new order
 	for (const item of newRepeatItems) {
 		for (const node of item.nodes) {
-			parent.insertBefore(node, endMarker);
+			if (node === referenceNode) {
+				referenceNode = referenceNode?.nextSibling ?? null;
+				continue;
+			}
+
+			parent.insertBefore(node, referenceNode ?? state.endMarker);
 		}
 	}
 
