@@ -8,6 +8,15 @@ Melodic is a minimalist framework for building web applications using native Web
 
 The framework embraces web standards: Shadow DOM for encapsulation, custom elements for component registration, and ES modules for code organization. This means Melodic components work seamlessly with any other web technology.
 
+## Publishing
+
+Package build and publish commands:
+
+```bash
+npm run build:lib
+npm publish --access public
+```
+
 ## Key Features
 
 ### Decorator-Based Components

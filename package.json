@@ -1,11 +1,61 @@
 {
-	"name": "melodic",
-	"private": true,
+	"name": "@melodic/core",
+	"private": false,
 	"version": "0.0.0",
 	"type": "module",
+	"files": ["lib", "README.md", "LICENSE"],
+	"types": "./lib/index.d.ts",
+	"exports": {
+		".": {
+			"types": "./lib/index.d.ts",
+			"default": "./lib/index.js"
+		},
+		"./bootstrap": {
+			"types": "./lib/bootstrap/index.d.ts",
+			"default": "./lib/bootstrap/index.js"
+		},
+		"./components": {
+			"types": "./lib/components/index.d.ts",
+			"default": "./lib/components/index.js"
+		},
+		"./forms": {
+			"types": "./lib/forms/index.d.ts",
+			"default": "./lib/forms/index.js"
+		},
+		"./http": {
+			"types": "./lib/http/index.d.ts",
+			"default": "./lib/http/index.js"
+		},
+		"./injection": {
+			"types": "./lib/injection/index.d.ts",
+			"default": "./lib/injection/index.js"
+		},
+		"./interfaces": {
+			"types": "./lib/interfaces/index.d.ts",
+			"default": "./lib/interfaces/index.js"
+		},
+		"./routing": {
+			"types": "./lib/routing/index.d.ts",
+			"default": "./lib/routing/index.js"
+		},
+		"./signals": {
+			"types": "./lib/signals/index.d.ts",
+			"default": "./lib/signals/index.js"
+		},
+		"./state": {
+			"types": "./lib/state/index.d.ts",
+			"default": "./lib/state/index.js"
+		},
+		"./template": {
+			"types": "./lib/template/index.d.ts",
+			"default": "./lib/template/index.js"
+		}
+	},
 	"scripts": {
 		"dev": "vite",
 		"build": "tsc && vite build",
+		"build:lib": "tsc -p tsconfig.build.json",
+		"prepublishOnly": "npm run build:lib",
 		"preview": "vite preview",
 		"benchmark": "vite --open /benchmark/performance-test.html",
 		"benchmark:update": "npm run build && node benchmark/update-benchmarks.js"
