@@ -1,0 +1,13 @@
+{
+	"name": "__REPO_NAME__",
+	"private": true,
+	"type": "module",
+	"workspaces": [
+		"apps/*",
+		"packages/*"
+	],
+	"scripts": {
+		"dev": "npm --workspace apps/__APP_NAME__ run dev",
+		"build": "npm --workspace apps/__APP_NAME__ run build"
+	}
+}

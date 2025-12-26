@@ -55,10 +55,14 @@
 			"default": "./lib/template/index.js"
 		}
 	},
+	"workspaces": [
+		"packages/*"
+	],
 	"scripts": {
 		"dev": "vite",
 		"build": "tsc && vite build",
 		"build:lib": "tsc -p tsconfig.build.json",
+		"build:cli": "npm --workspace @melodic/cli run build",
 		"prepublishOnly": "npm run build:lib",
 		"test": "vitest",
 		"test:unit": "vitest run",
