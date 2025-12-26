@@ -30,4 +30,29 @@ describe('repeat directive', () => {
 		expect(container.textContent).toContain('A');
 		expect(container.textContent).not.toContain('B');
 	});
+
+	it('reorders keyed items without losing content', () => {
+		const items = [
+			{ id: 1, label: 'One' },
+			{ id: 2, label: 'Two' },
+			{ id: 3, label: 'Three' }
+		];
+
+		render(
+			html`<ul>${repeat(items, (item) => item.id, (item) => html`<li>${item.label}</li>`)}</ul>`,
+			container
+		);
+		expect(container.textContent).toContain('One');
+		expect(container.textContent).toContain('Two');
+		expect(container.textContent).toContain('Three');
+
+		const reordered = [items[2], items[1], items[0]];
+		render(
+			html`<ul>${repeat(reordered, (item) => item.id, (item) => html`<li>${item.label}</li>`)}</ul>`,
+			container
+		);
+
+		const labels = Array.from(container.querySelectorAll('li')).map((li) => li.textContent?.trim());
+		expect(labels).toEqual(['Three', 'Two', 'One']);
+	});
 });
