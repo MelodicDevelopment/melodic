@@ -394,6 +394,14 @@ html`<span class="${cls}">${text}</span>`
 // Only the class attribute is updated, text node is untouched
 ```
 
+### Render Batching
+
+Component renders are batched per microtask. Multiple signal or property updates within the same tick coalesce into a single render, reducing redundant work while keeping UI responsive.
+
+### repeat() Keys
+
+The `repeat(items, keyFn, template)` directive relies on stable keys for reuse and ordering. Use a key function that returns a unique, stable identifier (for example, a database id) to ensure correct updates when items are added, removed, or reordered.
+
 ### Commit Before Append
 
 On first render, values are committed **before** appending to DOM:

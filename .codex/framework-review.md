@@ -7,7 +7,7 @@
 - Recommendation: strong option for internal tools or small/medium apps, especially if web components are a priority. For large, complex, long-lived products, I would not recommend it yet unless the team is committed to owning its evolution.
 
 ## What I Would Change to Make It Top-Tier
-- Rendering/runtime: add template diff invalidation, keyed DOM diff optimizations, and batched signal updates (microtask scheduler) to reduce redundant renders.
+- ~~Rendering/runtime: add template diff invalidation, keyed DOM diff optimizations, and batched signal updates (microtask scheduler) to reduce redundant renders.~~
 - DX/tooling: devtools integration, clear error boundaries, component-aware stack traces, and a debugging API.
 - Router: consistent guards for all navigation sources, prefetch/route data policies, and a defined lifecycle (before/after navigation hooks).
 - State: action logging, time-travel debugging, and standardized effect cancellation.
