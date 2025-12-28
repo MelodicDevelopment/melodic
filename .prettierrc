@@ -5,19 +5,5 @@
 	"bracketSpacing": true,
 	"printWidth": 160,
 	"trailingComma": "none",
-	"quoteProps": "consistent",
-	"overrides": [
-		{
-			"files": "*.yml",
-			"options": {
-				"tabWidth": 2
-			}
-		},
-		{
-			"files": "*.html",
-			"options": {
-				"parser": "angular"
-			}
-		}
-	]
+	"quoteProps": "consistent"
 }

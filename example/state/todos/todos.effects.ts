@@ -6,7 +6,7 @@ import * as actions from './todos.actions';
 
 @Injectable()
 export class TodosEffects extends EffectsBase {
-	@Service(HttpClient) private _httpClient!: HttpClient;
+	@Service(HttpClient) private readonly _httpClient!: HttpClient;
 
 	constructor() {
 		super();
