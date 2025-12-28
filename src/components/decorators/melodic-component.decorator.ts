@@ -13,7 +13,7 @@ export function MelodicComponent<C extends Component>(meta: TypedComponentMeta<C
 					const paramTokens = (component as any).params;
 
 					if (paramTokens && Array.isArray(paramTokens)) {
-						for (let i = 0; i < paramTokens.length; i++) {
+						for (let i of paramTokens) {
 							const param = paramTokens[i];
 							if (param && typeof param === 'object' && param.__injectionToken) {
 								dependencies.push(Injector.get(param.__injectionToken));
@@ -26,7 +26,7 @@ export function MelodicComponent<C extends Component>(meta: TypedComponentMeta<C
 					super(meta, Reflect.construct(component, dependencies));
 				}
 
-				static observedAttributes: string[] = meta.attributes ?? [];
+				static readonly observedAttributes: string[] = meta.attributes ?? [];
 			};
 
 			customElements.define(meta.selector, webComponent);

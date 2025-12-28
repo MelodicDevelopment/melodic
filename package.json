@@ -60,7 +60,7 @@
 	],
 	"scripts": {
 		"dev": "vite",
-		"dev:alt": "npx vite --config vite.config.alt.ts",
+		"dev:web": "npx vite --config vite.config.web.ts",
 		"build": "tsc && vite build",
 		"build:lib": "tsc -p tsconfig.build.json",
 		"build:cli": "npm --workspace @melodicdev/cli run build",
