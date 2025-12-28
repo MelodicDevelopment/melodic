@@ -34,15 +34,15 @@ import { html, css } from '../../../src/template/functions/html.function';
 							<span class="dot yellow"></span>
 							<span class="dot green"></span>
 						</div>
-						<pre
-							class="hero-code"
-						><code><span class="keyword">import</span> { bootstrap } <span class="keyword">from</span> <span class="string">'@melodicdev/core'</span>;
+						<pre class="hero-code">
+<code><span class="keyword">import</span> { bootstrap } <span class="keyword">from</span> <span class="string">'@melodicdev/core'</span>;
 
 <span class="keyword">await</span> <span class="function">bootstrap</span>({
-  <span class="property">target</span>: <span class="string">'#app'</span>,
-  <span class="property">rootComponent</span>: <span class="string">'my-app'</span>,
-  <span class="property">devMode</span>: <span class="boolean">true</span>
-});</code></pre>
+	<span class="property">target</span>: <span class="string">'#app'</span>,
+	<span class="property">rootComponent</span>: <span class="string">'my-app'</span>,
+	<span class="property">devMode</span>: <span class="boolean">true</span>
+});</code>
+						</pre>
 					</div>
 				</div>
 			</section>
