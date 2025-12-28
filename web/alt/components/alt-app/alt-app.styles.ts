@@ -1,7 +1,7 @@
 import { css } from '../../../../src/template/functions/html.function';
 import { anchorStyles } from '../../shared-styles';
 
-export function altAppStyles() {
+export const altAppStyles = () => {
 	return css`
 		:host {
 			display: flex;
@@ -278,4 +278,4 @@ export function altAppStyles() {
 			}
 		}
 	`;
-}
+};
