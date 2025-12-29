@@ -99,12 +99,10 @@ function updateList<T>(
 		}
 	}
 
-	// Track which old items we can reuse
-	const oldItemsToReuse = new Map<unknown, RepeatItem>();
+	// Track old items by key so we can reuse and remove efficiently
+	const oldItemsByKey = new Map<unknown, RepeatItem>();
 	for (const oldItem of oldItems) {
-		if (newKeyToIndex.has(oldItem.key)) {
-			oldItemsToReuse.set(oldItem.key, oldItem);
-		}
+		oldItemsByKey.set(oldItem.key, oldItem);
 	}
 
 	// Build new items list, reusing when possible
@@ -112,10 +110,10 @@ function updateList<T>(
 		const item = newItems[i];
 		const key = keyFn(item, i);
 
-		if (oldItemsToReuse.has(key)) {
+		if (oldItemsByKey.has(key)) {
 			// Reuse existing item
-			const oldItem = oldItemsToReuse.get(key)!;
-			oldItemsToReuse.delete(key); // Mark as used
+			const oldItem = oldItemsByKey.get(key)!;
+			oldItemsByKey.delete(key); // Mark as used
 
 			// Re-render with new data
 			const templateResult = template(item, i);
@@ -140,37 +138,22 @@ function updateList<T>(
 	}
 
 	// Remove old items that are no longer needed
-	for (const oldItem of oldItemsToReuse.values()) {
+	for (const oldItem of oldItemsByKey.values()) {
 		oldItem.nodes.forEach((node) => node.parentNode?.removeChild(node));
 	}
 
 	// Update DOM to match new order
 	const parent = state.startMarker.parentElement!;
 	const endMarker = state.endMarker;
-	const newNodes = new Set<Node>();
+	const fragment = document.createDocumentFragment();
 
 	for (const item of newRepeatItems) {
 		for (const node of item.nodes) {
-			newNodes.add(node);
+			fragment.appendChild(node);
 		}
 	}
 
-	// Remove any stray nodes still between markers
-	let cursor = state.startMarker.nextSibling;
-	while (cursor && cursor !== endMarker) {
-		const next = cursor.nextSibling;
-		if (!newNodes.has(cursor)) {
-			parent.removeChild(cursor);
-		}
-		cursor = next;
-	}
-
-	// Insert items in new order (moves existing nodes as needed)
-	for (const item of newRepeatItems) {
-		for (const node of item.nodes) {
-			parent.insertBefore(node, endMarker);
-		}
-	}
+	parent.insertBefore(fragment, endMarker);
 
 	// Update state
 	state.keyToIndex = newKeyToIndex;
