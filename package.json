@@ -60,8 +60,11 @@
 	],
 	"scripts": {
 		"dev": "vite",
-		"dev:web": "npx vite --config vite.config.web.ts",
+		"dev:company": "npx vite --config vite.config.company.ts",
+		"dev:framework": "npx vite --config vite.config.framework.ts",
 		"build": "tsc && vite build",
+		"build:company": "npx vite build --config vite.config.company.ts",
+		"build:framework": "npx vite build --config vite.config.framework.ts",
 		"build:lib": "tsc -p tsconfig.build.json",
 		"build:cli": "npm --workspace @melodicdev/cli run build",
 		"prepublishOnly": "npm run build:lib",
