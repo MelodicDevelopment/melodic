@@ -411,8 +411,7 @@ import { html, css } from '../../../src/template/functions/html.function';
 		.install-inner {
 			display: flex;
 			align-items: center;
-			justify-content: center;
-			gap: 1rem;
+			justify-content: space-between;
 			max-width: 400px;
 			margin: 0 auto;
 			padding: 0.875rem 1.25rem;
@@ -431,12 +430,17 @@ import { html, css } from '../../../src/template/functions/html.function';
 			align-items: center;
 			justify-content: center;
 			padding: 0.5rem;
+			background: transparent;
+			border: none;
+			border-radius: var(--alt-radius-sm);
 			color: var(--alt-gray-500);
-			transition: color var(--alt-transition-fast);
+			cursor: pointer;
+			transition: all var(--alt-transition-fast);
 		}
 
 		.copy-btn:hover {
 			color: var(--alt-white);
+			background: var(--alt-gray-700);
 		}
 
 		/* Section Styles */
