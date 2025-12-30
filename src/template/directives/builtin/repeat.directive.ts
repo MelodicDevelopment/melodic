@@ -3,6 +3,7 @@
  */
 
 import type { TemplateResult } from '../../classes/template-result.class';
+import { CompiledTemplate } from '../../classes/compiled-template.class';
 import { directive } from '../functions/directive.function';
 import type { IDirectiveResult } from '../interfaces/idirective-result.interface';
 
@@ -11,6 +12,8 @@ interface RepeatState {
 	items: RepeatItem[];
 	startMarker: Comment;
 	endMarker: Comment;
+	compiledTemplate?: CompiledTemplate;
+	useCompiledPath?: boolean;
 }
 
 interface RepeatItem {
@@ -99,6 +102,16 @@ function updateList<T>(
 		}
 	}
 
+	// On first render, check if we can use compiled fast path
+	if (state.useCompiledPath === undefined && newItems.length > 0) {
+		const sampleTemplate = template(newItems[0], 0);
+		const compiled = CompiledTemplate.compile(sampleTemplate.strings);
+		state.useCompiledPath = compiled.canUseFastPath();
+		if (state.useCompiledPath) {
+			state.compiledTemplate = compiled;
+		}
+	}
+
 	// Track old items by key so we can reuse and remove efficiently
 	const oldItemsByKey = new Map<unknown, RepeatItem>();
 	for (const oldItem of oldItems) {
@@ -122,11 +135,28 @@ function updateList<T>(
 			newRepeatItems.push(oldItem);
 		} else {
 			// Create new item
-			const container = document.createDocumentFragment();
 			const templateResult = template(item, i);
-			templateResult.renderInto(container);
 
-			const nodes = Array.from(container.childNodes);
+			let nodes: Node[];
+			let container: DocumentFragment;
+
+			// Use compiled fast path if available
+			if (state.useCompiledPath && state.compiledTemplate) {
+				// Fast path: directly create element without DocumentFragment overhead
+				const node = state.compiledTemplate.createDirect(templateResult.values);
+				if (node) {
+					nodes = [node];
+					container = document.createDocumentFragment();
+					container.appendChild(node);
+				} else {
+					// Fallback if createDirect fails
+					container = document.createDocumentFragment();
+					nodes = templateResult.renderOnce(container);
+				}
+			} else {
+				container = document.createDocumentFragment();
+				nodes = templateResult.renderOnce(container);
+			}
 
 			newRepeatItems.push({
 				key,

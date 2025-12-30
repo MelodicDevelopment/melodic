@@ -1,5 +1,6 @@
 // Built-in directives
 export { repeat } from './builtin/repeat.directive';
+export { repeatRaw } from './builtin/repeat-raw.directive';
 export { when } from './builtin/when.directive';
 export { classMap } from './builtin/class-map.directive';
 export { styleMap } from './builtin/style-map.directive';

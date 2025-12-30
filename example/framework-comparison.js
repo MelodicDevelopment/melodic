@@ -8,7 +8,7 @@ const vueModule = await import('https://unpkg.com/vue@3.4.38/dist/vue.esm-browse
 const litModule = await import('https://esm.sh/lit@3.1.3');
 const litRepeatModule = await import('https://esm.sh/lit@3.1.3/directives/repeat.js');
 
-const { html: melodicHtml, render: melodicRender, repeat: melodicRepeat } = melodicModule;
+const { html: melodicHtml, render: melodicRender, repeat: melodicRepeat, repeatRaw: melodicRepeatRaw } = melodicModule;
 const React = reactModule;
 const { flushSync } = reactDomModule;
 const { createRoot } = reactDomClientModule;
@@ -24,7 +24,9 @@ const ADD_REMOVE_COUNT = 100;
 const resultsTableBody = document.querySelector('#results-table tbody');
 const containersRoot = document.getElementById('containers');
 
-const waitForPaint = () => new Promise((resolve) => requestAnimationFrame(() => resolve()));
+// Measure JS execution time only - no paint wait
+// This isolates framework overhead without browser rendering variance
+const waitForPaint = () => Promise.resolve();
 
 const generateItems = (count) =>
 	Array.from({ length: count }, (_, i) => ({
@@ -80,6 +82,63 @@ const createContainerCard = (framework) => {
 	return card.querySelector('.container');
 };
 
+// Vanilla JS baseline - theoretical minimum for comparison
+const vanillaAdapter = {
+	id: 'vanilla',
+	label: 'Vanilla JS',
+	create(container) {
+		return { container, ul: null, itemMap: new Map() };
+	},
+	render(state, items) {
+		if (!state.ul) {
+			// Initial render
+			state.ul = document.createElement('ul');
+			for (const item of items) {
+				const li = document.createElement('li');
+				li.className = item.active ? 'active' : '';
+				li.textContent = `${item.text}: ${item.value.toFixed(2)}`;
+				state.ul.appendChild(li);
+				state.itemMap.set(item.id, li);
+			}
+			state.container.appendChild(state.ul);
+		} else {
+			// Update - simple keyed reconciliation
+			const newMap = new Map();
+			const fragment = document.createDocumentFragment();
+
+			for (const item of items) {
+				let li = state.itemMap.get(item.id);
+				if (li) {
+					// Update existing
+					li.className = item.active ? 'active' : '';
+					li.textContent = `${item.text}: ${item.value.toFixed(2)}`;
+					state.itemMap.delete(item.id);
+				} else {
+					// Create new
+					li = document.createElement('li');
+					li.className = item.active ? 'active' : '';
+					li.textContent = `${item.text}: ${item.value.toFixed(2)}`;
+				}
+				newMap.set(item.id, li);
+				fragment.appendChild(li);
+			}
+
+			// Remove old items
+			for (const li of state.itemMap.values()) {
+				li.remove();
+			}
+
+			state.ul.replaceChildren(fragment);
+			state.itemMap = newMap;
+		}
+	},
+	destroy(state) {
+		state.container.replaceChildren();
+		state.ul = null;
+		state.itemMap.clear();
+	}
+};
+
 const melodicAdapter = {
 	id: 'melodic',
 	label: 'Melodic',
@@ -93,6 +152,36 @@ const melodicAdapter = {
 					items,
 					(item) => item.id,
 					(item) => melodicHtml`<li class="${item.active ? 'active' : ''}">${item.text}: ${item.value.toFixed(2)}</li>`
+				)}
+			</ul>
+		`;
+		melodicRender(template, state.container);
+	},
+	destroy(state) {
+		state.container.replaceChildren();
+		delete state.container.__parts;
+	}
+};
+
+// Melodic with repeatRaw - bypasses template system for maximum performance
+const melodicRawAdapter = {
+	id: 'melodic-raw',
+	label: 'Melodic Raw',
+	create(container) {
+		return { container };
+	},
+	render(state, items) {
+		const template = melodicHtml`
+			<ul>
+				${melodicRepeatRaw(
+					items,
+					(item) => item.id,
+					(item) => {
+						const li = document.createElement('li');
+						li.className = item.active ? 'active' : '';
+						li.textContent = `${item.text}: ${item.value.toFixed(2)}`;
+						return li;
+					}
 				)}
 			</ul>
 		`;
@@ -144,25 +233,36 @@ const vueAdapter = {
 	id: 'vue',
 	label: 'Vue 3',
 	create(container) {
-		const items = vueRef([]);
-		const app = createApp({
-			setup() {
-				return () =>
-					vueH(
-						'ul',
-						items.value.map((item) => vueH('li', { key: item.id, class: item.active ? 'active' : '' }, `${item.text}: ${item.value.toFixed(2)}`))
-					);
-			}
-		});
-		app.mount(container);
-		return { app, items, container };
+		// Delay app creation and mounting until first render for fair comparison
+		// Other frameworks don't have initialization overhead in create()
+		return { container, app: null, items: null, mounted: false };
 	},
 	async render(state, items) {
-		state.items.value = items;
-		await vueNextTick();
+		if (!state.mounted) {
+			// First render - create and mount the app
+			state.items = vueRef(items);
+			state.app = createApp({
+				setup() {
+					return () =>
+						vueH(
+							'ul',
+							state.items.value.map((item) => vueH('li', { key: item.id, class: item.active ? 'active' : '' }, `${item.text}: ${item.value.toFixed(2)}`))
+						);
+				}
+			});
+			state.app.mount(state.container);
+			state.mounted = true;
+			await vueNextTick();
+		} else {
+			// Subsequent renders - just update the ref
+			state.items.value = items;
+			await vueNextTick();
+		}
 	},
 	destroy(state) {
-		state.app.unmount();
+		if (state.app) {
+			state.app.unmount();
+		}
 		state.container.replaceChildren();
 	}
 };
@@ -192,10 +292,14 @@ const litAdapter = {
 	}
 };
 
-const frameworks = [melodicAdapter, reactAdapter, preactAdapter, vueAdapter, litAdapter];
+const frameworks = [vanillaAdapter, melodicAdapter, melodicRawAdapter, reactAdapter, preactAdapter, vueAdapter, litAdapter];
 
 const resultRows = new Map();
 const containers = new Map();
+
+// Store results for sorting
+const results = new Map();
+const testIds = ['initial', 'warm', 'update', 'partial', 'reorder', 'addRemove'];
 
 const scoreCell = (cell, duration) => {
 	if (duration < 10) {
@@ -208,6 +312,12 @@ const scoreCell = (cell, duration) => {
 };
 
 const updateCell = (frameworkId, testId, duration) => {
+	// Store result for later sorting
+	if (!results.has(frameworkId)) {
+		results.set(frameworkId, {});
+	}
+	results.get(frameworkId)[testId] = duration;
+
 	const row = resultRows.get(frameworkId);
 	if (!row) {
 		return;
@@ -216,8 +326,68 @@ const updateCell = (frameworkId, testId, duration) => {
 	if (!cell) {
 		return;
 	}
+	cell.classList.remove('pass', 'warn', 'fail', 'rank-1', 'rank-2', 'rank-3');
 	cell.textContent = `${duration.toFixed(2)} ms`;
 	scoreCell(cell, duration);
+};
+
+const sortRowsByTest = (testId) => {
+	// Get all framework results for this test
+	const frameworkResults = [];
+	for (const [frameworkId, testResults] of results.entries()) {
+		if (testResults[testId] !== undefined) {
+			frameworkResults.push({
+				frameworkId,
+				duration: testResults[testId]
+			});
+		}
+	}
+
+	// Sort by duration (fastest first)
+	frameworkResults.sort((a, b) => a.duration - b.duration);
+
+	// Add rank classes to cells
+	frameworkResults.forEach((result, index) => {
+		const row = resultRows.get(result.frameworkId);
+		if (!row) return;
+		const cell = row.querySelector(`[data-test="${testId}"]`);
+		if (!cell) return;
+
+		// Add rank indicator
+		cell.classList.remove('rank-1', 'rank-2', 'rank-3');
+		if (index === 0) {
+			cell.classList.add('rank-1');
+		} else if (index === 1) {
+			cell.classList.add('rank-2');
+		} else if (index === 2) {
+			cell.classList.add('rank-3');
+		}
+	});
+
+	return frameworkResults;
+};
+
+const reorderTableByOverall = () => {
+	// Calculate total time for each framework
+	const totals = [];
+	for (const [frameworkId, testResults] of results.entries()) {
+		const total = testIds.reduce((sum, testId) => sum + (testResults[testId] || 0), 0);
+		totals.push({ frameworkId, total });
+	}
+
+	// Sort by total (fastest first)
+	totals.sort((a, b) => a.total - b.total);
+
+	// Reorder table rows
+	totals.forEach(({ frameworkId }) => {
+		const row = resultRows.get(frameworkId);
+		if (row) {
+			resultsTableBody.appendChild(row);
+		}
+	});
+
+	// Add rank classes to each test column
+	testIds.forEach((testId) => sortRowsByTest(testId));
 };
 
 const runInitialRender = async (framework) => {
@@ -263,6 +433,9 @@ const runUpdateTest = async (framework, transform) => {
 };
 
 const runAll = async () => {
+	// Clear previous results
+	results.clear();
+
 	for (const framework of frameworks) {
 		const initial = await runInitialRender(framework);
 		updateCell(framework.id, 'initial', initial);
@@ -282,13 +455,17 @@ const runAll = async () => {
 		const addRemove = await runUpdateTest(framework, addRemoveItems);
 		updateCell(framework.id, 'addRemove', addRemove);
 	}
+
+	// Sort and rank after all tests complete
+	reorderTableByOverall();
 };
 
 const clearResults = () => {
+	results.clear();
 	resultRows.forEach((row) => {
 		row.querySelectorAll('.result-cell').forEach((cell) => {
 			cell.textContent = '';
-			cell.classList.remove('pass', 'warn', 'fail');
+			cell.classList.remove('pass', 'warn', 'fail', 'rank-1', 'rank-2', 'rank-3');
 		});
 	});
 	containers.forEach((container) => {

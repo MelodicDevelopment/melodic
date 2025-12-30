@@ -1,6 +1,6 @@
 import { getAttributeDirective } from '../directives/functions/attribute-directive.functions';
 import type { ITemplatePart } from '../interfaces/itemplate-part.interface';
-import type { ITemplateCache } from '../interfaces/itemplate-cache.interface';
+import type { ITemplateCache, IPartPath } from '../interfaces/itemplate-cache.interface';
 import { isDirective } from '../directives/functions/is-directive.function';
 
 // Unique marker for identifying dynamic positions
@@ -13,6 +13,22 @@ const createAttributeMarker = (index: number): string => `${ATTRIBUTE_MARKER_PRE
 
 const templateCache = new Map<string, ITemplateCache>();
 
+// Cache template keys by TemplateStringsArray identity to avoid repeated string joins
+const templateKeyCache = new WeakMap<TemplateStringsArray, string>();
+
+/**
+ * Get or create a cache key for the template strings array.
+ * Uses WeakMap to cache by object identity, avoiding expensive string joins on repeated renders.
+ */
+function getTemplateKey(strings: TemplateStringsArray): string {
+	let key = templateKeyCache.get(strings);
+	if (key === undefined) {
+		key = strings.join(MARKER);
+		templateKeyCache.set(strings, key);
+	}
+	return key;
+}
+
 export class TemplateResult {
 	strings: TemplateStringsArray;
 	values: unknown[];
@@ -22,11 +38,27 @@ export class TemplateResult {
 		this.values = values;
 	}
 
+	/**
+	 * Optimized render for single-use containers (like repeat items).
+	 * Skips container caching overhead for better performance.
+	 * Returns the rendered nodes directly.
+	 */
+	renderOnce(container: DocumentFragment): Node[] {
+		const cache = this.getTemplate(getTemplateKey(this.strings));
+		const clone = cache.element.content.cloneNode(true);
+		const parts = this.prepareParts(clone, cache);
+
+		this.commit(parts);
+		container.appendChild(clone);
+
+		return Array.from(container.childNodes);
+	}
+
 	renderInto(container: Element | DocumentFragment): void {
-		const templateKey = this.strings.join(MARKER);
+		const templateKey = getTemplateKey(this.strings);
 
 		// Get or create template
-		const { element: template, parts: templateParts } = this.getTemplate();
+		const { element: template } = this.getTemplate(templateKey);
 
 		// First render - clone and prepare
 		const existingKey = (container as any).__templateKey as string | undefined;
@@ -40,7 +72,7 @@ export class TemplateResult {
 
 		if (!(container as any).__parts) {
 			const clone = template.content.cloneNode(true);
-			const parts = this.prepareParts(clone, templateParts);
+			const parts = this.prepareParts(clone, this.getTemplate(templateKey));
 
 			(container as any).__parts = parts;
 			(container as any).__templateKey = templateKey;
@@ -62,8 +94,7 @@ export class TemplateResult {
 		this.commit(parts);
 	}
 
-	private getTemplate(): ITemplateCache {
-		const key = this.strings.join(MARKER);
+	private getTemplate(key: string): ITemplateCache {
 		let cached = templateCache.get(key);
 
 		if (cached) {
@@ -134,7 +165,125 @@ export class TemplateResult {
 		const element = document.createElement('template');
 		element.innerHTML = html;
 
-		cached = { element, parts };
+		// Pre-compute part paths by walking template DOM once
+		const partPaths: IPartPath[] = [];
+		let nodePartCursor = 0;
+
+		// Build lookup for node parts by index order
+		const nodeParts: ITemplatePart[] = [];
+		const eventPartsByIndex = new Map<number, ITemplatePart>();
+		const propertyPartsByIndex = new Map<number, ITemplatePart>();
+		const actionPartsByIndex = new Map<number, ITemplatePart>();
+
+		for (const part of parts) {
+			switch (part.type) {
+				case 'event':
+					eventPartsByIndex.set(part.index, part);
+					break;
+				case 'property':
+					propertyPartsByIndex.set(part.index, part);
+					break;
+				case 'action':
+					actionPartsByIndex.set(part.index, part);
+					break;
+				case 'node':
+					nodeParts.push(part);
+					break;
+			}
+		}
+
+		// Walk template content once to record paths
+		const walkTemplate = (node: Node, path: number[]) => {
+			if (node.nodeType === Node.COMMENT_NODE) {
+				const comment = node as Comment;
+				if (comment.data === MARKER) {
+					const part = nodeParts[nodePartCursor++];
+					if (part) {
+						partPaths.push({
+							path: [...path],
+							type: 'node',
+							index: part.index
+						});
+					}
+				}
+			} else if (node.nodeType === Node.ELEMENT_NODE) {
+				const el = node as Element;
+
+				// Check attributes for markers
+				for (let i = el.attributes.length - 1; i >= 0; i--) {
+					const attr = el.attributes[i];
+
+					if (attr.name.startsWith('__event-')) {
+						const index = parseInt(attr.name.match(/__event-(\d+)__/)?.[1] || '0');
+						const part = eventPartsByIndex.get(index);
+						if (part) {
+							partPaths.push({
+								path: [...path],
+								type: 'event',
+								index: part.index,
+								name: part.name
+							});
+						}
+					} else if (attr.name.startsWith('__prop-')) {
+						const index = parseInt(attr.name.match(/__prop-(\d+)__/)?.[1] || '0');
+						const part = propertyPartsByIndex.get(index);
+						if (part) {
+							partPaths.push({
+								path: [...path],
+								type: 'property',
+								index: part.index,
+								name: part.name
+							});
+						}
+					} else if (attr.name.startsWith('__action-')) {
+						const index = parseInt(attr.name.match(/__action-(\d+)__/)?.[1] || '0');
+						const part = actionPartsByIndex.get(index);
+						if (part) {
+							partPaths.push({
+								path: [...path],
+								type: 'action',
+								index: part.index,
+								name: part.name
+							});
+						}
+					} else if (attr.name.startsWith(':')) {
+						// Static action directive
+						partPaths.push({
+							path: [...path],
+							type: 'action',
+							index: -1,
+							name: attr.name.slice(1),
+							staticValue: attr.value
+						});
+					} else if (attr.value.includes(ATTRIBUTE_MARKER_PREFIX)) {
+						const attributeInfo = this.parseAttributeValue(attr.value);
+						if (attributeInfo) {
+							const isComposite = attributeInfo.indices.length > 1 || attributeInfo.strings.some((s) => s.length > 0);
+							partPaths.push({
+								path: [...path],
+								type: 'attribute',
+								index: attributeInfo.indices[0],
+								name: attr.name,
+								attributeStrings: isComposite ? attributeInfo.strings : undefined,
+								attributeIndices: isComposite ? attributeInfo.indices : undefined
+							});
+						}
+					}
+				}
+			}
+
+			// Walk children
+			const children = node.childNodes;
+			for (let i = 0; i < children.length; i++) {
+				path.push(i);
+				walkTemplate(children[i], path);
+				path.pop();
+			}
+		};
+
+		walkTemplate(element.content, []);
+
+		cached = { element, parts, partPaths };
 		if (templateCache.size >= 500) {
 			const oldestKey = templateCache.keys().next().value;
 			if (oldestKey) {
@@ -192,116 +341,79 @@ export class TemplateResult {
 		};
 	}
 
-	private prepareParts(clone: Node, templateParts: ITemplatePart[]): ITemplatePart[] {
+	private prepareParts(clone: Node, cache: ITemplateCache): ITemplatePart[] {
 		const parts: ITemplatePart[] = [];
-		const nodeParts = templateParts.filter((part) => part.type === 'node').sort((a, b) => a.index - b.index);
-		let nodePartCursor = 0;
-		const eventPartsByIndex = new Map<number, ITemplatePart>();
-		const propertyPartsByIndex = new Map<number, ITemplatePart>();
-		const actionPartsByIndex = new Map<number, ITemplatePart>();
-		for (const part of templateParts) {
-			if (part.type === 'event') {
-				eventPartsByIndex.set(part.index, part);
-			} else if (part.type === 'property') {
-				propertyPartsByIndex.set(part.index, part);
-			} else if (part.type === 'action') {
-				actionPartsByIndex.set(part.index, part);
+		const { partPaths } = cache;
+
+		// Navigate directly to each part using pre-computed paths
+		for (const partPath of partPaths) {
+			// Navigate to the node using the path
+			let node: Node = clone;
+			for (const index of partPath.path) {
+				node = node.childNodes[index];
 			}
-		}
 
-		// Recursive walk to find all nodes
-		const walk = (node: Node) => {
-			if (node.nodeType === Node.COMMENT_NODE) {
-				const comment = node as Comment;
-				if (comment.data === MARKER) {
-					// Find corresponding part
-					const part = nodeParts[nodePartCursor++];
-					if (part) {
-						// Create a text node to replace the comment
-						const textNode = document.createTextNode('');
-						comment.parentNode!.replaceChild(textNode, comment);
+			if (partPath.type === 'node') {
+				// Replace comment marker with text node
+				const textNode = document.createTextNode('');
+				node.parentNode!.replaceChild(textNode, node);
 
-						parts.push({
-							...part,
-							node: textNode
-						});
-					}
-				}
-			} else if (node.nodeType === Node.ELEMENT_NODE) {
+				parts.push({
+					type: 'node',
+					index: partPath.index,
+					node: textNode
+				});
+			} else if (partPath.type === 'event') {
+				const element = node as Element;
+				element.removeAttribute(`__event-${partPath.index}__`);
+
+				parts.push({
+					type: 'event',
+					index: partPath.index,
+					name: partPath.name,
+					node: element
+				});
+			} else if (partPath.type === 'property') {
+				const element = node as Element;
+				element.removeAttribute(`__prop-${partPath.index}__`);
+
+				parts.push({
+					type: 'property',
+					index: partPath.index,
+					name: partPath.name,
+					node: element
+				});
+			} else if (partPath.type === 'action') {
 				const element = node as Element;
 
-				// Check for event/property markers
-				for (let i = element.attributes.length - 1; i >= 0; i--) {
-					const attr = element.attributes[i];
-
-					if (attr.name.startsWith('__event-')) {
-						const index = parseInt(attr.name.match(/__event-(\d+)__/)?.[1] || '0');
-						const part = eventPartsByIndex.get(index);
-						if (part) {
-							parts.push({
-								...part,
-								node: element
-							});
-						}
-						element.removeAttribute(attr.name);
-					} else if (attr.name.startsWith('__prop-')) {
-						const index = parseInt(attr.name.match(/__prop-(\d+)__/)?.[1] || '0');
-						const part = propertyPartsByIndex.get(index);
-						if (part) {
-							parts.push({
-								...part,
-								node: element
-							});
-						}
-						element.removeAttribute(attr.name);
-					} else if (attr.name.startsWith('__action-')) {
-						const index = parseInt(attr.name.match(/__action-(\d+)__/)?.[1] || '0');
-						const part = actionPartsByIndex.get(index);
-						if (part) {
-							parts.push({
-								...part,
-								node: element
-							});
-						}
-						element.removeAttribute(attr.name);
-					} else if (attr.name.startsWith(':')) {
-						// Static action directive (e.g., :routerLink="/home")
-						// Browser lowercases attribute names, so directive lookup is case-insensitive
-						const directiveName = attr.name.slice(1);
-						parts.push({
-							type: 'action',
-							index: -1, // No dynamic index for static directives
-							name: directiveName,
-							node: element,
-							staticValue: attr.value
-						});
-						element.removeAttribute(attr.name);
-					} else if (attr.value.includes(ATTRIBUTE_MARKER_PREFIX)) {
-						const attributeInfo = this.parseAttributeValue(attr.value);
-						if (attributeInfo) {
-							const isComposite = attributeInfo.indices.length > 1 || attributeInfo.strings.some((segment) => segment.length > 0);
-							parts.push({
-								type: 'attribute',
-								index: attributeInfo.indices[0],
-								name: attr.name,
-								node: element,
-								attributeStrings: isComposite ? attributeInfo.strings : undefined,
-								attributeIndices: isComposite ? attributeInfo.indices : undefined
-							});
-							element.removeAttribute(attr.name);
-						}
-					}
+				if (partPath.index >= 0) {
+					element.removeAttribute(`__action-${partPath.index}__`);
+				} else {
+					// Static action directive
+					element.removeAttribute(`:${partPath.name}`);
 				}
-			}
 
-			// Walk children
-			const children = Array.from(node.childNodes);
-			for (const child of children) {
-				walk(child);
-			}
-		};
+				parts.push({
+					type: 'action',
+					index: partPath.index,
+					name: partPath.name,
+					node: element,
+					staticValue: partPath.staticValue
+				});
+			} else if (partPath.type === 'attribute') {
+				const element = node as Element;
+				element.removeAttribute(partPath.name!);
 
-		walk(clone);
+				parts.push({
+					type: 'attribute',
+					index: partPath.index,
+					name: partPath.name,
+					node: element,
+					attributeStrings: partPath.attributeStrings,
+					attributeIndices: partPath.attributeIndices
+				});
+			}
+		}
 
 		return parts;
 	}

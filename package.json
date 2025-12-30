@@ -70,6 +70,7 @@
 		"prepublishOnly": "npm run build:lib",
 		"test": "vitest",
 		"test:unit": "vitest run",
+		"prepreview": "npm run build && npm run build:lib",
 		"preview": "vite preview",
 		"benchmark": "vite --open /benchmark/performance-test.html",
 		"benchmark:update": "npm run build && node benchmark/update-benchmarks.js"
