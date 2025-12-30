@@ -8,7 +8,7 @@ const vueModule = await import('https://unpkg.com/vue@3.4.38/dist/vue.esm-browse
 const litModule = await import('https://esm.sh/lit@3.1.3');
 const litRepeatModule = await import('https://esm.sh/lit@3.1.3/directives/repeat.js');
 
-const { html: melodicHtml, render: melodicRender, repeat: melodicRepeat, repeatRaw: melodicRepeatRaw } = melodicModule;
+const { html: melodicHtml, render: melodicRender, repeat: melodicRepeat, repeatRaw: melodicRepeatRaw, repeatTpl: melodicRepeatTpl, tpl: melodicTpl } = melodicModule;
 const React = reactModule;
 const { flushSync } = reactDomModule;
 const { createRoot } = reactDomClientModule;
@@ -193,6 +193,35 @@ const melodicRawAdapter = {
 	}
 };
 
+// Template definition - created once, reused for all items
+const itemTpl = melodicTpl`<li class="${0}">${1}: ${2}</li>`;
+
+// Melodic with repeatTpl - template syntax with near-raw performance
+const melodicTplAdapter = {
+	id: 'melodic-tpl',
+	label: 'Melodic Tpl',
+	create(container) {
+		return { container };
+	},
+	render(state, items) {
+		const template = melodicHtml`
+			<ul>
+				${melodicRepeatTpl(
+					items,
+					(item) => item.id,
+					itemTpl,
+					(item) => [item.active ? 'active' : '', item.text, item.value.toFixed(2)]
+				)}
+			</ul>
+		`;
+		melodicRender(template, state.container);
+	},
+	destroy(state) {
+		state.container.replaceChildren();
+		delete state.container.__parts;
+	}
+};
+
 const reactAdapter = {
 	id: 'react',
 	label: 'React 18',
@@ -292,7 +321,7 @@ const litAdapter = {
 	}
 };
 
-const frameworks = [vanillaAdapter, melodicAdapter, melodicRawAdapter, reactAdapter, preactAdapter, vueAdapter, litAdapter];
+const frameworks = [vanillaAdapter, melodicAdapter, melodicTplAdapter, melodicRawAdapter, reactAdapter, preactAdapter, vueAdapter, litAdapter];
 
 const resultRows = new Map();
 const containers = new Map();
