@@ -1,7 +1,24 @@
 {
 	"name": "@melodicdev/core",
 	"private": false,
-	"version": "0.0.2",
+	"version": "1.0.0",
+	"description": "A lightweight, modern web component framework built on native browser APIs.",
+	"license": "MIT",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/MelodicDevelopment/melodic.git"
+	},
+	"bugs": {
+		"url": "https://github.com/MelodicDevelopment/melodic/issues"
+	},
+	"homepage": "https://github.com/MelodicDevelopment/melodic#readme",
+	"keywords": [
+		"web-components",
+		"framework",
+		"signals",
+		"typescript",
+		"templates"
+	],
 	"type": "module",
 	"files": [
 		"lib",

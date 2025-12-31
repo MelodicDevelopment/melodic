@@ -60,7 +60,7 @@ Still needed:
 Unlike Angular's pipe system, Melodic can use simple formatter functions directly in templates:
 
 ```typescript
-import { formatCurrency, formatDate } from 'melodic';
+import { formatCurrency, formatDate } from '@melodicdev/core';
 
 html`<span>${formatCurrency(price, 'USD')}</span>`
 html`<span>${formatDate(created, 'MM/dd/yyyy')}</span>`

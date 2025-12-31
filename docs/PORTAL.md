@@ -30,7 +30,7 @@ import type { PortalOptions } from './_poc/portal';
 Teleport an element to `document.body`:
 
 ```typescript
-import { html } from 'melodic';
+import { html } from '@melodicdev/core';
 import './_poc/portal';
 
 html`
@@ -131,7 +131,7 @@ interface PortalOptions {
 ### Modal
 
 ```typescript
-import { MelodicComponent, html, css } from 'melodic';
+import { MelodicComponent, html, css } from '@melodicdev/core';
 import './_poc/portal';
 
 @MelodicComponent({
@@ -200,7 +200,7 @@ function modalStyles() {
 ### Tooltip
 
 ```typescript
-import { MelodicComponent, html } from 'melodic';
+import { MelodicComponent, html } from '@melodicdev/core';
 import './_poc/portal';
 
 @MelodicComponent({

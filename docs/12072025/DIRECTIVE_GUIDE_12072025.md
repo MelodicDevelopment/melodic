@@ -17,7 +17,7 @@ Directives are reusable, stateful DOM manipulation functions that extend the tem
 ### Using Built-in Directives
 
 ```typescript
-import { html, repeat, when, classMap, styleMap } from 'melodic';
+import { html, repeat, when, classMap, styleMap } from '@melodicdev/core';
 
 // Keyed list rendering
 html`
@@ -55,7 +55,7 @@ There are **two ways** to create directives:
 Use the `directive()` helper for simple use cases:
 
 ```typescript
-import { directive } from 'melodic';
+import { directive } from '@melodicdev/core';
 
 export function myDirective(value: string) {
   return directive((container, previousValue) => {
@@ -73,7 +73,7 @@ export function myDirective(value: string) {
 Extend the `Directive` base class for more control:
 
 ```typescript
-import { Directive } from 'melodic';
+import { Directive } from '@melodicdev/core';
 
 class MyDirective extends Directive {
   constructor(private value: string) {
@@ -146,7 +146,7 @@ export function myDirective(value: string) {
 Let's create a directive that formats text in different ways:
 
 ```typescript
-import { directive, type DirectiveResult } from 'melodic';
+import { directive, type DirectiveResult } from '@melodicdev/core';
 
 type TextFormat = 'uppercase' | 'lowercase' | 'capitalize';
 
@@ -186,7 +186,7 @@ html`
 A more complex directive with state management:
 
 ```typescript
-import { directive, type DirectiveResult } from 'melodic';
+import { directive, type DirectiveResult } from '@melodicdev/core';
 
 interface TooltipState {
   tooltipElement: HTMLDivElement | null;
@@ -254,7 +254,7 @@ html`
 Directive that animates elements when they appear:
 
 ```typescript
-import { directive, type DirectiveResult } from 'melodic';
+import { directive, type DirectiveResult } from '@melodicdev/core';
 
 interface FadeInOptions {
   duration?: number;
@@ -295,7 +295,7 @@ html`
 Simple directive to focus an input when it appears:
 
 ```typescript
-import { directive, type DirectiveResult } from 'melodic';
+import { directive, type DirectiveResult } from '@melodicdev/core';
 
 export function autoFocus(): DirectiveResult {
   return directive((container, hasFocused?: boolean) => {
@@ -320,7 +320,7 @@ html`
 For directives that need cleanup (event listeners, timers, etc.):
 
 ```typescript
-import { directive, type DirectiveResult } from 'melodic';
+import { directive, type DirectiveResult } from '@melodicdev/core';
 
 interface ScrollSpyState {
   observer: IntersectionObserver;
@@ -380,8 +380,8 @@ Class-based directives are ideal when you need:
 ### Example 1: Simple Text Transform (Class-Based)
 
 ```typescript
-import { Directive } from 'melodic';
-import type { DirectiveResult } from 'melodic';
+import { Directive } from '@melodicdev/core';
+import type { DirectiveResult } from '@melodicdev/core';
 
 type TransformType = 'uppercase' | 'lowercase' | 'title' | 'reverse';
 
@@ -439,8 +439,8 @@ html`
 ### Example 2: Configurable Highlight Directive
 
 ```typescript
-import { Directive } from 'melodic';
-import type { DirectiveResult } from 'melodic';
+import { Directive } from '@melodicdev/core';
+import type { DirectiveResult } from '@melodicdev/core';
 
 interface HighlightOptions {
   color?: string;
@@ -501,8 +501,8 @@ html`
 ### Example 3: Debounced Input Handler
 
 ```typescript
-import { Directive } from 'melodic';
-import type { DirectiveResult } from 'melodic';
+import { Directive } from '@melodicdev/core';
+import type { DirectiveResult } from '@melodicdev/core';
 
 interface DebounceState {
   timeoutId: number | null;
@@ -590,8 +590,8 @@ html`
 This shows the power of class-based directives with multiple helper methods:
 
 ```typescript
-import { Directive } from 'melodic';
-import type { DirectiveResult } from 'melodic';
+import { Directive } from '@melodicdev/core';
+import type { DirectiveResult } from '@melodicdev/core';
 
 interface DragState {
   isDragging: boolean;
@@ -852,7 +852,7 @@ html`
 ## Testing Your Directive
 
 ```typescript
-import { html, render } from 'melodic';
+import { html, render } from '@melodicdev/core';
 import { myDirective } from './my-directive';
 
 // Create a test container

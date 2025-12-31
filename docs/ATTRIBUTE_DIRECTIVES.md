@@ -8,6 +8,8 @@ Attribute directives allow you to attach behavior to any element using a clean, 
 - [Using Attribute Directives](#using-attribute-directives)
 - [Built-in Directives](#built-in-directives)
    - [routerLink](#routerlink)
+   - [formControl](#formcontrol)
+   - [portal](#portal)
 
 - [Creating Custom Directives](#creating-custom-directives)
 - [Directive Lifecycle](#directive-lifecycle)
@@ -114,6 +116,29 @@ Use `exactMatch` to require exact path matching:
 <!-- Only active when URL is exactly /admin -->
 ```
 
+### formControl
+
+The `formControl` directive binds a `FormControl` instance to a native input element.
+
+```html
+<input type="text" :formControl=${nameControl} />
+<input type="checkbox" :formControl=${acceptedControl} />
+<select :formControl=${countryControl}></select>
+```
+
+It keeps the control and DOM in sync and applies CSS state classes such as `mf-valid`, `mf-invalid`, `mf-dirty`, and `mf-touched`.
+See `docs/FORMS.md` for full usage.
+
+### portal
+
+The `portal` directive teleports an element to another part of the DOM tree.
+
+```html
+<div :portal="#overlay-root">I render elsewhere</div>
+```
+
+See `docs/PORTAL.md` for full behavior and options.
+
 ## Creating Custom Directives
 
 ### Registration
@@ -121,7 +146,7 @@ Use `exactMatch` to require exact path matching:
 Register directives using `registerAttributeDirective`:
 
 ```typescript
-import { registerAttributeDirective } from 'melodic';
+import { registerAttributeDirective } from '@melodicdev/core';
 
 registerAttributeDirective('myDirective', (element, value, name) => {
   // Setup logic here
@@ -147,7 +172,7 @@ type AttributeDirectiveFunction = (
 ### Example: Tooltip Directive
 
 ```typescript
-import { registerAttributeDirective } from 'melodic';
+import { registerAttributeDirective } from '@melodicdev/core';
 
 registerAttributeDirective('tooltip', (element, value, _name) => {
   const text = String(value);
@@ -203,7 +228,7 @@ Usage:
 ### Example: Click Outside Directive
 
 ```typescript
-import { registerAttributeDirective } from 'melodic';
+import { registerAttributeDirective } from '@melodicdev/core';
 
 registerAttributeDirective('clickOutside', (element, value, _name) => {
   if (typeof value !== 'function') {
@@ -240,7 +265,7 @@ Usage:
 ### Example: Auto-Focus Directive
 
 ```typescript
-import { registerAttributeDirective } from 'melodic';
+import { registerAttributeDirective } from '@melodicdev/core';
 
 registerAttributeDirective('autoFocus', (element, value, _name) => {
   // Focus immediately or based on condition
@@ -296,7 +321,7 @@ Cleanup functions are called when:
 ### Navigation Bar with Active States
 
 ```typescript
-import { html } from 'melodic';
+import { html } from '@melodicdev/core';
 
 const template = html`
   <nav class="navbar">
@@ -318,7 +343,7 @@ const template = html`
 ### Dynamic Links from Data
 
 ```typescript
-import { html } from 'melodic';
+import { html } from '@melodicdev/core';
 
 const navItems = [
   { path: '/home', label: 'Home' },
@@ -338,7 +363,7 @@ const template = html`
 ### Combining Multiple Directives
 
 ```typescript
-import { html } from 'melodic';
+import { html } from '@melodicdev/core';
 
 const template = html`
   <button
@@ -354,7 +379,7 @@ const template = html`
 ### Form with Auto-Focus
 
 ```typescript
-import { html } from 'melodic';
+import { html } from '@melodicdev/core';
 
 const template = html`
   <form>

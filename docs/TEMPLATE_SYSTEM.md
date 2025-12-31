@@ -31,7 +31,7 @@ The template system is built around tagged template literals, providing:
 ## The html Tag
 
 ```typescript
-import { html } from 'melodic';
+import { html } from '@melodicdev/core';
 ```
 
 The `html` function is a tagged template literal that creates a `TemplateResult`. It parses the template string once and caches the structure for reuse.
@@ -65,7 +65,7 @@ const list = html`
 ## The css Tag
 
 ```typescript
-import { css } from 'melodic';
+import { css } from '@melodicdev/core';
 ```
 
 The `css` function is an alias for `html`, used for semantic clarity when defining styles.
@@ -95,7 +95,7 @@ const styles = css`
 ## The render Function
 
 ```typescript
-import { render } from 'melodic';
+import { render } from '@melodicdev/core';
 ```
 
 The `render` function takes a `TemplateResult` and renders it into a container element.
@@ -112,7 +112,7 @@ function render(
 ### Usage
 
 ```typescript
-import { html, render } from 'melodic';
+import { html, render } from '@melodicdev/core';
 
 const template = html`<div>Hello!</div>`;
 const container = document.getElementById('app');
@@ -270,11 +270,13 @@ html`<a :routerLink=${{ href: '/about', exactMatch: true }}>About</a>`
 
 **Built-in directives:**
 - `routerLink` - Router navigation with active state management
+- `formControl` - Bind a FormControl to a native input element
+- `portal` - Teleport an element to another DOM container
 
 **Creating custom directives:**
 
 ```typescript
-import { registerAttributeDirective } from 'melodic';
+import { registerAttributeDirective } from '@melodicdev/core';
 
 registerAttributeDirective('highlight', (element, value) => {
     element.style.backgroundColor = String(value);
@@ -542,7 +544,7 @@ html`
 ### Combining with Directives
 
 ```typescript
-import { html, repeat, when, classMap, styleMap } from 'melodic';
+import { html, repeat, when, classMap, styleMap } from '@melodicdev/core';
 
 html`
     <div class=${classMap({ container: true, dark: isDarkMode })}>

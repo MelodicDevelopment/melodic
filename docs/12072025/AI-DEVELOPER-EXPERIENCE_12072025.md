@@ -639,7 +639,7 @@ AI: ✨ Implementing readonly signal helper...
     - Updated TypeScript types
 
     Usage:
-    import { readonly } from 'melodic';
+    import { readonly } from '@melodicdev/core';
 
     const count = signal(0);
     const readonlyCount = readonly(count);

@@ -107,16 +107,16 @@ Public API exports from `src/index.ts`:
 
 ```typescript
 // Component system
-import { MelodicComponent } from 'melodic';
-import type { IComponent, IComponentMeta } from 'melodic';
+import { MelodicComponent } from '@melodicdev/core';
+import type { IComponent, IComponentMeta } from '@melodicdev/core';
 
 // Template system
-import { html, render } from 'melodic';
-import type { TemplateResult } from 'melodic';
+import { html, render } from '@melodicdev/core';
+import type { TemplateResult } from '@melodicdev/core';
 
 // Directive system
-import { directive, Directive } from 'melodic';
-import { repeat, when, classMap, styleMap, unsafeHTML } from 'melodic';
+import { directive, Directive } from '@melodicdev/core';
+import { repeat, when, classMap, styleMap, unsafeHTML } from '@melodicdev/core';
 ```
 
 **Note:** Use `import type` for interfaces due to `verbatimModuleSyntax`.

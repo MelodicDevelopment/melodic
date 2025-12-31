@@ -17,6 +17,7 @@ const usage = (): void => {
 	console.log('  melodic generate attribute-directive <name> [--path src/directives]');
 	console.log('  melodic generate service <name> [--path src/services]');
 	console.log('  melodic generate interceptor <name> [--path src/http/interceptors]');
+	console.log('  melodic generate class <name> [--path src]');
 };
 
 const parseArgs = (args: string[]): { positionals: string[]; options: Record<string, string | boolean> } => {
@@ -255,6 +256,17 @@ const generateInterceptor = async (rootPath: string, name: string, dirName: stri
 	);
 };
 
+const generateClass = async (rootPath: string, name: string, dirName: string): Promise<void> => {
+	const fileBase = toKebabCase(name);
+	const className = toPascalCase(name);
+	const classPath = path.join(rootPath, dirName, `${fileBase}.class.ts`);
+
+	await writeFileSafe(
+		classPath,
+		`export class ${className} {\n\tconstructor() {\n\t\t// TODO: Implement\n\t}\n}\n`
+	);
+};
+
 const run = async (): Promise<void> => {
 	const args = process.argv.slice(2);
 	if (args.length === 0 || args.includes('--help') || args.includes('-h')) {
@@ -342,6 +354,10 @@ const run = async (): Promise<void> => {
 					case 'interceptor':
 						await generateInterceptor(process.cwd(), name, dirName ?? 'src/http/interceptors');
 						console.log(`Interceptor created in ${dirName ?? 'src/http/interceptors'}`);
+						break;
+					case 'class':
+						await generateClass(process.cwd(), name, dirName ?? 'src');
+						console.log(`Class created in ${dirName ?? 'src'}`);
 						break;
 					default:
 						throw new Error(`Unknown generate type: ${type}`);

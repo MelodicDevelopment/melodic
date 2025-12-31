@@ -296,8 +296,8 @@ effect(() => {
 ### Melodic Component Example
 
 ```typescript
-import { MelodicComponent, html, css } from 'melodic';
-import type { IComponent } from 'melodic';
+import { MelodicComponent, html, css } from '@melodicdev/core';
+import type { IComponent } from '@melodicdev/core';
 
 @MelodicComponent({
   selector: 'user-card',

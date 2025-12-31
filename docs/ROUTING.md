@@ -1,16 +1,24 @@
 # Routing
 
-Melodic includes a lightweight client-side router for single-page applications.
+Melodic includes a lightweight client-side router for single-page applications with nested routes, guards, resolvers, and lazy loading.
 
-## Basic Setup
+## Table of Contents
 
-Import and register the routing components, then use them in your app:
+- [Setup](#setup)
+- [Route Configuration](#route-configuration)
+- [Router Outlet](#router-outlet)
+- [Router Links](#router-links)
+- [Guards](#guards)
+- [Resolvers](#resolvers)
+- [Route Data and Params](#route-data-and-params)
+- [Programmatic Navigation](#programmatic-navigation)
+
+## Setup
+
+Import the routing package so the router components and directives are registered.
 
 ```typescript
-// main.ts
-import './src/routing/components/router-outlet/router-outlet.component';
-import './src/routing/components/router-link/router-link.component';
-import './src/routing/services/router.service';
+import '@melodicdev/core/routing';
 ```
 
 ## Route Configuration
@@ -18,212 +26,139 @@ import './src/routing/services/router.service';
 Define routes as an array of `IRoute` objects:
 
 ```typescript
-import type { IRoute } from 'melodic';
+import type { IRoute } from '@melodicdev/core';
 
 const routes: IRoute[] = [
-  { path: '', redirectTo: '/home' },
-  { path: 'home', component: 'home-page' },
-  { path: 'about', component: 'about-page' },
-  { path: 'users/:id', component: 'user-detail' },
-  { path: '404', component: 'not-found-page' }
+	{ path: '', redirectTo: '/home' },
+	{ path: 'home', component: 'home-page', name: 'home' },
+	{ path: 'users/:id', component: 'user-detail', name: 'user.detail' },
+	{
+		path: 'settings',
+		component: 'settings-page',
+		loadComponent: () => import('./pages/settings-page.component')
+	}
 ];
 ```
 
-### Route Properties
+Route properties:
 
-| Property | Type | Description |
-|----------|------|-------------|
-| `path` | `string` | URL path to match (without leading slash) |
-| `component` | `string` | Custom element tag name to render |
-| `redirectTo` | `string` | Path to redirect to (with leading slash) |
-| `loadComponent` | `() => Promise<unknown>` | Function for lazy loading |
+- `path`: URL path segment (no leading slash)
+- `component`: custom element tag name to render
+- `redirectTo`: redirect path (with leading slash)
+- `loadComponent`: lazy-load function for a component module
+- `loadChildren`: lazy-load child routes
+- `children`: nested route definitions
+- `canActivate` / `canDeactivate`: guard arrays
+- `resolve`: data resolvers
+- `data`: arbitrary static route data
+- `name`: named route for `navigateByName`
 
-## Components
+## Router Outlet
 
-### `<router-outlet>`
-
-Renders the matched route's component:
+`<router-outlet>` renders the matched component and supports nested outlets.
 
 ```html
 <router-outlet .routes=${routes}></router-outlet>
 ```
 
-### `<router-link>` Component
+For nested routing, include additional outlets inside routed components.
 
-Navigation links that use the router instead of full page loads:
+## Router Links
+
+You can use either the `<router-link>` component or the `:routerLink` attribute directive.
+
+### `<router-link>` Component
 
 ```html
 <router-link href="/home">Home</router-link>
-<router-link href="/users/123">View User</router-link>
+<router-link href="/users/123">User</router-link>
 ```
 
-### `:routerLink` Directive
-
-An attribute directive that adds router navigation to any element:
+### `:routerLink` Attribute Directive
 
 ```html
-<!-- On anchor tags (automatically sets href) -->
 <a :routerLink="/home">Home</a>
-<a :routerLink="/users/123">View User</a>
-
-<!-- On any element -->
 <button :routerLink="/settings">Settings</button>
-
-<!-- With options -->
 <a :routerLink=${{ href: '/about', exactMatch: true, activeClass: 'current' }}>About</a>
 ```
 
 The directive automatically:
-- Sets `href` on anchor elements for accessibility
-- Manages active class based on current route
-- Handles modifier keys (Ctrl/Cmd+click opens new tab)
-- Cleans up event listeners when element is removed
 
-See [Attribute Directives](./ATTRIBUTE_DIRECTIVES.md) for full documentation.
+- sets `href` on anchor elements
+- manages the active class
+- supports modifier-key navigation (open in new tab)
+
+## Guards
+
+Guards allow or block navigation. Use `createGuard` or `createDeactivateGuard` helpers.
+
+```typescript
+import { createGuard } from '@melodicdev/core/routing';
+
+export const authGuard = createGuard(({ queryParams }) => {
+	const token = queryParams.get('token');
+	return Boolean(token) || '/login';
+});
+```
+
+Apply guards to routes:
+
+```typescript
+{ path: 'admin', component: 'admin-page', canActivate: [authGuard] }
+```
+
+## Resolvers
+
+Resolvers load data before a route renders.
+
+```typescript
+import { createResolver } from '@melodicdev/core/routing';
+
+export const userResolver = createResolver(async ({ params }) => {
+	const response = await fetch(`/api/users/${params.id}`);
+	return response.json();
+});
+```
+
+Use in routes:
+
+```typescript
+{ path: 'users/:id', component: 'user-detail', resolve: { user: userResolver } }
+```
+
+## Route Data and Params
+
+Access route data and params through `RouterService`:
+
+```typescript
+import { Service } from '@melodicdev/core';
+import { RouterService } from '@melodicdev/core/routing';
+
+class UserDetailComponent {
+	@Service(RouterService) private router!: RouterService;
+
+	onCreate(): void {
+		const id = this.router.getParam('id');
+		const data = this.router.getResolvedData();
+		console.log(id, data.user);
+	}
+}
+```
 
 ## Programmatic Navigation
 
-Inject the `RouterService` to navigate programmatically:
-
 ```typescript
-import { Service } from 'melodic';
+import { RouterService } from '@melodicdev/core/routing';
 
-class MyComponent {
-  @Service('Router') private router!: RouterService;
+class NavMenuComponent {
+	@Service(RouterService) private router!: RouterService;
 
-  goToSettings() {
-    this.router.navigate('/settings');
-  }
+	goHome(): void {
+		void this.router.navigate('/home');
+	}
 
-  replaceCurrentRoute() {
-    this.router.replace('/home'); // Doesn't add to history
-  }
-}
-```
-
-## Route Parameters
-
-Use `:param` syntax for dynamic segments:
-
-```typescript
-{ path: 'users/:id', component: 'user-detail' }
-{ path: 'posts/:category/:slug', component: 'post-page' }
-```
-
-Use `*` for wildcard matching:
-
-```typescript
-{ path: 'files/*path', component: 'file-browser' }
-```
-
-## Lazy Loading
-
-Lazy loading defers loading of route components until they're needed, reducing initial bundle size.
-
-### Basic Lazy Loading
-
-Add `loadComponent` to your route:
-
-```typescript
-const routes: IRoute[] = [
-  // Eager loaded (in main bundle)
-  { path: 'home', component: 'home-page' },
-
-  // Lazy loaded (separate chunk, loaded on demand)
-  {
-    path: 'settings',
-    component: 'settings-page',
-    loadComponent: () => import('./pages/settings/settings-page.component')
-  }
-];
-```
-
-### How It Works
-
-1. User navigates to `/settings`
-2. Router detects `loadComponent` on the matched route
-3. Dynamic import loads the component module
-4. `@MelodicComponent` decorator registers the custom element
-5. Router creates and renders `<settings-page>`
-
-Vite automatically code-splits dynamic imports into separate chunks.
-
-### Module Lazy Loading
-
-For features with multiple components, create a module file:
-
-```typescript
-// features/admin/admin.module.ts
-import './admin-dashboard.component';
-import './admin-users.component';
-import './admin-reports.component';
-```
-
-Then reference the module in your route:
-
-```typescript
-{
-  path: 'admin',
-  component: 'admin-dashboard',
-  loadComponent: () => import('./features/admin/admin.module')
-}
-```
-
-All components in the module are registered when the module loads.
-
-### Verifying Lazy Loading
-
-1. Open browser DevTools → Network tab
-2. Navigate to a lazy-loaded route
-3. Observe the new JS chunk being fetched
-4. Add `console.log` in the component file to confirm load timing
-
-## Complete Example
-
-```typescript
-// app.component.ts
-import { MelodicComponent, html, css } from 'melodic';
-import type { IRoute } from 'melodic';
-import { appTemplate } from './app.template';
-import { appStyles } from './app.styles';
-
-const routes: IRoute[] = [
-  { path: '', redirectTo: '/home' },
-  { path: 'home', component: 'home-page' },
-  { path: 'about', component: 'about-page' },
-  {
-    path: 'settings',
-    component: 'settings-page',
-    loadComponent: () => import('./pages/settings/settings-page.component')
-  },
-  { path: '404', component: 'not-found-page' }
-];
-
-@MelodicComponent({
-  selector: 'my-app',
-  template: appTemplate,
-  styles: appStyles
-})
-export class AppComponent {
-  routes = routes;
-}
-```
-
-```typescript
-// app.template.ts
-import { html } from 'melodic';
-import type { AppComponent } from './app.component';
-
-export function appTemplate(self: AppComponent) {
-  return html`
-    <nav>
-      <router-link href="/home">Home</router-link>
-      <router-link href="/about">About</router-link>
-      <router-link href="/settings">Settings</router-link>
-    </nav>
-    <main>
-      <router-outlet .routes=${self.routes}></router-outlet>
-    </main>
-  `;
+	goByName(): void {
+		void this.router.navigateByName('user.detail', { id: '123' });
+	}
 }
 ```

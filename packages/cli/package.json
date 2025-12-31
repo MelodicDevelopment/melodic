@@ -1,6 +1,23 @@
 {
 	"name": "@melodicdev/cli",
-	"version": "0.0.0",
+	"version": "1.0.0",
+	"description": "Scaffolding and code generation for Melodic apps and monorepos.",
+	"license": "MIT",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/MelodicDevelopment/melodic.git"
+	},
+	"bugs": {
+		"url": "https://github.com/MelodicDevelopment/melodic/issues"
+	},
+	"homepage": "https://github.com/MelodicDevelopment/melodic#readme",
+	"keywords": [
+		"cli",
+		"scaffold",
+		"generator",
+		"web-components",
+		"melodic"
+	],
 	"type": "module",
 	"bin": {
 		"melodic": "./dist/index.js"

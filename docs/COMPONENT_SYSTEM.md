@@ -29,7 +29,7 @@ Melodic components are standard Web Components built using:
 A basic component consists of a class decorated with `@MelodicComponent`:
 
 ```typescript
-import { MelodicComponent, html, css } from 'melodic';
+import { MelodicComponent, html, css } from '@melodicdev/core';
 
 @MelodicComponent({
     selector: 'my-greeting',
@@ -55,7 +55,7 @@ Usage in HTML:
 ## The @MelodicComponent Decorator
 
 ```typescript
-import { MelodicComponent } from 'melodic';
+import { MelodicComponent } from '@melodicdev/core';
 ```
 
 The `@MelodicComponent` decorator transforms a plain class into a custom element. It:
@@ -148,6 +148,51 @@ A function that returns CSS styles using the `css` tagged template.
 ```
 
 **Note:** Use `:host` to style the custom element itself.
+
+## Separating Templates and Styles
+
+When templates or styles grow beyond a few lines, it is recommended to move them into dedicated files for clarity and reuse.
+
+```typescript
+// user-profile.template.ts
+import { html } from '@melodicdev/core';
+import type { UserProfileComponent } from './user-profile.component';
+
+export const userProfileTemplate = (self: UserProfileComponent) => html`
+	<section>
+		<h2>${self.name}</h2>
+		<p>${self.role}</p>
+	</section>
+`;
+```
+
+```typescript
+// user-profile.styles.ts
+import { css } from '@melodicdev/core';
+
+export const userProfileStyles = () => css`
+	:host {
+		display: block;
+	}
+`;
+```
+
+```typescript
+// user-profile.component.ts
+import { MelodicComponent } from '@melodicdev/core';
+import { userProfileTemplate } from './user-profile.template';
+import { userProfileStyles } from './user-profile.styles';
+
+@MelodicComponent({
+	selector: 'user-profile',
+	template: userProfileTemplate,
+	styles: userProfileStyles
+})
+export class UserProfileComponent {
+	name = 'Ada Lovelace';
+	role = 'Engineer';
+}
+```
 
 ### `attributes` (optional)
 
@@ -413,7 +458,7 @@ template: (self: MyComponent, attrs) => html`
 ## Complete Example
 
 ```typescript
-import { MelodicComponent, html, css } from 'melodic';
+import { MelodicComponent, html, css } from '@melodicdev/core';
 
 @MelodicComponent({
     selector: 'todo-item',

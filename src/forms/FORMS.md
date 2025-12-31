@@ -23,7 +23,7 @@ import type { IFormControl, IFormGroup, FormControlOptions } from './_poc/forms'
 
 ```typescript
 import { createFormControl, createFormGroup, Validators } from './_poc/forms';
-import { html } from 'melodic';
+import { html } from '@melodicdev/core';
 
 // Create a simple form
 const form = createFormGroup({
@@ -416,7 +416,7 @@ const emailUnique = createAsyncValidator<string>(
 The directive provides two-way binding with automatic state management:
 
 ```typescript
-import { html } from 'melodic';
+import { html } from '@melodicdev/core';
 import { createFormControl, createFormGroup, Validators } from './_poc/forms';
 // Import to register the directive
 import './_poc/forms/directives/form-control.directive';
@@ -483,7 +483,7 @@ html`
 ### Displaying Errors
 
 ```typescript
-import { html, when } from 'melodic';
+import { html, when } from '@melodicdev/core';
 
 const nameControl = createFormControl('', {
   validators: [Validators.required, Validators.minLength(2)]
@@ -546,7 +546,7 @@ const template = html`
 ## Complete Example
 
 ```typescript
-import { MelodicComponent, html, when } from 'melodic';
+import { MelodicComponent, html, when } from '@melodicdev/core';
 import {
   createFormControl,
   createFormGroup,

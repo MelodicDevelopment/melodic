@@ -6,7 +6,7 @@
 Efficiently renders lists with minimal DOM operations.
 
 ```typescript
-import { html, repeat } from 'melodic';
+import { html, repeat } from '@melodicdev/core';
 
 html`
   <ul>
@@ -29,7 +29,7 @@ html`
 Shows/hides content based on a condition.
 
 ```typescript
-import { html, when } from 'melodic';
+import { html, when } from '@melodicdev/core';
 
 html`
   ${when(isLoggedIn, () => html`
@@ -46,7 +46,7 @@ html`
 Apply CSS classes based on conditions.
 
 ```typescript
-import { html, classMap } from 'melodic';
+import { html, classMap } from '@melodicdev/core';
 
 html`
   <div class=${classMap({
@@ -65,7 +65,7 @@ html`
 Apply inline styles from an object.
 
 ```typescript
-import { html, styleMap } from 'melodic';
+import { html, styleMap } from '@melodicdev/core';
 
 html`
   <div style=${styleMap({
@@ -84,7 +84,7 @@ html`
 Render raw HTML (use with caution!).
 
 ```typescript
-import { html, unsafeHTML } from 'melodic';
+import { html, unsafeHTML } from '@melodicdev/core';
 
 const safeHTML = '<strong>Bold</strong>';
 html`
@@ -101,7 +101,7 @@ html`
 ### Simple Directive (Function-based)
 
 ```typescript
-import { directive } from 'melodic';
+import { directive } from '@melodicdev/core';
 
 export function myDirective(value: string) {
   return directive((container, previousValue) => {
@@ -117,7 +117,7 @@ html`<div>${myDirective('Hello!')}</div>`
 ### Complex Directive (Class-based)
 
 ```typescript
-import { Directive } from 'melodic';
+import { Directive } from '@melodicdev/core';
 
 class MyDirective extends Directive {
   constructor(private value: string) {
@@ -142,7 +142,7 @@ export function myDirective(value: string) {
 ### Tooltip
 
 ```typescript
-import { directive } from 'melodic';
+import { directive } from '@melodicdev/core';
 
 export function tooltip(text: string) {
   return directive((container, state) => {
@@ -158,7 +158,7 @@ html`<button ${tooltip('Click me!')}>Hover</button>`
 ### Auto-Focus
 
 ```typescript
-import { directive } from 'melodic';
+import { directive } from '@melodicdev/core';
 
 export function autoFocus() {
   return directive((container, focused) => {
@@ -176,7 +176,7 @@ html`<input ${autoFocus()} />`
 ### Fade-In Animation
 
 ```typescript
-import { directive } from 'melodic';
+import { directive } from '@melodicdev/core';
 
 export function fadeIn(duration = 300) {
   return directive((container, animated) => {
@@ -208,7 +208,7 @@ import {
   when,
   classMap,
   styleMap
-} from 'melodic';
+} from '@melodicdev/core';
 
 const template = html`
   <div class="app">

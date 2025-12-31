@@ -1,19 +1,28 @@
 # Melodic CLI
 
-A lightweight scaffolding tool for Melodic apps and monorepos.
+A lightweight scaffolding and code generation tool for Melodic apps and monorepos.
 
-## Install (local dev)
+## Install
 
-Build the CLI in this workspace:
+```sh
+npm install -g @melodicdev/cli
+melodic --help
+```
+
+Local dev build:
 
 ```sh
 npm --workspace @melodicdev/cli run build
+node packages/cli/dist/index.js --help
 ```
 
-Run it directly:
+## Quick Start
 
 ```sh
-node packages/cli/dist/index.js --help
+melodic init my-app
+cd my-app
+npm install
+npm run dev
 ```
 
 ## Commands
@@ -23,30 +32,38 @@ node packages/cli/dist/index.js --help
 Create a new Melodic project.
 
 - Single app:
-   - `melodic init my-app`
+  ```sh
+  melodic init my-app
+  ```
 
 - Monorepo with `apps/` and `packages/`:
-   - `melodic init my-repo --monorepo --app-name web`
+  ```sh
+  melodic init my-repo --monorepo --app-name web
+  ```
+
+`melodic create` is an alias of `melodic init`.
 
 ### `melodic add app <name> [--dir apps]`
 
-Add a new app folder inside a monorepo.
+Add a new app folder (useful inside a monorepo).
 
 ```sh
 melodic add app admin
+melodic add app marketing --dir apps
 ```
 
 ### `melodic add lib <name> [--dir packages]`
 
-Add a new shared library folder inside a monorepo.
+Add a new shared library folder.
 
 ```sh
 melodic add lib shared
+melodic add lib ui --dir packages
 ```
 
 ### `melodic add testing [--path .]`
 
-Add a basic Vitest + happy-dom testing setup to the target path.
+Add a basic Vitest + happy-dom test setup to an existing project.
 
 ```sh
 melodic add testing --path apps/web
@@ -57,6 +74,7 @@ melodic add testing --path apps/web
 Create a component with `.component.ts`, `.template.ts`, and `.styles.ts`.
 
 ```sh
+melodic generate component user-card
 melodic generate component user-card --path apps/web/src/components
 ```
 
@@ -64,25 +82,59 @@ melodic generate component user-card --path apps/web/src/components
 
 Create a template directive.
 
+```sh
+melodic generate directive auto-focus
+```
+
 ### `melodic generate attribute-directive <name> [--path src/directives]`
 
 Create and register an attribute directive.
+
+```sh
+melodic generate attribute-directive tooltip
+```
 
 ### `melodic generate service <name> [--path src/services]`
 
 Create an injectable service.
 
+```sh
+melodic generate service auth
+```
+
 ### `melodic generate interceptor <name> [--path src/http/interceptors]`
 
 Create HTTP request/response interceptors.
 
+```sh
+melodic generate interceptor auth
+```
+
+### `melodic generate class <name> [--path src]`
+
+Create a plain TypeScript class.
+
+```sh
+melodic generate class user
+melodic generate class user --path src/models
+```
+
 ## Templates
+
+The CLI uses built-in templates and replaces placeholders automatically:
 
 - `app-basic`: single app scaffold
 - `monorepo-basic`: repo with `apps/` + `packages/` and a default app
 - `lib-basic`: minimal shared library scaffold
 
-## Notes
+Placeholders:
+
+- `__APP_NAME__`
+- `__REPO_NAME__`
+- `__LIB_NAME__`
+
+## Behavior Notes
 
 - The CLI writes files only if the target directory is empty.
-- Placeholders are replaced automatically: `__APP_NAME__`, `__REPO_NAME__`, `__LIB_NAME__`.
+- Existing files are never overwritten.
+- Use `--path` and `--dir` to target specific subfolders.
