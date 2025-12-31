@@ -75,11 +75,14 @@ const replacePlaceholders = (input: string, replacements: Record<string, string>
 	return output;
 };
 
-const copyTemplate = async (source: string, destination: string, replacements: Record<string, string>): Promise<void> => {
+const copyTemplate = async (source: string, destination: string, replacements: Record<string, string>, exclude: string[] = []): Promise<void> => {
 	await fs.mkdir(destination, { recursive: true });
 	const entries = await fs.readdir(source, { withFileTypes: true });
 
 	for (const entry of entries) {
+		if (exclude.includes(entry.name)) {
+			continue;
+		}
 		const sourcePath = path.join(source, entry.name);
 		let resolvedName = replacePlaceholders(entry.name, replacements);
 
@@ -169,7 +172,7 @@ const addApp = async (rootPath: string, name: string, dirName: string): Promise<
 	await ensureEmptyDir(appPath, name);
 	await copyTemplate(path.join(templatesRoot, 'app-basic'), appPath, {
 		'__APP_NAME__': name
-	});
+	}, ['package.json', '_gitignore', '_prettierrc']);
 };
 
 const addLib = async (rootPath: string, name: string, dirName: string): Promise<void> => {

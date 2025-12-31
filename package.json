@@ -84,6 +84,8 @@
 		"build:framework": "npx vite build --config vite.config.framework.ts",
 		"build:lib": "tsc -p tsconfig.build.json",
 		"build:cli": "npm --workspace @melodicdev/cli run build",
+		"prepublish:cli": "npm run build:cli",
+		"publish:cli": "npm --workspace @melodicdev/cli publish --access public",
 		"prepublishOnly": "npm run build:lib",
 		"test": "vitest",
 		"test:unit": "vitest run",
