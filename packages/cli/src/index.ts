@@ -18,6 +18,13 @@ const usage = (): void => {
 	console.log('  melodic generate service <name> [--path src/services]');
 	console.log('  melodic generate interceptor <name> [--path src/http/interceptors]');
 	console.log('  melodic generate class <name> [--path src]');
+	console.log('  melodic version');
+};
+
+const getVersion = async (): Promise<string> => {
+	const packageJsonPath = path.resolve(__dirname, '../package.json');
+	const pkg = await readJson<{ version: string }>(packageJsonPath);
+	return pkg.version;
 };
 
 const parseArgs = (args: string[]): { positionals: string[]; options: Record<string, string | boolean> } => {
@@ -74,7 +81,14 @@ const copyTemplate = async (source: string, destination: string, replacements: R
 
 	for (const entry of entries) {
 		const sourcePath = path.join(source, entry.name);
-		const resolvedName = replacePlaceholders(entry.name, replacements);
+		let resolvedName = replacePlaceholders(entry.name, replacements);
+
+		// npm doesn't include dotfiles when publishing, so we use underscore prefix
+		// in templates: _gitignore -> .gitignore, _prettierrc -> .prettierrc
+		if (resolvedName.startsWith('_')) {
+			resolvedName = '.' + resolvedName.slice(1);
+		}
+
 		const destinationPath = path.join(destination, resolvedName);
 
 		if (entry.isDirectory()) {
@@ -274,6 +288,11 @@ const run = async (): Promise<void> => {
 		process.exit(args.length === 0 ? 1 : 0);
 	}
 
+	if (args.includes('--version') || args.includes('-v')) {
+		console.log(await getVersion());
+		process.exit(0);
+	}
+
 	const command = args[0];
 	const { positionals, options } = parseArgs(args.slice(1));
 
@@ -362,6 +381,10 @@ const run = async (): Promise<void> => {
 					default:
 						throw new Error(`Unknown generate type: ${type}`);
 				}
+				break;
+			}
+			case 'version': {
+				console.log(await getVersion());
 				break;
 			}
 			default:
