@@ -4,10 +4,18 @@
 	"type": "module",
 	"workspaces": [
 		"apps/*",
-		"packages/*"
+		"libs/*"
 	],
 	"scripts": {
-		"dev": "npm --workspace apps/__APP_NAME__ run dev",
-		"build": "npm --workspace apps/__APP_NAME__ run build"
+		"dev": "vite apps/__APP_NAME__",
+		"build": "tsc -b && vite build apps/__APP_NAME__",
+		"preview": "vite preview apps/__APP_NAME__"
+	},
+	"dependencies": {
+		"@melodicdev/core": "latest"
+	},
+	"devDependencies": {
+		"typescript": "~5.9.3",
+		"vite": "^5.4.0"
 	}
 }

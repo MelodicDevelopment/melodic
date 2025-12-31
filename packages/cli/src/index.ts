@@ -10,7 +10,7 @@ const usage = (): void => {
 	console.log('Usage:');
 	console.log('  melodic init <directory> [--monorepo] [--app-name <name>]');
 	console.log('  melodic add app <name> [--dir apps]');
-	console.log('  melodic add lib <name> [--dir packages]');
+	console.log('  melodic add lib <name> [--dir libs]');
 	console.log('  melodic add testing [--path .]');
 	console.log('  melodic generate component <name> [--path src/components]');
 	console.log('  melodic generate directive <name> [--path src/directives]');
@@ -319,7 +319,7 @@ const run = async (): Promise<void> => {
 					break;
 				}
 				if (type === 'lib') {
-					const dirName = typeof options.dir === 'string' ? options.dir : 'packages';
+					const dirName = typeof options.dir === 'string' ? options.dir : 'libs';
 					await addLib(process.cwd(), name, dirName);
 					console.log(`Library created at ${dirName}/${name}`);
 					break;

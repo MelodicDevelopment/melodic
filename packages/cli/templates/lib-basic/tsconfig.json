@@ -3,6 +3,9 @@
 		"target": "ES2022",
 		"module": "ESNext",
 		"moduleResolution": "Bundler",
+		"useDefineForClassFields": false,
+		"experimentalDecorators": true,
+		"emitDecoratorMetadata": true,
 		"strict": true,
 		"skipLibCheck": true
 	},
