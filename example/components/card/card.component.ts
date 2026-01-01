@@ -4,7 +4,7 @@ import { html, css } from '../../../src';
 @MelodicComponent({
 	selector: 'ui-card',
 	template: () => html`
-		<div class="card">
+		<div class="card surface">
 			<div class="card-header">
 				<slot name="header">Default Header</slot>
 			</div>
@@ -19,10 +19,7 @@ import { html, css } from '../../../src';
 	styles: () => css`
 		.card {
 			border: 1px solid #e0e0e0;
-			border-radius: 8px;
 			overflow: hidden;
-			background: white;
-			box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 		}
 
 		.card-header {

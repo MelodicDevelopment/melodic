@@ -12,7 +12,6 @@ import { html, css } from '../../../src/template/functions/html.function';
 	`,
 	styles: () => css`
 		.page {
-			padding: 2rem;
 			text-align: center;
 		}
 		h1 {
@@ -20,7 +19,6 @@ import { html, css } from '../../../src/template/functions/html.function';
 			margin-bottom: 1rem;
 		}
 		p {
-			color: #666;
 			margin-bottom: 1.5rem;
 		}
 		router-link {

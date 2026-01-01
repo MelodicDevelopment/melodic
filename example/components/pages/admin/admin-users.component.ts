@@ -20,13 +20,13 @@ import type { User } from '../../../routing';
 					self.users,
 					(user) => user.id,
 					(user) => html`
-						<div class="user-card" @click=${() => self.viewUser(user.id)}>
+						<div class="user-card surface" @click=${() => self.viewUser(user.id)}>
 							<div class="user-avatar">${user.name.charAt(0)}</div>
 							<div class="user-info">
 								<div class="user-name">${user.name}</div>
-								<div class="user-email">${user.email}</div>
+								<div class="user-email text-muted">${user.email}</div>
 							</div>
-							<div class="user-role">${user.role}</div>
+							<div class="user-role text-muted">${user.role}</div>
 						</div>
 					`
 				)}
@@ -42,7 +42,6 @@ import type { User } from '../../../routing';
 			color: #2c3e50;
 		}
 		.subtitle {
-			color: #7f8c8d;
 			margin-bottom: 1.5rem;
 		}
 		.users-list {
@@ -54,10 +53,7 @@ import type { User } from '../../../routing';
 			display: flex;
 			align-items: center;
 			gap: 1rem;
-			background: white;
 			padding: 1rem;
-			border-radius: 8px;
-			box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 			cursor: pointer;
 			transition: all 0.2s;
 		}
@@ -86,14 +82,12 @@ import type { User } from '../../../routing';
 		}
 		.user-email {
 			font-size: 0.85rem;
-			color: #7f8c8d;
 		}
 		.user-role {
 			background: #ecf0f1;
 			padding: 0.25rem 0.75rem;
 			border-radius: 12px;
 			font-size: 0.8rem;
-			color: #7f8c8d;
 		}
 	`
 })

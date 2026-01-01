@@ -1,5 +1,5 @@
 import { MelodicComponent } from '../../../src/components';
-import { html, css } from '../../../src/template/functions/html.function';
+import { html } from '../../../src/template/functions/html.function';
 
 @MelodicComponent({
 	selector: 'home-page',
@@ -9,19 +9,6 @@ import { html, css } from '../../../src/template/functions/html.function';
 			<p>Welcome to the Melodic Router Demo!</p>
 			<p>Use the navigation links above to explore different pages.</p>
 		</div>
-	`,
-	styles: () => css`
-		.page {
-			padding: 2rem;
-		}
-		h1 {
-			color: #333;
-			margin-bottom: 1rem;
-		}
-		p {
-			color: #666;
-			line-height: 1.6;
-		}
 	`
 })
 export class HomePageComponent {}

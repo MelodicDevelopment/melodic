@@ -99,7 +99,7 @@ const routes: IRoute[] = [
 				<router-outlet .routes=${routes}></router-outlet>
 			</main>
 			<footer class="footer">
-				<div class="footer-info">
+				<div class="footer-info text-muted">
 					<strong>Routing Demo Features:</strong>
 					Guards, Resolvers, Nested Routes, Route Params, Active Links
 				</div>
@@ -175,7 +175,6 @@ const routes: IRoute[] = [
 			text-align: center;
 		}
 		.footer-info {
-			color: #7f8c8d;
 			font-size: 0.85rem;
 		}
 		.footer-info strong {

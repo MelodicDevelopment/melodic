@@ -13,25 +13,11 @@ import { html, css } from '../../../src/template/functions/html.function';
 		</div>
 	`,
 	styles: () => css`
-		.page {
-			padding: 2rem;
-		}
-		h1 {
-			color: #333;
-			margin-bottom: 1rem;
-		}
-		p {
-			color: #666;
-			line-height: 1.6;
-		}
 		.contact-info {
 			margin-top: 1.5rem;
 			padding: 1rem;
 			background: #f5f5f5;
 			border-radius: 8px;
-		}
-		a {
-			color: #007bff;
 		}
 	`
 })

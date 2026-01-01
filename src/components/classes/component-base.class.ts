@@ -5,12 +5,13 @@ import type { Unsubscriber } from '../../signals/types/unsubscriber.type';
 import type { Signal } from '../../signals/types/signal.type';
 import { isSignal } from '../../signals/functions/is-signal.function';
 import type { ITemplatePart } from '../../template/interfaces/itemplate-part.interface';
+import { applyGlobalShadowStyles } from '../styles/shadow-global-styles';
 
 export abstract class ComponentBase extends HTMLElement {
-	private _meta: ComponentMeta;
-	private _component: Component;
-	private _root: ShadowRoot;
-	private _style: HTMLStyleElement;
+	private readonly _meta: ComponentMeta;
+	private readonly _component: Component;
+	private readonly _root: ShadowRoot;
+	private readonly _style: HTMLStyleElement;
 	private _unsubscribers: Array<Unsubscriber> = [];
 	private _renderScheduled = false;
 
@@ -21,6 +22,7 @@ export abstract class ComponentBase extends HTMLElement {
 		this._component = component;
 		this._component.elementRef = this;
 		this._root = this.attachShadow({ mode: 'open' });
+		applyGlobalShadowStyles(this._root);
 		this._style = this.renderStyles();
 
 		this.observe();

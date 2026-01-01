@@ -149,6 +149,23 @@ A function that returns CSS styles using the `css` tagged template.
 
 **Note:** Use `:host` to style the custom element itself.
 
+### Global Shadow Styles (optional)
+
+Melodic can copy a shared stylesheet into every Shadow DOM root. Add a `<style>` or `<link>` tag with the `melodic-styles` attribute in your HTML, and all components will inherit those rules.
+
+```html
+<style melodic-styles>
+	a { color: #1a64ff; text-decoration: none; }
+	a:hover { text-decoration: underline; }
+</style>
+```
+
+```html
+<link rel="stylesheet" href="/global.css" melodic-styles />
+```
+
+Melodic uses a single shared `CSSStyleSheet` when supported (memory efficient), and falls back to cloning a `<style>` tag per component when not.
+
 ## Separating Templates and Styles
 
 When templates or styles grow beyond a few lines, it is recommended to move them into dedicated files for clarity and reuse.

@@ -1,5 +1,5 @@
 import { MelodicComponent } from '../../../src/components';
-import { html, css } from '../../../src/template/functions/html.function';
+import { html } from '../../../src/template/functions/html.function';
 
 @MelodicComponent({
 	selector: 'about-page',
@@ -15,24 +15,6 @@ import { html, css } from '../../../src/template/functions/html.function';
 				<li>Reactive property observation</li>
 			</ul>
 		</div>
-	`,
-	styles: () => css`
-		.page {
-			padding: 2rem;
-		}
-		h1 {
-			color: #333;
-			margin-bottom: 1rem;
-		}
-		p {
-			color: #666;
-			line-height: 1.6;
-		}
-		ul {
-			color: #666;
-			line-height: 1.8;
-			margin-top: 1rem;
-		}
 	`
 })
 export class AboutPageComponent {}

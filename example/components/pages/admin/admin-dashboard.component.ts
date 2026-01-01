@@ -16,23 +16,23 @@ import type { DashboardStats } from '../../../routing';
 			<p class="subtitle">Welcome to the admin dashboard. Data loaded via resolver.</p>
 
 			<div class="stats-grid">
-				<div class="stat-card">
+				<div class="stat-card surface">
 					<div class="stat-value">${self.stats?.totalUsers ?? '...'}</div>
-					<div class="stat-label">Total Users</div>
+					<div class="stat-label text-muted">Total Users</div>
 				</div>
-				<div class="stat-card">
+				<div class="stat-card surface">
 					<div class="stat-value">${self.stats?.activeUsers ?? '...'}</div>
-					<div class="stat-label">Active Users</div>
+					<div class="stat-label text-muted">Active Users</div>
 				</div>
-				<div class="stat-card">
+				<div class="stat-card surface">
 					<div class="stat-value">${self.stats?.newUsersToday ?? '...'}</div>
-					<div class="stat-label">New Today</div>
+					<div class="stat-label text-muted">New Today</div>
 				</div>
 			</div>
 
-			<div class="info-box">
+			<div class="info-box surface">
 				<h3>Resolved Data Demo</h3>
-				<p>This data was fetched by the <code>dashboardStatsResolver</code> before navigation completed.</p>
+				<p class="text-muted">This data was fetched by the <code>dashboardStatsResolver</code> before navigation completed.</p>
 				<pre>${JSON.stringify(self.stats, null, 2)}</pre>
 			</div>
 		</div>
@@ -46,7 +46,6 @@ import type { DashboardStats } from '../../../routing';
 			color: #2c3e50;
 		}
 		.subtitle {
-			color: #7f8c8d;
 			margin-bottom: 2rem;
 		}
 		.stats-grid {
@@ -56,10 +55,7 @@ import type { DashboardStats } from '../../../routing';
 			margin-bottom: 2rem;
 		}
 		.stat-card {
-			background: white;
 			padding: 1.5rem;
-			border-radius: 8px;
-			box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 			text-align: center;
 		}
 		.stat-value {
@@ -68,22 +64,17 @@ import type { DashboardStats } from '../../../routing';
 			color: #3498db;
 		}
 		.stat-label {
-			color: #7f8c8d;
 			font-size: 0.9rem;
 			margin-top: 0.5rem;
 		}
 		.info-box {
-			background: white;
 			padding: 1rem;
-			border-radius: 8px;
-			box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 		}
 		.info-box h3 {
 			margin: 0 0 0.5rem 0;
 			color: #2c3e50;
 		}
 		.info-box p {
-			color: #7f8c8d;
 			margin-bottom: 1rem;
 		}
 		code {

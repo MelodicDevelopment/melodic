@@ -6,7 +6,7 @@ export function settingsPageTemplate() {
 			<h1>Settings</h1>
 			<p class="lazy-badge">This page was lazy loaded!</p>
 
-			<section class="settings-section">
+			<section class="settings-section surface-soft">
 				<h2>Appearance</h2>
 				<label class="setting">
 					<span>Dark Mode</span>
@@ -18,7 +18,7 @@ export function settingsPageTemplate() {
 				</label>
 			</section>
 
-			<section class="settings-section">
+			<section class="settings-section surface-soft">
 				<h2>Notifications</h2>
 				<label class="setting">
 					<span>Email Notifications</span>
@@ -30,7 +30,7 @@ export function settingsPageTemplate() {
 				</label>
 			</section>
 
-			<section class="settings-section">
+			<section class="settings-section surface-soft">
 				<h2>Privacy</h2>
 				<label class="setting">
 					<span>Share Analytics</span>

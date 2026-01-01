@@ -18,29 +18,29 @@ import type { User } from '../../../routing';
 				<div class="user-avatar">${self.user?.name.charAt(0) ?? '?'}</div>
 				<div>
 					<h1>${self.user?.name ?? 'Loading...'}</h1>
-					<p class="user-role">${self.user?.role ?? ''}</p>
+					<p class="user-role text-muted">${self.user?.role ?? ''}</p>
 				</div>
 			</div>
 
-			<div class="info-section">
+			<div class="info-section surface">
 				<h3>User Information</h3>
 				<dl class="info-grid">
-					<dt>ID</dt>
+					<dt class="text-muted">ID</dt>
 					<dd>${self.user?.id ?? '-'}</dd>
-					<dt>Email</dt>
+					<dt class="text-muted">Email</dt>
 					<dd>${self.user?.email ?? '-'}</dd>
-					<dt>Role</dt>
+					<dt class="text-muted">Role</dt>
 					<dd>${self.user?.role ?? '-'}</dd>
 				</dl>
 			</div>
 
-			<div class="info-section">
+			<div class="info-section surface">
 				<h3>Route Information</h3>
-				<p>This demonstrates accessing route params and resolved data via RouterService.</p>
+				<p class="text-muted">This demonstrates accessing route params and resolved data via RouterService.</p>
 				<dl class="info-grid">
-					<dt>Route Param (userId)</dt>
+					<dt class="text-muted">Route Param (userId)</dt>
 					<dd><code>${self.userId}</code></dd>
-					<dt>Route Data</dt>
+					<dt class="text-muted">Route Data</dt>
 					<dd><code>${JSON.stringify(self.routeData)}</code></dd>
 				</dl>
 			</div>
@@ -85,14 +85,10 @@ import type { User } from '../../../routing';
 			color: #2c3e50;
 		}
 		.user-role {
-			color: #7f8c8d;
 			margin: 0.25rem 0 0 0;
 		}
 		.info-section {
-			background: white;
 			padding: 1.5rem;
-			border-radius: 8px;
-			box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 			margin-bottom: 1rem;
 		}
 		.info-section h3 {
@@ -101,7 +97,6 @@ import type { User } from '../../../routing';
 			font-size: 1rem;
 		}
 		.info-section p {
-			color: #7f8c8d;
 			margin-bottom: 1rem;
 			font-size: 0.9rem;
 		}
@@ -112,7 +107,6 @@ import type { User } from '../../../routing';
 			margin: 0;
 		}
 		.info-grid dt {
-			color: #7f8c8d;
 			font-size: 0.9rem;
 		}
 		.info-grid dd {
