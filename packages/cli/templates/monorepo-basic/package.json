@@ -8,7 +8,7 @@
 	],
 	"scripts": {
 		"dev": "vite apps/__APP_NAME__",
-		"build": "tsc -b && vite build apps/__APP_NAME__",
+		"build": "tsc -b tsconfig.build.json && vite build apps/__APP_NAME__",
 		"preview": "vite preview apps/__APP_NAME__"
 	},
 	"dependencies": {

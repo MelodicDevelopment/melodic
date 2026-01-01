@@ -150,6 +150,35 @@ const writeJson = async (filePath: string, value: unknown): Promise<void> => {
 	await fs.writeFile(filePath, contents);
 };
 
+const normalizeReferencePath = (value: string): string => {
+	return value.replace(/\\/g, '/');
+};
+
+const updateTsconfigReferencesForFile = async (rootPath: string, referencePath: string, configFileName: string): Promise<void> => {
+	const tsconfigPath = path.join(rootPath, configFileName);
+	if (!(await pathExists(tsconfigPath))) {
+		return;
+	}
+
+	const tsconfig = await readJson<{ references?: Array<{ path: string }> }>(tsconfigPath);
+	if (!Array.isArray(tsconfig.references)) {
+		return;
+	}
+
+	const normalizedPath = normalizeReferencePath(referencePath);
+	if (tsconfig.references.some((reference) => reference.path === normalizedPath)) {
+		return;
+	}
+
+	tsconfig.references.push({ path: normalizedPath });
+	await writeJson(tsconfigPath, tsconfig);
+};
+
+const updateTsconfigReferences = async (rootPath: string, referencePath: string): Promise<void> => {
+	await updateTsconfigReferencesForFile(rootPath, referencePath, 'tsconfig.json');
+	await updateTsconfigReferencesForFile(rootPath, referencePath, 'tsconfig.build.json');
+};
+
 const initApp = async (targetPath: string): Promise<void> => {
 	const appName = path.basename(targetPath);
 	await ensureEmptyDir(targetPath, appName);
@@ -173,6 +202,7 @@ const addApp = async (rootPath: string, name: string, dirName: string): Promise<
 	await copyTemplate(path.join(templatesRoot, 'app-basic'), appPath, {
 		'__APP_NAME__': name
 	}, ['package.json', '_gitignore', '_prettierrc']);
+	await updateTsconfigReferences(rootPath, path.join(dirName, name));
 };
 
 const addLib = async (rootPath: string, name: string, dirName: string): Promise<void> => {
@@ -181,6 +211,7 @@ const addLib = async (rootPath: string, name: string, dirName: string): Promise<
 	await copyTemplate(path.join(templatesRoot, 'lib-basic'), libPath, {
 		'__LIB_NAME__': name
 	});
+	await updateTsconfigReferences(rootPath, path.join(dirName, name));
 };
 
 const addTesting = async (rootPath: string): Promise<void> => {

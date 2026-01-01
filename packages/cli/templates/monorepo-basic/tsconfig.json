@@ -1,0 +1,7 @@
+{
+	"files": [],
+	"references": [
+		{ "path": "apps/__APP_NAME__" },
+		{ "path": "libs/shared" }
+	]
+}
