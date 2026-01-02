@@ -1,4 +1,19 @@
 {
+	"compilerOptions": {
+		"target": "ES2022",
+		"module": "ESNext",
+		"moduleResolution": "Bundler",
+		"useDefineForClassFields": false,
+		"experimentalDecorators": true,
+		"emitDecoratorMetadata": true,
+		"strict": true,
+		"skipLibCheck": true,
+		"baseUrl": ".",
+		"paths": {
+			"@shared": ["libs/shared/src/index.ts"],
+			"@shared/*": ["libs/shared/src/*"]
+		}
+	},
 	"files": [],
 	"references": [
 		{ "path": "apps/__APP_NAME__" },

@@ -179,6 +179,86 @@ const updateTsconfigReferences = async (rootPath: string, referencePath: string)
 	await updateTsconfigReferencesForFile(rootPath, referencePath, 'tsconfig.build.json');
 };
 
+const updateTsconfigPathsForFile = async (rootPath: string, libName: string, dirName: string, configFileName: string): Promise<void> => {
+	const tsconfigPath = path.join(rootPath, configFileName);
+	if (!(await pathExists(tsconfigPath))) {
+		return;
+	}
+
+	const tsconfig = await readJson<{
+		compilerOptions?: {
+			baseUrl?: string;
+			paths?: Record<string, string[]>;
+		};
+	}>(tsconfigPath);
+
+	const compilerOptions = tsconfig.compilerOptions ?? {};
+	const paths = compilerOptions.paths ?? {};
+	const aliasBase = `@${libName}`;
+	const libSourcePath = normalizeReferencePath(path.join(dirName, libName, 'src'));
+	let changed = false;
+
+	if (!compilerOptions.baseUrl) {
+		compilerOptions.baseUrl = '.';
+		changed = true;
+	}
+
+	if (!paths[aliasBase]) {
+		paths[aliasBase] = [`${libSourcePath}/index.ts`];
+		changed = true;
+	}
+
+	if (!paths[`${aliasBase}/*`]) {
+		paths[`${aliasBase}/*`] = [`${libSourcePath}/*`];
+		changed = true;
+	}
+
+	if (!changed) {
+		return;
+	}
+
+	compilerOptions.paths = paths;
+	tsconfig.compilerOptions = compilerOptions;
+	await writeJson(tsconfigPath, tsconfig);
+};
+
+const updateTsconfigPaths = async (rootPath: string, libName: string, dirName: string): Promise<void> => {
+	await updateTsconfigPathsForFile(rootPath, libName, dirName, 'tsconfig.json');
+	await updateTsconfigPathsForFile(rootPath, libName, dirName, 'tsconfig.build.json');
+};
+
+const updateProjectTsconfigForMonorepo = async (rootPath: string, projectPath: string): Promise<void> => {
+	const rootConfigPath = path.join(rootPath, 'tsconfig.json');
+	if (!(await pathExists(rootConfigPath))) {
+		return;
+	}
+
+	const rootConfig = await readJson<{ references?: Array<{ path: string }> }>(rootConfigPath);
+	if (!Array.isArray(rootConfig.references)) {
+		return;
+	}
+
+	const tsconfigPath = path.join(projectPath, 'tsconfig.json');
+	if (!(await pathExists(tsconfigPath))) {
+		return;
+	}
+
+	const tsconfig = await readJson<{
+		extends?: string;
+		compilerOptions?: Record<string, unknown>;
+		include?: string[];
+	}>(tsconfigPath);
+
+	const extendsPath = normalizeReferencePath(path.relative(projectPath, rootConfigPath));
+	tsconfig.extends = extendsPath;
+	tsconfig.compilerOptions = {
+		composite: true,
+		noEmit: true
+	};
+
+	await writeJson(tsconfigPath, tsconfig);
+};
+
 const initApp = async (targetPath: string): Promise<void> => {
 	const appName = path.basename(targetPath);
 	await ensureEmptyDir(targetPath, appName);
@@ -203,6 +283,7 @@ const addApp = async (rootPath: string, name: string, dirName: string): Promise<
 		'__APP_NAME__': name
 	}, ['package.json', '_gitignore', '_prettierrc']);
 	await updateTsconfigReferences(rootPath, path.join(dirName, name));
+	await updateProjectTsconfigForMonorepo(rootPath, appPath);
 };
 
 const addLib = async (rootPath: string, name: string, dirName: string): Promise<void> => {
@@ -212,6 +293,8 @@ const addLib = async (rootPath: string, name: string, dirName: string): Promise<
 		'__LIB_NAME__': name
 	});
 	await updateTsconfigReferences(rootPath, path.join(dirName, name));
+	await updateTsconfigPaths(rootPath, name, dirName);
+	await updateProjectTsconfigForMonorepo(rootPath, libPath);
 };
 
 const addTesting = async (rootPath: string): Promise<void> => {
