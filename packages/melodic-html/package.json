@@ -1,0 +1,75 @@
+{
+	"name": "melodic-html",
+	"displayName": "Melodic HTML",
+	"description": "HTML/CSS IntelliSense for Melodic html`...` and css`...` tagged templates.",
+	"version": "0.1.2",
+	"publisher": "MelodicDevelopment",
+	"license": "MIT",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/MelodicDevelopment/melodic.git"
+	},
+	"author": {
+		"name": "Rick Hopkins",
+		"email": "rick@melodicdevelopment.com",
+		"url": "https://melodic.dev"
+	},
+	"engines": {
+		"vscode": "^1.85.0"
+	},
+	"categories": [
+		"Programming Languages"
+	],
+	"main": "./dist/extension.js",
+	"activationEvents": [
+		"onLanguage:typescript",
+		"onLanguage:typescriptreact",
+		"onLanguage:javascript",
+		"onLanguage:javascriptreact"
+	],
+	"contributes": {
+		"grammars": [
+			{
+				"scopeName": "melodic-html.injection",
+				"path": "./syntaxes/melodic-html.injection.json",
+				"injectTo": [
+					"source.ts",
+					"source.tsx",
+					"source.js",
+					"source.jsx"
+				]
+			},
+			{
+				"scopeName": "melodic-css.injection",
+				"path": "./syntaxes/melodic-css.injection.json",
+				"injectTo": [
+					"source.ts",
+					"source.tsx",
+					"source.js",
+					"source.jsx"
+				]
+			}
+		]
+	},
+	"files": [
+		"dist",
+		"syntaxes",
+		"package.json",
+		"README.md",
+		"LICENSE"
+	],
+	"scripts": {
+		"build": "esbuild src/extension.ts --bundle --outfile=dist/extension.js --external:vscode --format=cjs --platform=node --minify --main-fields=module,main",
+		"package": "npm run build && npx vsce package"
+	},
+	"dependencies": {
+		"typescript": "~5.9.3",
+		"vscode-css-languageservice": "^6.3.1",
+		"vscode-html-languageservice": "^5.1.0",
+		"vscode-languageserver-textdocument": "^1.0.12"
+	},
+	"devDependencies": {
+		"@types/vscode": "^1.85.0",
+		"esbuild": "^0.25.12"
+	}
+}

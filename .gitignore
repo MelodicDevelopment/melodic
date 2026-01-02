@@ -23,6 +23,8 @@ lib
 *.njsproj
 *.sln
 *.sw?
+.claude/
 
 src/_poc
 .npmrc
+*.vsix
