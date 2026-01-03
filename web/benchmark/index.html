@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>Melodic Benchmark Suite</title>
+		<link rel="stylesheet" href="/benchmark/styles.css" />
+	</head>
+	<body>
+		<main class="page">
+			<header class="hero">
+				<div>
+					<p class="eyebrow">Performance Lab</p>
+					<h1>Melodic Benchmark Suite</h1>
+					<p class="lead">
+						Run apples-to-apples benchmarks across Melodic, React, Preact, Vue, and Lit, then drill
+						into focused microbenchmarks that stress templates, updates, and list diffing.
+					</p>
+				</div>
+				<div class="hero-cards">
+					<div class="hero-card">
+						<span>Core size (gz)</span>
+						<strong data-bundle-gz>0.11 kB</strong>
+						<p>Template + signals + routing. <span data-bundle-min>0.24 kB min</span></p>
+					</div>
+					<div class="hero-card">
+						<span>Benchmark target</span>
+						<strong>&lt; 40 ms</strong>
+						<p>Initial render of 1000 items.</p>
+					</div>
+					<div class="hero-card">
+						<span>Why it matters</span>
+						<strong>Real workloads</strong>
+						<p>Repeatable list + update tests.</p>
+					</div>
+				</div>
+			</header>
+
+			<section class="panel">
+				<div class="panel-header">
+					<div>
+						<h2>Framework Comparison</h2>
+						<p>Shared workload across frameworks. Run multiple times and compare medians.</p>
+					</div>
+					<div class="actions">
+						<button id="run-all">Run all comparisons</button>
+						<button id="clear" class="ghost">Clear</button>
+					</div>
+				</div>
+				<p class="note">
+					Melodic loads local source in dev and compiled lib in prod. Other frameworks load production
+					builds from CDNs. Use <code>npm run build && npm run preview</code> for clean results.
+				</p>
+				<div class="table-wrap">
+					<table id="results-table">
+						<thead>
+							<tr>
+								<th>Framework</th>
+								<th>Initial Render (1000)</th>
+								<th>Warm Render (1000)</th>
+								<th>Full Update (1000)</th>
+								<th>Partial Update (10)</th>
+								<th>Reorder (1000)</th>
+								<th>Add/Remove (200)</th>
+							</tr>
+						</thead>
+						<tbody></tbody>
+					</table>
+				</div>
+				<div id="containers" class="comparison-grid"></div>
+			</section>
+
+			<section class="panel">
+				<div class="panel-header">
+					<div>
+						<h2>Microbenchmarks</h2>
+						<p>Focused tests to isolate render/update throughput inside Melodic.</p>
+					</div>
+					<div class="actions">
+						<button id="bench-run-all">Run all microbenchmarks</button>
+						<button id="bench-clear" class="ghost">Clear</button>
+					</div>
+				</div>
+
+				<div class="bench-grid">
+					<article class="bench-card">
+						<h3>Initial Render</h3>
+						<p>Render 1000 items for the first time.</p>
+						<button data-bench="initial">Run</button>
+						<div class="bench-result" data-result="initial"></div>
+					</article>
+					<article class="bench-card">
+						<h3>Full Update</h3>
+						<p>Update every item in a 1000 row list.</p>
+						<button data-bench="update">Run</button>
+						<div class="bench-result" data-result="update"></div>
+					</article>
+					<article class="bench-card">
+						<h3>Partial Update</h3>
+						<p>Update 10 items inside the list.</p>
+						<button data-bench="partial">Run</button>
+						<div class="bench-result" data-result="partial"></div>
+					</article>
+					<article class="bench-card">
+						<h3>Reorder</h3>
+						<p>Reverse and shuffle a 1000 row list.</p>
+						<button data-bench="reorder">Run</button>
+						<div class="bench-result" data-result="reorder"></div>
+					</article>
+					<article class="bench-card">
+						<h3>Add / Remove</h3>
+						<p>Add 200 items, then remove them.</p>
+						<button data-bench="add-remove">Run</button>
+						<div class="bench-result" data-result="add-remove"></div>
+					</article>
+				</div>
+
+				<div id="benchmark-container" class="benchmark-stage"></div>
+			</section>
+		</main>
+
+		<script type="module" src="/framework-comparison.js"></script>
+		<script type="module" src="/main.ts"></script>
+	</body>
+</html>

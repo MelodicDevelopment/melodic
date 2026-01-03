@@ -2,7 +2,7 @@
 
 ## Project Structure & Module Organization
 - `src/` contains the framework source, split by domain (`components/`, `template/`, `signals/`, `routing/`, `state/`, `http/`).
-- `example/` hosts demo components and usage samples; add small demos here for new features.
+- `web/example/` hosts demo components and usage samples; add small demos here for new features.
 - `benchmark/` includes performance pages and scripts for regression checks.
 - `docs/` contains supplemental documentation.
 - `dist/` is generated build output; do not edit manually.
@@ -21,12 +21,12 @@
   - `component-name.component.ts`
   - `component-name.template.ts`
   - `component-name.styles.ts`
-- Keep code examples concise and scoped to the impacted area (e.g., new demos in `example/`).
+- Keep code examples concise and scoped to the impacted area (e.g., new demos in `web/example/`).
 
 ## Testing Guidelines
 - No automated test framework is configured yet.
 - Validate changes by running the dev server or benchmark flow.
-- If behavior needs manual coverage, add a focused example in `example/`.
+- If behavior needs manual coverage, add a focused example in `web/example/`.
 
 ## Commit & Pull Request Guidelines
 - Commit messages use short, imperative, capitalized verbs (e.g., "Add effect system to Store").

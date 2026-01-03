@@ -87,8 +87,8 @@
 		"test:unit": "vitest run",
 		"prepreview": "npm run build && npm run build:lib",
 		"preview": "vite preview",
-		"benchmark": "vite --open /benchmark/performance-test.html",
-		"benchmark:update": "npm run build && node benchmark/update-benchmarks.js"
+		"benchmark": "vite --config vite.config.benchmark.ts --open /",
+		"benchmark:update": "npm run build && node web/benchmark/update-benchmarks.js"
 	},
 	"devDependencies": {
 		"@vitest/ui": "^3.2.4",

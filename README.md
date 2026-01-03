@@ -61,6 +61,11 @@ Use it in HTML:
 <hello-world></hello-world>
 ```
 
+## Web Apps
+
+- `web/example` is the demo app. Run with `npm run dev`.
+- `web/benchmark` is the performance suite. Run with `npm run dev:benchmark` and update bundle sizes with `npm run benchmark:update`.
+
 ## Core Concepts
 
 ### Components
