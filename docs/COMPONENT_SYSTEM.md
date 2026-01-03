@@ -149,9 +149,9 @@ A function that returns CSS styles using the `css` tagged template.
 
 **Note:** Use `:host` to style the custom element itself.
 
-### Global Shadow Styles (optional)
+### Global Styles (optional)
 
-Melodic can copy a shared stylesheet into every Shadow DOM root. Add a `<style>` or `<link>` tag with the `melodic-styles` attribute in your HTML, and all components will inherit those rules.
+Melodic can copy a shared stylesheet into every component root. Add a `<style>` or `<link>` tag with the `melodic-styles` attribute in your HTML, and all components will inherit those rules.
 
 ```html
 <style melodic-styles>
@@ -161,10 +161,77 @@ Melodic can copy a shared stylesheet into every Shadow DOM root. Add a `<style>`
 ```
 
 ```html
-<link rel="stylesheet" href="/global.css" melodic-styles />
+<link rel="stylesheet" href="/styles/global.css" melodic-styles />
 ```
 
 Melodic uses a single shared `CSSStyleSheet` when supported (memory efficient), and falls back to cloning a `<style>` tag per component when not.
+
+You can also register global styles from JavaScript. This is useful when bundlers rewrite `<link>` tags and you want to keep the styles separate.
+
+```typescript
+import globalStyles from './styles/global.css?inline';
+import { registerGlobalStyles } from '@melodicdev/core';
+
+registerGlobalStyles(globalStyles);
+```
+
+Notes:
+- A `<link>` tag should point at a file served from `public/` (for example `/styles/global.css` maps to `public/styles/global.css`).
+- The `?inline` import keeps the CSS in your module graph and avoids bundling it into other CSS files.
+- Call `registerGlobalStyles` before creating components so the shared sheet is ready for adoption.
+- If you never call `setGlobalStylesAttribute`, Melodic uses the default `melodic-styles` attribute.
+
+If you want a different attribute name, configure it before any components are created:
+
+```typescript
+import { setGlobalStylesAttribute } from '@melodicdev/core';
+
+setGlobalStylesAttribute('my-global-styles');
+```
+
+#### Vite plugin (optional)
+
+If you prefer to keep a `<link>` tag and still minify the file in build output, you can use a Vite plugin that preserves `melodic-styles` links. The example app uses `vite-plugin-melodic-styles.ts` at the repository root.
+
+Add the plugin to your project and wire it in:
+
+```ts
+// vite.config.ts
+import { defineConfig } from 'vite';
+import { melodicStylesPlugin } from './vite-plugin-melodic-styles';
+import { melodicStylesAttribute } from './melodic-styles.config';
+
+export default defineConfig({
+	plugins: [melodicStylesPlugin({ attribute: melodicStylesAttribute })]
+});
+```
+
+Then include the link in HTML and keep the file in `public/`:
+
+```html
+<link rel="stylesheet" href="/styles/global.css" melodic-styles />
+```
+
+```
+public/
+	styles/
+		global.css
+```
+
+For projects that want one shared source of truth, export the attribute from a local config file and reuse it in both runtime code and Vite:
+
+```ts
+// melodic-styles.config.ts
+export const melodicStylesAttribute = 'melodic-styles';
+```
+
+```ts
+// src/main.ts
+import { setGlobalStylesAttribute } from '@melodicdev/core';
+import { melodicStylesAttribute } from '../melodic-styles.config';
+
+setGlobalStylesAttribute(melodicStylesAttribute);
+```
 
 ## Separating Templates and Styles
 

@@ -130,6 +130,9 @@ The CLI uses built-in templates and replaces placeholders automatically:
 - `monorepo-basic`: repo with `apps/` + `packages/` and a default app
 - `lib-basic`: minimal shared library scaffold
 
+Template notes:
+- App templates include `vite-plugin-melodic-styles.ts`, `melodic-styles.config.ts` (shared attribute name), a `public/styles/global.css` sample, and a `<link melodic-styles>` entry in `index.html`.
+
 Placeholders:
 
 - `__APP_NAME__`

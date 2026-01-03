@@ -105,6 +105,8 @@ export class UserProfileComponent {
 }
 ```
 
+Global styles: if you add a `<style>` or `<link>` tag with the `melodic-styles` attribute, Melodic will share it across components. If you never call `setGlobalStylesAttribute`, Melodic defaults to `melodic-styles`.
+
 Lifecycle hooks available on the component instance:
 
 - `onInit`, `onCreate`, `onRender`, `onDestroy`

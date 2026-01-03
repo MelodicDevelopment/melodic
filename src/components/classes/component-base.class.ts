@@ -5,7 +5,7 @@ import type { Unsubscriber } from '../../signals/types/unsubscriber.type';
 import type { Signal } from '../../signals/types/signal.type';
 import { isSignal } from '../../signals/functions/is-signal.function';
 import type { ITemplatePart } from '../../template/interfaces/itemplate-part.interface';
-import { applyGlobalShadowStyles } from '../styles/shadow-global-styles';
+import { applyGlobalStyles } from '../styles/global-styles';
 
 export abstract class ComponentBase extends HTMLElement {
 	private readonly _meta: ComponentMeta;
@@ -22,7 +22,7 @@ export abstract class ComponentBase extends HTMLElement {
 		this._component = component;
 		this._component.elementRef = this;
 		this._root = this.attachShadow({ mode: 'open' });
-		applyGlobalShadowStyles(this._root);
+		applyGlobalStyles(this._root);
 		this._style = this.renderStyles();
 
 		this.observe();
@@ -160,7 +160,7 @@ export abstract class ComponentBase extends HTMLElement {
 
 			// Check if wrapper already has a value set (from property binding before observe ran)
 			const wrapperValue = Object.getOwnPropertyDescriptor(this, prop)?.value;
-			let value = wrapperValue !== undefined ? wrapperValue : (this._component as any)[prop];
+			let value = wrapperValue === undefined ? (this._component as any)[prop] : wrapperValue;
 
 			// Build getter/setter for the component's property
 			let componentGetter = () => value;

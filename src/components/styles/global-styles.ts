@@ -1,4 +1,4 @@
-const GLOBAL_STYLE_SELECTOR = 'style[melodic-styles], link[melodic-styles][rel="stylesheet"]';
+let globalStylesAttribute = 'melodic-styles';
 
 let cachedSheet: CSSStyleSheet | null = null;
 let cachedText: string | null = null;
@@ -7,6 +7,20 @@ const pendingRoots = new Set<ShadowRoot>();
 
 const supportsConstructableStylesheets = (): boolean => {
 	return 'adoptedStyleSheets' in Document.prototype && 'replaceSync' in CSSStyleSheet.prototype;
+};
+
+const getGlobalStylesSelector = (): string =>
+	`style[${globalStylesAttribute}], link[${globalStylesAttribute}][rel="stylesheet"]`;
+
+export const getGlobalStylesAttribute = (): string => globalStylesAttribute;
+
+export const setGlobalStylesAttribute = (attribute: string): void => {
+	const normalized = attribute.trim();
+	if (!normalized) {
+		return;
+	}
+
+	globalStylesAttribute = normalized;
 };
 
 const applyStylesToRoot = (root: ShadowRoot): void => {
@@ -38,6 +52,30 @@ const cacheStylesFromText = (text: string): void => {
 	}
 
 	cachedText = text;
+};
+
+export const registerGlobalStyles = (styles: string | CSSStyleSheet): void => {
+	if (!styles) {
+		return;
+	}
+
+	if (typeof styles === 'string') {
+		cacheStylesFromText(styles);
+		resolvePendingRoots();
+		return;
+	}
+
+	if (supportsConstructableStylesheets()) {
+		cachedSheet = styles;
+		resolvePendingRoots();
+		return;
+	}
+
+	const text = extractCssText(styles);
+	if (text) {
+		cacheStylesFromText(text);
+		resolvePendingRoots();
+	}
 };
 
 const extractCssText = (sheet: CSSStyleSheet): string | null => {
@@ -108,13 +146,13 @@ const loadStylesFromLink = (link: HTMLLinkElement): void => {
 	})();
 };
 
-export const applyGlobalShadowStyles = (root: ShadowRoot): void => {
+export const applyGlobalStyles = (root: ShadowRoot): void => {
 	if (cachedSheet || cachedText) {
 		applyStylesToRoot(root);
 		return;
 	}
 
-	const source = document.querySelector(GLOBAL_STYLE_SELECTOR);
+	const source = document.querySelector(getGlobalStylesSelector());
 	if (!source) {
 		return;
 	}
