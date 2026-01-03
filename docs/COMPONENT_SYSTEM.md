@@ -161,7 +161,7 @@ Melodic can copy a shared stylesheet into every component root. Add a `<style>` 
 ```
 
 ```html
-<link rel="stylesheet" href="/styles/global.css" melodic-styles />
+<link rel="stylesheet" href="/src/styles/global.css" melodic-styles />
 ```
 
 Melodic uses a single shared `CSSStyleSheet` when supported (memory efficient), and falls back to cloning a `<style>` tag per component when not.
@@ -176,7 +176,7 @@ registerGlobalStyles(globalStyles);
 ```
 
 Notes:
-- A `<link>` tag should point at a file served from `public/` (for example `/styles/global.css` maps to `public/styles/global.css`).
+- A `<link>` tag can point at a file under `/src` (minified + cache-busted in Vite builds) or at a public asset like `/styles/global.css` (path is preserved).
 - The `?inline` import keeps the CSS in your module graph and avoids bundling it into other CSS files.
 - Call `registerGlobalStyles` before creating components so the shared sheet is ready for adoption.
 - If you never call `setGlobalStylesAttribute`, Melodic uses the default `melodic-styles` attribute.
@@ -205,19 +205,19 @@ export default defineConfig({
 });
 ```
 
-Then include the link in HTML and keep the file in `public/`:
+Then include the link in HTML. For minified output, keep the file in `src/`:
 
 ```html
-<link rel="stylesheet" href="/styles/global.css" melodic-styles />
+<link rel="stylesheet" href="/src/styles/global.css" melodic-styles />
 ```
 
 ```
-public/
+src/
 	styles/
 		global.css
 ```
 
-If you point the link at a file under `/src` (for example `/src/styles/styles.css`), the plugin will emit a cache-busted asset and update the built HTML to reference the hashed filename.
+If you point the link at a public file (for example `/styles/global.css` under `public/styles/`), the plugin keeps that path intact.
 
 For projects that want one shared source of truth, export the attribute from a local config file and reuse it in both runtime code and Vite:
 

@@ -1,5 +1,5 @@
 import type { Plugin } from 'vite';
-import { readFile, writeFile, mkdir } from 'node:fs/promises';
+import { readFile, writeFile, mkdir, readdir } from 'node:fs/promises';
 import { resolve, basename, extname, dirname } from 'node:path';
 import { createHash } from 'node:crypto';
 import { transform } from 'esbuild';
@@ -34,6 +34,7 @@ export function melodicStylesPlugin(options: MelodicStylesOptions = {}): Plugin 
 	let placeholderIndex = 0;
 	const linkOutputMap = new Map<string, string>();
 	const outputFiles = new Map<string, string>();
+	const placeholderMap = new Map<string, string>();
 
 	const normalizeBase = (basePath: string, fileName: string): string => {
 		const normalizedBase = basePath.endsWith('/') ? basePath : `${basePath}/`;
@@ -72,6 +73,33 @@ export function melodicStylesPlugin(options: MelodicStylesOptions = {}): Plugin 
 		return null;
 	};
 
+	const replacePlaceholdersInDir = async (dir: string): Promise<void> => {
+		const entries = await readdir(dir, { withFileTypes: true });
+		for (const entry of entries) {
+			const fullPath = resolve(dir, entry.name);
+			if (entry.isDirectory()) {
+				await replacePlaceholdersInDir(fullPath);
+				continue;
+			}
+			if (!entry.isFile() || !entry.name.endsWith('.html')) {
+				continue;
+			}
+
+			let html: string;
+			try {
+				html = await readFile(fullPath, 'utf-8');
+			} catch {
+				continue;
+			}
+
+			for (const [placeholder, tag] of placeholderMap.entries()) {
+				html = html.replace(placeholder, tag);
+			}
+
+			await writeFile(fullPath, html);
+		}
+	};
+
 	return {
 		name: 'vite-plugin-melodic-styles',
 
@@ -102,7 +130,10 @@ export function melodicStylesPlugin(options: MelodicStylesOptions = {}): Plugin 
 
 					const cached = linkOutputMap.get(href);
 					if (cached) {
-						result = result.replace(fullTag, fullTag.replace(/href=(["']).*?\1/i, `href="${cached}"`));
+						const placeholder = `<!--melodic-styles:${placeholderIndex++}-->`;
+						const updatedTag = fullTag.replace(/href=(["']).*?\1/i, `href="${cached}"`);
+						placeholderMap.set(placeholder, updatedTag);
+						result = result.replace(fullTag, placeholder);
 						continue;
 					}
 
@@ -121,7 +152,9 @@ export function melodicStylesPlugin(options: MelodicStylesOptions = {}): Plugin 
 						let outputHref: string;
 						let outputPath: string;
 
-						if (resolved.sourceType === 'public') {
+						const preserveRootPath = resolved.sourceType === 'root' && href.startsWith('/') && !href.startsWith('/src/');
+
+						if (resolved.sourceType === 'public' || preserveRootPath) {
 							const assetPath = href.startsWith('/') ? href.slice(1) : href;
 							outputHref = normalizeBase(base, assetPath);
 							outputPath = resolve(root, outDir, assetPath);
@@ -138,7 +171,9 @@ export function melodicStylesPlugin(options: MelodicStylesOptions = {}): Plugin 
 
 						linkOutputMap.set(href, outputHref);
 						const updatedTag = fullTag.replace(/href=(["']).*?\1/i, `href="${outputHref}"`);
-						result = result.replace(fullTag, updatedTag);
+						const placeholder = `<!--melodic-styles:${placeholderIndex++}-->`;
+						placeholderMap.set(placeholder, updatedTag);
+						result = result.replace(fullTag, placeholder);
 
 					} catch (err) {
 						console.error(`[melodic-styles] Failed to process ${href}:`, err);
@@ -157,6 +192,8 @@ export function melodicStylesPlugin(options: MelodicStylesOptions = {}): Plugin 
 				await writeFile(outputPath, code);
 			}
 
+			const outRoot = resolve(root, outDir);
+			await replacePlaceholdersInDir(outRoot);
 		}
 	};
 }

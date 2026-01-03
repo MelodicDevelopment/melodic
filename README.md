@@ -110,7 +110,7 @@ export class UserProfileComponent {
 }
 ```
 
-Global styles: if you add a `<style>` or `<link>` tag with the `melodic-styles` attribute, Melodic will share it across components. If you never call `setGlobalStylesAttribute`, Melodic defaults to `melodic-styles`.
+Global styles: if you add a `<style>` or `<link>` tag with the `melodic-styles` attribute, Melodic will share it across components. If you never call `setGlobalStylesAttribute`, Melodic defaults to `melodic-styles`. For Vite builds, link a file under `/src` (for example `/src/styles/global.css`) to get minified, hashed output; link a public asset (for example `/styles/global.css`) if you want to preserve the path.
 
 Lifecycle hooks available on the component instance:
 
