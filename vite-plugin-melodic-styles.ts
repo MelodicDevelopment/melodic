@@ -1,6 +1,7 @@
 import type { Plugin } from 'vite';
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
-import { resolve, dirname } from 'node:path';
+import { resolve, basename, extname, dirname } from 'node:path';
+import { createHash } from 'node:crypto';
 import { transform } from 'esbuild';
 
 interface MelodicStylesOptions {
@@ -13,6 +14,11 @@ interface StoredLink {
 	placeholder: string;
 }
 
+interface ResolvedCss {
+	text: string;
+	sourceType: 'public' | 'root';
+}
+
 /**
  * Vite plugin that preserves <link> tags with the melodic-styles attribute,
  * keeping them separate from the CSS bundle while still minifying them.
@@ -23,27 +29,43 @@ export function melodicStylesPlugin(options: MelodicStylesOptions = {}): Plugin 
 	let root: string;
 	let outDir: string;
 	let publicDir: string | null = null;
+	let base = '/';
 	let isBuild = false;
-	const storedLinks: StoredLink[] = [];
 	let placeholderIndex = 0;
+	const linkOutputMap = new Map<string, string>();
+	const outputFiles = new Map<string, string>();
 
-	const resolveSourceCss = async (href: string): Promise<string | null> => {
-		const candidates: string[] = [];
+	const normalizeBase = (basePath: string, fileName: string): string => {
+		const normalizedBase = basePath.endsWith('/') ? basePath : `${basePath}/`;
+		return `${normalizedBase}${fileName}`;
+	};
+
+	const resolveSourceCss = async (href: string): Promise<ResolvedCss | null> => {
+		const tryRead = async (candidate: string, sourceType: ResolvedCss['sourceType']): Promise<ResolvedCss | null> => {
+			try {
+				const text = await readFile(candidate, 'utf-8');
+				return { text, sourceType };
+			} catch {
+				return null;
+			}
+		};
 
 		if (href.startsWith('/')) {
 			if (publicDir) {
-				candidates.push(resolve(publicDir, href.slice(1)));
+				const fromPublic = await tryRead(resolve(publicDir, href.slice(1)), 'public');
+				if (fromPublic) {
+					return fromPublic;
+				}
 			}
-			candidates.push(resolve(root, href.slice(1)));
-		} else {
-			candidates.push(resolve(root, href));
-		}
 
-		for (const candidate of candidates) {
-			try {
-				return await readFile(candidate, 'utf-8');
-			} catch {
-				// Try next candidate.
+			const fromRoot = await tryRead(resolve(root, href.slice(1)), 'root');
+			if (fromRoot) {
+				return fromRoot;
+			}
+		} else {
+			const fromRoot = await tryRead(resolve(root, href), 'root');
+			if (fromRoot) {
+				return fromRoot;
 			}
 		}
 
@@ -57,15 +79,15 @@ export function melodicStylesPlugin(options: MelodicStylesOptions = {}): Plugin 
 			root = config.root;
 			outDir = config.build.outDir;
 			publicDir = config.publicDir.length > 0 ? config.publicDir : null;
+			base = config.base ?? '/';
 			isBuild = config.command === 'build';
 		},
 
 		// Transform HTML to prevent Vite from processing these specific links
 		transformIndexHtml: {
 			order: 'pre',
-			handler(html) {
+			async handler(html) {
 				if (!isBuild) return html;
-
 				const linkRegex = /<link\s+[^>]*?href=["']([^"']+)["'][^>]*>/gi;
 				let match;
 				let result = html;
@@ -78,65 +100,63 @@ export function melodicStylesPlugin(options: MelodicStylesOptions = {}): Plugin 
 						continue;
 					}
 
-					const placeholder = `<!--melodic-styles:${placeholderIndex++}-->`;
-					storedLinks.push({ href, tag: fullTag, placeholder });
-					result = result.replace(fullTag, placeholder);
+					const cached = linkOutputMap.get(href);
+					if (cached) {
+						result = result.replace(fullTag, fullTag.replace(/href=(["']).*?\1/i, `href="${cached}"`));
+						continue;
+					}
+
+					const resolved = await resolveSourceCss(href);
+					if (!resolved) {
+						console.error(`[melodic-styles] Failed to read source for ${href}`);
+						continue;
+					}
+
+					try {
+						const { code } = await transform(resolved.text, {
+							loader: 'css',
+							minify: true
+						});
+
+						let outputHref: string;
+						let outputPath: string;
+
+						if (resolved.sourceType === 'public') {
+							const assetPath = href.startsWith('/') ? href.slice(1) : href;
+							outputHref = normalizeBase(base, assetPath);
+							outputPath = resolve(root, outDir, assetPath);
+						} else {
+							const ext = extname(href) || '.css';
+							const name = basename(href, ext);
+							const hash = createHash('sha256').update(code).digest('hex').slice(0, 8);
+							const fileName = `${name}-${hash}${ext}`;
+							outputHref = normalizeBase(base, `assets/${fileName}`);
+							outputPath = resolve(root, outDir, 'assets', fileName);
+						}
+
+						outputFiles.set(outputPath, code);
+
+						linkOutputMap.set(href, outputHref);
+						const updatedTag = fullTag.replace(/href=(["']).*?\1/i, `href="${outputHref}"`);
+						result = result.replace(fullTag, updatedTag);
+
+					} catch (err) {
+						console.error(`[melodic-styles] Failed to process ${href}:`, err);
+					}
 				}
 
 				return result;
 			}
-		},
-
-		// Restore the links and process the CSS after build
+		}
+		,
 		async closeBundle() {
-			if (!isBuild || storedLinks.length === 0) return;
+			if (!isBuild || outputFiles.size === 0) return;
 
-			const processed = new Set<string>();
-
-			for (const { href } of storedLinks) {
-				if (processed.has(href)) {
-					continue;
-				}
-				processed.add(href);
-
-				const css = await resolveSourceCss(href);
-				if (!css) {
-					console.error(`[melodic-styles] Failed to read source for ${href}`);
-					continue;
-				}
-
-				try {
-					const { code } = await transform(css, {
-						loader: 'css',
-						minify: true
-					});
-
-					const destPath = resolve(root, outDir, href.startsWith('/') ? href.slice(1) : href);
-					await mkdir(dirname(destPath), { recursive: true });
-					await writeFile(destPath, code);
-					console.log(`[melodic-styles] Minified: ${href}`);
-				} catch (err) {
-					console.error(`[melodic-styles] Failed to process ${href}:`, err);
-				}
+			for (const [outputPath, code] of outputFiles.entries()) {
+				await mkdir(dirname(outputPath), { recursive: true });
+				await writeFile(outputPath, code);
 			}
-		},
 
-		// Post-process HTML files to restore the link tags
-		async writeBundle(_, bundle) {
-			if (!isBuild || storedLinks.length === 0) return;
-
-			for (const [fileName, chunk] of Object.entries(bundle)) {
-				if (fileName.endsWith('.html') && chunk.type === 'asset') {
-					let html = chunk.source as string;
-
-					for (const link of storedLinks) {
-						html = html.replace(link.placeholder, link.tag);
-					}
-
-					const htmlPath = resolve(root, outDir, fileName);
-					await writeFile(htmlPath, html);
-				}
-			}
 		}
 	};
 }

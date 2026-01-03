@@ -131,7 +131,7 @@ The CLI uses built-in templates and replaces placeholders automatically:
 - `lib-basic`: minimal shared library scaffold
 
 Template notes:
-- App templates include `vite-plugin-melodic-styles.ts`, `melodic-styles.config.ts` (shared attribute name), a `public/styles/global.css` sample, and a `<link melodic-styles>` entry in `index.html`.
+- App templates include `vite-plugin-melodic-styles.ts`, a `public/styles/global.css` sample, and a `<link melodic-styles>` entry in `index.html`.
 
 Placeholders:
 

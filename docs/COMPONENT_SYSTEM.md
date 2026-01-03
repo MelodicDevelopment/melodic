@@ -199,10 +199,9 @@ Add the plugin to your project and wire it in:
 // vite.config.ts
 import { defineConfig } from 'vite';
 import { melodicStylesPlugin } from './vite-plugin-melodic-styles';
-import { melodicStylesAttribute } from './melodic-styles.config';
 
 export default defineConfig({
-	plugins: [melodicStylesPlugin({ attribute: melodicStylesAttribute })]
+	plugins: [melodicStylesPlugin()]
 });
 ```
 
@@ -218,6 +217,8 @@ public/
 		global.css
 ```
 
+If you point the link at a file under `/src` (for example `/src/styles/styles.css`), the plugin will emit a cache-busted asset and update the built HTML to reference the hashed filename.
+
 For projects that want one shared source of truth, export the attribute from a local config file and reuse it in both runtime code and Vite:
 
 ```ts
@@ -231,6 +232,15 @@ import { setGlobalStylesAttribute } from '@melodicdev/core';
 import { melodicStylesAttribute } from '../melodic-styles.config';
 
 setGlobalStylesAttribute(melodicStylesAttribute);
+
+// vite.config.ts
+import { defineConfig } from 'vite';
+import { melodicStylesPlugin } from './vite-plugin-melodic-styles';
+import { melodicStylesAttribute } from './melodic-styles.config';
+
+export default defineConfig({
+	plugins: [melodicStylesPlugin({ attribute: melodicStylesAttribute })]
+});
 ```
 
 ## Separating Templates and Styles
