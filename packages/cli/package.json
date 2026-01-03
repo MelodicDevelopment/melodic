@@ -1,6 +1,6 @@
 {
 	"name": "@melodicdev/cli",
-	"version": "1.2.0",
+	"version": "1.2.1",
 	"description": "Scaffolding and code generation for Melodic apps and monorepos.",
 	"license": "MIT",
 	"repository": {
