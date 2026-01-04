@@ -138,7 +138,7 @@ export class RouterService {
 	}
 
 	async navigate(path: string, options: INavigationOptions = {}): Promise<INavigationResult> {
-		const { data, replace = false, queryParams, skipGuards = false, skipResolvers = false } = options;
+		const { data, replace = false, queryParams, skipGuards = false, skipResolvers = false, scrollToTop = true } = options;
 
 		let fullPath = path;
 		if (queryParams && Object.keys(queryParams).length > 0) {
@@ -198,6 +198,18 @@ export class RouterService {
 			history.pushState(data, '', fullPath);
 		}
 		this._currentPath = fullPath;
+
+		if (scrollToTop) {
+			const hash = fullPath.includes('#') ? fullPath.split('#')[1] : null;
+			if (hash) {
+				const element = document.getElementById(hash);
+				if (element) {
+					element.scrollIntoView();
+				}
+			} else {
+				window.scrollTo(0, 0);
+			}
+		}
 
 		return {
 			success: true,

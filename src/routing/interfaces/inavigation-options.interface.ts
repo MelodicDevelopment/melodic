@@ -4,4 +4,5 @@ export interface INavigationOptions {
 	queryParams?: Record<string, string>;
 	skipGuards?: boolean;
 	skipResolvers?: boolean;
+	scrollToTop?: boolean;
 }
