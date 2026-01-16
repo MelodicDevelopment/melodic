@@ -1,0 +1,74 @@
+{
+	"name": "@melodicdev/components",
+	"version": "0.1.0",
+	"description": "A themeable UI component library built on the Melodic Framework",
+	"license": "MIT",
+	"author": "Melodic Development",
+	"type": "module",
+	"main": "./lib/index.js",
+	"types": "./lib/index.d.ts",
+	"files": [
+		"lib",
+		"README.md",
+		"LICENSE"
+	],
+	"exports": {
+		".": {
+			"types": "./lib/index.d.ts",
+			"default": "./lib/index.js"
+		},
+		"./theme": {
+			"types": "./lib/theme/index.d.ts",
+			"default": "./lib/theme/index.js"
+		},
+		"./utils": {
+			"types": "./lib/utils/index.d.ts",
+			"default": "./lib/utils/index.js"
+		},
+		"./button": {
+			"types": "./lib/components/forms/button/index.d.ts",
+			"default": "./lib/components/forms/button/index.js"
+		},
+		"./spinner": {
+			"types": "./lib/components/feedback/spinner/index.d.ts",
+			"default": "./lib/components/feedback/spinner/index.js"
+		},
+		"./input": {
+			"types": "./lib/components/forms/input/index.d.ts",
+			"default": "./lib/components/forms/input/index.js"
+		},
+		"./textarea": {
+			"types": "./lib/components/forms/textarea/index.d.ts",
+			"default": "./lib/components/forms/textarea/index.js"
+		},
+		"./checkbox": {
+			"types": "./lib/components/forms/checkbox/index.d.ts",
+			"default": "./lib/components/forms/checkbox/index.js"
+		},
+		"./radio": {
+			"types": "./lib/components/forms/radio/index.d.ts",
+			"default": "./lib/components/forms/radio/index.js"
+		},
+		"./toggle": {
+			"types": "./lib/components/forms/toggle/index.d.ts",
+			"default": "./lib/components/forms/toggle/index.js"
+		},
+		"./select": {
+			"types": "./lib/components/forms/select/index.d.ts",
+			"default": "./lib/components/forms/select/index.js"
+		}
+	},
+	"scripts": {
+		"build": "tsc -p tsconfig.build.json",
+		"build:watch": "tsc -p tsconfig.build.json --watch",
+		"docs": "vite --config vite.config.docs.ts",
+		"docs:build": "vite build --config vite.config.docs.ts"
+	},
+	"peerDependencies": {
+		"@melodicdev/core": "^1.2.0"
+	},
+	"devDependencies": {
+		"typescript": "~5.9.3",
+		"vite": "npm:rolldown-vite@7.2.5"
+	}
+}

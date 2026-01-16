@@ -73,7 +73,8 @@
 		}
 	},
 	"workspaces": [
-		"packages/cli"
+		"packages/cli",
+		"packages/melodic-components"
 	],
 	"scripts": {
 		"dev": "vite",
@@ -88,7 +89,9 @@
 		"prepreview": "npm run build && npm run build:lib",
 		"preview": "vite preview",
 		"benchmark": "vite --config vite.config.benchmark.ts --open /",
-		"benchmark:update": "npm run build && node web/benchmark/update-benchmarks.js"
+		"benchmark:update": "npm run build && node web/benchmark/update-benchmarks.js",
+		"demo": "vite --config vite.config.demo.ts",
+		"docs": "vite --config packages/melodic-components/vite.config.docs.ts"
 	},
 	"devDependencies": {
 		"@vitest/ui": "^3.2.4",
