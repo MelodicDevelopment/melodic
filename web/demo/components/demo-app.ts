@@ -12,50 +12,50 @@ import type { ThemeMode } from '@melodicdev/components';
 				<div class="demo-sidebar__header">
 					<div class="demo-logo">
 						<span class="demo-logo__icon">M</span>
-					<span class="demo-logo__text">Melodic</span>
+						<span class="demo-logo__text">Melodic</span>
+					</div>
+					<span class="demo-version">v1.0.0</span>
 				</div>
-				<span class="demo-version">v1.0.0</span>
-			</div>
 
-			<nav class="demo-nav">
-				<span class="demo-nav__label">Components</span>
-				<a href="#buttons" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'buttons')}>
-					<span class="demo-nav__icon">○</span>Buttons
-				</a>
-				<a href="#cards" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'cards')}>
-					<span class="demo-nav__icon">▢</span>Cards
-				</a>
-				<a href="#badges" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'badges')}>
-					<span class="demo-nav__icon">●</span>Badges
-				</a>
-				<a href="#avatars" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'avatars')}>
-					<span class="demo-nav__icon">◐</span>Avatars
-				</a>
-				<a href="#alerts" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'alerts')}>
-					<span class="demo-nav__icon">△</span>Alerts
-				</a>
-				<a href="#dividers" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'dividers')}>
-					<span class="demo-nav__icon">―</span>Dividers
-				</a>
-				<a href="#spinners" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'spinners')}>
-					<span class="demo-nav__icon">◎</span>Spinners
-				</a>
-				<a href="#inputs" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'inputs')}>
-					<span class="demo-nav__icon">▭</span>Inputs
-				</a>
-				<a href="#textareas" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'textareas')}>
-					<span class="demo-nav__icon">▤</span>Textareas
-				</a>
-				<a href="#checkboxes" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'checkboxes')}>
-					<span class="demo-nav__icon">☑</span>Checkboxes
-				</a>
-				<a href="#radios" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'radios')}>
-					<span class="demo-nav__icon">◉</span>Radios
-				</a>
-				<a href="#toggles" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'toggles')}>
-					<span class="demo-nav__icon">◑</span>Toggles
-				</a>
-			</nav>
+				<nav class="demo-nav">
+					<span class="demo-nav__label">Components</span>
+					<a href="#buttons" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'buttons')}>
+						<span class="demo-nav__icon">○</span>Buttons
+					</a>
+					<a href="#cards" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'cards')}>
+						<span class="demo-nav__icon">▢</span>Cards
+					</a>
+					<a href="#badges" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'badges')}>
+						<span class="demo-nav__icon">●</span>Badges
+					</a>
+					<a href="#avatars" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'avatars')}>
+						<span class="demo-nav__icon">◐</span>Avatars
+					</a>
+					<a href="#alerts" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'alerts')}>
+						<span class="demo-nav__icon">△</span>Alerts
+					</a>
+					<a href="#dividers" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'dividers')}>
+						<span class="demo-nav__icon">―</span>Dividers
+					</a>
+					<a href="#spinners" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'spinners')}>
+						<span class="demo-nav__icon">◎</span>Spinners
+					</a>
+					<a href="#inputs" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'inputs')}>
+						<span class="demo-nav__icon">▭</span>Inputs
+					</a>
+					<a href="#textareas" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'textareas')}>
+						<span class="demo-nav__icon">▤</span>Textareas
+					</a>
+					<a href="#checkboxes" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'checkboxes')}>
+						<span class="demo-nav__icon">☑</span>Checkboxes
+					</a>
+					<a href="#radios" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'radios')}>
+						<span class="demo-nav__icon">◉</span>Radios
+					</a>
+					<a href="#toggles" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'toggles')}>
+						<span class="demo-nav__icon">◑</span>Toggles
+					</a>
+				</nav>
 
 				<div class="demo-sidebar__footer">
 					<ml-toggle label="Dark mode" .checked=${c.isDark} @ml-change=${c.handleThemeToggle}></ml-toggle>
@@ -256,21 +256,13 @@ import type { ThemeMode } from '@melodicdev/components';
 						</div>
 
 						<ml-stack gap="4">
-							<ml-alert variant="info" title="Information">
-								This is an informational message for the user.
-							</ml-alert>
+							<ml-alert variant="info" title="Information"> This is an informational message for the user. </ml-alert>
 
-							<ml-alert variant="success" title="Success">
-								Your changes have been saved successfully.
-							</ml-alert>
+							<ml-alert variant="success" title="Success"> Your changes have been saved successfully. </ml-alert>
 
-							<ml-alert variant="warning" title="Warning">
-								Please review your input before proceeding.
-							</ml-alert>
+							<ml-alert variant="warning" title="Warning"> Please review your input before proceeding. </ml-alert>
 
-							<ml-alert variant="error" title="Error" dismissible>
-								There was an error processing your request.
-							</ml-alert>
+							<ml-alert variant="error" title="Error" dismissible> There was an error processing your request. </ml-alert>
 						</ml-stack>
 					</section>
 
@@ -741,7 +733,7 @@ export class DemoApp implements IElementRef {
 
 	constructor() {
 		this.isDark = getResolvedTheme() === 'dark';
-		onThemeChange((_mode: ThemeMode, resolved: 'light' | 'dark') => {
+		onThemeChange((_: ThemeMode, resolved: 'light' | 'dark') => {
 			this.isDark = resolved === 'dark';
 		});
 	}

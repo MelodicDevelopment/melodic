@@ -3,7 +3,18 @@
 	"version": "0.0.0",
 	"type": "module",
 	"main": "src/index.ts",
+	"scripts": {
+		"lint": "eslint .",
+		"lint:fix": "eslint . --fix"
+	},
 	"exports": {
 		".": "./src/index.ts"
+	},
+	"devDependencies": {
+		"@typescript-eslint/eslint-plugin": "^8.39.0",
+		"@typescript-eslint/parser": "^8.39.0",
+		"eslint": "^9.35.0",
+		"eslint-config-prettier": "^10.1.8",
+		"typescript": "~5.9.3"
 	}
 }

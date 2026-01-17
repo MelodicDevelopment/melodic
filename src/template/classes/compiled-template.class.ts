@@ -120,7 +120,7 @@ export class CompiledTemplate {
 
 		// Parse text content for placeholders
 		const textParts: Array<{ static: string } | { valueIndex: number }> = [];
-		let remaining = textContent;
+		const remaining = textContent;
 		const placeholderRegex = /\$\{(\d+)\}/g;
 		let lastIndex = 0;
 		let textMatch;

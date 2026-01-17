@@ -9,13 +9,19 @@
 	"scripts": {
 		"dev": "vite apps/__APP_NAME__",
 		"build": "tsc -b tsconfig.build.json && vite build apps/__APP_NAME__",
-		"preview": "vite preview apps/__APP_NAME__"
+		"preview": "vite preview apps/__APP_NAME__",
+		"lint": "eslint .",
+		"lint:fix": "eslint . --fix"
 	},
 	"dependencies": {
 		"@melodicdev/core": "latest"
 	},
 	"devDependencies": {
+		"@typescript-eslint/eslint-plugin": "^8.39.0",
+		"@typescript-eslint/parser": "^8.39.0",
 		"@types/node": "^22.10.2",
+		"eslint": "^9.35.0",
+		"eslint-config-prettier": "^10.1.8",
 		"typescript": "~5.9.3",
 		"vite": "^5.4.0"
 	}
