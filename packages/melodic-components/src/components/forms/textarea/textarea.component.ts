@@ -63,11 +63,7 @@ import type { Size } from '../../../types/index.js';
 				${when(
 					c.error,
 					() => html`<span id="error" class="ml-textarea__error">${c.error}</span>`,
-					() =>
-						when(
-							c.hint,
-							() => html`<span id="hint" class="ml-textarea__hint">${c.hint}</span>`
-						)
+					() => html`${when(c.hint, () => html`<span id="hint" class="ml-textarea__hint">${c.hint}</span>`)}`
 				)}
 				${when(
 					c.maxLength,

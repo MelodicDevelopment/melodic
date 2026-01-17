@@ -45,11 +45,7 @@ import type { Orientation } from '../../../types/index.js';
 			${when(
 				c.error,
 				() => html`<span class="ml-radio-group__error">${c.error}</span>`,
-				() =>
-					when(
-						c.hint,
-						() => html`<span class="ml-radio-group__hint">${c.hint}</span>`
-					)
+				() => html`${when(c.hint, () => html`<span class="ml-radio-group__hint">${c.hint}</span>`)}`
 			)}
 		</fieldset>
 	`,

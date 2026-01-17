@@ -29,8 +29,7 @@ import type { Size } from '../../../types/index.js';
 			${when(
 				c.src && !c._imageError,
 				() => html` <img class="ml-avatar__image" src="${c.src}" alt="${c.alt}" @error=${c.handleImageError} /> `,
-				() =>
-					when(
+				() => html`${when(
 						c.initials,
 						() => html`<span class="ml-avatar__initials">${c.getInitials()}</span>`,
 						() => html`
@@ -42,7 +41,7 @@ import type { Size } from '../../../types/index.js';
 								</slot>
 							</span>
 						`
-					)
+					)}`
 			)}
 		</span>
 	`,

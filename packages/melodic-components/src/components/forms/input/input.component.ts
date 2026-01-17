@@ -70,11 +70,7 @@ import type { InputType } from './input.types.js';
 			${when(
 				c.error,
 				() => html`<span id="error" class="ml-input__error">${c.error}</span>`,
-				() =>
-					when(
-						c.hint,
-						() => html`<span id="hint" class="ml-input__hint">${c.hint}</span>`
-					)
+				() => html`${when(c.hint, () => html`<span id="hint" class="ml-input__hint">${c.hint}</span>`)}`
 			)}
 		</div>
 	`,
