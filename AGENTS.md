@@ -38,3 +38,6 @@
 ## Architecture & Public API Notes
 - Public API exports are centralized in `src/index.ts`; update this file when exposing new modules.
 - Keep new modules aligned with existing domain folders to maintain structure.
+
+## Coding Practices
+- Follow `docs/CODING_PRACTICES.md` for the coding practices outline and examples.

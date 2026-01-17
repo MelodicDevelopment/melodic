@@ -1,6 +1,8 @@
-import { MelodicComponent, html, css, styleMap } from '@melodicdev/core';
+import { MelodicComponent } from '@melodicdev/core';
 import type { IElementRef } from '@melodicdev/core';
 import type { Orientation } from '../../../types/index.js';
+import { stackTemplate } from './stack.template.js';
+import { stackStyles } from './stack.styles.js';
 
 type Alignment = 'start' | 'center' | 'end' | 'stretch' | 'baseline';
 type Justify = 'start' | 'center' | 'end' | 'between' | 'around' | 'evenly';
@@ -23,20 +25,8 @@ type Justify = 'start' | 'center' | 'end' | 'between' | 'around' | 'evenly';
  */
 @MelodicComponent({
 	selector: 'ml-stack',
-	template: (c: Stack) => html`
-		<div class="ml-stack" style=${styleMap(c.getStyles())}>
-			<slot></slot>
-		</div>
-	`,
-	styles: () => css`
-		:host {
-			display: block;
-		}
-
-		.ml-stack {
-			display: flex;
-		}
-	`,
+	template: stackTemplate,
+	styles: stackStyles,
 	attributes: ['direction', 'gap', 'align', 'justify', 'wrap']
 })
 export class Stack implements IElementRef {
