@@ -35,7 +35,7 @@ import type { AlertVariant } from './alert.types.js';
 			</div>
 
 			<div class="ml-alert__content">
-				${when(c.title, () => html`<div class="ml-alert__title">${c.title}</div>`)}
+				${when(!!c.title, () => html`<div class="ml-alert__title">${c.title}</div>`)}
 				<div class="ml-alert__message">
 					<slot></slot>
 				</div>

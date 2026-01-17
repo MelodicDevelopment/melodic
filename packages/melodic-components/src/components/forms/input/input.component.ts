@@ -36,7 +36,7 @@ import type { InputType } from './input.types.js';
 			})}
 		>
 			${when(
-				c.label,
+				!!c.label,
 				() => html`
 					<label class="ml-input__label" for="input">
 						${c.label}
@@ -68,9 +68,9 @@ import type { InputType } from './input.types.js';
 			</div>
 
 			${when(
-				c.error,
+				!!c.error,
 				() => html`<span id="error" class="ml-input__error">${c.error}</span>`,
-				() => html`${when(c.hint, () => html`<span id="hint" class="ml-input__hint">${c.hint}</span>`)}`
+				() => html`${when(!!c.hint, () => html`<span id="hint" class="ml-input__hint">${c.hint}</span>`)}`
 			)}
 		</div>
 	`,

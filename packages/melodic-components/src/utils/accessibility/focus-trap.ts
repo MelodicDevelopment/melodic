@@ -1,4 +1,4 @@
-import { getFocusableElements, getFirstFocusable, getLastFocusable } from './focus-utils.js';
+import { getFocusableElements, getFirstFocusable } from './focus-utils.js';
 
 export interface FocusTrapOptions {
 	/** Element to focus when trap is activated */

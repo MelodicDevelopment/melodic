@@ -32,7 +32,7 @@ import type { Size } from '../../../types/index.js';
 			})}
 		>
 			${when(
-				c.label,
+				!!c.label,
 				() => html`
 					<label class="ml-textarea__label" for="textarea">
 						${c.label}
@@ -61,12 +61,12 @@ import type { Size } from '../../../types/index.js';
 
 			<div class="ml-textarea__footer">
 				${when(
-					c.error,
+					!!c.error,
 					() => html`<span id="error" class="ml-textarea__error">${c.error}</span>`,
-					() => html`${when(c.hint, () => html`<span id="hint" class="ml-textarea__hint">${c.hint}</span>`)}`
+					() => html`${when(!!c.hint, () => html`<span id="hint" class="ml-textarea__hint">${c.hint}</span>`)}`
 				)}
 				${when(
-					c.maxLength,
+					c.maxLength > 0,
 					() => html`
 						<span class="ml-textarea__counter"> ${c.value.length} / ${c.maxLength} </span>
 					`

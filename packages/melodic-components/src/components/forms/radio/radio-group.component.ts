@@ -29,7 +29,7 @@ import type { Orientation } from '../../../types/index.js';
 			aria-labelledby=${c.label ? 'legend' : ''}
 		>
 			${when(
-				c.label,
+				!!c.label,
 				() => html`
 					<legend id="legend" class="ml-radio-group__legend">
 						${c.label}
@@ -43,9 +43,9 @@ import type { Orientation } from '../../../types/index.js';
 			</div>
 
 			${when(
-				c.error,
+				!!c.error,
 				() => html`<span class="ml-radio-group__error">${c.error}</span>`,
-				() => html`${when(c.hint, () => html`<span class="ml-radio-group__hint">${c.hint}</span>`)}`
+				() => html`${when(!!c.hint, () => html`<span class="ml-radio-group__hint">${c.hint}</span>`)}`
 			)}
 		</fieldset>
 	`,
@@ -145,6 +145,10 @@ export class RadioGroup implements IElementRef, OnInit {
 	}
 
 	private handleChildChange = (event: CustomEvent): void => {
+		if (event.target === this.elementRef) {
+			return;
+		}
+
 		const detail = event.detail as { value: string };
 		this.value = detail.value;
 
@@ -163,13 +167,25 @@ export class RadioGroup implements IElementRef, OnInit {
 
 	private updateChildRadios(): void {
 		const radios = this.elementRef.querySelectorAll('ml-radio');
+		if (this.value === '') {
+			for (const radio of radios) {
+				const isChecked = (radio as any).checked === true || radio.hasAttribute('checked');
+				if (isChecked) {
+					this.value = (radio as any).value ?? radio.getAttribute('value') ?? '';
+					break;
+				}
+			}
+		}
+
 		radios.forEach((radio) => {
 			if (this.name) {
-				radio.setAttribute('name', this.name);
+				(radio as any).name = this.name;
 			}
-			if (this.disabled) {
-				radio.setAttribute('disabled', '');
-			}
+
+			(radio as any).disabled = this.disabled;
+
+			const radioValue = (radio as any).value ?? radio.getAttribute('value') ?? '';
+			(radio as any).checked = this.value !== '' && radioValue === this.value;
 		});
 	}
 }

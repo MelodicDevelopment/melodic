@@ -27,10 +27,10 @@ import type { Size } from '../../../types/index.js';
 			aria-label=${c.alt || c.initials || 'Avatar'}
 		>
 			${when(
-				c.src && !c._imageError,
+				!!c.src && !c._imageError,
 				() => html` <img class="ml-avatar__image" src="${c.src}" alt="${c.alt}" @error=${c.handleImageError} /> `,
 				() => html`${when(
-						c.initials,
+						!!c.initials,
 						() => html`<span class="ml-avatar__initials">${c.getInitials()}</span>`,
 						() => html`
 							<span class="ml-avatar__fallback">

@@ -1,6 +1,4 @@
-import { allTokens } from '../tokens/all-tokens.js';
-
-type TokenOverrides = Partial<typeof allTokens>;
+type TokenOverrides = Partial<Record<string, string>>;
 
 /**
  * Create a custom theme by overriding default tokens

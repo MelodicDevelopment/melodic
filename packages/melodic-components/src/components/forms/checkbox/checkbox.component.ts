@@ -52,9 +52,9 @@ import type { Size } from '../../../types/index.js';
 					`
 				)}
 			</span>
-			${when(c.label, () => html`<span class="ml-checkbox__label">${c.label}</span>`)}
+			${when(!!c.label, () => html`<span class="ml-checkbox__label">${c.label}</span>`)}
 		</label>
-		${when(c.hint, () => html`<span class="ml-checkbox__hint">${c.hint}</span>`)}
+		${when(!!c.hint, () => html`<span class="ml-checkbox__hint">${c.hint}</span>`)}
 	`,
 	styles: () => css`
 		:host {
