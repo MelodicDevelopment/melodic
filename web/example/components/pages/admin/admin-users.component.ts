@@ -92,13 +92,13 @@ import type { User } from '../../../routing';
 	`
 })
 export class AdminUsersComponent {
-	@Service(RouterService) private router!: RouterService;
+	@Service(RouterService) private readonly _router!: RouterService;
 
 	users: User[] = [];
 
 	onCreate(): void {
 		// Get resolved data from the router service
-		const resolvedData = this.router.getResolvedData();
+		const resolvedData = this._router.getResolvedData();
 		this.users = (resolvedData['users'] as User[]) ?? [];
 
 		console.log('[AdminUsers] Resolved users:', this.users);
@@ -106,6 +106,6 @@ export class AdminUsersComponent {
 
 	viewUser(userId: string): void {
 		// Navigate to user detail page
-		this.router.navigate(`/admin/users/${userId}`);
+		this._router.navigate(`/admin/users/${userId}`);
 	}
 }

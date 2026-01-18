@@ -3,8 +3,8 @@ import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const templatesRoot = path.resolve(__dirname, '../templates');
+const cliDir = path.dirname(fileURLToPath(import.meta.url));
+const templatesRoot = path.resolve(cliDir, '../templates');
 
 const usage = (): void => {
 	console.log('Usage:');
@@ -22,7 +22,7 @@ const usage = (): void => {
 };
 
 const getVersion = async (): Promise<string> => {
-	const packageJsonPath = path.resolve(__dirname, '../package.json');
+	const packageJsonPath = path.resolve(cliDir, '../package.json');
 	const pkg = await readJson<{ version: string }>(packageJsonPath);
 	return pkg.version;
 };

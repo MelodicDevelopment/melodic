@@ -2,8 +2,6 @@ import { describe, it } from 'vitest';
 import { html, render, repeat } from '../../src/template';
 
 const TEST_COUNT = 1000;
-const MARKER = 'm'; // Simplified marker check
-
 const generateItems = (count: number) =>
 	Array.from({ length: count }, (_, i) => ({
 		id: i,

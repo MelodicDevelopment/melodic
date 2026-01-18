@@ -8,12 +8,6 @@ interface MelodicStylesOptions {
 	attribute?: string;
 }
 
-interface StoredLink {
-	href: string;
-	tag: string;
-	placeholder: string;
-}
-
 interface ResolvedCss {
 	text: string;
 	sourceType: 'public' | 'root';
@@ -174,7 +168,6 @@ export function melodicStylesPlugin(options: MelodicStylesOptions = {}): Plugin 
 						const placeholder = `<!--melodic-styles:${placeholderIndex++}-->`;
 						placeholderMap.set(placeholder, updatedTag);
 						result = result.replace(fullTag, placeholder);
-
 					} catch (err) {
 						console.error(`[melodic-styles] Failed to process ${href}:`, err);
 					}
@@ -182,8 +175,7 @@ export function melodicStylesPlugin(options: MelodicStylesOptions = {}): Plugin 
 
 				return result;
 			}
-		}
-		,
+		},
 		async closeBundle() {
 			if (!isBuild || outputFiles.size === 0) return;
 

@@ -16,9 +16,9 @@ interface CompiledResult {
 }
 
 export class CompiledTemplate {
-	private factory: FastFactory | null = null;
-	private hasEvents: boolean = false;
-	private canCompile: boolean = false;
+	private _factory: FastFactory | null = null;
+	private _hasEvents: boolean = false;
+	private _canCompile: boolean = false;
 
 	private constructor(strings: TemplateStringsArray) {
 		this.analyzeAndCompile(strings);
@@ -37,15 +37,15 @@ export class CompiledTemplate {
 	 * Check if this template can use the fast path
 	 */
 	canUseFastPath(): boolean {
-		return this.canCompile && !this.hasEvents;
+		return this._canCompile && !this._hasEvents;
 	}
 
 	/**
 	 * Create DOM nodes using the compiled factory
 	 */
 	create(values: unknown[]): CompiledResult {
-		if (this.factory) {
-			return { nodes: [this.factory(values)], eventTargets: [] };
+		if (this._factory) {
+			return { nodes: [this._factory(values)], eventTargets: [] };
 		}
 		return { nodes: [], eventTargets: [] };
 	}
@@ -54,7 +54,7 @@ export class CompiledTemplate {
 	 * Directly create a single node - faster than create() for single-element templates
 	 */
 	createDirect(values: unknown[]): Node | null {
-		return this.factory ? this.factory(values) : null;
+		return this._factory ? this._factory(values) : null;
 	}
 
 	/**
@@ -71,7 +71,7 @@ export class CompiledTemplate {
 		// Check for events
 		for (const s of strings) {
 			if (s.includes('@')) {
-				this.hasEvents = true;
+				this._hasEvents = true;
 				return;
 			}
 		}
@@ -120,7 +120,7 @@ export class CompiledTemplate {
 
 		// Parse text content for placeholders
 		const textParts: Array<{ static: string } | { valueIndex: number }> = [];
-		let remaining = textContent;
+		const remaining = textContent;
 		const placeholderRegex = /\$\{(\d+)\}/g;
 		let lastIndex = 0;
 		let textMatch;
@@ -138,14 +138,14 @@ export class CompiledTemplate {
 		}
 
 		// Generate factory function
-		this.factory = (values: unknown[]): Node => {
+		this._factory = (values: unknown[]): Node => {
 			const el = document.createElement(tag);
 
 			// Set attributes
 			for (const attr of attrs) {
 				if (attr.valueIndex !== null) {
 					const value = values[attr.valueIndex];
-					if (value != null && value !== false) {
+					if (value !== null && value !== undefined && value !== false) {
 						el.setAttribute(attr.name, value === true ? '' : String(value));
 					}
 				} else if (attr.staticValue !== undefined) {
@@ -167,6 +167,6 @@ export class CompiledTemplate {
 			return el;
 		};
 
-		this.canCompile = true;
+		this._canCompile = true;
 	}
 }

@@ -298,7 +298,7 @@ export class RouterOutletComponent {
 		}
 	}
 
-	private async renderMatch(match: IRouteMatch, _matchResult: IRouteMatchResult): Promise<void> {
+	private async renderMatch(match: IRouteMatch, _: IRouteMatchResult): Promise<void> {
 		const route = match.route;
 
 		if (route.component === this._currentComponent) {

@@ -15,6 +15,26 @@
 		"verbatimModuleSyntax": true,
 		"moduleDetection": "force",
 		"noEmit": true,
+		"baseUrl": ".",
+		"paths": {
+			"@melodicdev/core": ["src"],
+			"@melodicdev/components": ["packages/melodic-components/src/index.ts"],
+			"@melodicdev/components/theme": ["packages/melodic-components/src/theme/index.ts"],
+			"@melodicdev/components/button": ["packages/melodic-components/src/components/forms/button/index.ts"],
+			"@melodicdev/components/spinner": ["packages/melodic-components/src/components/feedback/spinner/index.ts"],
+			"@melodicdev/components/input": ["packages/melodic-components/src/components/forms/input/index.ts"],
+			"@melodicdev/components/textarea": ["packages/melodic-components/src/components/forms/textarea/index.ts"],
+			"@melodicdev/components/checkbox": ["packages/melodic-components/src/components/forms/checkbox/index.ts"],
+			"@melodicdev/components/radio": ["packages/melodic-components/src/components/forms/radio/index.ts"],
+			"@melodicdev/components/toggle": ["packages/melodic-components/src/components/forms/toggle/index.ts"],
+			"@melodicdev/components/card": ["packages/melodic-components/src/components/foundation/card/index.ts"],
+			"@melodicdev/components/stack": ["packages/melodic-components/src/components/foundation/stack/index.ts"],
+			"@melodicdev/components/divider": ["packages/melodic-components/src/components/foundation/divider/index.ts"],
+			"@melodicdev/components/alert": ["packages/melodic-components/src/components/feedback/alert/index.ts"],
+			"@melodicdev/components/badge": ["packages/melodic-components/src/components/data-display/badge/index.ts"],
+			"@melodicdev/components/avatar": ["packages/melodic-components/src/components/data-display/avatar/index.ts"],
+			"@melodicdev/components/tooltip": ["packages/melodic-components/src/components/overlays/tooltip/index.ts"]
+		},
 
 		/* Linting */
 		"strict": true,

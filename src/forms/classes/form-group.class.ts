@@ -33,11 +33,11 @@ export class FormGroup<T extends Record<string, unknown> = Record<string, unknow
 		this._disabled.set(options.disabled ?? false);
 
 		// Create value signal that computes from all controls
-		this.value = computed(() => this._computeValue());
+		this.value = computed(() => this.computeValue());
 		this.errors = signal<ValidationErrors | null>(null);
 
 		// Setup child control watchers
-		this._setupControlWatchers();
+		this.setupControlWatchers();
 
 		// Computed aggregate state
 		this.valid = computed(() => {
@@ -65,7 +65,7 @@ export class FormGroup<T extends Record<string, unknown> = Record<string, unknow
 		this.disabled = computed(() => this._disabled());
 
 		// Run initial validation
-		this._runGroupValidation();
+		this.runGroupValidation();
 	}
 
 	get<K extends keyof T>(name: K): IFormControl<T[K]> {
@@ -74,7 +74,7 @@ export class FormGroup<T extends Record<string, unknown> = Record<string, unknow
 
 	addControl<K extends string, V>(name: K, control: IFormControl<V>): void {
 		(this.controls as Record<string, IFormControl<unknown>>)[name] = control;
-		this._setupControlWatcher(name, control);
+		this.setupControlWatcher(control);
 	}
 
 	removeControl<K extends keyof T>(name: K): void {
@@ -151,12 +151,12 @@ export class FormGroup<T extends Record<string, unknown> = Record<string, unknow
 
 	async validate(): Promise<void> {
 		await Promise.all(Object.values(this.controls).map((control) => (control as IFormControl).validate()));
-		await this._runGroupValidation();
+		await this.runGroupValidation();
 	}
 
 	setValidators(validators: ValidatorFn<FormGroupValue<T>>[]): void {
 		this._validators = validators;
-		this._runGroupValidation();
+		this.runGroupValidation();
 	}
 
 	getError(code: string): ValidationError | null {
@@ -174,7 +174,7 @@ export class FormGroup<T extends Record<string, unknown> = Record<string, unknow
 		});
 	}
 
-	private _computeValue(): FormGroupValue<T> {
+	private computeValue(): FormGroupValue<T> {
 		const result: Partial<FormGroupValue<T>> = {};
 		Object.keys(this.controls).forEach((key) => {
 			const control = this.controls[key as keyof T];
@@ -183,23 +183,23 @@ export class FormGroup<T extends Record<string, unknown> = Record<string, unknow
 		return result as FormGroupValue<T>;
 	}
 
-	private _setupControlWatchers(): void {
+	private setupControlWatchers(): void {
 		Object.keys(this.controls).forEach((key) => {
-			this._setupControlWatcher(key, this.controls[key as keyof T]);
+			this.setupControlWatcher(this.controls[key as keyof T]);
 		});
 	}
 
-	private _setupControlWatcher<K extends string>(_name: K, control: IFormControl<unknown>): void {
+	private setupControlWatcher(control: IFormControl<unknown>): void {
 		const effect = new SignalEffect(() => {
 			control.value();
-			this._runGroupValidation();
+			this.runGroupValidation();
 		});
 		effect.run();
 		this._controlEffects.push(effect);
 	}
 
-	private async _runGroupValidation(): Promise<void> {
-		const value = this._computeValue();
+	private async runGroupValidation(): Promise<void> {
+		const value = this.computeValue();
 		let errors: ValidationErrors | null = null;
 
 		for (const validator of this._validators) {

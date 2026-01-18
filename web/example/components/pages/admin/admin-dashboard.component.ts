@@ -94,17 +94,17 @@ import type { DashboardStats } from '../../../routing';
 	`
 })
 export class AdminDashboardComponent {
-	@Service(RouterService) private router!: RouterService;
+	@Service(RouterService) private _router!: RouterService;
 
 	stats: DashboardStats | null = null;
 
 	onCreate(): void {
 		// Get resolved data from the router service
-		const resolvedData = this.router.getResolvedData();
+		const resolvedData = this._router.getResolvedData();
 		this.stats = resolvedData['stats'] as DashboardStats;
 
 		console.log('[AdminDashboard] Resolved data:', resolvedData);
-		console.log('[AdminDashboard] Route params:', this.router.getParams());
-		console.log('[AdminDashboard] Route data:', this.router.getRouteData());
+		console.log('[AdminDashboard] Route params:', this._router.getParams());
+		console.log('[AdminDashboard] Route data:', this._router.getRouteData());
 	}
 }

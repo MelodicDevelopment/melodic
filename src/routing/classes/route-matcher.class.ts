@@ -111,6 +111,6 @@ export class RouteMatcher {
 
 	private validateRule(rule: Rule, value: string): boolean {
 		const type: string = Object.prototype.toString.call(rule).charAt(8);
-		return type === 'R' ? (rule as RegExp).test(value) : type === 'F' ? (rule as RuleCheck)(value) : rule == value;
+		return type === 'R' ? (rule as RegExp).test(value) : type === 'F' ? (rule as RuleCheck)(value) : rule === value;
 	}
 }

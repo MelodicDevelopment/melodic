@@ -189,6 +189,8 @@ export class TemplateResult {
 				case 'node':
 					nodeParts.push(part);
 					break;
+				default:
+					break;
 			}
 		}
 
@@ -604,7 +606,7 @@ export class TemplateResult {
 			} else if (value instanceof Node) {
 				renderedNodes.push(value);
 				parent.insertBefore(value, part.endMarker!);
-			} else if (value != null) {
+			} else if (value !== null && value !== undefined) {
 				const textNode = document.createTextNode(String(value));
 				renderedNodes.push(textNode);
 				parent.insertBefore(textNode, part.endMarker!);
@@ -638,7 +640,7 @@ export class TemplateResult {
 			value.renderInto(container);
 		} else if (value instanceof Node) {
 			container.appendChild(value);
-		} else if (value != null) {
+		} else if (value !== null && value !== undefined) {
 			container.appendChild(document.createTextNode(String(value)));
 		}
 
@@ -671,7 +673,7 @@ export class TemplateResult {
 		item.container = document.createDocumentFragment();
 		if (value instanceof Node) {
 			item.container.appendChild(value);
-		} else if (value != null) {
+		} else if (value !== null && value !== undefined) {
 			item.container.appendChild(document.createTextNode(String(value)));
 		}
 
@@ -742,7 +744,7 @@ export class TemplateResult {
 
 							part.previousValue = composed;
 							continue;
-						} else if (value == null || value === false) {
+						} else if (value === null || value === undefined || value === false) {
 							// Remove attribute for null, undefined, or false (boolean attributes)
 							element.removeAttribute(part.name);
 						} else if (value === true) {
@@ -822,6 +824,8 @@ export class TemplateResult {
 							console.warn(`Attribute directive ':${part.name}' not found in registry`);
 						}
 					}
+					break;
+				default:
 					break;
 			}
 
