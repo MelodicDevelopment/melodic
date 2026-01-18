@@ -8,14 +8,18 @@ export const radioStyles = () => css`
 	.ml-radio {
 		display: inline-flex;
 		align-items: flex-start;
-		gap: var(--ml-space-2);
+		gap: var(--ml-space-3);
 		cursor: pointer;
 		user-select: none;
 	}
 
 	.ml-radio--disabled {
-		opacity: 0.5;
 		cursor: not-allowed;
+	}
+
+	.ml-radio--disabled .ml-radio__circle,
+	.ml-radio--disabled .ml-radio__label {
+		opacity: 0.5;
 	}
 
 	/* Hidden native radio */
@@ -32,25 +36,31 @@ export const radioStyles = () => css`
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		background-color: var(--ml-color-surface);
-		border: var(--ml-border-2) solid var(--ml-color-border-strong);
+		background-color: var(--ml-color-input-bg);
+		border: var(--ml-border) solid var(--ml-color-border-strong);
 		border-radius: var(--ml-radius-full);
 		transition:
 			background-color var(--ml-duration-150) var(--ml-ease-in-out),
-			border-color var(--ml-duration-150) var(--ml-ease-in-out);
+			border-color var(--ml-duration-150) var(--ml-ease-in-out),
+			box-shadow var(--ml-duration-150) var(--ml-ease-in-out);
 	}
 
 	.ml-radio__input:focus-visible + .ml-radio__circle {
-		outline: var(--ml-focus-ring-width) solid var(--ml-color-focus-ring);
-		outline-offset: var(--ml-focus-ring-offset);
+		border-color: var(--ml-color-primary);
+		box-shadow: var(--ml-shadow-focus-ring);
 	}
 
 	.ml-radio--checked .ml-radio__circle {
 		border-color: var(--ml-color-primary);
+		background-color: var(--ml-color-primary-subtle);
 	}
 
 	.ml-radio:hover:not(.ml-radio--disabled) .ml-radio__circle {
 		border-color: var(--ml-color-primary);
+	}
+
+	.ml-radio--checked:hover:not(.ml-radio--disabled) .ml-radio__circle {
+		border-color: var(--ml-color-primary-hover);
 	}
 
 	/* Inner dot */
@@ -63,6 +73,10 @@ export const radioStyles = () => css`
 
 	.ml-radio--checked .ml-radio__dot {
 		transform: scale(1);
+	}
+
+	.ml-radio--checked:hover:not(.ml-radio--disabled) .ml-radio__dot {
+		background-color: var(--ml-color-primary-hover);
 	}
 
 	/* Sizes */
@@ -99,7 +113,8 @@ export const radioStyles = () => css`
 	/* Label */
 	.ml-radio__label {
 		font-size: var(--ml-text-sm);
-		color: var(--ml-color-text);
+		font-weight: var(--ml-font-medium);
+		color: var(--ml-color-text-secondary);
 		line-height: 1.25rem;
 	}
 
@@ -111,9 +126,10 @@ export const radioStyles = () => css`
 	/* Hint */
 	.ml-radio__hint {
 		display: block;
-		margin-top: var(--ml-space-1);
-		margin-left: calc(1.25rem + var(--ml-space-2));
+		margin-top: var(--ml-space-0-5);
+		margin-left: calc(1.25rem + var(--ml-space-3));
 		font-size: var(--ml-text-sm);
 		color: var(--ml-color-text-muted);
+		line-height: var(--ml-leading-tight);
 	}
 `;

@@ -8,14 +8,18 @@ export const toggleStyles = () => css`
 	.ml-toggle {
 		display: inline-flex;
 		align-items: center;
-		gap: var(--ml-space-2);
+		gap: var(--ml-space-3);
 		cursor: pointer;
 		user-select: none;
 	}
 
 	.ml-toggle--disabled {
-		opacity: 0.5;
 		cursor: not-allowed;
+	}
+
+	.ml-toggle--disabled .ml-toggle__track,
+	.ml-toggle--disabled .ml-toggle__label {
+		opacity: 0.5;
 	}
 
 	/* Hidden native checkbox */
@@ -32,14 +36,15 @@ export const toggleStyles = () => css`
 		display: inline-flex;
 		align-items: center;
 		flex-shrink: 0;
-		background-color: var(--ml-color-border-strong);
+		background-color: var(--ml-color-toggle-off);
 		border-radius: var(--ml-radius-full);
-		transition: background-color var(--ml-duration-200) var(--ml-ease-in-out);
+		transition:
+			background-color var(--ml-duration-200) var(--ml-ease-in-out),
+			box-shadow var(--ml-duration-200) var(--ml-ease-in-out);
 	}
 
 	.ml-toggle__input:focus-visible + .ml-toggle__track {
-		outline: var(--ml-focus-ring-width) solid var(--ml-color-focus-ring);
-		outline-offset: var(--ml-focus-ring-offset);
+		box-shadow: var(--ml-shadow-focus-ring);
 	}
 
 	.ml-toggle--checked .ml-toggle__track {
@@ -47,7 +52,7 @@ export const toggleStyles = () => css`
 	}
 
 	.ml-toggle:hover:not(.ml-toggle--disabled) .ml-toggle__track {
-		background-color: var(--ml-gray-400);
+		background-color: var(--ml-color-toggle-off-hover);
 	}
 
 	.ml-toggle--checked:hover:not(.ml-toggle--disabled) .ml-toggle__track {
@@ -65,43 +70,43 @@ export const toggleStyles = () => css`
 
 	/* Sizes */
 	.ml-toggle--sm .ml-toggle__track {
-		width: 1.75rem;
-		height: 1rem;
-	}
-
-	.ml-toggle--sm .ml-toggle__thumb {
-		width: 0.75rem;
-		height: 0.75rem;
-		left: 0.125rem;
-	}
-
-	.ml-toggle--sm.ml-toggle--checked .ml-toggle__thumb {
-		transform: translateX(0.75rem);
-	}
-
-	.ml-toggle--md .ml-toggle__track {
 		width: 2.25rem;
 		height: 1.25rem;
 	}
 
-	.ml-toggle--md .ml-toggle__thumb {
+	.ml-toggle--sm .ml-toggle__thumb {
 		width: 1rem;
 		height: 1rem;
 		left: 0.125rem;
 	}
 
-	.ml-toggle--md.ml-toggle--checked .ml-toggle__thumb {
+	.ml-toggle--sm.ml-toggle--checked .ml-toggle__thumb {
 		transform: translateX(1rem);
 	}
 
-	.ml-toggle--lg .ml-toggle__track {
+	.ml-toggle--md .ml-toggle__track {
 		width: 2.75rem;
 		height: 1.5rem;
 	}
 
-	.ml-toggle--lg .ml-toggle__thumb {
+	.ml-toggle--md .ml-toggle__thumb {
 		width: 1.25rem;
 		height: 1.25rem;
+		left: 0.125rem;
+	}
+
+	.ml-toggle--md.ml-toggle--checked .ml-toggle__thumb {
+		transform: translateX(1.25rem);
+	}
+
+	.ml-toggle--lg .ml-toggle__track {
+		width: 3rem;
+		height: 1.75rem;
+	}
+
+	.ml-toggle--lg .ml-toggle__thumb {
+		width: 1.5rem;
+		height: 1.5rem;
 		left: 0.125rem;
 	}
 
@@ -112,7 +117,8 @@ export const toggleStyles = () => css`
 	/* Label */
 	.ml-toggle__label {
 		font-size: var(--ml-text-sm);
-		color: var(--ml-color-text);
+		font-weight: var(--ml-font-medium);
+		color: var(--ml-color-text-secondary);
 	}
 
 	.ml-toggle--lg .ml-toggle__label {
@@ -123,8 +129,9 @@ export const toggleStyles = () => css`
 	.ml-toggle__hint {
 		display: block;
 		margin-top: var(--ml-space-1);
-		margin-left: calc(2.25rem + var(--ml-space-2));
+		margin-left: calc(2.75rem + var(--ml-space-3));
 		font-size: var(--ml-text-sm);
 		color: var(--ml-color-text-muted);
+		line-height: var(--ml-leading-tight);
 	}
 `;

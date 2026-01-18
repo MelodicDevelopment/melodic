@@ -1,101 +1,109 @@
 /**
  * Primitive color palette - these are the raw color values
+ * Soft neutrals and refined colors inspired by modern UI design
  */
 export const primitiveColors = {
 	// White & Black
 	'--ml-white': '#ffffff',
 	'--ml-black': '#000000',
 
-	// Gray scale
+	// Gray scale - Softer, warmer neutrals
+	'--ml-gray-25': '#fcfcfd',
 	'--ml-gray-50': '#f9fafb',
-	'--ml-gray-100': '#f3f4f6',
-	'--ml-gray-200': '#e5e7eb',
-	'--ml-gray-300': '#d1d5db',
-	'--ml-gray-400': '#9ca3af',
-	'--ml-gray-500': '#6b7280',
-	'--ml-gray-600': '#4b5563',
-	'--ml-gray-700': '#374151',
-	'--ml-gray-800': '#1f2937',
-	'--ml-gray-900': '#111827',
-	'--ml-gray-950': '#030712',
+	'--ml-gray-100': '#f2f4f7',
+	'--ml-gray-200': '#eaecf0',
+	'--ml-gray-300': '#d0d5dd',
+	'--ml-gray-400': '#98a2b3',
+	'--ml-gray-500': '#667085',
+	'--ml-gray-600': '#475467',
+	'--ml-gray-700': '#344054',
+	'--ml-gray-800': '#182230',
+	'--ml-gray-900': '#101828',
+	'--ml-gray-950': '#0c111d',
 
-	// Blue
-	'--ml-blue-50': '#eff6ff',
-	'--ml-blue-100': '#dbeafe',
-	'--ml-blue-200': '#bfdbfe',
-	'--ml-blue-300': '#93c5fd',
-	'--ml-blue-400': '#60a5fa',
-	'--ml-blue-500': '#3b82f6',
-	'--ml-blue-600': '#2563eb',
-	'--ml-blue-700': '#1d4ed8',
-	'--ml-blue-800': '#1e40af',
-	'--ml-blue-900': '#1e3a8a',
-	'--ml-blue-950': '#172554',
+	// Blue - Primary brand color, softer and more refined
+	'--ml-blue-25': '#f5f8ff',
+	'--ml-blue-50': '#eff4ff',
+	'--ml-blue-100': '#d1e0ff',
+	'--ml-blue-200': '#b2ccff',
+	'--ml-blue-300': '#84adff',
+	'--ml-blue-400': '#528bff',
+	'--ml-blue-500': '#2970ff',
+	'--ml-blue-600': '#155eef',
+	'--ml-blue-700': '#004eeb',
+	'--ml-blue-800': '#0040c1',
+	'--ml-blue-900': '#00359e',
+	'--ml-blue-950': '#002266',
 
-	// Green
-	'--ml-green-50': '#f0fdf4',
-	'--ml-green-100': '#dcfce7',
-	'--ml-green-200': '#bbf7d0',
-	'--ml-green-300': '#86efac',
-	'--ml-green-400': '#4ade80',
-	'--ml-green-500': '#22c55e',
-	'--ml-green-600': '#16a34a',
-	'--ml-green-700': '#15803d',
-	'--ml-green-800': '#166534',
-	'--ml-green-900': '#14532d',
-	'--ml-green-950': '#052e16',
+	// Green - Success color, balanced and calming
+	'--ml-green-25': '#f6fef9',
+	'--ml-green-50': '#ecfdf3',
+	'--ml-green-100': '#dcfae6',
+	'--ml-green-200': '#abefc6',
+	'--ml-green-300': '#75e0a7',
+	'--ml-green-400': '#47cd89',
+	'--ml-green-500': '#17b26a',
+	'--ml-green-600': '#079455',
+	'--ml-green-700': '#067647',
+	'--ml-green-800': '#085d3a',
+	'--ml-green-900': '#074d31',
+	'--ml-green-950': '#053321',
 
-	// Red
-	'--ml-red-50': '#fef2f2',
-	'--ml-red-100': '#fee2e2',
-	'--ml-red-200': '#fecaca',
-	'--ml-red-300': '#fca5a5',
-	'--ml-red-400': '#f87171',
-	'--ml-red-500': '#ef4444',
-	'--ml-red-600': '#dc2626',
-	'--ml-red-700': '#b91c1c',
-	'--ml-red-800': '#991b1b',
-	'--ml-red-900': '#7f1d1d',
-	'--ml-red-950': '#450a0a',
+	// Red - Error/danger color, refined
+	'--ml-red-25': '#fffbfa',
+	'--ml-red-50': '#fef3f2',
+	'--ml-red-100': '#fee4e2',
+	'--ml-red-200': '#fecdca',
+	'--ml-red-300': '#fda29b',
+	'--ml-red-400': '#f97066',
+	'--ml-red-500': '#f04438',
+	'--ml-red-600': '#d92d20',
+	'--ml-red-700': '#b42318',
+	'--ml-red-800': '#912018',
+	'--ml-red-900': '#7a271a',
+	'--ml-red-950': '#55160c',
 
-	// Amber/Yellow
-	'--ml-amber-50': '#fffbeb',
-	'--ml-amber-100': '#fef3c7',
-	'--ml-amber-200': '#fde68a',
-	'--ml-amber-300': '#fcd34d',
-	'--ml-amber-400': '#fbbf24',
-	'--ml-amber-500': '#f59e0b',
-	'--ml-amber-600': '#d97706',
-	'--ml-amber-700': '#b45309',
-	'--ml-amber-800': '#92400e',
-	'--ml-amber-900': '#78350f',
-	'--ml-amber-950': '#451a03',
+	// Amber/Warning - Warm and attention-grabbing
+	'--ml-amber-25': '#fffcf5',
+	'--ml-amber-50': '#fffaeb',
+	'--ml-amber-100': '#fef0c7',
+	'--ml-amber-200': '#fedf89',
+	'--ml-amber-300': '#fec84b',
+	'--ml-amber-400': '#fdb022',
+	'--ml-amber-500': '#f79009',
+	'--ml-amber-600': '#dc6803',
+	'--ml-amber-700': '#b54708',
+	'--ml-amber-800': '#93370d',
+	'--ml-amber-900': '#7a2e0e',
+	'--ml-amber-950': '#4e1d09',
 
-	// Cyan
-	'--ml-cyan-50': '#ecfeff',
-	'--ml-cyan-100': '#cffafe',
-	'--ml-cyan-200': '#a5f3fc',
-	'--ml-cyan-300': '#67e8f9',
-	'--ml-cyan-400': '#22d3ee',
-	'--ml-cyan-500': '#06b6d4',
-	'--ml-cyan-600': '#0891b2',
-	'--ml-cyan-700': '#0e7490',
-	'--ml-cyan-800': '#155e75',
-	'--ml-cyan-900': '#164e63',
-	'--ml-cyan-950': '#083344',
+	// Cyan - Info color, cool and professional
+	'--ml-cyan-25': '#f5feff',
+	'--ml-cyan-50': '#ecfdff',
+	'--ml-cyan-100': '#cff9fe',
+	'--ml-cyan-200': '#a5f0fc',
+	'--ml-cyan-300': '#67e3f9',
+	'--ml-cyan-400': '#22ccee',
+	'--ml-cyan-500': '#06aed4',
+	'--ml-cyan-600': '#088ab2',
+	'--ml-cyan-700': '#0e7090',
+	'--ml-cyan-800': '#155b75',
+	'--ml-cyan-900': '#164c63',
+	'--ml-cyan-950': '#0d2d3a',
 
-	// Purple
-	'--ml-purple-50': '#faf5ff',
-	'--ml-purple-100': '#f3e8ff',
-	'--ml-purple-200': '#e9d5ff',
-	'--ml-purple-300': '#d8b4fe',
-	'--ml-purple-400': '#c084fc',
-	'--ml-purple-500': '#a855f7',
-	'--ml-purple-600': '#9333ea',
-	'--ml-purple-700': '#7e22ce',
-	'--ml-purple-800': '#6b21a8',
-	'--ml-purple-900': '#581c87',
-	'--ml-purple-950': '#3b0764'
+	// Purple - Accent color
+	'--ml-purple-25': '#fcfaff',
+	'--ml-purple-50': '#f9f5ff',
+	'--ml-purple-100': '#f4ebff',
+	'--ml-purple-200': '#e9d7fe',
+	'--ml-purple-300': '#d6bbfb',
+	'--ml-purple-400': '#b692f6',
+	'--ml-purple-500': '#9e77ed',
+	'--ml-purple-600': '#7f56d9',
+	'--ml-purple-700': '#6941c6',
+	'--ml-purple-800': '#53389e',
+	'--ml-purple-900': '#42307d',
+	'--ml-purple-950': '#2c1c5f'
 } as const;
 
 /**
@@ -158,6 +166,61 @@ export const colorTokens = {
 
 	// Focus ring
 	'--ml-color-focus-ring': 'var(--ml-blue-500)',
-	'--ml-focus-ring-width': '2px',
-	'--ml-focus-ring-offset': '2px'
+	'--ml-focus-ring-width': '4px',
+	'--ml-focus-ring-offset': '1px',
+
+	// Component-specific semantic tokens
+	'--ml-color-toggle-off': 'var(--ml-gray-200)',
+	'--ml-color-toggle-off-hover': 'var(--ml-gray-300)',
+	'--ml-color-input-bg': 'var(--ml-white)',
+	'--ml-color-input-disabled-bg': 'var(--ml-gray-50)',
+
+	// Badge colors (light mode defaults)
+	'--ml-badge-default-bg': 'var(--ml-gray-100)',
+	'--ml-badge-default-border': 'var(--ml-gray-200)',
+	'--ml-badge-default-text': 'var(--ml-gray-700)',
+
+	'--ml-badge-primary-bg': 'var(--ml-blue-50)',
+	'--ml-badge-primary-border': 'var(--ml-blue-200)',
+	'--ml-badge-primary-text': 'var(--ml-blue-700)',
+
+	'--ml-badge-success-bg': 'var(--ml-green-50)',
+	'--ml-badge-success-border': 'var(--ml-green-200)',
+	'--ml-badge-success-text': 'var(--ml-green-700)',
+
+	'--ml-badge-warning-bg': 'var(--ml-amber-50)',
+	'--ml-badge-warning-border': 'var(--ml-amber-200)',
+	'--ml-badge-warning-text': 'var(--ml-amber-700)',
+
+	'--ml-badge-error-bg': 'var(--ml-red-50)',
+	'--ml-badge-error-border': 'var(--ml-red-200)',
+	'--ml-badge-error-text': 'var(--ml-red-700)',
+
+	// Alert colors (light mode defaults)
+	'--ml-alert-info-bg': 'var(--ml-blue-50)',
+	'--ml-alert-info-border': 'var(--ml-blue-200)',
+	'--ml-alert-info-text': 'var(--ml-blue-700)',
+	'--ml-alert-info-icon': 'var(--ml-blue-600)',
+
+	'--ml-alert-success-bg': 'var(--ml-green-50)',
+	'--ml-alert-success-border': 'var(--ml-green-200)',
+	'--ml-alert-success-text': 'var(--ml-green-700)',
+	'--ml-alert-success-icon': 'var(--ml-green-600)',
+
+	'--ml-alert-warning-bg': 'var(--ml-amber-50)',
+	'--ml-alert-warning-border': 'var(--ml-amber-200)',
+	'--ml-alert-warning-text': 'var(--ml-amber-700)',
+	'--ml-alert-warning-icon': 'var(--ml-amber-600)',
+
+	'--ml-alert-error-bg': 'var(--ml-red-50)',
+	'--ml-alert-error-border': 'var(--ml-red-200)',
+	'--ml-alert-error-text': 'var(--ml-red-700)',
+	'--ml-alert-error-icon': 'var(--ml-red-600)',
+
+	// Tooltip colors
+	'--ml-tooltip-bg': 'var(--ml-gray-900)',
+	'--ml-tooltip-text': 'var(--ml-white)',
+
+	// Card footer
+	'--ml-card-footer-bg': 'var(--ml-gray-50)'
 } as const;

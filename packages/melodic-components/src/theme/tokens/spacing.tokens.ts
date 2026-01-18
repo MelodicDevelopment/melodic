@@ -4,13 +4,13 @@
 export const spacingTokens = {
 	'--ml-space-0': '0',
 	'--ml-space-px': '1px',
-	'--ml-space-0.5': '0.125rem', // 2px
+	'--ml-space-0-5': '0.125rem', // 2px
 	'--ml-space-1': '0.25rem', // 4px
-	'--ml-space-1.5': '0.375rem', // 6px
+	'--ml-space-1-5': '0.375rem', // 6px
 	'--ml-space-2': '0.5rem', // 8px
-	'--ml-space-2.5': '0.625rem', // 10px
+	'--ml-space-2-5': '0.625rem', // 10px
 	'--ml-space-3': '0.75rem', // 12px
-	'--ml-space-3.5': '0.875rem', // 14px
+	'--ml-space-3-5': '0.875rem', // 14px
 	'--ml-space-4': '1rem', // 16px
 	'--ml-space-5': '1.25rem', // 20px
 	'--ml-space-6': '1.5rem', // 24px

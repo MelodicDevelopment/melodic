@@ -8,14 +8,18 @@ export const checkboxStyles = () => css`
 	.ml-checkbox {
 		display: inline-flex;
 		align-items: flex-start;
-		gap: var(--ml-space-2);
+		gap: var(--ml-space-3);
 		cursor: pointer;
 		user-select: none;
 	}
 
 	.ml-checkbox--disabled {
-		opacity: 0.5;
 		cursor: not-allowed;
+	}
+
+	.ml-checkbox--disabled .ml-checkbox__box,
+	.ml-checkbox--disabled .ml-checkbox__label {
+		opacity: 0.5;
 	}
 
 	/* Hidden native checkbox */
@@ -32,18 +36,19 @@ export const checkboxStyles = () => css`
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		background-color: var(--ml-color-surface);
-		border: var(--ml-border-2) solid var(--ml-color-border-strong);
-		border-radius: var(--ml-radius-sm);
+		background-color: var(--ml-color-input-bg);
+		border: var(--ml-border) solid var(--ml-color-border-strong);
+		border-radius: var(--ml-radius-xs);
 		color: var(--ml-color-text-inverse);
 		transition:
 			background-color var(--ml-duration-150) var(--ml-ease-in-out),
-			border-color var(--ml-duration-150) var(--ml-ease-in-out);
+			border-color var(--ml-duration-150) var(--ml-ease-in-out),
+			box-shadow var(--ml-duration-150) var(--ml-ease-in-out);
 	}
 
 	.ml-checkbox__input:focus-visible + .ml-checkbox__box {
-		outline: var(--ml-focus-ring-width) solid var(--ml-color-focus-ring);
-		outline-offset: var(--ml-focus-ring-offset);
+		border-color: var(--ml-color-primary);
+		box-shadow: var(--ml-shadow-focus-ring);
 	}
 
 	.ml-checkbox--checked .ml-checkbox__box,
@@ -54,6 +59,12 @@ export const checkboxStyles = () => css`
 
 	.ml-checkbox:hover:not(.ml-checkbox--disabled) .ml-checkbox__box {
 		border-color: var(--ml-color-primary);
+	}
+
+	.ml-checkbox--checked:hover:not(.ml-checkbox--disabled) .ml-checkbox__box,
+	.ml-checkbox--indeterminate:hover:not(.ml-checkbox--disabled) .ml-checkbox__box {
+		background-color: var(--ml-color-primary-hover);
+		border-color: var(--ml-color-primary-hover);
 	}
 
 	/* Sizes */
@@ -82,7 +93,8 @@ export const checkboxStyles = () => css`
 	/* Label */
 	.ml-checkbox__label {
 		font-size: var(--ml-text-sm);
-		color: var(--ml-color-text);
+		font-weight: var(--ml-font-medium);
+		color: var(--ml-color-text-secondary);
 		line-height: 1.25rem;
 	}
 
@@ -94,13 +106,14 @@ export const checkboxStyles = () => css`
 	/* Hint */
 	.ml-checkbox__hint {
 		display: block;
-		margin-top: var(--ml-space-1);
-		margin-left: calc(1.25rem + var(--ml-space-2));
+		margin-top: var(--ml-space-0-5);
+		margin-left: calc(1.25rem + var(--ml-space-3));
 		font-size: var(--ml-text-sm);
 		color: var(--ml-color-text-muted);
+		line-height: var(--ml-leading-tight);
 	}
 
 	.ml-checkbox--lg + .ml-checkbox__hint {
-		margin-left: calc(1.5rem + var(--ml-space-2));
+		margin-left: calc(1.5rem + var(--ml-space-3));
 	}
 `;

@@ -11,38 +11,35 @@ export const buttonStyles = () => css`
 	}
 
 	.ml-button {
-		/* Reset */
 		appearance: none;
 		border: none;
 		background: none;
 		cursor: pointer;
 		text-decoration: none;
 
-		/* Layout */
 		display: inline-flex;
 		align-items: center;
 		justify-content: center;
 		gap: var(--ml-space-2);
 		position: relative;
 
-		/* Typography */
 		font-family: var(--ml-font-sans);
-		font-weight: var(--ml-font-medium);
-		line-height: var(--ml-leading-none);
+		font-weight: var(--ml-font-semibold);
+		line-height: var(--ml-leading-tight);
 		white-space: nowrap;
 		text-align: center;
 
-		/* Borders */
 		border: var(--ml-border) solid transparent;
-		border-radius: var(--ml-radius-md);
+		border-radius: var(--ml-radius);
 
-		/* Transitions */
+		box-shadow: var(--ml-shadow-xs);
+
 		transition:
 			background-color var(--ml-duration-150) var(--ml-ease-in-out),
 			border-color var(--ml-duration-150) var(--ml-ease-in-out),
 			color var(--ml-duration-150) var(--ml-ease-in-out),
 			box-shadow var(--ml-duration-150) var(--ml-ease-in-out),
-			opacity var(--ml-duration-150) var(--ml-ease-in-out);
+			transform var(--ml-duration-150) var(--ml-ease-in-out);
 	}
 
 	.ml-button:focus {
@@ -50,20 +47,19 @@ export const buttonStyles = () => css`
 	}
 
 	.ml-button:focus-visible {
-		outline: var(--ml-focus-ring-width) solid var(--ml-color-focus-ring);
-		outline-offset: var(--ml-focus-ring-offset);
+		box-shadow: var(--ml-shadow-focus-ring);
 	}
 
-	/* ===== SIZES ===== */
+	/* Sizes */
 	.ml-button--xs {
-		height: 1.5rem;
-		padding: 0 var(--ml-space-2);
+		height: 2rem;
+		padding: 0 var(--ml-space-3);
 		font-size: var(--ml-text-xs);
 		border-radius: var(--ml-radius-sm);
 	}
 
 	.ml-button--sm {
-		height: 2rem;
+		height: 2.25rem;
 		padding: 0 var(--ml-space-3);
 		font-size: var(--ml-text-sm);
 		border-radius: var(--ml-radius);
@@ -71,121 +67,146 @@ export const buttonStyles = () => css`
 
 	.ml-button--md {
 		height: 2.5rem;
-		padding: 0 var(--ml-space-4);
+		padding: 0 var(--ml-space-3-5);
 		font-size: var(--ml-text-sm);
 	}
 
 	.ml-button--lg {
-		height: 3rem;
-		padding: 0 var(--ml-space-6);
-		font-size: var(--ml-text-base);
-		border-radius: var(--ml-radius-lg);
+		height: 2.75rem;
+		padding: 0 var(--ml-space-4);
+		font-size: var(--ml-text-sm);
 	}
 
 	.ml-button--xl {
-		height: 3.5rem;
-		padding: 0 var(--ml-space-8);
-		font-size: var(--ml-text-lg);
-		border-radius: var(--ml-radius-lg);
+		height: 3rem;
+		padding: 0 var(--ml-space-5);
+		font-size: var(--ml-text-base);
 	}
 
-	/* ===== VARIANTS ===== */
+	.ml-button--2xl {
+		height: 3.75rem;
+		padding: 0 var(--ml-space-7);
+		font-size: var(--ml-text-lg);
+		gap: var(--ml-space-3);
+	}
 
-	/* Primary */
+	/* Primary variant */
 	.ml-button--primary {
 		background-color: var(--ml-color-primary);
+		border-color: var(--ml-color-primary);
 		color: var(--ml-color-text-inverse);
 	}
 
 	.ml-button--primary:hover:not(:disabled) {
 		background-color: var(--ml-color-primary-hover);
+		border-color: var(--ml-color-primary-hover);
 	}
 
 	.ml-button--primary:active:not(:disabled) {
 		background-color: var(--ml-color-primary-active);
+		border-color: var(--ml-color-primary-active);
 	}
 
-	/* Secondary */
+	/* Secondary variant */
 	.ml-button--secondary {
-		background-color: var(--ml-color-secondary);
-		color: var(--ml-color-text-inverse);
+		background-color: var(--ml-color-surface);
+		border-color: var(--ml-color-border-strong);
+		color: var(--ml-color-text-secondary);
 	}
 
 	.ml-button--secondary:hover:not(:disabled) {
-		background-color: var(--ml-gray-700);
+		background-color: var(--ml-color-surface-raised);
+		color: var(--ml-color-text);
 	}
 
 	.ml-button--secondary:active:not(:disabled) {
-		background-color: var(--ml-gray-800);
+		background-color: var(--ml-color-surface-sunken);
 	}
 
-	/* Outline */
+	.ml-button--secondary:focus-visible {
+		box-shadow: var(--ml-shadow-ring-gray);
+	}
+
+	/* Outline variant */
 	.ml-button--outline {
 		background-color: transparent;
 		border-color: var(--ml-color-border-strong);
-		color: var(--ml-color-text);
+		color: var(--ml-color-text-secondary);
+		box-shadow: none;
 	}
 
 	.ml-button--outline:hover:not(:disabled) {
 		background-color: var(--ml-color-surface-raised);
-		border-color: var(--ml-color-primary);
-		color: var(--ml-color-primary);
+		color: var(--ml-color-text);
 	}
 
 	.ml-button--outline:active:not(:disabled) {
-		background-color: var(--ml-color-primary-subtle);
+		background-color: var(--ml-color-surface-sunken);
 	}
 
-	/* Ghost */
+	/* Ghost variant */
 	.ml-button--ghost {
 		background-color: transparent;
-		color: var(--ml-color-text);
+		border-color: transparent;
+		color: var(--ml-color-text-muted);
+		box-shadow: none;
 	}
 
 	.ml-button--ghost:hover:not(:disabled) {
 		background-color: var(--ml-color-surface-raised);
+		color: var(--ml-color-text-secondary);
 	}
 
 	.ml-button--ghost:active:not(:disabled) {
 		background-color: var(--ml-color-surface-sunken);
 	}
 
-	/* Danger */
+	/* Danger variant */
 	.ml-button--danger {
 		background-color: var(--ml-color-danger);
+		border-color: var(--ml-color-danger);
 		color: var(--ml-color-text-inverse);
 	}
 
 	.ml-button--danger:hover:not(:disabled) {
 		background-color: var(--ml-color-danger-hover);
+		border-color: var(--ml-color-danger-hover);
 	}
 
 	.ml-button--danger:active:not(:disabled) {
 		background-color: var(--ml-red-800);
+		border-color: var(--ml-red-800);
 	}
 
-	/* Link */
+	.ml-button--danger:focus-visible {
+		box-shadow: var(--ml-shadow-ring-error);
+	}
+
+	/* Link variant */
 	.ml-button--link {
 		background-color: transparent;
+		border-color: transparent;
 		color: var(--ml-color-text-link);
-		text-decoration: underline;
 		padding: 0;
 		height: auto;
+		box-shadow: none;
+		font-weight: var(--ml-font-medium);
 	}
 
 	.ml-button--link:hover:not(:disabled) {
 		color: var(--ml-color-text-link-hover);
+		text-decoration: underline;
 	}
 
-	/* ===== STATES ===== */
-
-	/* Disabled */
+	/* Disabled state */
 	.ml-button--disabled {
 		opacity: 0.5;
 		cursor: not-allowed;
+		pointer-events: none;
+		box-shadow: none;
 	}
 
-	/* Loading */
+	/* Loading state */
 	.ml-button--loading .ml-button__content {
 		visibility: hidden;
 	}
@@ -203,7 +224,7 @@ export const buttonStyles = () => css`
 		width: 100%;
 	}
 
-	/* ===== CONTENT ===== */
+	/* Content */
 	.ml-button__content {
 		display: inline-flex;
 		align-items: center;
@@ -216,7 +237,7 @@ export const buttonStyles = () => css`
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		width: 1em;
-		height: 1em;
+		width: 1.25em;
+		height: 1.25em;
 	}
 `;

@@ -36,8 +36,9 @@ export const dividerStyles = () => css`
 	}
 
 	.ml-divider--horizontal .ml-divider__label {
-		padding: 0 var(--ml-space-3);
+		padding: 0 var(--ml-space-4);
 		font-size: var(--ml-text-sm);
+		font-weight: var(--ml-font-medium);
 		color: var(--ml-color-text-muted);
 		white-space: nowrap;
 	}
@@ -65,8 +66,9 @@ export const dividerStyles = () => css`
 	}
 
 	.ml-divider--vertical .ml-divider__label {
-		padding: var(--ml-space-2) 0;
+		padding: var(--ml-space-3) 0;
 		font-size: var(--ml-text-sm);
+		font-weight: var(--ml-font-medium);
 		color: var(--ml-color-text-muted);
 		writing-mode: vertical-rl;
 	}

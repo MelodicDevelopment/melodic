@@ -14,11 +14,11 @@ export const spinnerStyles = () => css`
 	}
 
 	.spinner__svg {
-		animation: spin 1s linear infinite;
+		animation: spin 0.75s linear infinite;
 	}
 
 	.spinner__track {
-		opacity: 0.2;
+		opacity: 0.25;
 	}
 
 	.spinner__indicator {
@@ -27,13 +27,13 @@ export const spinnerStyles = () => css`
 
 	/* Sizes */
 	.spinner--xs .spinner__svg {
-		width: 0.75rem;
-		height: 0.75rem;
+		width: 1rem;
+		height: 1rem;
 	}
 
 	.spinner--sm .spinner__svg {
-		width: 1rem;
-		height: 1rem;
+		width: 1.25rem;
+		height: 1.25rem;
 	}
 
 	.spinner--md .spinner__svg {

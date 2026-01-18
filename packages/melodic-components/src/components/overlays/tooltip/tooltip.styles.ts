@@ -17,14 +17,17 @@ export const tooltipStyles = () => css`
 	.ml-tooltip__content {
 		position: fixed;
 		z-index: 9999;
-		max-width: 250px;
+		max-width: 320px;
 		padding: var(--ml-space-2) var(--ml-space-3);
-		background-color: var(--ml-gray-900);
-		color: var(--ml-white);
-		font-size: var(--ml-text-sm);
+		background-color: var(--ml-tooltip-bg);
+		color: var(--ml-tooltip-text);
+		font-size: var(--ml-text-xs);
+		font-weight: var(--ml-font-medium);
 		line-height: var(--ml-leading-snug);
-		border-radius: var(--ml-radius-md);
+		border-radius: var(--ml-radius);
 		box-shadow: var(--ml-shadow-lg);
+		text-align: center;
+		word-wrap: break-word;
 		pointer-events: none;
 		opacity: 0;
 		transform: scale(0.95);
@@ -42,7 +45,7 @@ export const tooltipStyles = () => css`
 		position: absolute;
 		width: 8px;
 		height: 8px;
-		background-color: var(--ml-gray-900);
+		background-color: var(--ml-tooltip-bg);
 		transform: rotate(45deg);
 	}
 

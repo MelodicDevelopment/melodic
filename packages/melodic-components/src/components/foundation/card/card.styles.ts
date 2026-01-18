@@ -14,30 +14,33 @@ export const cardStyles = () => css`
 	/* Variants */
 	.ml-card--default {
 		border: var(--ml-border) solid var(--ml-color-border);
+		box-shadow: var(--ml-shadow-xs);
 	}
 
 	.ml-card--outlined {
-		border: var(--ml-border-2) solid var(--ml-color-border-strong);
+		border: var(--ml-border) solid var(--ml-color-border);
 	}
 
 	.ml-card--elevated {
+		border: var(--ml-border) solid var(--ml-color-border-muted);
 		box-shadow: var(--ml-shadow-md);
 	}
 
 	.ml-card--filled {
 		background-color: var(--ml-color-surface-raised);
+		border: var(--ml-border) solid transparent;
 	}
 
 	/* Hoverable */
 	.ml-card--hoverable {
 		transition:
 			box-shadow var(--ml-duration-200) var(--ml-ease-in-out),
-			transform var(--ml-duration-200) var(--ml-ease-in-out);
+			border-color var(--ml-duration-200) var(--ml-ease-in-out);
 	}
 
 	.ml-card--hoverable:hover {
-		box-shadow: var(--ml-shadow-lg);
-		transform: translateY(-2px);
+		border-color: var(--ml-color-border-strong);
+		box-shadow: var(--ml-shadow-md);
 	}
 
 	/* Clickable */
@@ -46,8 +49,9 @@ export const cardStyles = () => css`
 	}
 
 	.ml-card--clickable:focus-visible {
-		outline: var(--ml-focus-ring-width) solid var(--ml-color-focus-ring);
-		outline-offset: var(--ml-focus-ring-offset);
+		outline: none;
+		border-color: var(--ml-color-primary);
+		box-shadow: var(--ml-shadow-focus-ring);
 	}
 
 	/* Header */
@@ -69,6 +73,6 @@ export const cardStyles = () => css`
 	.ml-card__footer {
 		padding: var(--ml-space-4) var(--ml-space-5);
 		border-top: var(--ml-border) solid var(--ml-color-border);
-		background-color: var(--ml-color-surface-raised);
+		background-color: var(--ml-card-footer-bg);
 	}
 `;

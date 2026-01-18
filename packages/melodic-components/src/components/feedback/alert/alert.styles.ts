@@ -17,45 +17,45 @@ export const alertStyles = () => css`
 		border: var(--ml-border) solid transparent;
 	}
 
-	/* Variants */
+	/* Variants - using semantic tokens for theme support */
 	.ml-alert--info {
-		background-color: var(--ml-color-info-subtle);
-		border-color: var(--ml-cyan-200);
-		color: var(--ml-cyan-800);
+		background-color: var(--ml-alert-info-bg);
+		border-color: var(--ml-alert-info-border);
+		color: var(--ml-alert-info-text);
 	}
 
 	.ml-alert--info .ml-alert__icon {
-		color: var(--ml-color-info);
+		color: var(--ml-alert-info-icon);
 	}
 
 	.ml-alert--success {
-		background-color: var(--ml-color-success-subtle);
-		border-color: var(--ml-green-200);
-		color: var(--ml-green-800);
+		background-color: var(--ml-alert-success-bg);
+		border-color: var(--ml-alert-success-border);
+		color: var(--ml-alert-success-text);
 	}
 
 	.ml-alert--success .ml-alert__icon {
-		color: var(--ml-color-success);
+		color: var(--ml-alert-success-icon);
 	}
 
 	.ml-alert--warning {
-		background-color: var(--ml-color-warning-subtle);
-		border-color: var(--ml-amber-200);
-		color: var(--ml-amber-800);
+		background-color: var(--ml-alert-warning-bg);
+		border-color: var(--ml-alert-warning-border);
+		color: var(--ml-alert-warning-text);
 	}
 
 	.ml-alert--warning .ml-alert__icon {
-		color: var(--ml-color-warning);
+		color: var(--ml-alert-warning-icon);
 	}
 
 	.ml-alert--error {
-		background-color: var(--ml-color-danger-subtle);
-		border-color: var(--ml-red-200);
-		color: var(--ml-red-800);
+		background-color: var(--ml-alert-error-bg);
+		border-color: var(--ml-alert-error-border);
+		color: var(--ml-alert-error-text);
 	}
 
 	.ml-alert--error .ml-alert__icon {
-		color: var(--ml-color-danger);
+		color: var(--ml-alert-error-icon);
 	}
 
 	/* Icon */
@@ -63,6 +63,7 @@ export const alertStyles = () => css`
 		flex-shrink: 0;
 		width: 1.25rem;
 		height: 1.25rem;
+		margin-top: 0.125rem;
 	}
 
 	.ml-alert__icon svg {
@@ -78,6 +79,7 @@ export const alertStyles = () => css`
 
 	.ml-alert__title {
 		font-weight: var(--ml-font-semibold);
+		font-size: var(--ml-text-sm);
 		margin-bottom: var(--ml-space-1);
 	}
 
@@ -94,12 +96,21 @@ export const alertStyles = () => css`
 		padding: 0;
 		background: none;
 		border: none;
+		border-radius: var(--ml-radius-sm);
 		cursor: pointer;
-		opacity: 0.6;
-		transition: opacity var(--ml-duration-150) var(--ml-ease-in-out);
+		color: currentColor;
+		opacity: 0.5;
+		transition:
+			opacity var(--ml-duration-150) var(--ml-ease-in-out),
+			background-color var(--ml-duration-150) var(--ml-ease-in-out);
 	}
 
 	.ml-alert__dismiss:hover {
+		opacity: 1;
+	}
+
+	.ml-alert__dismiss:focus-visible {
+		outline: none;
 		opacity: 1;
 	}
 
