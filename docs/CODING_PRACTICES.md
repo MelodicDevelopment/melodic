@@ -21,7 +21,7 @@ export function normalizeId(value: string): string {
 - Use `import type` for type-only imports.
 - Follow existing naming and file layout conventions.
 - Components live in their own folder with separate template and styles files imported by the component.
-- CSS styles should use nested selectors scoped under the component root class.
+- CSS styles should use nested selectors scoped under the component root class. When in doubt, follow BEM guidance: https://getbem.com/
 
 Example:
 
