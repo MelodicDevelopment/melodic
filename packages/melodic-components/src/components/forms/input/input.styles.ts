@@ -9,7 +9,7 @@ export const inputStyles = () => css`
 	.ml-input {
 		display: flex;
 		flex-direction: column;
-		gap: var(--ml-space-1.5);
+		gap: var(--ml-space-1-5);
 	}
 
 	/* Label */
@@ -22,7 +22,7 @@ export const inputStyles = () => css`
 
 	.ml-input__required {
 		color: var(--ml-color-danger);
-		margin-left: var(--ml-space-0.5);
+		margin-left: var(--ml-space-0-5);
 	}
 
 	/* Wrapper */
@@ -96,7 +96,7 @@ export const inputStyles = () => css`
 	}
 
 	.ml-input--md .ml-input__wrapper {
-		padding: var(--ml-space-2.5) var(--ml-space-3.5);
+		padding: var(--ml-space-2-5) var(--ml-space-3-5);
 	}
 
 	.ml-input--md .ml-input__field {
@@ -104,7 +104,7 @@ export const inputStyles = () => css`
 	}
 
 	.ml-input--lg .ml-input__wrapper {
-		padding: var(--ml-space-3) var(--ml-space-3.5);
+		padding: var(--ml-space-3) var(--ml-space-3-5);
 	}
 
 	.ml-input--lg .ml-input__field {

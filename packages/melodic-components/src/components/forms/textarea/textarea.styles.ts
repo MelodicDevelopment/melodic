@@ -9,7 +9,7 @@ export const textareaStyles = () => css`
 	.ml-textarea {
 		display: flex;
 		flex-direction: column;
-		gap: var(--ml-space-1.5);
+		gap: var(--ml-space-1-5);
 	}
 
 	/* Label */
@@ -22,14 +22,14 @@ export const textareaStyles = () => css`
 
 	.ml-textarea__required {
 		color: var(--ml-color-danger);
-		margin-left: var(--ml-space-0.5);
+		margin-left: var(--ml-space-0-5);
 	}
 
 	/* Field */
 	.ml-textarea__field {
 		width: 100%;
 		min-height: 80px;
-		padding: var(--ml-space-3) var(--ml-space-3.5);
+		padding: var(--ml-space-3) var(--ml-space-3-5);
 		background-color: var(--ml-color-input-bg);
 		border: var(--ml-border) solid var(--ml-color-border-strong);
 		border-radius: var(--ml-radius);
@@ -84,7 +84,7 @@ export const textareaStyles = () => css`
 	}
 
 	.ml-textarea--lg .ml-textarea__field {
-		padding: var(--ml-space-3.5) var(--ml-space-4);
+		padding: var(--ml-space-3-5) var(--ml-space-4);
 		font-size: var(--ml-text-base);
 	}
 
