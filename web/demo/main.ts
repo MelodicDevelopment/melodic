@@ -34,4 +34,4 @@ document.head.appendChild(styleSheet);
 applyTheme('light');
 
 // Create demo app
-import './components/demo-app.js';
+import './components/demo-app/demo-app.component.js';
