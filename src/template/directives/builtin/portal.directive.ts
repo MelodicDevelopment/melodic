@@ -63,7 +63,7 @@ function parsePortalValue(value: PortalValue): PortalOptions {
  * <div class="toast" :portal=${{ target: '#notifications', persist: true }}>...</div>
  * ```
  */
-function portalDirective(element: Element, value: unknown, _name: string): AttributeDirectiveCleanupFunction | void {
+function portalDirective(element: Element, value: unknown, _: string): AttributeDirectiveCleanupFunction | void {
 	if (!value) {
 		console.warn('portal directive: value is required');
 		return;

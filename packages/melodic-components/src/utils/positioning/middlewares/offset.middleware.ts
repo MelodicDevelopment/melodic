@@ -41,6 +41,8 @@ export function offset(options: number | OffsetOptions = 0): Middleware {
 					newX += mainAxis;
 					newY += crossAxis;
 					break;
+				default:
+					break;
 			}
 
 			return { x: newX, y: newY };

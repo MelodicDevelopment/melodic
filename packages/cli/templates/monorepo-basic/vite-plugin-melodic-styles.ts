@@ -8,12 +8,6 @@ interface MelodicStylesOptions {
 	attribute?: string;
 }
 
-interface StoredLink {
-	href: string;
-	tag: string;
-	placeholder: string;
-}
-
 interface ResolvedCss {
 	text: string;
 	sourceType: 'public' | 'root';

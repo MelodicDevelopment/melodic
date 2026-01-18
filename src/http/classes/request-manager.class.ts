@@ -8,7 +8,7 @@ interface IPendingRequest<T = any> {
 }
 
 export class RequestManager {
-	private pendingRequests = new Map<string, IPendingRequest>();
+	private _pendingRequests = new Map<string, IPendingRequest>();
 
 	generateRequestKey(method: string, url: string, body?: HttpRequestBody): string {
 		let key = `${method}:${url}`;
@@ -21,11 +21,11 @@ export class RequestManager {
 	}
 
 	hasPendingRequest(key: string): boolean {
-		return this.pendingRequests.has(key);
+		return this._pendingRequests.has(key);
 	}
 
 	getPendingRequest<T = any>(key: string): Promise<IHttpResponse<T>> | null {
-		const pending = this.pendingRequests.get(key);
+		const pending = this._pendingRequests.get(key);
 
 		if (!pending) {
 			return null;
@@ -37,7 +37,7 @@ export class RequestManager {
 	addPendingRequest<T = any>(requestConfig: IRequestConfig, promise: Promise<IHttpResponse<T>>): void {
 		const key = this.generateRequestKey(requestConfig.method || 'GET', requestConfig.url || '', requestConfig.body as BodyInit | null);
 
-		this.pendingRequests.set(key, {
+		this._pendingRequests.set(key, {
 			promise,
 			abortController: requestConfig.abortController!
 		});
@@ -48,30 +48,30 @@ export class RequestManager {
 	}
 
 	cancelPendingRequest(key: string, reason?: string): void {
-		const pending = this.pendingRequests.get(key);
+		const pending = this._pendingRequests.get(key);
 
 		if (pending) {
 			pending.abortController.abort(reason);
-			this.pendingRequests.delete(key);
+			this._pendingRequests.delete(key);
 		}
 	}
 
 	cancelAllRequests(reason?: string): void {
-		this.pendingRequests.forEach((pending) => {
+		this._pendingRequests.forEach((pending) => {
 			pending.abortController.abort(reason);
 		});
 
-		this.pendingRequests.clear();
+		this._pendingRequests.clear();
 	}
 
 	private removePendingRequest(key: string): void {
-		const pending = this.pendingRequests.get(key);
+		const pending = this._pendingRequests.get(key);
 
 		if (!pending) {
 			return;
 		}
 
-		this.pendingRequests.delete(key);
+		this._pendingRequests.delete(key);
 	}
 
 	private hashBody(body: HttpRequestBody): string {

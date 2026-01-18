@@ -63,7 +63,7 @@ export class FormControl<T = unknown> implements IFormControl<T> {
 		}));
 
 		// Run initial validation
-		this._runValidation();
+		this.runValidation();
 	}
 
 	setValue(value: T): void {
@@ -73,7 +73,7 @@ export class FormControl<T = unknown> implements IFormControl<T> {
 		this._dirty.set(true);
 
 		if (this.updateOn === 'input') {
-			this._runValidation();
+			this.runValidation();
 		}
 	}
 
@@ -90,14 +90,14 @@ export class FormControl<T = unknown> implements IFormControl<T> {
 		this._dirty.set(false);
 		this._touched.set(false);
 		this.errors.set(null);
-		this._runValidation();
+		this.runValidation();
 	}
 
 	markAsTouched(): void {
 		this._touched.set(true);
 
 		if (this.updateOn === 'blur') {
-			this._runValidation();
+			this.runValidation();
 		}
 	}
 
@@ -123,26 +123,26 @@ export class FormControl<T = unknown> implements IFormControl<T> {
 
 	setValidators(validators: ValidatorFn<T>[]): void {
 		this._validators = validators;
-		this._runValidation();
+		this.runValidation();
 	}
 
 	setAsyncValidators(validators: AsyncValidatorFn<T>[]): void {
 		this._asyncValidators = validators;
-		this._runValidation();
+		this.runValidation();
 	}
 
 	addValidators(validators: ValidatorFn<T>[]): void {
 		this._validators = [...this._validators, ...validators];
-		this._runValidation();
+		this.runValidation();
 	}
 
 	removeValidators(validators: ValidatorFn<T>[]): void {
 		this._validators = this._validators.filter((v) => !validators.includes(v));
-		this._runValidation();
+		this.runValidation();
 	}
 
 	async validate(): Promise<void> {
-		await this._runValidation();
+		await this.runValidation();
 	}
 
 	getError(code: string): ValidationError | null {
@@ -162,7 +162,7 @@ export class FormControl<T = unknown> implements IFormControl<T> {
 		this._disabled.destroy();
 	}
 
-	private async _runValidation(): Promise<void> {
+	private async runValidation(): Promise<void> {
 		const value = this.value();
 
 		// Run sync validators

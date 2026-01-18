@@ -77,7 +77,7 @@ export class RouterLinkComponent {
 		this._navigationCleanup?.();
 	}
 
-	onAttributeChange(attribute: string, _oldVal: unknown, newVal: unknown): void {
+	onAttributeChange(attribute: string, _: unknown, newVal: unknown): void {
 		if (attribute === 'href') {
 			this.href = newVal as string;
 			this.updateAnchorHref();

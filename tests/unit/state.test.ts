@@ -27,7 +27,7 @@ const reducerConfig: ReducerConfig<CounterState, CounterAction> = {
 		},
 		{
 			action: setValue(),
-			reducer: (_state, action) => ({ count: action.payload.value })
+			reducer: (_, action) => ({ count: action.payload.value })
 		}
 	]
 };

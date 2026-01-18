@@ -183,7 +183,7 @@ const routes: IRoute[] = [
 	`
 })
 export class RouterDemoComponent {
-	@Service(RouterService) private router!: RouterService;
+	@Service(RouterService) private _router!: RouterService;
 
 	isLoggedIn: boolean = true;
 
@@ -197,7 +197,7 @@ export class RouterDemoComponent {
 
 		// If logging out while on admin page, redirect to home
 		if (!this.isLoggedIn && window.location.pathname.startsWith('/admin')) {
-			this.router.navigate('/home');
+			this._router.navigate('/home');
 		}
 	}
 }

@@ -115,6 +115,8 @@ function getBasePlacementForFlip(reference: DOMRect, floating: DOMRect, placemen
 		case 'right':
 			x = reference.right;
 			break;
+		default:
+			break;
 	}
 
 	if (side === 'top' || side === 'bottom') {

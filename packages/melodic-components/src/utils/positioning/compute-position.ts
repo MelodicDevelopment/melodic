@@ -23,6 +23,8 @@ function getBasePlacement(reference: DOMRect, floating: DOMRect, placement: Plac
 		case 'right':
 			x = reference.right;
 			break;
+		default:
+			break;
 	}
 
 	// Cross axis alignment

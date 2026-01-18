@@ -20,7 +20,7 @@ export class PortalDemoComponent implements OnInit {
 
 	// Notification state
 	notifications: Array<{ id: number; message: string; isNew: boolean }> = [];
-	private notificationId = 0;
+	private _notificationId = 0;
 
 	onInit(): void {
 		console.log('PortalDemoComponent initialized');
@@ -58,7 +58,7 @@ export class PortalDemoComponent implements OnInit {
 
 	// Notification methods
 	addNotification = () => {
-		const id = ++this.notificationId;
+		const id = ++this._notificationId;
 		const messages = ['Action completed successfully!', 'Your changes have been saved.', 'New message received.', 'Update available.'];
 		const message = messages[Math.floor(Math.random() * messages.length)];
 

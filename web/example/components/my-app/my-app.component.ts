@@ -87,7 +87,7 @@ const routes: IRoute[] = [
 	styles: myAppStyles
 })
 export class MyAppComponent {
-	@Service(RouterService) private router!: RouterService;
+	@Service(RouterService) private _router!: RouterService;
 
 	routes = routes;
 	isLoggedIn: boolean = true;
@@ -102,7 +102,7 @@ export class MyAppComponent {
 
 		// If logging out while on admin page, redirect to home
 		if (!this.isLoggedIn && window.location.pathname.startsWith('/admin')) {
-			this.router.navigate('/home');
+			this._router.navigate('/home');
 		}
 	}
 }

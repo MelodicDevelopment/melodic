@@ -5,46 +5,46 @@ import { getActiveEffect } from './active-effect.functions';
 export function signal<T>(initialValue: T): Signal<T>;
 export function signal<T>(): Signal<T | undefined>;
 export function signal<T>(initialValue?: T): Signal<T | undefined> {
-	let _value = initialValue;
-	const _subscribers = new Set<Subscriber<T | undefined>>();
+	let value = initialValue;
+	const subscribers = new Set<Subscriber<T | undefined>>();
 
 	const notify = (): void => {
-		const subscribersToNotify = [..._subscribers];
-		subscribersToNotify.forEach((subscriber) => subscriber(_value));
+		const subscribersToNotify = [...subscribers];
+		subscribersToNotify.forEach((subscriber) => subscriber(value));
 	};
 
 	const read = (() => {
 		const activeEffect = getActiveEffect();
 		if (activeEffect) {
 			activeEffect.addDependency<T | undefined>(read);
-			_subscribers.add(activeEffect.run);
+			subscribers.add(activeEffect.run);
 		}
 
-		return _value;
+		return value;
 	}) as Signal<T | undefined>;
 
 	read.set = (newValue: T | undefined): void => {
-		if (_value !== newValue) {
-			_value = newValue;
+		if (value !== newValue) {
+			value = newValue;
 			notify();
 		}
 	};
 
 	read.update = (updater: (current: T | undefined) => T | undefined): void => {
-		read.set(updater(_value));
+		read.set(updater(value));
 	};
 
 	read.subscribe = (subscriber: Subscriber<T | undefined>): (() => void) => {
-		_subscribers.add(subscriber);
-		return () => _subscribers.delete(subscriber);
+		subscribers.add(subscriber);
+		return () => subscribers.delete(subscriber);
 	};
 
 	read.unsubscribe = (subscriber: Subscriber<T | undefined>): void => {
-		_subscribers.delete(subscriber);
+		subscribers.delete(subscriber);
 	};
 
 	read.destroy = (): void => {
-		_subscribers.clear();
+		subscribers.clear();
 	};
 
 	Object.defineProperty(read, SIGNAL_MARKER, {

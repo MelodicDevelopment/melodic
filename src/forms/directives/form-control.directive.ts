@@ -39,7 +39,7 @@ function getInputType(element: Element): 'text' | 'checkbox' | 'radio' | 'select
  * <textarea :formControl=${this.bioControl}></textarea>
  * ```
  */
-function formControlDirective(element: Element, value: unknown, _name: string): AttributeDirectiveCleanupFunction | void {
+function formControlDirective(element: Element, value: unknown, _: string): AttributeDirectiveCleanupFunction | void {
 	if (!isFormControl(value)) {
 		console.warn('formControl directive: value must be a FormControl');
 		return;
@@ -58,7 +58,8 @@ function formControlDirective(element: Element, value: unknown, _name: string): 
 		} else if (inputType === 'radio') {
 			(element as HTMLInputElement).checked = (element as HTMLInputElement).value === val;
 		} else {
-			(element as HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement).value = val != null ? String(val) : '';
+			(element as HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement).value =
+				val !== null && val !== undefined ? String(val) : '';
 		}
 	};
 

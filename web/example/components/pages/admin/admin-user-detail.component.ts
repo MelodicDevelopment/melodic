@@ -123,7 +123,7 @@ import type { User } from '../../../routing';
 	`
 })
 export class AdminUserDetailComponent {
-	@Service(RouterService) private router!: RouterService;
+	@Service(RouterService) private _router!: RouterService;
 
 	user: User | null = null;
 	userId: string = '';
@@ -131,14 +131,14 @@ export class AdminUserDetailComponent {
 
 	onCreate(): void {
 		// Get route params via RouterService (NOT injected into component)
-		this.userId = this.router.getParam('userId') ?? '';
+		this.userId = this._router.getParam('userId') ?? '';
 
 		// Get resolved data via RouterService
-		const resolvedData = this.router.getResolvedData();
+		const resolvedData = this._router.getResolvedData();
 		this.user = resolvedData['user'] as User;
 
 		// Get static route data
-		this.routeData = this.router.getRouteData();
+		this.routeData = this._router.getRouteData();
 
 		console.log('[AdminUserDetail] User ID from params:', this.userId);
 		console.log('[AdminUserDetail] Resolved user:', this.user);
@@ -146,6 +146,6 @@ export class AdminUserDetailComponent {
 	}
 
 	goBack(): void {
-		this.router.navigate('/admin/users');
+		this._router.navigate('/admin/users');
 	}
 }

@@ -50,7 +50,7 @@ export interface IRouterLinkOptions {
  * - Manages active class based on current route
  * - Listens for navigation events to update active state
  */
-function routerLinkDirective(element: Element, value: unknown, _name: string): (() => void) | void {
+function routerLinkDirective(element: Element, value: unknown, _: string): (() => void) | void {
 	// Parse value - can be string or options object
 	let options: IRouterLinkOptions;
 
