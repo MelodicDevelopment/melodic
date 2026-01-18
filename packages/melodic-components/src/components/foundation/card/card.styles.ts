@@ -11,7 +11,6 @@ export const cardStyles = () => css`
 		overflow: hidden;
 	}
 
-	/* Variants */
 	.ml-card--default {
 		border: var(--ml-border) solid var(--ml-color-border);
 		box-shadow: var(--ml-shadow-xs);
@@ -31,7 +30,6 @@ export const cardStyles = () => css`
 		border: var(--ml-border) solid transparent;
 	}
 
-	/* Hoverable */
 	.ml-card--hoverable {
 		transition:
 			box-shadow var(--ml-duration-200) var(--ml-ease-in-out),
@@ -43,7 +41,6 @@ export const cardStyles = () => css`
 		box-shadow: var(--ml-shadow-md);
 	}
 
-	/* Clickable */
 	.ml-card--clickable {
 		cursor: pointer;
 	}
@@ -54,7 +51,6 @@ export const cardStyles = () => css`
 		box-shadow: var(--ml-shadow-focus-ring);
 	}
 
-	/* Header */
 	.ml-card__header {
 		padding: var(--ml-space-4) var(--ml-space-5);
 		border-bottom: var(--ml-border) solid var(--ml-color-border);
@@ -64,12 +60,10 @@ export const cardStyles = () => css`
 		margin: 0;
 	}
 
-	/* Body */
 	.ml-card__body {
 		padding: var(--ml-space-5);
 	}
 
-	/* Footer */
 	.ml-card__footer {
 		padding: var(--ml-space-4) var(--ml-space-5);
 		border-top: var(--ml-border) solid var(--ml-color-border);

@@ -25,7 +25,6 @@ export const spinnerStyles = () => css`
 		opacity: 1;
 	}
 
-	/* Sizes */
 	.spinner--xs .spinner__svg {
 		width: 1rem;
 		height: 1rem;

@@ -22,7 +22,6 @@ export const radioStyles = () => css`
 		opacity: 0.5;
 	}
 
-	/* Hidden native radio */
 	.ml-radio__input {
 		position: absolute;
 		opacity: 0;
@@ -30,7 +29,6 @@ export const radioStyles = () => css`
 		height: 0;
 	}
 
-	/* Custom radio circle */
 	.ml-radio__circle {
 		flex-shrink: 0;
 		display: flex;
@@ -63,7 +61,6 @@ export const radioStyles = () => css`
 		border-color: var(--ml-color-primary-hover);
 	}
 
-	/* Inner dot */
 	.ml-radio__dot {
 		border-radius: var(--ml-radius-full);
 		background-color: var(--ml-color-primary);
@@ -79,7 +76,6 @@ export const radioStyles = () => css`
 		background-color: var(--ml-color-primary-hover);
 	}
 
-	/* Sizes */
 	.ml-radio--sm .ml-radio__circle {
 		width: 1rem;
 		height: 1rem;
@@ -110,7 +106,6 @@ export const radioStyles = () => css`
 		height: 0.625rem;
 	}
 
-	/* Label */
 	.ml-radio__label {
 		font-size: var(--ml-text-sm);
 		font-weight: var(--ml-font-medium);
@@ -123,7 +118,6 @@ export const radioStyles = () => css`
 		line-height: 1.5rem;
 	}
 
-	/* Hint */
 	.ml-radio__hint {
 		display: block;
 		margin-top: var(--ml-space-0-5);

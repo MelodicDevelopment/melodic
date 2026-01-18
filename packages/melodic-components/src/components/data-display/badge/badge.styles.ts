@@ -17,7 +17,6 @@ export const badgeStyles = () => css`
 		border: var(--ml-border) solid transparent;
 	}
 
-	/* Sizes */
 	.ml-badge--sm {
 		padding: 2px var(--ml-space-2);
 		font-size: var(--ml-text-xs);
@@ -33,7 +32,11 @@ export const badgeStyles = () => css`
 		font-size: var(--ml-text-sm);
 	}
 
-	/* Variants - using semantic tokens for theme support */
+	.ml-badge--lg .ml-badge__dot {
+		width: 0.5rem;
+		height: 0.5rem;
+	}
+
 	.ml-badge--default {
 		background-color: var(--ml-badge-default-bg);
 		border-color: var(--ml-badge-default-border);
@@ -70,16 +73,10 @@ export const badgeStyles = () => css`
 		color: var(--ml-badge-error-text);
 	}
 
-	/* Dot indicator */
 	.ml-badge__dot {
 		width: 0.375rem;
 		height: 0.375rem;
 		border-radius: var(--ml-radius-full);
 		background-color: currentColor;
-	}
-
-	.ml-badge--lg .ml-badge__dot {
-		width: 0.5rem;
-		height: 0.5rem;
 	}
 `;

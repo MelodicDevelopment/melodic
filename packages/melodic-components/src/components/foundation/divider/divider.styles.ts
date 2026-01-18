@@ -15,7 +15,6 @@ export const dividerStyles = () => css`
 		align-items: center;
 	}
 
-	/* Horizontal */
 	.ml-divider--horizontal {
 		width: 100%;
 		height: 1px;
@@ -43,7 +42,6 @@ export const dividerStyles = () => css`
 		white-space: nowrap;
 	}
 
-	/* Vertical */
 	.ml-divider--vertical {
 		flex-direction: column;
 		width: 1px;

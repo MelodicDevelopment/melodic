@@ -17,7 +17,6 @@ export const alertStyles = () => css`
 		border: var(--ml-border) solid transparent;
 	}
 
-	/* Variants - using semantic tokens for theme support */
 	.ml-alert--info {
 		background-color: var(--ml-alert-info-bg);
 		border-color: var(--ml-alert-info-border);
@@ -58,7 +57,6 @@ export const alertStyles = () => css`
 		color: var(--ml-alert-error-icon);
 	}
 
-	/* Icon */
 	.ml-alert__icon {
 		flex-shrink: 0;
 		width: 1.25rem;
@@ -71,7 +69,6 @@ export const alertStyles = () => css`
 		height: 100%;
 	}
 
-	/* Content */
 	.ml-alert__content {
 		flex: 1;
 		min-width: 0;
@@ -88,7 +85,6 @@ export const alertStyles = () => css`
 		line-height: var(--ml-leading-relaxed);
 	}
 
-	/* Dismiss button */
 	.ml-alert__dismiss {
 		flex-shrink: 0;
 		width: 1.25rem;

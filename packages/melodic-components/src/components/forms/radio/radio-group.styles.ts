@@ -24,7 +24,6 @@ export const radioGroupStyles = () => css`
 		margin-left: var(--ml-space-0-5);
 	}
 
-	/* Options container */
 	.ml-radio-group__options {
 		display: flex;
 		flex-direction: column;
@@ -37,7 +36,6 @@ export const radioGroupStyles = () => css`
 		gap: var(--ml-space-6);
 	}
 
-	/* Disabled state */
 	.ml-radio-group--disabled {
 		pointer-events: none;
 	}
@@ -46,7 +44,6 @@ export const radioGroupStyles = () => css`
 		opacity: 0.5;
 	}
 
-	/* Hint & Error */
 	.ml-radio-group__hint,
 	.ml-radio-group__error {
 		display: block;

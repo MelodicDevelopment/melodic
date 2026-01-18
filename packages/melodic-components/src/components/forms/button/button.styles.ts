@@ -16,24 +16,19 @@ export const buttonStyles = () => css`
 		background: none;
 		cursor: pointer;
 		text-decoration: none;
-
 		display: inline-flex;
 		align-items: center;
 		justify-content: center;
 		gap: var(--ml-space-2);
 		position: relative;
-
 		font-family: var(--ml-font-sans);
 		font-weight: var(--ml-font-semibold);
 		line-height: var(--ml-leading-tight);
 		white-space: nowrap;
 		text-align: center;
-
 		border: var(--ml-border) solid transparent;
 		border-radius: var(--ml-radius);
-
 		box-shadow: var(--ml-shadow-xs);
-
 		transition:
 			background-color var(--ml-duration-150) var(--ml-ease-in-out),
 			border-color var(--ml-duration-150) var(--ml-ease-in-out),
@@ -50,7 +45,6 @@ export const buttonStyles = () => css`
 		box-shadow: var(--ml-shadow-focus-ring);
 	}
 
-	/* Sizes */
 	.ml-button--xs {
 		height: 2rem;
 		padding: 0 var(--ml-space-3);
@@ -90,7 +84,6 @@ export const buttonStyles = () => css`
 		gap: var(--ml-space-3);
 	}
 
-	/* Primary variant */
 	.ml-button--primary {
 		background-color: var(--ml-color-primary);
 		border-color: var(--ml-color-primary);
@@ -107,7 +100,6 @@ export const buttonStyles = () => css`
 		border-color: var(--ml-color-primary-active);
 	}
 
-	/* Secondary variant */
 	.ml-button--secondary {
 		background-color: var(--ml-color-surface);
 		border-color: var(--ml-color-border-strong);
@@ -127,7 +119,6 @@ export const buttonStyles = () => css`
 		box-shadow: var(--ml-shadow-ring-gray);
 	}
 
-	/* Outline variant */
 	.ml-button--outline {
 		background-color: transparent;
 		border-color: var(--ml-color-border-strong);
@@ -144,7 +135,6 @@ export const buttonStyles = () => css`
 		background-color: var(--ml-color-surface-sunken);
 	}
 
-	/* Ghost variant */
 	.ml-button--ghost {
 		background-color: transparent;
 		border-color: transparent;
@@ -161,7 +151,6 @@ export const buttonStyles = () => css`
 		background-color: var(--ml-color-surface-sunken);
 	}
 
-	/* Danger variant */
 	.ml-button--danger {
 		background-color: var(--ml-color-danger);
 		border-color: var(--ml-color-danger);
@@ -182,7 +171,6 @@ export const buttonStyles = () => css`
 		box-shadow: var(--ml-shadow-ring-error);
 	}
 
-	/* Link variant */
 	.ml-button--link {
 		background-color: transparent;
 		border-color: transparent;
@@ -198,7 +186,6 @@ export const buttonStyles = () => css`
 		text-decoration: underline;
 	}
 
-	/* Disabled state */
 	.ml-button--disabled {
 		opacity: 0.5;
 		cursor: not-allowed;
@@ -206,9 +193,12 @@ export const buttonStyles = () => css`
 		box-shadow: none;
 	}
 
-	/* Loading state */
 	.ml-button--loading .ml-button__content {
 		visibility: hidden;
+	}
+
+	.ml-button--full-width {
+		width: 100%;
 	}
 
 	.ml-button__spinner {
@@ -219,19 +209,12 @@ export const buttonStyles = () => css`
 		justify-content: center;
 	}
 
-	/* Full width */
-	.ml-button--full-width {
-		width: 100%;
-	}
-
-	/* Content */
 	.ml-button__content {
 		display: inline-flex;
 		align-items: center;
 		gap: var(--ml-space-2);
 	}
 
-	/* Icon slots */
 	::slotted([slot='icon-start']),
 	::slotted([slot='icon-end']) {
 		display: flex;

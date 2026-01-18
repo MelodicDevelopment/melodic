@@ -22,7 +22,6 @@ export const toggleStyles = () => css`
 		opacity: 0.5;
 	}
 
-	/* Hidden native checkbox */
 	.ml-toggle__input {
 		position: absolute;
 		opacity: 0;
@@ -30,7 +29,6 @@ export const toggleStyles = () => css`
 		height: 0;
 	}
 
-	/* Track */
 	.ml-toggle__track {
 		position: relative;
 		display: inline-flex;
@@ -59,7 +57,6 @@ export const toggleStyles = () => css`
 		background-color: var(--ml-color-primary-hover);
 	}
 
-	/* Thumb */
 	.ml-toggle__thumb {
 		position: absolute;
 		background-color: var(--ml-white);
@@ -68,7 +65,6 @@ export const toggleStyles = () => css`
 		transition: transform var(--ml-duration-200) var(--ml-ease-in-out);
 	}
 
-	/* Sizes */
 	.ml-toggle--sm .ml-toggle__track {
 		width: 2.25rem;
 		height: 1.25rem;
@@ -114,7 +110,6 @@ export const toggleStyles = () => css`
 		transform: translateX(1.25rem);
 	}
 
-	/* Label */
 	.ml-toggle__label {
 		font-size: var(--ml-text-sm);
 		font-weight: var(--ml-font-medium);
@@ -125,7 +120,6 @@ export const toggleStyles = () => css`
 		font-size: var(--ml-text-base);
 	}
 
-	/* Hint */
 	.ml-toggle__hint {
 		display: block;
 		margin-top: var(--ml-space-1);

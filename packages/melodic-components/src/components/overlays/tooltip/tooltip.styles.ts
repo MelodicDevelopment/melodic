@@ -49,7 +49,6 @@ export const tooltipStyles = () => css`
 		transform: rotate(45deg);
 	}
 
-	/* Arrow positioning based on placement */
 	.ml-tooltip__content[data-placement^='top'] .ml-tooltip__arrow {
 		bottom: -4px;
 	}

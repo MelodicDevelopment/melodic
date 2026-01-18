@@ -23,7 +23,6 @@ export const avatarStyles = () => css`
 		border-radius: var(--ml-radius);
 	}
 
-	/* Sizes */
 	.ml-avatar--xs {
 		width: 1.5rem;
 		height: 1.5rem;
@@ -64,21 +63,18 @@ export const avatarStyles = () => css`
 		border-width: 3px;
 	}
 
-	/* Image */
 	.ml-avatar__image {
 		width: 100%;
 		height: 100%;
 		object-fit: cover;
 	}
 
-	/* Initials */
 	.ml-avatar__initials {
 		text-transform: uppercase;
 		user-select: none;
 		letter-spacing: -0.025em;
 	}
 
-	/* Fallback icon */
 	.ml-avatar__fallback {
 		display: flex;
 		align-items: center;
