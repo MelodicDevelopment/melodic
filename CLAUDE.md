@@ -1,15 +1,43 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance to Claude Code when working with code in this repository.
 
 ## Project Overview
 
-**Melodic** is a lightweight web component framework featuring:
+**Melodic** is a lightweight web component framework monorepo featuring:
 - Custom element system using TypeScript decorators
 - Ultra-fast template system with tagged template literals
 - Plugin-friendly directive system for DOM manipulation
 - Shadow DOM encapsulation
-- Reactive property observation
+- Reactive property observation with Signals
+- Client-side routing with guards and resolvers
+- Reactive forms system
+- HTTP client with interceptors
+- Dependency injection
+- State management
+- Themeable UI component library
+
+## Monorepo Structure
+
+```
+melodic/
+├── packages/
+│   ├── melodic-components/  # @melodicdev/components - UI component library
+│   └── cli/                 # @melodicdev/cli - Scaffolding tool
+├── src/                     # @melodicdev/core - Core framework
+├── web/
+│   ├── demo/               # Component library demo
+│   └── example/            # Framework example app
+└── docs/                   # Documentation files
+```
+
+### Packages
+
+| Package | Version | Description |
+|---------|---------|-------------|
+| `@melodicdev/core` | 1.2.5 | Core framework |
+| `@melodicdev/components` | 0.1.0 | Themeable UI component library |
+| `@melodicdev/cli` | 1.2.3 | CLI scaffolding tool |
 
 ## Build Commands
 
@@ -19,129 +47,267 @@ npm run build    # Compile TypeScript and build for production
 npm run preview  # Preview production build
 ```
 
-## Architecture
+## Core Modules
 
-### Component System
+### Import Paths
 
-Components are created using the `@MelodicComponent` decorator and extend `HTMLElement` via `ComponentBase`:
+```typescript
+import { ... } from '@melodicdev/core';           // Main exports
+import { ... } from '@melodicdev/core/bootstrap'; // App bootstrap
+import { ... } from '@melodicdev/core/components';// Component utilities
+import { ... } from '@melodicdev/core/forms';     // Forms system
+import { ... } from '@melodicdev/core/http';      // HTTP client
+import { ... } from '@melodicdev/core/injection'; // Dependency injection
+import { ... } from '@melodicdev/core/routing';   // Router
+import { ... } from '@melodicdev/core/signals';   // Signals
+import { ... } from '@melodicdev/core/state';     // State management
+import { ... } from '@melodicdev/core/template';  // Template utilities
+```
 
-**Key flow:**
-1. `@MelodicComponent` decorator receives metadata (selector, template, styles)
-2. Creates a custom element class extending `ComponentBase`
-3. `ComponentBase` constructor:
-   - Instantiates user component class via `Reflect.construct`
-   - Attaches Shadow DOM
-   - Calls `#observe()` to make properties reactive
-   - Fires `onInit()` lifecycle hook
-4. `#observe()` wraps data properties with getters/setters that trigger re-renders
-   - **Important:** Skips existing getters and functions to preserve their behavior
-5. When properties change, `#render()` is called automatically
-6. Templates can be functions returning `TemplateResult` (from `html`` tagged template)
+### Component System (`src/components/`)
 
-**Component file structure pattern:**
-- `component-name.component.ts` - Component class with state and methods
-- `component-name.template.ts` - HTML template function
-- `component-name.styles.ts` - CSS styles function
+Components use the `@MelodicComponent` decorator and extend `HTMLElement` via `ComponentBase`:
 
-### Template System (`src/template/template.ts`)
+```typescript
+@MelodicComponent({
+  selector: 'my-component',
+  template: myTemplate,
+  styles: myStyles
+})
+export class MyComponent {
+  count = 0;
+
+  onInit() { }
+  onCreate() { }
+  onRender() { }
+  onDestroy() { }
+}
+```
+
+**Lifecycle Hooks:**
+- `onInit()` - Before DOM attachment, after property observation
+- `onCreate()` - After `connectedCallback()` (element in DOM)
+- `onRender()` - After each render
+- `onDestroy()` - On `disconnectedCallback()` (element removed)
+- `onAttributeChange(name, oldVal, newVal)` - Observed attribute changes
+- `onPropertyChange(name, oldVal, newVal)` - Before property changes
+
+### Signals System (`src/signals/`)
+
+Fine-grained reactive primitives:
+
+```typescript
+import { signal, computed, SignalEffect } from '@melodicdev/core/signals';
+
+const count = signal(0);
+const doubled = computed(() => count() * 2);
+
+const effect = new SignalEffect(() => {
+  console.log('Count:', count());
+});
+effect.run();
+
+count.set(5);        // Triggers effect
+count.update(n => n + 1);
+```
+
+### Routing System (`src/routing/`)
+
+Client-side routing with guards and resolvers:
+
+```typescript
+import { RouterService, RouterOutlet, RouterLink } from '@melodicdev/core/routing';
+
+const routes = [
+  { path: '', component: HomeComponent },
+  { path: 'users/:id', component: UserComponent, guards: [authGuard] },
+  { path: '**', component: NotFoundComponent }
+];
+
+// Navigation
+router.navigate('/users/123', { scrollToTop: true });
+```
+
+### Forms System (`src/forms/`)
+
+Reactive forms with validation:
+
+```typescript
+import { createFormControl, createFormGroup, Validators } from '@melodicdev/core/forms';
+
+const email = createFormControl('', [Validators.required, Validators.email]);
+const form = createFormGroup({
+  email: createFormControl(''),
+  password: createFormControl('')
+});
+
+form.value;      // { email: '', password: '' }
+form.valid;      // boolean
+form.errors;     // validation errors
+```
+
+### HTTP Module (`src/http/`)
+
+HTTP client with interceptors:
+
+```typescript
+import { RequestManager } from '@melodicdev/core/http';
+
+const http = new RequestManager();
+http.addInterceptor(authInterceptor);
+
+const data = await http.get<User[]>('/api/users');
+```
+
+### Dependency Injection (`src/injection/`)
+
+```typescript
+import { Injectable, Inject } from '@melodicdev/core/injection';
+
+@Injectable()
+class MyService {
+  constructor(@Inject(OtherService) private other: OtherService) {}
+}
+```
+
+### State Management (`src/state/`)
+
+Centralized state with signals:
+
+```typescript
+import { createStore } from '@melodicdev/core/state';
+
+const store = createStore({
+  count: 0,
+  user: null
+});
+```
+
+## Template System (`src/template/`)
 
 **Parse-once, update-forever strategy:**
 
-1. **Parse phase** (`#getTemplate()`):
-   - Template strings are hashed and cached
-   - HTML is built with special markers for dynamic positions
-   - Detects event bindings (`@click`), property bindings (`.value`), attributes
-   - Parts metadata stored (type: node/attribute/property/event)
+```typescript
+import { html, render } from '@melodicdev/core';
 
-2. **First render** (`renderInto()`):
-   - Clone cached template
-   - Walk DOM recursively (not TreeWalker - it misses nodes)
-   - Replace comment markers with text nodes
-   - Match `__event-X__`, `__prop-X__` attributes
-   - Store Parts array on container
+const template = (name: string) => html`
+  <div class="greeting">Hello, ${name}!</div>
+  <button @click=${handleClick}>Click me</button>
+  <input .value=${inputValue} />
+`;
+```
 
-3. **Updates** (`#commit()`):
-   - Only update changed values (skip if `previousValue === value`)
-   - Directives manage their own state via `DirectiveResult.render()`
-   - Direct node manipulation (no virtual DOM)
-
-**Critical detail:** Regex for attribute detection is `/([@.:]?[\w-]+)\s*=\s*["']?$/` to capture `@`, `.`, `:` prefixes.
-
-### Directive System
-
-Directives are reusable DOM manipulation primitives. Two creation patterns:
-
-1. **Function-based** (simple): `directive((container, previousState) => { ... })`
-2. **Class-based** (complex): Extend `Directive` class
+**Binding types:**
+- `${value}` - Text interpolation
+- `@event=${handler}` - Event binding
+- `.property=${value}` - Property binding
+- `attribute=${value}` - Attribute binding
 
 **Built-in directives:**
-- `repeat()` - Keyed list rendering with DOM reuse (stores RepeatState with keyToIndex map)
-- `when()` - Conditional rendering (completely removes from DOM when false)
-- `classMap()` - Dynamic CSS classes
-- `styleMap()` - Dynamic inline styles (converts camelCase to kebab-case)
-- `unsafeHTML()` - Raw HTML rendering (security warning in docs)
+- `repeat(items, keyFn, template)` - Keyed list rendering
+- `when(condition, template)` - Conditional rendering
+- `classMap({ class: boolean })` - Dynamic CSS classes
+- `styleMap({ prop: value })` - Dynamic inline styles
+- `unsafeHTML(htmlString)` - Raw HTML rendering
 
-**Key concept:** Directives receive `previousState` from their last render. Return new state to cache it.
+## Melodic Components Library
 
-### Property Reactivity
+Located in `packages/melodic-components/`, this is a themeable UI component library.
 
-`ComponentBase.#observe()` makes properties reactive:
-- Only observes data properties (skips getters/setters and functions)
-- Wraps each property with getter/setter
-- Setter checks `if (_val !== newVal)` before triggering re-render
-- Fires `onPropertyChange()` lifecycle hook
+### Available Components
 
-**Bug to watch:** Original implementation didn't check for existing getters, which broke computed properties like `get safeHTMLContent()`. Now fixed with descriptor check.
+**Forms:** Button, Input, Textarea, Checkbox, Radio, RadioGroup, Toggle, Select, FormField
 
-### TypeScript Configuration
+**Feedback:** Spinner, Alert, Toast, Skeleton, Progress
 
-- `experimentalDecorators: true` - Required for `@MelodicComponent`
+**Foundation:** Card, Divider, Stack, Container, Grid
+
+**Data Display:** Avatar, Badge, Stat, EmptyState
+
+**Navigation:** Tabs, Breadcrumb, Pagination
+
+**Overlays:** Modal, Drawer, Dropdown, Tooltip, Popover
+
+### Theme System
+
+Token-based theming with light/dark mode support:
+
+```typescript
+import { applyTheme, createTheme } from '@melodicdev/components';
+
+// Apply built-in theme
+applyTheme('light'); // or 'dark'
+
+// Create custom theme
+const customTheme = createTheme({
+  colors: { ... },
+  spacing: { ... }
+});
+```
+
+**Token categories:** colors, typography, spacing, shadows, borders, breakpoints, transitions
+
+### Component File Structure
+
+```
+component-name/
+├── component-name.component.ts  # Component class
+├── component-name.template.ts   # HTML template
+└── component-name.styles.ts     # CSS styles
+```
+
+## CLI Tool
+
+```bash
+# Initialize new project
+melodic init <dir> [--monorepo] [--app-name]
+
+# Add to existing project
+melodic add app <name>
+melodic add lib <name>
+
+# Generate code
+melodic generate component <name>
+melodic generate service <name>
+melodic generate directive <name>
+```
+
+**Templates:** `basic`, `app-basic`, `lib-basic`, `monorepo-basic`
+
+## TypeScript Configuration
+
+- `experimentalDecorators: true` - Required for decorators
 - `emitDecoratorMetadata: true` - Enables decorator metadata
 - `useDefineForClassFields: false` - Ensures decorator field behavior
 - `verbatimModuleSyntax: true` - Requires `import type` for type-only imports
-- Uses Vite with Rolldown bundler
-
-### Import Patterns
-
-Public API exports from `src/index.ts`:
-
-```typescript
-// Component system
-import { MelodicComponent } from '@melodicdev/core';
-import type { IComponent, IComponentMeta } from '@melodicdev/core';
-
-// Template system
-import { html, render } from '@melodicdev/core';
-import type { TemplateResult } from '@melodicdev/core';
-
-// Directive system
-import { directive, Directive } from '@melodicdev/core';
-import { repeat, when, classMap, styleMap, unsafeHTML } from '@melodicdev/core';
-```
-
-**Note:** Use `import type` for interfaces due to `verbatimModuleSyntax`.
-
-## Component Lifecycle Hooks
-
-All hooks are optional (defined in `IComponent` interface):
-
-- `onInit()` - Called before DOM attachment, after property observation setup
-- `onCreate()` - Called after `connectedCallback()` (element added to DOM)
-- `onRender()` - Called after each render
-- `onDestroy()` - Called on `disconnectedCallback()` (element removed)
-- `onAttributeChange(name, oldVal, newVal)` - Called when observed attributes change
-- `onPropertyChange(name, oldVal, newVal)` - Called before property changes
 
 ## Documentation Files
 
-- `DIRECTIVE_GUIDE.md` - Comprehensive guide for creating custom directives (8+ examples)
-- `DIRECTIVES_QUICK_REFERENCE.md` - Quick reference for built-in directives
-- `TEMPLATE_EXAMPLES.md` - Template system usage examples
+Located in `/docs/`:
+- `COMPONENT_SYSTEM.md` - Component creation and lifecycle
+- `TEMPLATE_SYSTEM.md` - Template syntax and directives
+- `SIGNALS.md` - Reactive signals system
+- `ROUTING.md` - Router configuration and navigation
+- `FORMS.md` - Forms and validation
+- `HTTP.md` - HTTP client usage
+- `INJECTION.md` - Dependency injection
+- `BOOTSTRAP.md` - App initialization
+- `STATE.md` - State management
+- `CODING_PRACTICES.md` - Code standards and ESLint
 
-## Known Issues / Things to Watch
+## Git Commit Preferences
 
-1. **Getters must be preserved:** `#observe()` should skip properties with existing getters
-2. **TreeWalker doesn't work:** Use recursive walk for finding all DOM nodes
-3. **Directive state caching:** Always return state from directive render functions
-4. **Event listener cleanup:** Events are re-bound on every render (consider optimization)
-5. **No tests yet:** Framework is in active development
+- **Do not add Claude as co-author** on commits (no `Co-Authored-By` line)
+
+## Testing
+
+Unit tests are located in `/tests/unit/` covering signals, templates, routing, HTTP, state, and component lifecycle.
+
+```bash
+npm test
+```
+
+## Notes for Development
+
+- **Directive state caching:** Custom directives should always return state from render functions
+- **Property observation:** The `observe()` method preserves existing getters/setters on component properties
