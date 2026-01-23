@@ -1,7 +1,7 @@
 import { html, classMap, when } from '@melodicdev/core';
-import type { Alert } from './alert.component.js';
+import type { AlertComponent } from './alert.component.js';
 
-export function alertTemplate(c: Alert) {
+export function alertTemplate(c: AlertComponent) {
 	return html`
 		<div
 			class=${classMap({

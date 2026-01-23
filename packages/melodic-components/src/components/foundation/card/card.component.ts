@@ -27,7 +27,7 @@ type CardVariant = 'default' | 'outlined' | 'elevated' | 'filled';
 	styles: cardStyles,
 	attributes: ['variant', 'hoverable', 'clickable']
 })
-export class Card implements IElementRef {
+export class CardComponent implements IElementRef {
 	elementRef!: HTMLElement;
 
 	/** Card visual style */

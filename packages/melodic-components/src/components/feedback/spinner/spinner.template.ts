@@ -1,7 +1,7 @@
 import { html, classMap } from '@melodicdev/core';
-import type { Spinner } from './spinner.component.js';
+import type { SpinnerComponent } from './spinner.component.js';
 
-export function spinnerTemplate(c: Spinner) {
+export function spinnerTemplate(c: SpinnerComponent) {
 	return html`
 		<div
 			class=${classMap({

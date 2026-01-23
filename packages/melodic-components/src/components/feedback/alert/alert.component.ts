@@ -28,7 +28,7 @@ import { alertStyles } from './alert.styles.js';
 	styles: alertStyles,
 	attributes: ['variant', 'title', 'dismissible']
 })
-export class Alert implements IElementRef {
+export class AlertComponent implements IElementRef {
 	elementRef!: HTMLElement;
 
 	/** Alert variant/type */

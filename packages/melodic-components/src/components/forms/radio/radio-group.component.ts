@@ -23,7 +23,7 @@ import { radioGroupStyles } from './radio-group.styles.js';
 	styles: radioGroupStyles,
 	attributes: ['label', 'name', 'value', 'hint', 'error', 'orientation', 'disabled', 'required']
 })
-export class RadioGroup implements IElementRef, OnInit {
+export class RadioGroupComponent implements IElementRef, OnInit {
 	elementRef!: HTMLElement;
 
 	/** Group label */

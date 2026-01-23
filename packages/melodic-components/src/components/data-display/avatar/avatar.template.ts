@@ -1,7 +1,7 @@
 import { html, classMap, when } from '@melodicdev/core';
-import type { Avatar } from './avatar.component.js';
+import type { AvatarComponent } from './avatar.component.js';
 
-export function avatarTemplate(c: Avatar) {
+export function avatarTemplate(c: AvatarComponent) {
 	return html`
 		<span
 			class=${classMap({

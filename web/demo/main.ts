@@ -22,6 +22,9 @@ import '@melodicdev/components/divider';
 import '@melodicdev/components/badge';
 import '@melodicdev/components/avatar';
 
+// import components - Icons
+import '@melodicdev/components/icon';
+
 // Import components - Overlays
 import '@melodicdev/components/tooltip';
 

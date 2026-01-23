@@ -1,1 +1,1 @@
-export { Divider } from './divider.component.js';
+export { DividerComponent } from './divider.component.js';

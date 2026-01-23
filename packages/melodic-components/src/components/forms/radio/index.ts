@@ -1,2 +1,2 @@
-export { Radio } from './radio.component.js';
-export { RadioGroup } from './radio-group.component.js';
+export { RadioComponent } from './radio.component.js';
+export { RadioGroupComponent } from './radio-group.component.js';

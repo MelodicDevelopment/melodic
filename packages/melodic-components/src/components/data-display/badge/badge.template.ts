@@ -1,7 +1,7 @@
 import { html, classMap } from '@melodicdev/core';
-import type { Badge } from './badge.component.js';
+import type { BadgeComponent } from './badge.component.js';
 
-export function badgeTemplate(c: Badge) {
+export function badgeTemplate(c: BadgeComponent) {
 	return html`
 		<span
 			class=${classMap({

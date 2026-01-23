@@ -1,1 +1,1 @@
-export { Stack } from './stack.component.js';
+export { StackComponent } from './stack.component.js';

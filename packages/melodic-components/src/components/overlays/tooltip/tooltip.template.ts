@@ -1,7 +1,7 @@
 import { html, classMap } from '@melodicdev/core';
-import type { Tooltip } from './tooltip.component.js';
+import type { TooltipComponent } from './tooltip.component.js';
 
-export function tooltipTemplate(c: Tooltip) {
+export function tooltipTemplate(c: TooltipComponent) {
 	return html`
 		<div class="ml-tooltip">
 			<div

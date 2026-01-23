@@ -31,7 +31,7 @@ import { buttonStyles } from './button.styles.js';
 	styles: buttonStyles,
 	attributes: ['variant', 'size', 'type', 'disabled', 'loading', 'full-width']
 })
-export class Button implements IElementRef, OnInit {
+export class ButtonComponent implements IElementRef, OnInit {
 	elementRef!: HTMLElement;
 
 	/** Button variant style */

@@ -1,7 +1,7 @@
 import { html, classMap, when } from '@melodicdev/core';
-import type { Radio } from './radio.component.js';
+import type { RadioComponent } from './radio.component.js';
 
-export function radioTemplate(c: Radio) {
+export function radioTemplate(c: RadioComponent) {
 	return html`
 		<label
 			class=${classMap({

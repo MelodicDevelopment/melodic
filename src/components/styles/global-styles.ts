@@ -1,16 +1,15 @@
 let globalStylesAttribute = 'melodic-styles';
 
-let cachedSheet: CSSStyleSheet | null = null;
-let cachedText: string | null = null;
-let loadPromise: Promise<void> | null = null;
+const cachedSheets: CSSStyleSheet[] = [];
+const cachedTexts: string[] = [];
+const loadPromises = new Map<HTMLLinkElement, Promise<void>>();
 const pendingRoots = new Set<ShadowRoot>();
 
 const supportsConstructableStylesheets = (): boolean => {
 	return 'adoptedStyleSheets' in Document.prototype && 'replaceSync' in CSSStyleSheet.prototype;
 };
 
-const getGlobalStylesSelector = (): string =>
-	`style[${globalStylesAttribute}], link[${globalStylesAttribute}][rel="stylesheet"]`;
+const getGlobalStylesSelector = (): string => `style[${globalStylesAttribute}], link[${globalStylesAttribute}][rel="stylesheet"]`;
 
 export const getGlobalStylesAttribute = (): string => globalStylesAttribute;
 
@@ -24,34 +23,37 @@ export const setGlobalStylesAttribute = (attribute: string): void => {
 };
 
 const applyStylesToRoot = (root: ShadowRoot): void => {
-	if (cachedSheet && 'adoptedStyleSheets' in root) {
+	if (cachedSheets.length > 0 && 'adoptedStyleSheets' in root) {
 		const adopted = root.adoptedStyleSheets ?? [];
-		if (!adopted.includes(cachedSheet)) {
-			root.adoptedStyleSheets = [...adopted, cachedSheet];
+		const newSheets = cachedSheets.filter((sheet) => !adopted.includes(sheet));
+		if (newSheets.length > 0) {
+			root.adoptedStyleSheets = [...adopted, ...newSheets];
 		}
 		return;
 	}
 
-	if (cachedText) {
+	if (cachedTexts.length > 0) {
+		const combinedText = cachedTexts.join('\n');
 		const styleNode = document.createElement('style');
-		styleNode.textContent = cachedText;
+		styleNode.textContent = combinedText;
 		root.appendChild(styleNode);
 	}
 };
 
 const cacheStylesFromText = (text: string): void => {
-	if (text.trim().length === 0) {
+	const trimmed = text.trim();
+	if (trimmed.length === 0) {
 		return;
 	}
 
 	if (supportsConstructableStylesheets()) {
 		const sheet = new CSSStyleSheet();
-		sheet.replaceSync(text);
-		cachedSheet = sheet;
+		sheet.replaceSync(trimmed);
+		cachedSheets.push(sheet);
 		return;
 	}
 
-	cachedText = text;
+	cachedTexts.push(trimmed);
 };
 
 export const registerGlobalStyles = (styles: string | CSSStyleSheet): void => {
@@ -66,7 +68,9 @@ export const registerGlobalStyles = (styles: string | CSSStyleSheet): void => {
 	}
 
 	if (supportsConstructableStylesheets()) {
-		cachedSheet = styles;
+		if (!cachedSheets.includes(styles)) {
+			cachedSheets.push(styles);
+		}
 		resolvePendingRoots();
 		return;
 	}
@@ -88,9 +92,10 @@ const extractCssText = (sheet: CSSStyleSheet): string | null => {
 	}
 };
 
+const hasLoadedStyles = (): boolean => cachedSheets.length > 0 || cachedTexts.length > 0;
+
 const resolvePendingRoots = (): void => {
-	if (!cachedSheet && !cachedText) {
-		pendingRoots.clear();
+	if (!hasLoadedStyles()) {
 		return;
 	}
 
@@ -100,12 +105,13 @@ const resolvePendingRoots = (): void => {
 	pendingRoots.clear();
 };
 
-const loadStylesFromLink = (link: HTMLLinkElement): void => {
-	if (loadPromise) {
-		return;
+const loadStylesFromLink = (link: HTMLLinkElement): Promise<void> => {
+	const existing = loadPromises.get(link);
+	if (existing) {
+		return existing;
 	}
 
-	loadPromise = (async () => {
+	const promise = (async () => {
 		const attemptLoad = (): boolean => {
 			if (!link.sheet) {
 				return false;
@@ -121,7 +127,6 @@ const loadStylesFromLink = (link: HTMLLinkElement): void => {
 		};
 
 		if (attemptLoad()) {
-			resolvePendingRoots();
 			return;
 		}
 
@@ -130,7 +135,6 @@ const loadStylesFromLink = (link: HTMLLinkElement): void => {
 		});
 
 		if (attemptLoad()) {
-			resolvePendingRoots();
 			return;
 		}
 
@@ -139,32 +143,42 @@ const loadStylesFromLink = (link: HTMLLinkElement): void => {
 			const text = await response.text();
 			cacheStylesFromText(text);
 		} catch {
-			// Ignore fetch errors and fall through to clearing pending roots.
+			// Ignore fetch errors
 		}
-
-		resolvePendingRoots();
 	})();
+
+	loadPromises.set(link, promise);
+	return promise;
 };
 
 export const applyGlobalStyles = (root: ShadowRoot): void => {
-	if (cachedSheet || cachedText) {
+	if (hasLoadedStyles()) {
 		applyStylesToRoot(root);
 		return;
 	}
 
-	const source = document.querySelector(getGlobalStylesSelector());
-	if (!source) {
+	const sources = document.querySelectorAll(getGlobalStylesSelector());
+	if (sources.length === 0) {
 		return;
 	}
 
-	if (source instanceof HTMLStyleElement) {
-		cacheStylesFromText(source.textContent ?? '');
-		applyStylesToRoot(root);
-		return;
+	const linkPromises: Promise<void>[] = [];
+
+	for (const source of sources) {
+		if (source instanceof HTMLStyleElement) {
+			cacheStylesFromText(source.textContent ?? '');
+		} else if (source instanceof HTMLLinkElement) {
+			linkPromises.push(loadStylesFromLink(source));
+		}
 	}
 
-	if (source instanceof HTMLLinkElement) {
+	if (linkPromises.length > 0) {
 		pendingRoots.add(root);
-		loadStylesFromLink(source);
+		Promise.all(linkPromises).then(() => resolvePendingRoots());
+		return;
+	}
+
+	if (hasLoadedStyles()) {
+		applyStylesToRoot(root);
 	}
 };

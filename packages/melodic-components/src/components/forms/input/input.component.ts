@@ -30,7 +30,7 @@ import { inputStyles } from './input.styles.js';
 	styles: inputStyles,
 	attributes: ['type', 'value', 'placeholder', 'label', 'hint', 'error', 'size', 'disabled', 'readonly', 'required', 'autocomplete']
 })
-export class Input implements IElementRef, OnInit {
+export class InputComponent implements IElementRef, OnInit {
 	elementRef!: HTMLElement;
 
 	/** Input type */

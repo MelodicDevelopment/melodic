@@ -63,7 +63,7 @@ export const demoAppTemplate = (c: DemoApp) => {
 			<div class="demo-content">
 				<header class="demo-header">
 					<div class="demo-header__intro">
-						<h1>Component Library</h1>
+						<h1>Component Library <ml-icon name="arrow-left" size="md"></ml-icon></h1>
 						<p>A collection of beautiful, accessible UI components built with Melodic.</p>
 					</div>
 					<div class="demo-header__stats">

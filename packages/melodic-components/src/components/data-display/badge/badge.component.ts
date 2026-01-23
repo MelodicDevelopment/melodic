@@ -23,7 +23,7 @@ import { badgeStyles } from './badge.styles.js';
 	styles: badgeStyles,
 	attributes: ['variant', 'size', 'dot', 'pill']
 })
-export class Badge implements IElementRef {
+export class BadgeComponent implements IElementRef {
 	elementRef!: HTMLElement;
 
 	/** Badge variant */

@@ -22,7 +22,7 @@ import { toggleStyles } from './toggle.styles.js';
 	styles: toggleStyles,
 	attributes: ['label', 'hint', 'size', 'checked', 'disabled']
 })
-export class Toggle implements IElementRef {
+export class ToggleComponent implements IElementRef {
 	elementRef!: HTMLElement;
 
 	/** Toggle label */

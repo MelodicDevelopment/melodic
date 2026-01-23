@@ -1,7 +1,7 @@
 import { html, classMap, when } from '@melodicdev/core';
-import type { Card } from './card.component.js';
+import type { CardComponent } from './card.component.js';
 
-export function cardTemplate(c: Card) {
+export function cardTemplate(c: CardComponent) {
 	return html`
 		<div
 			class=${classMap({

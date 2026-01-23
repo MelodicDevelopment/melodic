@@ -1,7 +1,7 @@
 import { html, styleMap } from '@melodicdev/core';
-import type { Stack } from './stack.component.js';
+import type { StackComponent } from './stack.component.js';
 
-export function stackTemplate(c: Stack) {
+export function stackTemplate(c: StackComponent) {
 	return html`
 		<div class="ml-stack" style=${styleMap(c.getStyles())}>
 			<slot></slot>

@@ -1,7 +1,7 @@
 import { html, classMap, when } from '@melodicdev/core';
-import type { Input } from './input.component.js';
+import type { InputComponent } from './input.component.js';
 
-export function inputTemplate(c: Input) {
+export function inputTemplate(c: InputComponent) {
 	return html`
 		<div
 			class=${classMap({
