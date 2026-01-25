@@ -4,6 +4,7 @@ import { applyTheme, baseThemeCss, lightThemeCss, darkThemeCss } from '@melodicd
 // Import components - Forms
 import '@melodicdev/components/button';
 import '@melodicdev/components/input';
+import '@melodicdev/components/select';
 import '@melodicdev/components/textarea';
 import '@melodicdev/components/checkbox';
 import '@melodicdev/components/radio';

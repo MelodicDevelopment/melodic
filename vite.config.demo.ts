@@ -22,6 +22,7 @@ export default defineConfig({
 			'@melodicdev/components/button': resolve(__dirname, 'packages/melodic-components/src/components/forms/button/index.ts'),
 			'@melodicdev/components/spinner': resolve(__dirname, 'packages/melodic-components/src/components/feedback/spinner/index.ts'),
 			'@melodicdev/components/input': resolve(__dirname, 'packages/melodic-components/src/components/forms/input/index.ts'),
+			'@melodicdev/components/select': resolve(__dirname, 'packages/melodic-components/src/components/forms/select/index.ts'),
 			'@melodicdev/components/textarea': resolve(__dirname, 'packages/melodic-components/src/components/forms/textarea/index.ts'),
 			'@melodicdev/components/checkbox': resolve(__dirname, 'packages/melodic-components/src/components/forms/checkbox/index.ts'),
 			'@melodicdev/components/radio': resolve(__dirname, 'packages/melodic-components/src/components/forms/radio/index.ts'),

@@ -43,6 +43,9 @@ export const demoAppTemplate = (c: DemoApp) => {
 					<a href="#inputs" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'inputs')}>
 						<ml-icon icon="textbox" size="sm"></ml-icon>Inputs
 					</a>
+					<a href="#selects" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'selects')}>
+						<ml-icon icon="caret-circle-down" size="sm"></ml-icon>Selects
+					</a>
 					<a href="#textareas" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'textareas')}>
 						<ml-icon icon="article" size="sm"></ml-icon>Textareas
 					</a>
@@ -417,6 +420,40 @@ export const demoAppTemplate = (c: DemoApp) => {
 							<ml-input label="With Error" error="This field is required"></ml-input>
 							<ml-input label="Disabled" disabled placeholder="Disabled input"></ml-input>
 							<ml-input label="Required" required placeholder="Required field"></ml-input>
+						</div>
+					</section>
+
+					<!-- Select Section -->
+					<section id="selects" class="demo-section">
+						<div class="demo-section__header">
+							<h2>Selects</h2>
+							<p>Dropdown selection controls for choosing from a list of options.</p>
+						</div>
+
+						<div class="demo-grid">
+							<ml-select
+								label="Country"
+								placeholder="Select a country"
+								.options=${c.countryOptions}
+							></ml-select>
+							<ml-select
+								label="Status"
+								placeholder="Select status"
+								.options=${c.statusOptions}
+								hint="Inactive option is disabled"
+							></ml-select>
+							<ml-select
+								label="With Error"
+								placeholder="Select an option"
+								.options=${c.statusOptions}
+								error="Selection is required"
+							></ml-select>
+							<ml-select
+								label="Disabled"
+								placeholder="Cannot select"
+								.options=${c.statusOptions}
+								disabled
+							></ml-select>
 						</div>
 					</section>
 
