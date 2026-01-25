@@ -62,10 +62,10 @@ export class SelectComponent implements IElementRef, OnCreate, OnDestroy {
 	options: SelectOption[] = [];
 
 	/** Whether dropdown is open */
-	_open = false;
+	isOpen = false;
 
 	/** Currently focused option index for keyboard navigation */
-	_focusedIndex = -1;
+	focusedIndex = -1;
 
 	/** Bound event handlers for cleanup */
 	private readonly _handleDocumentClick = this.onDocumentClick.bind(this);
@@ -95,7 +95,7 @@ export class SelectComponent implements IElementRef, OnCreate, OnDestroy {
 	toggle = (): void => {
 		if (this.disabled) return;
 
-		if (this._open) {
+		if (this.isOpen) {
 			this.close();
 		} else {
 			this.open();
@@ -104,10 +104,10 @@ export class SelectComponent implements IElementRef, OnCreate, OnDestroy {
 
 	/** Open the dropdown */
 	open = (): void => {
-		if (this.disabled || this._open) return;
+		if (this.disabled || this.isOpen) return;
 
-		this._open = true;
-		this._focusedIndex = this.value ? this.options.findIndex((opt) => opt.value === this.value) : 0;
+		this.isOpen = true;
+		this.focusedIndex = this.value ? this.options.findIndex((opt) => opt.value === this.value) : 0;
 
 		this.elementRef.dispatchEvent(
 			new CustomEvent('ml-open', {
@@ -119,10 +119,10 @@ export class SelectComponent implements IElementRef, OnCreate, OnDestroy {
 
 	/** Close the dropdown */
 	close = (): void => {
-		if (!this._open) return;
+		if (!this.isOpen) return;
 
-		this._open = false;
-		this._focusedIndex = -1;
+		this.isOpen = false;
+		this.focusedIndex = -1;
 
 		this.elementRef.dispatchEvent(
 			new CustomEvent('ml-close', {
@@ -170,8 +170,8 @@ export class SelectComponent implements IElementRef, OnCreate, OnDestroy {
 			case 'Enter':
 			case ' ':
 				event.preventDefault();
-				if (this._open && this._focusedIndex >= 0) {
-					const option = this.options[this._focusedIndex];
+				if (this.isOpen && this.focusedIndex >= 0) {
+					const option = this.options[this.focusedIndex];
 					if (option && !option.disabled) {
 						this.selectOption(option);
 					}
@@ -187,7 +187,7 @@ export class SelectComponent implements IElementRef, OnCreate, OnDestroy {
 
 			case 'ArrowDown':
 				event.preventDefault();
-				if (!this._open) {
+				if (!this.isOpen) {
 					this.open();
 				} else {
 					this.focusNextOption();
@@ -196,22 +196,22 @@ export class SelectComponent implements IElementRef, OnCreate, OnDestroy {
 
 			case 'ArrowUp':
 				event.preventDefault();
-				if (this._open) {
+				if (this.isOpen) {
 					this.focusPreviousOption();
 				}
 				break;
 
 			case 'Home':
 				event.preventDefault();
-				if (this._open) {
-					this._focusedIndex = this.findFirstEnabledIndex();
+				if (this.isOpen) {
+					this.focusedIndex = this.findFirstEnabledIndex();
 				}
 				break;
 
 			case 'End':
 				event.preventDefault();
-				if (this._open) {
-					this._focusedIndex = this.findLastEnabledIndex();
+				if (this.isOpen) {
+					this.focusedIndex = this.findLastEnabledIndex();
 				}
 				break;
 
@@ -226,12 +226,12 @@ export class SelectComponent implements IElementRef, OnCreate, OnDestroy {
 
 	/** Move focus to next enabled option */
 	private focusNextOption(): void {
-		const startIndex = this._focusedIndex;
+		const startIndex = this.focusedIndex;
 		let index = startIndex + 1;
 
 		while (index < this.options.length) {
 			if (!this.options[index].disabled) {
-				this._focusedIndex = index;
+				this.focusedIndex = index;
 				return;
 			}
 			index++;
@@ -240,12 +240,12 @@ export class SelectComponent implements IElementRef, OnCreate, OnDestroy {
 
 	/** Move focus to previous enabled option */
 	private focusPreviousOption(): void {
-		const startIndex = this._focusedIndex;
+		const startIndex = this.focusedIndex;
 		let index = startIndex - 1;
 
 		while (index >= 0) {
 			if (!this.options[index].disabled) {
-				this._focusedIndex = index;
+				this.focusedIndex = index;
 				return;
 			}
 			index--;

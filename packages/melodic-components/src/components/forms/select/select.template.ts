@@ -8,7 +8,7 @@ export function selectTemplate(c: SelectComponent) {
 			class=${classMap({
 				'ml-select': true,
 				[`ml-select--${c.size}`]: true,
-				'ml-select--open': c._open,
+				'ml-select--open': c.isOpen,
 				'ml-select--disabled': c.disabled,
 				'ml-select--error': !!c.error,
 				'ml-select--has-value': !!c.value
@@ -29,14 +29,15 @@ export function selectTemplate(c: SelectComponent) {
 				class="ml-select__trigger"
 				?disabled=${c.disabled}
 				aria-haspopup="listbox"
-				aria-expanded=${c._open}
+				aria-expanded=${c.isOpen}
 				aria-labelledby=${c.label ? 'label' : ''}
 				@click=${c.toggle}
 			>
 				<span class="ml-select__value">
 					${when(
 						!!c.selectedOption?.icon,
-						() => html`<ml-icon icon="${c.selectedOption!.icon}" size="sm" class="ml-select__value-icon"></ml-icon>`
+						() =>
+							html`<ml-icon icon="${c.selectedOption?.icon ?? ''}" size="sm" class="ml-select__value-icon"></ml-icon>`
 					)}
 					${c.displayText || html`<span class="ml-select__placeholder">${c.placeholder}</span>`}
 				</span>
@@ -44,7 +45,7 @@ export function selectTemplate(c: SelectComponent) {
 			</button>
 
 			${when(
-				c._open,
+				c.isOpen,
 				() => html`
 					<div class="ml-select__dropdown" role="listbox">
 						${repeat(
@@ -67,7 +68,7 @@ export function selectTemplate(c: SelectComponent) {
 
 function renderOption(c: SelectComponent, option: SelectOption, index: number) {
 	const isSelected = c.value === option.value;
-	const isFocused = c._focusedIndex === index;
+	const isFocused = c.focusedIndex === index;
 
 	return html`
 		<div
