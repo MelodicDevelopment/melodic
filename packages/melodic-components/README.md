@@ -20,6 +20,91 @@ import '@melodicdev/components/button';
 document.body.innerHTML = `<ml-button>Click me</ml-button>`;
 ```
 
+## Icons
+
+The `ml-icon` component displays icons using [Phosphor Icons](https://phosphoricons.com/) via font ligatures.
+
+### Setup
+
+1. Copy the font assets to your public directory. With Vite, use `vite-plugin-static-copy`:
+
+```bash
+npm install -D vite-plugin-static-copy
+```
+
+```ts
+// vite.config.ts
+import { viteStaticCopy } from 'vite-plugin-static-copy';
+
+export default defineConfig({
+  plugins: [
+    viteStaticCopy({
+      targets: [
+        {
+          src: 'node_modules/@melodicdev/components/assets/*',
+          dest: 'public'
+        }
+      ]
+    })
+  ]
+});
+```
+
+2. Add the font stylesheet to your HTML:
+
+```html
+<link rel="stylesheet" href="/public/fonts/phosphor/phosphor.css" />
+```
+
+### Usage
+
+```ts
+import '@melodicdev/components/icon';
+```
+
+```html
+<ml-icon icon="house"></ml-icon>
+<ml-icon icon="gear" size="lg"></ml-icon>
+<ml-icon icon="heart" format="fill"></ml-icon>
+```
+
+### Properties
+
+| Property | Type | Default | Description |
+|----------|------|---------|-------------|
+| `icon` | `string` | `''` | Icon name (ligature). Browse icons at [phosphoricons.com](https://phosphoricons.com/) |
+| `format` | `'regular'` \| `'bold'` \| `'fill'` \| `'light'` \| `'thin'` | `'regular'` | Icon weight/style |
+
+> **Note:** Duotone icons are not available. The Phosphor duotone font does not support ligatures.
+
+### Sizes
+
+Set via the `size` attribute:
+
+| Size | Value |
+|------|-------|
+| `xs` | 12px |
+| `sm` | 16px |
+| `md` | 24px (default) |
+| `lg` | 32px |
+| `xl` | 48px |
+
+### Custom Color
+
+Icons inherit `currentColor` by default. Override with CSS:
+
+```css
+ml-icon {
+  --ml-icon-color: var(--ml-color-primary);
+}
+```
+
+### Finding Icon Names
+
+Visit [phosphoricons.com](https://phosphoricons.com/) to browse all available icons. The icon name shown on the site is the ligature value you pass to the `icon` property.
+
+---
+
 ## Theme System (Tokens + CSS)
 
 Components use CSS custom property tokens (`--ml-*`) for consistent theming. Tokens are grouped by domain (colors, spacing, typography, shadows, borders, transitions, breakpoints). Component styles reference semantic tokens like `--ml-color-text` or `--ml-space-3` instead of raw values.

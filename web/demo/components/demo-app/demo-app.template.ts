@@ -28,6 +28,9 @@ export const demoAppTemplate = (c: DemoApp) => {
 					<a href="#avatars" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'avatars')}>
 						<span class="demo-nav__icon">◐</span>Avatars
 					</a>
+					<a href="#icons" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'icons')}>
+						<span class="demo-nav__icon">★</span>Icons
+					</a>
 					<a href="#alerts" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'alerts')}>
 						<span class="demo-nav__icon">△</span>Alerts
 					</a>
@@ -63,7 +66,7 @@ export const demoAppTemplate = (c: DemoApp) => {
 			<div class="demo-content">
 				<header class="demo-header">
 					<div class="demo-header__intro">
-						<h1>Component Library <ml-icon name="arrow-left" size="md"></ml-icon></h1>
+						<h1>Component Library</h1>
 						<p>A collection of beautiful, accessible UI components built with Melodic.</p>
 					</div>
 					<div class="demo-header__stats">
@@ -241,6 +244,103 @@ export const demoAppTemplate = (c: DemoApp) => {
 								<ml-avatar initials="JD"></ml-avatar>
 								<ml-avatar initials="AB"></ml-avatar>
 								<ml-avatar></ml-avatar>
+							</div>
+						</div>
+					</section>
+
+					<!-- Icons Section -->
+					<section id="icons" class="demo-section">
+						<div class="demo-section__header">
+							<h2>Icons</h2>
+							<p>
+								Vector icons using Phosphor Icons via font ligatures. Browse all icons at
+								<a href="https://phosphoricons.com/" target="_blank">phosphoricons.com</a>.
+							</p>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>Sizes</h3>
+								<span class="demo-card__badge">5 sizes</span>
+							</div>
+							<div class="demo-row demo-row--align-end">
+								<ml-icon icon="house" size="xs"></ml-icon>
+								<ml-icon icon="house" size="sm"></ml-icon>
+								<ml-icon icon="house" size="md"></ml-icon>
+								<ml-icon icon="house" size="lg"></ml-icon>
+								<ml-icon icon="house" size="xl"></ml-icon>
+							</div>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>Formats</h3>
+								<span class="demo-card__badge">5 styles</span>
+							</div>
+							<div class="demo-row">
+								<ml-stack gap="2" align="center">
+									<ml-icon .icon=${'heart'} size="lg" format="thin"></ml-icon>
+									<span class="demo-label">Thin</span>
+								</ml-stack>
+								<ml-stack gap="2" align="center">
+									<ml-icon icon="heart" size="lg" format="light"></ml-icon>
+									<span class="demo-label">Light</span>
+								</ml-stack>
+								<ml-stack gap="2" align="center">
+									<ml-icon icon="heart" size="lg" format="regular"></ml-icon>
+									<span class="demo-label">Regular</span>
+								</ml-stack>
+								<ml-stack gap="2" align="center">
+									<ml-icon icon="heart" size="lg" format="bold"></ml-icon>
+									<span class="demo-label">Bold</span>
+								</ml-stack>
+								<ml-stack gap="2" align="center">
+									<ml-icon icon="heart" size="lg" format="fill"></ml-icon>
+									<span class="demo-label">Fill</span>
+								</ml-stack>
+							</div>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>Common Icons</h3>
+							</div>
+							<div class="demo-row">
+								<ml-icon icon="house" size="lg"></ml-icon>
+								<ml-icon icon="gear" size="lg"></ml-icon>
+								<ml-icon icon="user" size="lg"></ml-icon>
+								<ml-icon icon="magnifying-glass" size="lg"></ml-icon>
+								<ml-icon icon="bell" size="lg"></ml-icon>
+								<ml-icon icon="envelope" size="lg"></ml-icon>
+								<ml-icon icon="trash" size="lg"></ml-icon>
+								<ml-icon icon="pencil" size="lg"></ml-icon>
+								<ml-icon icon="check" size="lg"></ml-icon>
+								<ml-icon icon="x" size="lg"></ml-icon>
+								<ml-icon icon="plus" size="lg"></ml-icon>
+								<ml-icon icon="minus" size="lg"></ml-icon>
+							</div>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>In Buttons</h3>
+							</div>
+							<div class="demo-row">
+								<ml-button variant="primary">
+									<ml-icon icon="plus" size="sm"></ml-icon>
+									Add Item
+								</ml-button>
+								<ml-button variant="outline">
+									<ml-icon icon="pencil" size="sm"></ml-icon>
+									Edit
+								</ml-button>
+								<ml-button variant="danger">
+									<ml-icon icon="trash" size="sm"></ml-icon>
+									Delete
+								</ml-button>
+								<ml-button variant="ghost">
+									<ml-icon icon="gear" size="sm"></ml-icon>
+								</ml-button>
 							</div>
 						</div>
 					</section>

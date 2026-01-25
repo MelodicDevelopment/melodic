@@ -5,7 +5,7 @@ import type { Unsubscriber } from '../../signals/types/unsubscriber.type';
 import type { Signal } from '../../signals/types/signal.type';
 import { isSignal } from '../../signals/functions/is-signal.function';
 import type { ITemplatePart } from '../../template/interfaces/itemplate-part.interface';
-import { applyGlobalStyles } from '../styles/global-styles';
+import { applyGlobalStyles } from '../styles/apply-global-styles.function';
 
 export abstract class ComponentBase extends HTMLElement {
 	private readonly _meta: ComponentMeta;
@@ -36,7 +36,7 @@ export abstract class ComponentBase extends HTMLElement {
 		return this._component;
 	}
 
-	connectedCallback(): void {
+	async connectedCallback(): Promise<void> {
 		this.render();
 
 		if (this._component.onCreate !== undefined) {

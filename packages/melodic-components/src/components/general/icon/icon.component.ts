@@ -1,33 +1,29 @@
 import { MelodicComponent } from '@melodicdev/core';
-import type { IElementRef } from '@melodicdev/core';
 import { iconTemplate } from './icon.template.js';
 import { iconStyles } from './icon.styles.js';
 
 /**
  * ml-icon - Icon component for displaying vector icons
  *
- * @example
- * ```html
- * <ml-icon name="home" size="lg" color="blue"></ml-icon>
- * ```
+ * This component uses the Phosphor Icons library to render icons via ligatures by default.
+ * https://phosphoricons.com/
  *
- * @slot default - Custom icon content
+ * @example
+ * ```typescript
+ *
+ * html`<ml-icon .icon=${'arrow-left'} size="md"></ml-icon>`
+ * ```
  */
 @MelodicComponent({
 	selector: 'ml-icon',
 	template: iconTemplate,
 	styles: iconStyles,
-	attributes: ['name', 'size', 'color']
+	attributes: ['icon', 'format', 'size']
 })
-export class IconComponent implements IElementRef {
-	elementRef!: HTMLElement;
+export class IconComponent {
+	/** phosphor icon ligature */
+	icon: string = '';
 
-	/** Name of the icon to display */
-	name = '';
-
-	/** Size of the icon */
-	size: 'sm' | 'md' | 'lg' = 'md';
-
-	/** Color of the icon */
-	color = '';
+	/** phosphor icon format */
+	format: 'bold' | 'fill' | 'light' | 'regular' | 'thin' = 'regular';
 }
