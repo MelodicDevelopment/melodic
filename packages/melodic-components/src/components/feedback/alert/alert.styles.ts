@@ -59,14 +59,18 @@ export const alertStyles = () => css`
 
 	.ml-alert__icon {
 		flex-shrink: 0;
-		width: 1.25rem;
-		height: 1.25rem;
-		margin-top: 0.125rem;
+		display: flex;
+		align-items: flex-start;
+		margin-top: -3px;
+	}
+
+	.ml-alert__icon ml-icon {
+		font-size: 1.25rem;
 	}
 
 	.ml-alert__icon svg {
-		width: 100%;
-		height: 100%;
+		width: 1.25rem;
+		height: 1.25rem;
 	}
 
 	.ml-alert__content {
@@ -87,8 +91,9 @@ export const alertStyles = () => css`
 
 	.ml-alert__dismiss {
 		flex-shrink: 0;
-		width: 1.25rem;
-		height: 1.25rem;
+		display: flex;
+		align-items: center;
+		justify-content: center;
 		padding: 0;
 		background: none;
 		border: none;
@@ -108,10 +113,5 @@ export const alertStyles = () => css`
 	.ml-alert__dismiss:focus-visible {
 		outline: none;
 		opacity: 1;
-	}
-
-	.ml-alert__dismiss svg {
-		width: 100%;
-		height: 100%;
 	}
 `;

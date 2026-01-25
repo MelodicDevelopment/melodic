@@ -261,10 +261,30 @@ export const demoAppStyles = () => css`
 		gap: var(--ml-space-4);
 	}
 
+	.demo-grid > * {
+		min-width: 0;
+	}
+
 	.demo-grid-3 {
 		display: grid;
 		grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
 		gap: var(--ml-space-4);
+	}
+
+	.demo-grid-2 {
+		display: grid;
+		grid-template-columns: repeat(2, 1fr);
+		gap: var(--ml-space-4);
+	}
+
+	.demo-grid-2 > * {
+		min-width: 0;
+	}
+
+	@media (max-width: 640px) {
+		.demo-grid-2 {
+			grid-template-columns: 1fr;
+		}
 	}
 
 	/* Footer */

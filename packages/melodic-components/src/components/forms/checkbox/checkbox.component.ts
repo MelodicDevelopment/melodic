@@ -44,6 +44,11 @@ export class CheckboxComponent implements IElementRef {
 	disabled = false;
 
 	handleChange = (event: Event): void => {
+		if (this.disabled) {
+			event.preventDefault();
+			return;
+		}
+
 		const target = event.target as HTMLInputElement;
 		this.checked = target.checked;
 		this.indeterminate = false;

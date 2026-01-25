@@ -15,6 +15,7 @@ export const toggleStyles = () => css`
 
 	.ml-toggle--disabled {
 		cursor: not-allowed;
+		pointer-events: none;
 	}
 
 	.ml-toggle--disabled .ml-toggle__track,

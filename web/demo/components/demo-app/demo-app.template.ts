@@ -17,43 +17,43 @@ export const demoAppTemplate = (c: DemoApp) => {
 				<nav class="demo-nav">
 					<span class="demo-nav__label">Components</span>
 					<a href="#buttons" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'buttons')}>
-						<span class="demo-nav__icon">○</span>Buttons
+						<ml-icon icon="cursor-click" size="sm"></ml-icon>Buttons
 					</a>
 					<a href="#cards" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'cards')}>
-						<span class="demo-nav__icon">▢</span>Cards
+						<ml-icon icon="square" size="sm"></ml-icon>Cards
 					</a>
 					<a href="#badges" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'badges')}>
-						<span class="demo-nav__icon">●</span>Badges
+						<ml-icon icon="seal" size="sm"></ml-icon>Badges
 					</a>
 					<a href="#avatars" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'avatars')}>
-						<span class="demo-nav__icon">◐</span>Avatars
+						<ml-icon icon="user-circle" size="sm"></ml-icon>Avatars
 					</a>
 					<a href="#icons" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'icons')}>
-						<span class="demo-nav__icon">★</span>Icons
+						<ml-icon icon="star" size="sm"></ml-icon>Icons
 					</a>
 					<a href="#alerts" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'alerts')}>
-						<span class="demo-nav__icon">△</span>Alerts
+						<ml-icon icon="warning" size="sm"></ml-icon>Alerts
 					</a>
 					<a href="#dividers" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'dividers')}>
-						<span class="demo-nav__icon">―</span>Dividers
+						<ml-icon icon="minus" size="sm"></ml-icon>Dividers
 					</a>
 					<a href="#spinners" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'spinners')}>
-						<span class="demo-nav__icon">◎</span>Spinners
+						<ml-icon icon="spinner-gap" size="sm"></ml-icon>Spinners
 					</a>
 					<a href="#inputs" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'inputs')}>
-						<span class="demo-nav__icon">▭</span>Inputs
+						<ml-icon icon="textbox" size="sm"></ml-icon>Inputs
 					</a>
 					<a href="#textareas" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'textareas')}>
-						<span class="demo-nav__icon">▤</span>Textareas
+						<ml-icon icon="article" size="sm"></ml-icon>Textareas
 					</a>
 					<a href="#checkboxes" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'checkboxes')}>
-						<span class="demo-nav__icon">☑</span>Checkboxes
+						<ml-icon icon="check-square" size="sm"></ml-icon>Checkboxes
 					</a>
 					<a href="#radios" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'radios')}>
-						<span class="demo-nav__icon">◉</span>Radios
+						<ml-icon icon="radio-button" size="sm"></ml-icon>Radios
 					</a>
 					<a href="#toggles" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'toggles')}>
-						<span class="demo-nav__icon">◑</span>Toggles
+						<ml-icon icon="toggle-left" size="sm"></ml-icon>Toggles
 					</a>
 				</nav>
 
@@ -427,7 +427,7 @@ export const demoAppTemplate = (c: DemoApp) => {
 							<p>Multi-line text inputs for longer form content.</p>
 						</div>
 
-						<div class="demo-grid">
+						<div class="demo-grid-2">
 							<ml-textarea label="Description" placeholder="Enter description..."></ml-textarea>
 							<ml-textarea label="With Max Length" max-length="100" hint="Limited to 100 characters"></ml-textarea>
 							<ml-textarea label="Resizable" resize></ml-textarea>
