@@ -25,7 +25,7 @@ import { textareaStyles } from './textarea.styles.js';
 	styles: textareaStyles,
 	attributes: ['value', 'placeholder', 'label', 'hint', 'error', 'size', 'rows', 'max-length', 'disabled', 'readonly', 'required', 'resize']
 })
-export class Textarea implements IElementRef, OnInit {
+export class TextareaComponent implements IElementRef, OnInit {
 	elementRef!: HTMLElement;
 
 	/** Current value */

@@ -22,7 +22,7 @@ import { dividerStyles } from './divider.styles.js';
 	styles: dividerStyles,
 	attributes: ['orientation']
 })
-export class Divider implements IElementRef {
+export class DividerComponent implements IElementRef {
 	elementRef!: HTMLElement;
 
 	/** Divider orientation */

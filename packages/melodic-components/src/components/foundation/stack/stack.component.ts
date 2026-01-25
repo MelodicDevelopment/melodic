@@ -29,7 +29,7 @@ type Justify = 'start' | 'center' | 'end' | 'between' | 'around' | 'evenly';
 	styles: stackStyles,
 	attributes: ['direction', 'gap', 'align', 'justify', 'wrap']
 })
-export class Stack implements IElementRef {
+export class StackComponent implements IElementRef {
 	elementRef!: HTMLElement;
 
 	/** Stack direction */

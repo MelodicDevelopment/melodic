@@ -4,6 +4,7 @@ export const textareaStyles = () => css`
 	:host {
 		display: block;
 		width: 100%;
+		min-width: 0;
 	}
 
 	.ml-textarea {
@@ -25,6 +26,7 @@ export const textareaStyles = () => css`
 	}
 
 	.ml-textarea__field {
+		box-sizing: border-box;
 		width: 100%;
 		min-height: 80px;
 		padding: var(--ml-space-3) var(--ml-space-3-5);

@@ -35,6 +35,9 @@ export * from './components/data-display/badge/index.js';
 export * from './components/data-display/stat/index.js';
 export * from './components/data-display/empty-state/index.js';
 
+// Components - General
+export * from './components/general/icon/index.js';
+
 // Components - Navigation
 export * from './components/navigation/tabs/index.js';
 export * from './components/navigation/breadcrumb/index.js';

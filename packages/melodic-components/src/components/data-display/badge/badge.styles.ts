@@ -13,8 +13,24 @@ export const badgeStyles = () => css`
 		font-weight: var(--ml-font-medium);
 		line-height: 1;
 		white-space: nowrap;
-		border-radius: var(--ml-radius-full);
+		border-radius: var(--ml-radius-md);
 		border: var(--ml-border) solid transparent;
+	}
+
+	.ml-badge--pill {
+		border-radius: var(--ml-radius-full);
+	}
+
+	.ml-badge__dot {
+		width: 0.375rem;
+		height: 0.375rem;
+		border-radius: var(--ml-radius-full);
+		background-color: currentColor;
+	}
+
+	.ml-badge--lg .ml-badge__dot {
+		width: 0.5rem;
+		height: 0.5rem;
 	}
 
 	.ml-badge--sm {
@@ -30,11 +46,6 @@ export const badgeStyles = () => css`
 	.ml-badge--lg {
 		padding: var(--ml-space-1) var(--ml-space-4);
 		font-size: var(--ml-text-sm);
-	}
-
-	.ml-badge--lg .ml-badge__dot {
-		width: 0.5rem;
-		height: 0.5rem;
 	}
 
 	.ml-badge--default {
@@ -73,10 +84,4 @@ export const badgeStyles = () => css`
 		color: var(--ml-badge-error-text);
 	}
 
-	.ml-badge__dot {
-		width: 0.375rem;
-		height: 0.375rem;
-		border-radius: var(--ml-radius-full);
-		background-color: currentColor;
-	}
 `;

@@ -71,6 +71,7 @@ export const checkboxStyles = () => css`
 
 	.ml-checkbox--disabled {
 		cursor: not-allowed;
+		pointer-events: none;
 	}
 
 	.ml-checkbox--disabled .ml-checkbox__box,

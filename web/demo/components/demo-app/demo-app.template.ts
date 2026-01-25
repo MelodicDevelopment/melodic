@@ -17,40 +17,43 @@ export const demoAppTemplate = (c: DemoApp) => {
 				<nav class="demo-nav">
 					<span class="demo-nav__label">Components</span>
 					<a href="#buttons" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'buttons')}>
-						<span class="demo-nav__icon">○</span>Buttons
+						<ml-icon icon="cursor-click" size="sm"></ml-icon>Buttons
 					</a>
 					<a href="#cards" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'cards')}>
-						<span class="demo-nav__icon">▢</span>Cards
+						<ml-icon icon="square" size="sm"></ml-icon>Cards
 					</a>
 					<a href="#badges" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'badges')}>
-						<span class="demo-nav__icon">●</span>Badges
+						<ml-icon icon="seal" size="sm"></ml-icon>Badges
 					</a>
 					<a href="#avatars" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'avatars')}>
-						<span class="demo-nav__icon">◐</span>Avatars
+						<ml-icon icon="user-circle" size="sm"></ml-icon>Avatars
+					</a>
+					<a href="#icons" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'icons')}>
+						<ml-icon icon="star" size="sm"></ml-icon>Icons
 					</a>
 					<a href="#alerts" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'alerts')}>
-						<span class="demo-nav__icon">△</span>Alerts
+						<ml-icon icon="warning" size="sm"></ml-icon>Alerts
 					</a>
 					<a href="#dividers" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'dividers')}>
-						<span class="demo-nav__icon">―</span>Dividers
+						<ml-icon icon="minus" size="sm"></ml-icon>Dividers
 					</a>
 					<a href="#spinners" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'spinners')}>
-						<span class="demo-nav__icon">◎</span>Spinners
+						<ml-icon icon="spinner-gap" size="sm"></ml-icon>Spinners
 					</a>
 					<a href="#inputs" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'inputs')}>
-						<span class="demo-nav__icon">▭</span>Inputs
+						<ml-icon icon="textbox" size="sm"></ml-icon>Inputs
 					</a>
 					<a href="#textareas" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'textareas')}>
-						<span class="demo-nav__icon">▤</span>Textareas
+						<ml-icon icon="article" size="sm"></ml-icon>Textareas
 					</a>
 					<a href="#checkboxes" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'checkboxes')}>
-						<span class="demo-nav__icon">☑</span>Checkboxes
+						<ml-icon icon="check-square" size="sm"></ml-icon>Checkboxes
 					</a>
 					<a href="#radios" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'radios')}>
-						<span class="demo-nav__icon">◉</span>Radios
+						<ml-icon icon="radio-button" size="sm"></ml-icon>Radios
 					</a>
 					<a href="#toggles" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'toggles')}>
-						<span class="demo-nav__icon">◑</span>Toggles
+						<ml-icon icon="toggle-left" size="sm"></ml-icon>Toggles
 					</a>
 				</nav>
 
@@ -245,6 +248,103 @@ export const demoAppTemplate = (c: DemoApp) => {
 						</div>
 					</section>
 
+					<!-- Icons Section -->
+					<section id="icons" class="demo-section">
+						<div class="demo-section__header">
+							<h2>Icons</h2>
+							<p>
+								Vector icons using Phosphor Icons via font ligatures. Browse all icons at
+								<a href="https://phosphoricons.com/" target="_blank">phosphoricons.com</a>.
+							</p>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>Sizes</h3>
+								<span class="demo-card__badge">5 sizes</span>
+							</div>
+							<div class="demo-row demo-row--align-end">
+								<ml-icon icon="house" size="xs"></ml-icon>
+								<ml-icon icon="house" size="sm"></ml-icon>
+								<ml-icon icon="house" size="md"></ml-icon>
+								<ml-icon icon="house" size="lg"></ml-icon>
+								<ml-icon icon="house" size="xl"></ml-icon>
+							</div>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>Formats</h3>
+								<span class="demo-card__badge">5 styles</span>
+							</div>
+							<div class="demo-row">
+								<ml-stack gap="2" align="center">
+									<ml-icon .icon=${'heart'} size="lg" format="thin"></ml-icon>
+									<span class="demo-label">Thin</span>
+								</ml-stack>
+								<ml-stack gap="2" align="center">
+									<ml-icon icon="heart" size="lg" format="light"></ml-icon>
+									<span class="demo-label">Light</span>
+								</ml-stack>
+								<ml-stack gap="2" align="center">
+									<ml-icon icon="heart" size="lg" format="regular"></ml-icon>
+									<span class="demo-label">Regular</span>
+								</ml-stack>
+								<ml-stack gap="2" align="center">
+									<ml-icon icon="heart" size="lg" format="bold"></ml-icon>
+									<span class="demo-label">Bold</span>
+								</ml-stack>
+								<ml-stack gap="2" align="center">
+									<ml-icon icon="heart" size="lg" format="fill"></ml-icon>
+									<span class="demo-label">Fill</span>
+								</ml-stack>
+							</div>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>Common Icons</h3>
+							</div>
+							<div class="demo-row">
+								<ml-icon icon="house" size="lg"></ml-icon>
+								<ml-icon icon="gear" size="lg"></ml-icon>
+								<ml-icon icon="user" size="lg"></ml-icon>
+								<ml-icon icon="magnifying-glass" size="lg"></ml-icon>
+								<ml-icon icon="bell" size="lg"></ml-icon>
+								<ml-icon icon="envelope" size="lg"></ml-icon>
+								<ml-icon icon="trash" size="lg"></ml-icon>
+								<ml-icon icon="pencil" size="lg"></ml-icon>
+								<ml-icon icon="check" size="lg"></ml-icon>
+								<ml-icon icon="x" size="lg"></ml-icon>
+								<ml-icon icon="plus" size="lg"></ml-icon>
+								<ml-icon icon="minus" size="lg"></ml-icon>
+							</div>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>In Buttons</h3>
+							</div>
+							<div class="demo-row">
+								<ml-button variant="primary">
+									<ml-icon icon="plus" size="sm"></ml-icon>
+									Add Item
+								</ml-button>
+								<ml-button variant="outline">
+									<ml-icon icon="pencil" size="sm"></ml-icon>
+									Edit
+								</ml-button>
+								<ml-button variant="danger">
+									<ml-icon icon="trash" size="sm"></ml-icon>
+									Delete
+								</ml-button>
+								<ml-button variant="ghost">
+									<ml-icon icon="gear" size="sm"></ml-icon>
+								</ml-button>
+							</div>
+						</div>
+					</section>
+
 					<!-- Alerts Section -->
 					<section id="alerts" class="demo-section">
 						<div class="demo-section__header">
@@ -327,7 +427,7 @@ export const demoAppTemplate = (c: DemoApp) => {
 							<p>Multi-line text inputs for longer form content.</p>
 						</div>
 
-						<div class="demo-grid">
+						<div class="demo-grid-2">
 							<ml-textarea label="Description" placeholder="Enter description..."></ml-textarea>
 							<ml-textarea label="With Max Length" max-length="100" hint="Limited to 100 characters"></ml-textarea>
 							<ml-textarea label="Resizable" resize></ml-textarea>

@@ -1,7 +1,7 @@
 import { html, classMap, when } from '@melodicdev/core';
-import type { RadioGroup } from './radio-group.component.js';
+import type { RadioGroupComponent } from './radio-group.component.js';
 
-export function radioGroupTemplate(c: RadioGroup) {
+export function radioGroupTemplate(c: RadioGroupComponent) {
 	return html`
 		<fieldset
 			class=${classMap({

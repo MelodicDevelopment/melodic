@@ -1,7 +1,7 @@
 import { html, classMap, when } from '@melodicdev/core';
-import type { Button } from './button.component.js';
+import type { ButtonComponent } from './button.component.js';
 
-export function buttonTemplate(c: Button) {
+export function buttonTemplate(c: ButtonComponent) {
 	return html`
 		<button
 			type="${c.type}"

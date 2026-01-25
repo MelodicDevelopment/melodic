@@ -1,7 +1,7 @@
 import { html, classMap, when } from '@melodicdev/core';
-import type { Checkbox } from './checkbox.component.js';
+import type { CheckboxComponent } from './checkbox.component.js';
 
-export function checkboxTemplate(c: Checkbox) {
+export function checkboxTemplate(c: CheckboxComponent) {
 	return html`
 		<label
 			class=${classMap({

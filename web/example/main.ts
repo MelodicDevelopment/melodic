@@ -1,6 +1,3 @@
-// Import global styles for portaled elements (must be in light DOM)
-import './styles/portal-global.css';
-
 // Import routing components and directives FIRST (before app components)
 import '../../src/routing/directives/router-link.directive';
 import '../../src/routing/services/router.service';

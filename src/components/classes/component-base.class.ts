@@ -5,7 +5,7 @@ import type { Unsubscriber } from '../../signals/types/unsubscriber.type';
 import type { Signal } from '../../signals/types/signal.type';
 import { isSignal } from '../../signals/functions/is-signal.function';
 import type { ITemplatePart } from '../../template/interfaces/itemplate-part.interface';
-import { applyGlobalStyles } from '../styles/global-styles';
+import { applyGlobalStyles } from '../styles/apply-global-styles.function';
 
 export abstract class ComponentBase extends HTMLElement {
 	private readonly _meta: ComponentMeta;
@@ -14,6 +14,7 @@ export abstract class ComponentBase extends HTMLElement {
 	private readonly _style: HTMLStyleElement;
 	private _unsubscribers: Array<Unsubscriber> = [];
 	private _renderScheduled = false;
+	private _booleanProperties: Set<string> = new Set();
 
 	constructor(meta: ComponentMeta, component: Component) {
 		super();
@@ -36,7 +37,7 @@ export abstract class ComponentBase extends HTMLElement {
 		return this._component;
 	}
 
-	connectedCallback(): void {
+	async connectedCallback(): Promise<void> {
 		this.render();
 
 		if (this._component.onCreate !== undefined) {
@@ -70,7 +71,14 @@ export abstract class ComponentBase extends HTMLElement {
 
 	attributeChangedCallback(attribute: string, oldVal: unknown, newVal: unknown): void {
 		if ((this._component as any)[attribute] !== undefined) {
-			(this._component as any)[attribute] = newVal;
+			let value = newVal;
+
+			// Convert boolean attributes: present (any value including "") = true, null/absent = false
+			if (this._booleanProperties.has(attribute)) {
+				value = newVal !== null && newVal !== 'false';
+			}
+
+			(this._component as any)[attribute] = value;
 		}
 
 		this.scheduleRender();
@@ -161,6 +169,11 @@ export abstract class ComponentBase extends HTMLElement {
 			// Check if wrapper already has a value set (from property binding before observe ran)
 			const wrapperValue = Object.getOwnPropertyDescriptor(this, prop)?.value;
 			let value = wrapperValue === undefined ? (this._component as any)[prop] : wrapperValue;
+
+			// Track boolean properties for attribute conversion
+			if (typeof value === 'boolean') {
+				this._booleanProperties.add(prop);
+			}
 
 			// Build getter/setter for the component's property
 			let componentGetter = () => value;

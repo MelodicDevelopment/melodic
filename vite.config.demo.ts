@@ -1,7 +1,18 @@
 import { defineConfig } from 'vite';
 import { resolve } from 'node:path';
+import { viteStaticCopy } from 'vite-plugin-static-copy';
 
 export default defineConfig({
+	plugins: [
+		viteStaticCopy({
+			targets: [
+				{
+					src: resolve(__dirname, 'packages/melodic-components/src/assets/*'),
+					dest: 'public'
+				}
+			]
+		})
+	],
 	root: resolve(__dirname, 'web/demo'),
 	publicDir: resolve(__dirname, 'public'),
 	resolve: {
@@ -22,6 +33,8 @@ export default defineConfig({
 			'@melodicdev/components/badge': resolve(__dirname, 'packages/melodic-components/src/components/data-display/badge/index.ts'),
 			'@melodicdev/components/avatar': resolve(__dirname, 'packages/melodic-components/src/components/data-display/avatar/index.ts'),
 			'@melodicdev/components/tooltip': resolve(__dirname, 'packages/melodic-components/src/components/overlays/tooltip/index.ts'),
+			'@melodicdev/components/icon': resolve(__dirname, 'packages/melodic-components/src/components/general/icon/index.ts'),
+			'@melodicdev/components/icons': resolve(__dirname, 'packages/melodic-components/src/icons/index.ts'),
 			'@melodicdev/components': resolve(__dirname, 'packages/melodic-components/src/index.ts')
 		}
 	},
@@ -36,7 +49,7 @@ export default defineConfig({
 		outDir: resolve(__dirname, 'dist/demo'),
 		rollupOptions: {
 			input: {
-				'index': resolve(__dirname, 'web/demo/index.html')
+				index: resolve(__dirname, 'web/demo/index.html')
 			}
 		}
 	}

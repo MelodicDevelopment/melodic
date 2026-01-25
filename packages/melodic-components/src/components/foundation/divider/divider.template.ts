@@ -1,7 +1,7 @@
 import { html, classMap, when } from '@melodicdev/core';
-import type { Divider } from './divider.component.js';
+import type { DividerComponent } from './divider.component.js';
 
-export function dividerTemplate(c: Divider) {
+export function dividerTemplate(c: DividerComponent) {
 	return html`
 		<div
 			class=${classMap({

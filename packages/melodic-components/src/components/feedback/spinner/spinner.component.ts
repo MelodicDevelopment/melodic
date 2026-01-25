@@ -20,7 +20,7 @@ import { spinnerStyles } from './spinner.styles.js';
 	styles: spinnerStyles,
 	attributes: ['size', 'label']
 })
-export class Spinner implements IElementRef {
+export class SpinnerComponent implements IElementRef {
 	elementRef!: HTMLElement;
 
 	/** Size of the spinner */

@@ -22,7 +22,7 @@ import { avatarStyles } from './avatar.styles.js';
 	styles: avatarStyles,
 	attributes: ['src', 'alt', 'initials', 'size', 'rounded']
 })
-export class Avatar implements IElementRef {
+export class AvatarComponent implements IElementRef {
 	elementRef!: HTMLElement;
 
 	/** Image source URL */

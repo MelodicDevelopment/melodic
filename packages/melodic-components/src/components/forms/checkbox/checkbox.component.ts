@@ -22,7 +22,7 @@ import { checkboxStyles } from './checkbox.styles.js';
 	styles: checkboxStyles,
 	attributes: ['label', 'hint', 'size', 'checked', 'indeterminate', 'disabled']
 })
-export class Checkbox implements IElementRef {
+export class CheckboxComponent implements IElementRef {
 	elementRef!: HTMLElement;
 
 	/** Checkbox label */
@@ -44,6 +44,11 @@ export class Checkbox implements IElementRef {
 	disabled = false;
 
 	handleChange = (event: Event): void => {
+		if (this.disabled) {
+			event.preventDefault();
+			return;
+		}
+
 		const target = event.target as HTMLInputElement;
 		this.checked = target.checked;
 		this.indeterminate = false;

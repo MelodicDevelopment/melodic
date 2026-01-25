@@ -1,7 +1,7 @@
 import { html, classMap, when } from '@melodicdev/core';
-import type { Toggle } from './toggle.component.js';
+import type { ToggleComponent } from './toggle.component.js';
 
-export function toggleTemplate(c: Toggle) {
+export function toggleTemplate(c: ToggleComponent) {
 	return html`
 		<label
 			class=${classMap({

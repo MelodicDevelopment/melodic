@@ -27,7 +27,7 @@ import { tooltipStyles } from './tooltip.styles.js';
 	styles: tooltipStyles,
 	attributes: ['content', 'placement', 'delay']
 })
-export class Tooltip implements IElementRef, OnInit, OnDestroy {
+export class TooltipComponent implements IElementRef, OnInit, OnDestroy {
 	elementRef!: HTMLElement;
 
 	/** Tooltip content text */

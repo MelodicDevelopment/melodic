@@ -21,7 +21,7 @@ import { radioStyles } from './radio.styles.js';
 	styles: radioStyles,
 	attributes: ['name', 'value', 'label', 'hint', 'size', 'checked', 'disabled']
 })
-export class Radio implements IElementRef {
+export class RadioComponent implements IElementRef {
 	elementRef!: HTMLElement;
 
 	/** Radio group name */

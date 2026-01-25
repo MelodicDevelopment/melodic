@@ -1,7 +1,7 @@
 import { html, classMap, when } from '@melodicdev/core';
-import type { Avatar } from './avatar.component.js';
+import type { AvatarComponent } from './avatar.component.js';
 
-export function avatarTemplate(c: Avatar) {
+export function avatarTemplate(c: AvatarComponent) {
 	return html`
 		<span
 			class=${classMap({
@@ -21,9 +21,7 @@ export function avatarTemplate(c: Avatar) {
 						() => html`
 							<span class="ml-avatar__fallback">
 								<slot>
-									<svg viewBox="0 0 24 24" fill="currentColor">
-										<path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
-									</svg>
+									<ml-icon icon="user" format="fill"></ml-icon>
 								</slot>
 							</span>
 						`

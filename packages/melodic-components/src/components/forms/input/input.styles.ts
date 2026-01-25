@@ -4,6 +4,7 @@ export const inputStyles = () => css`
 	:host {
 		display: block;
 		width: 100%;
+		min-width: 0;
 	}
 
 	.ml-input {

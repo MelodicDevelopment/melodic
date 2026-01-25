@@ -1,7 +1,7 @@
 import { html, classMap, when } from '@melodicdev/core';
-import type { Alert } from './alert.component.js';
+import type { AlertComponent } from './alert.component.js';
 
-export function alertTemplate(c: Alert) {
+export function alertTemplate(c: AlertComponent) {
 	return html`
 		<div
 			class=${classMap({
@@ -25,9 +25,7 @@ export function alertTemplate(c: Alert) {
 				c.dismissible,
 				() => html`
 					<button class="ml-alert__dismiss" @click=${c.handleDismiss} aria-label="Dismiss">
-						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-							<path d="M18 6L6 18M6 6l12 12" stroke-linecap="round" stroke-linejoin="round" />
-						</svg>
+						<ml-icon icon="x" size="sm"></ml-icon>
 					</button>
 				`
 			)}

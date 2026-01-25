@@ -1,7 +1,7 @@
 import { html, classMap, when } from '@melodicdev/core';
-import type { Textarea } from './textarea.component.js';
+import type { TextareaComponent } from './textarea.component.js';
 
-export function textareaTemplate(c: Textarea) {
+export function textareaTemplate(c: TextareaComponent) {
 	return html`
 		<div
 			class=${classMap({
