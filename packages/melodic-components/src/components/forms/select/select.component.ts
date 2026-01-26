@@ -19,6 +19,18 @@ import { selectStyles } from './select.styles.js';
  *     { value: 'mx', label: 'Mexico' }
  *   ]}
  * ></ml-select>
+ *
+ * <ml-select
+ *   label="Countries"
+ *   placeholder="Select countries"
+ *   multiple
+ *   .values=${['us', 'ca']}
+ *   .options=${[
+ *     { value: 'us', label: 'United States' },
+ *     { value: 'ca', label: 'Canada' },
+ *     { value: 'mx', label: 'Mexico' }
+ *   ]}
+ * ></ml-select>
  * ```
  *
  * @fires ml-change - Emitted when selection changes
@@ -29,7 +41,7 @@ import { selectStyles } from './select.styles.js';
 	selector: 'ml-select',
 	template: selectTemplate,
 	styles: selectStyles,
-	attributes: ['label', 'placeholder', 'hint', 'error', 'size', 'disabled', 'required', 'value']
+	attributes: ['label', 'placeholder', 'hint', 'error', 'size', 'disabled', 'required', 'value', 'multiple']
 })
 export class SelectComponent implements IElementRef, OnCreate, OnDestroy {
 	elementRef!: HTMLElement;
@@ -55,11 +67,20 @@ export class SelectComponent implements IElementRef, OnCreate, OnDestroy {
 	/** Mark as required */
 	required = false;
 
+	/** Enable multi-select mode */
+	multiple = false;
+
 	/** Currently selected value */
 	value = '';
 
+	/** Currently selected values (multi-select) */
+	values: string[] = [];
+
 	/** Available options */
 	options: SelectOption[] = [];
+
+	/** Search query for inline filtering */
+	search = '';
 
 	/** Whether dropdown is open */
 	isOpen = false;
@@ -70,6 +91,7 @@ export class SelectComponent implements IElementRef, OnCreate, OnDestroy {
 	/** Bound event handlers for cleanup */
 	private readonly _handleDocumentClick = this.onDocumentClick.bind(this);
 	private readonly _handleKeyDown = this.onKeyDown.bind(this);
+	private _syncingValues = false;
 
 	onCreate(): void {
 		document.addEventListener('click', this._handleDocumentClick);
@@ -81,25 +103,115 @@ export class SelectComponent implements IElementRef, OnCreate, OnDestroy {
 		this.elementRef.removeEventListener('keydown', this._handleKeyDown);
 	}
 
+	onPropertyChange(name: string): void {
+		if (this._syncingValues) {
+			return;
+		}
+
+		if (name === 'multiple') {
+			if (this.multiple) {
+				if (!this.values.length && this.value) {
+					this.updateValues([this.value]);
+				}
+				return;
+			}
+
+			if (this.values.length) {
+				this.value = this.values[0] ?? '';
+			}
+			this.updateValues([]);
+			this.search = '';
+			return;
+		}
+
+		if (name === 'values') {
+			const rawValues = this.values as unknown;
+			let normalized: string[] = [];
+			if (typeof rawValues === 'string') {
+				normalized = rawValues
+					.split(',')
+					.map((value) => value.trim())
+					.filter((value) => value.length > 0);
+			} else if (Array.isArray(rawValues)) {
+				normalized = rawValues.filter((value) => typeof value === 'string');
+			}
+
+			normalized = Array.from(new Set(normalized));
+			if (!this.areValuesEqual(this.values, normalized)) {
+				this.updateValues(normalized);
+			}
+			if (!this.multiple) {
+				this.value = normalized[0] ?? '';
+				this.updateValues([]);
+			}
+			return;
+		}
+
+		if (name === 'value' && this.multiple) {
+			if (this.value) {
+				const nextValues = Array.from(new Set([...this.values, this.value]));
+				if (!this.areValuesEqual(this.values, nextValues)) {
+					this.updateValues(nextValues);
+				}
+			}
+		}
+	}
+
 	/** Get the currently selected option */
 	get selectedOption(): SelectOption | undefined {
 		return this.options.find((opt) => opt.value === this.value);
 	}
 
+	/** Get the currently selected options (multi-select) */
+	get selectedOptions(): SelectOption[] {
+		if (!this.multiple) {
+			return this.selectedOption ? [this.selectedOption] : [];
+		}
+
+		return this.options.filter((opt) => this.values.includes(opt.value));
+	}
+
 	/** Get display text for trigger */
 	get displayText(): string {
+		if (this.multiple) {
+			return this.selectedOptions.map((option) => option.label).join(', ');
+		}
+
 		return this.selectedOption?.label || '';
+	}
+
+	get filteredOptions(): SelectOption[] {
+		const query = this.search.trim().toLowerCase();
+		if (!query) return this.options;
+
+		return this.options.filter((option) => {
+			const labelMatch = option.label.toLowerCase().includes(query);
+			const valueMatch = option.value.toLowerCase().includes(query);
+			return labelMatch || valueMatch;
+		});
+	}
+
+	get hasValue(): boolean {
+		return this.multiple ? this.values.length > 0 : !!this.value;
 	}
 
 	/** Toggle dropdown open/close */
 	toggle = (): void => {
 		if (this.disabled) return;
 
+		if (this.multiple) {
+			if (!this.isOpen) {
+				this.open();
+			}
+			return;
+		}
+
 		if (this.isOpen) {
 			this.close();
-		} else {
-			this.open();
+			return;
 		}
+
+		this.open();
 	};
 
 	/** Open the dropdown */
@@ -107,7 +219,7 @@ export class SelectComponent implements IElementRef, OnCreate, OnDestroy {
 		if (this.disabled || this.isOpen) return;
 
 		this.isOpen = true;
-		this.focusedIndex = this.value ? this.options.findIndex((opt) => opt.value === this.value) : 0;
+		this.focusedIndex = this.getInitialFocusIndex();
 
 		this.elementRef.dispatchEvent(
 			new CustomEvent('ml-open', {
@@ -123,6 +235,7 @@ export class SelectComponent implements IElementRef, OnCreate, OnDestroy {
 
 		this.isOpen = false;
 		this.focusedIndex = -1;
+		this.search = '';
 
 		this.elementRef.dispatchEvent(
 			new CustomEvent('ml-close', {
@@ -136,6 +249,11 @@ export class SelectComponent implements IElementRef, OnCreate, OnDestroy {
 	selectOption = (option: SelectOption): void => {
 		if (option.disabled) return;
 
+		if (this.multiple) {
+			this.toggleOption(option);
+			return;
+		}
+
 		this.value = option.value;
 		this.close();
 
@@ -148,10 +266,55 @@ export class SelectComponent implements IElementRef, OnCreate, OnDestroy {
 		);
 	};
 
+	/** Toggle a value in multi-select mode */
+	private toggleOption(option: SelectOption): void {
+		const exists = this.values.includes(option.value);
+		this.values = exists ? this.values.filter((value) => value !== option.value) : [...this.values, option.value];
+
+		this.elementRef.dispatchEvent(
+			new CustomEvent('ml-change', {
+				bubbles: true,
+				composed: true,
+				detail: { values: [...this.values], options: this.selectedOptions, option }
+			})
+		);
+	}
+
 	/** Handle click on option */
 	handleOptionClick = (event: Event, option: SelectOption): void => {
 		event.stopPropagation();
 		this.selectOption(option);
+	};
+
+	handleTagRemove = (event: Event, value: string): void => {
+		event.stopPropagation();
+		if (this.disabled) return;
+
+		this.values = this.values.filter((item) => item !== value);
+		this.elementRef.dispatchEvent(
+			new CustomEvent('ml-change', {
+				bubbles: true,
+				composed: true,
+				detail: { values: [...this.values], options: this.selectedOptions }
+			})
+		);
+	};
+
+	handleSearchInput = (event: Event): void => {
+		if (this.disabled) return;
+		const target = event.target as HTMLInputElement;
+		this.search = target.value;
+		this.focusedIndex = this.findFirstEnabledIndex();
+		if (!this.isOpen) {
+			this.open();
+		}
+	};
+
+	handleSearchClick = (event: Event): void => {
+		event.stopPropagation();
+		if (!this.isOpen) {
+			this.open();
+		}
 	};
 
 	/** Handle clicks outside to close dropdown */
@@ -166,12 +329,16 @@ export class SelectComponent implements IElementRef, OnCreate, OnDestroy {
 	private onKeyDown(event: KeyboardEvent): void {
 		if (this.disabled) return;
 
+		const target = event.target as HTMLElement | null;
+		const isSearchInput = target?.classList?.contains('ml-select__search') ?? false;
+
 		switch (event.key) {
 			case 'Enter':
 			case ' ':
+				if (isSearchInput) return;
 				event.preventDefault();
 				if (this.isOpen && this.focusedIndex >= 0) {
-					const option = this.options[this.focusedIndex];
+					const option = this.getActiveOptions()[this.focusedIndex];
 					if (option && !option.disabled) {
 						this.selectOption(option);
 					}
@@ -228,9 +395,10 @@ export class SelectComponent implements IElementRef, OnCreate, OnDestroy {
 	private focusNextOption(): void {
 		const startIndex = this.focusedIndex;
 		let index = startIndex + 1;
+		const options = this.getActiveOptions();
 
-		while (index < this.options.length) {
-			if (!this.options[index].disabled) {
+		while (index < options.length) {
+			if (!options[index].disabled) {
 				this.focusedIndex = index;
 				return;
 			}
@@ -242,9 +410,10 @@ export class SelectComponent implements IElementRef, OnCreate, OnDestroy {
 	private focusPreviousOption(): void {
 		const startIndex = this.focusedIndex;
 		let index = startIndex - 1;
+		const options = this.getActiveOptions();
 
 		while (index >= 0) {
-			if (!this.options[index].disabled) {
+			if (!options[index].disabled) {
 				this.focusedIndex = index;
 				return;
 			}
@@ -254,16 +423,55 @@ export class SelectComponent implements IElementRef, OnCreate, OnDestroy {
 
 	/** Find first enabled option index */
 	private findFirstEnabledIndex(): number {
-		return this.options.findIndex((opt) => !opt.disabled);
+		return this.getActiveOptions().findIndex((opt) => !opt.disabled);
 	}
 
 	/** Find last enabled option index */
 	private findLastEnabledIndex(): number {
-		for (let i = this.options.length - 1; i >= 0; i--) {
-			if (!this.options[i].disabled) {
+		const options = this.getActiveOptions();
+		for (let i = options.length - 1; i >= 0; i--) {
+			if (!options[i].disabled) {
 				return i;
 			}
 		}
 		return -1;
+	}
+
+	private getInitialFocusIndex(): number {
+		const options = this.getActiveOptions();
+
+		if (this.multiple && this.values.length > 0) {
+			const selectedIndex = options.findIndex((opt) => this.values.includes(opt.value) && !opt.disabled);
+			if (selectedIndex >= 0) {
+				return selectedIndex;
+			}
+		}
+
+		if (!this.multiple && this.value) {
+			const selectedIndex = options.findIndex((opt) => opt.value === this.value && !opt.disabled);
+			if (selectedIndex >= 0) {
+				return selectedIndex;
+			}
+		}
+
+		return this.findFirstEnabledIndex();
+	}
+
+	private getActiveOptions(): SelectOption[] {
+		return this.filteredOptions;
+	}
+
+	private updateValues(values: string[]): void {
+		this._syncingValues = true;
+		this.values = values;
+		this._syncingValues = false;
+	}
+
+	private areValuesEqual(left: string[], right: string[]): boolean {
+		if (left.length !== right.length) return false;
+		for (let i = 0; i < left.length; i++) {
+			if (left[i] !== right[i]) return false;
+		}
+		return true;
 	}
 }

@@ -5,6 +5,12 @@ export interface SelectOption {
 	/** Display label */
 	label: string;
 
+	/** Optional avatar image */
+	avatarUrl?: string;
+
+	/** Optional avatar alt text */
+	avatarAlt?: string;
+
 	/** Optional icon name (Phosphor icon) */
 	icon?: string;
 

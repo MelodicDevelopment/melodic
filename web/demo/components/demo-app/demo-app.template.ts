@@ -449,6 +449,15 @@ export const demoAppTemplate = (c: DemoApp) => {
 								error="Selection is required"
 							></ml-select>
 							<ml-select
+								label="Multi-select"
+								placeholder="Select countries"
+								.options=${c.countryOptions}
+								.values=${c.multiSelectValues}
+								multiple
+								hint="Pick multiple options"
+								@ml-change=${c.handleMultiSelectChange}
+							></ml-select>
+							<ml-select
 								label="Disabled"
 								placeholder="Cannot select"
 								.options=${c.statusOptions}
