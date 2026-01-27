@@ -58,6 +58,9 @@ export const demoAppTemplate = (c: DemoApp) => {
 					<a href="#toggles" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'toggles')}>
 						<ml-icon icon="toggle-left" size="sm"></ml-icon>Toggles
 					</a>
+					<a href="#form-fields" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'form-fields')}>
+						<ml-icon icon="textbox" size="sm"></ml-icon>Form Fields
+					</a>
 				</nav>
 
 				<div class="demo-sidebar__footer">
@@ -542,6 +545,73 @@ export const demoAppTemplate = (c: DemoApp) => {
 								<ml-toggle label="Auto-save" checked></ml-toggle>
 								<ml-toggle label="With hint" hint="This will enable automatic saving"></ml-toggle>
 								<ml-toggle label="Disabled" disabled></ml-toggle>
+							</div>
+						</div>
+					</section>
+
+					<!-- Form Field Section -->
+					<section id="form-fields" class="demo-section">
+						<div class="demo-section__header">
+							<h2>Form Fields</h2>
+							<p>Wrapper component that adds labels, hints, and error messages to any form control.</p>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>With Native Inputs</h3>
+							</div>
+							<div class="demo-grid">
+								<ml-form-field label="Username" hint="Choose a unique username" required>
+									<input type="text" placeholder="Enter username" />
+								</ml-form-field>
+								<ml-form-field label="Email" error="Invalid email address">
+									<input type="email" placeholder="Enter email" />
+								</ml-form-field>
+							</div>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>Horizontal Layout</h3>
+							</div>
+							<ml-stack gap="4">
+								<ml-form-field label="Full Name" orientation="horizontal" required>
+									<input type="text" placeholder="John Doe" />
+								</ml-form-field>
+								<ml-form-field label="Company" orientation="horizontal" hint="Optional">
+									<input type="text" placeholder="Acme Inc." />
+								</ml-form-field>
+							</ml-stack>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>Size Variants</h3>
+							</div>
+							<ml-stack gap="4">
+								<ml-form-field label="Small" size="sm">
+									<input type="text" placeholder="Small input" />
+								</ml-form-field>
+								<ml-form-field label="Medium (default)" size="md">
+									<input type="text" placeholder="Medium input" />
+								</ml-form-field>
+								<ml-form-field label="Large" size="lg">
+									<input type="text" placeholder="Large input" />
+								</ml-form-field>
+							</ml-stack>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>With Melodic Components</h3>
+							</div>
+							<div class="demo-grid">
+								<ml-form-field label="Subscribe to newsletter" hint="We'll never spam you">
+									<ml-checkbox></ml-checkbox>
+								</ml-form-field>
+								<ml-form-field label="Enable dark mode">
+									<ml-toggle></ml-toggle>
+								</ml-form-field>
 							</div>
 						</div>
 					</section>

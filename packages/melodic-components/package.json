@@ -56,6 +56,42 @@
 		"./select": {
 			"types": "./lib/components/forms/select/index.d.ts",
 			"default": "./lib/components/forms/select/index.js"
+		},
+		"./form-field": {
+			"types": "./lib/components/forms/form-field/index.d.ts",
+			"default": "./lib/components/forms/form-field/index.js"
+		},
+		"./card": {
+			"types": "./lib/components/foundation/card/index.d.ts",
+			"default": "./lib/components/foundation/card/index.js"
+		},
+		"./stack": {
+			"types": "./lib/components/foundation/stack/index.d.ts",
+			"default": "./lib/components/foundation/stack/index.js"
+		},
+		"./divider": {
+			"types": "./lib/components/foundation/divider/index.d.ts",
+			"default": "./lib/components/foundation/divider/index.js"
+		},
+		"./alert": {
+			"types": "./lib/components/feedback/alert/index.d.ts",
+			"default": "./lib/components/feedback/alert/index.js"
+		},
+		"./badge": {
+			"types": "./lib/components/data-display/badge/index.d.ts",
+			"default": "./lib/components/data-display/badge/index.js"
+		},
+		"./avatar": {
+			"types": "./lib/components/data-display/avatar/index.d.ts",
+			"default": "./lib/components/data-display/avatar/index.js"
+		},
+		"./icon": {
+			"types": "./lib/components/general/icon/index.d.ts",
+			"default": "./lib/components/general/icon/index.js"
+		},
+		"./tooltip": {
+			"types": "./lib/components/overlays/tooltip/index.d.ts",
+			"default": "./lib/components/overlays/tooltip/index.js"
 		}
 	},
 	"scripts": {

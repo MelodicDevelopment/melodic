@@ -20,9 +20,9 @@
 - [x] ml-tooltip
 
 ## Phase 3: Forms Continued - IN PROGRESS
-- [ ] ml-select
+- [x] ml-select
 - [ ] ml-slider
-- [ ] ml-form-field
+- [x] ml-form-field
 
 ## Phase 4: Navigation & Overlays
 - [ ] ml-tabs, ml-breadcrumb, ml-pagination
@@ -39,7 +39,7 @@
 
 ## Completed Components
 
-### Forms (7 components)
+### Forms (9 components)
 | Component | Selector | Description |
 |-----------|----------|-------------|
 | Button | `ml-button` | Primary, secondary, outline, ghost, danger, link variants |
@@ -49,6 +49,8 @@
 | Radio | `ml-radio` | Radio button |
 | RadioGroup | `ml-radio-group` | Radio group container |
 | Toggle | `ml-toggle` | Toggle/switch component |
+| Select | `ml-select` | Dropdown select with single/multi-select modes |
+| FormField | `ml-form-field` | Wrapper for adding labels, hints, errors to any control |
 
 ### Foundation (3 components)
 | Component | Selector | Description |
@@ -98,5 +100,5 @@ npm run build    # Build library to lib/
 ```
 
 ## Component Count
-- **Total Completed:** 15 components
-- **Remaining:** ~25 components
+- **Total Completed:** 17 components
+- **Remaining:** ~23 components

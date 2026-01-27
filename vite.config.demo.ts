@@ -27,6 +27,7 @@ export default defineConfig({
 			'@melodicdev/components/checkbox': resolve(__dirname, 'packages/melodic-components/src/components/forms/checkbox/index.ts'),
 			'@melodicdev/components/radio': resolve(__dirname, 'packages/melodic-components/src/components/forms/radio/index.ts'),
 			'@melodicdev/components/toggle': resolve(__dirname, 'packages/melodic-components/src/components/forms/toggle/index.ts'),
+			'@melodicdev/components/form-field': resolve(__dirname, 'packages/melodic-components/src/components/forms/form-field/index.ts'),
 			'@melodicdev/components/card': resolve(__dirname, 'packages/melodic-components/src/components/foundation/card/index.ts'),
 			'@melodicdev/components/stack': resolve(__dirname, 'packages/melodic-components/src/components/foundation/stack/index.ts'),
 			'@melodicdev/components/divider': resolve(__dirname, 'packages/melodic-components/src/components/foundation/divider/index.ts'),
