@@ -25,7 +25,8 @@
 - [x] ml-form-field
 
 ## Phase 4: Navigation & Overlays
-- [ ] ml-tabs, ml-breadcrumb, ml-pagination
+- [x] ml-tabs (with ml-tab, ml-tab-panel)
+- [ ] ml-breadcrumb, ml-pagination
 - [ ] ml-popover, ml-dropdown
 - [ ] ml-modal, ml-drawer
 - [ ] ml-nav, ml-sidebar
@@ -76,6 +77,13 @@
 |-----------|----------|-------------|
 | Tooltip | `ml-tooltip` | Tooltip on hover/focus |
 
+### Navigation (3 components)
+| Component | Selector | Description |
+|-----------|----------|-------------|
+| Tabs | `ml-tabs` | Tabbed interface with line/enclosed/pills variants |
+| Tab | `ml-tab` | Individual tab header |
+| TabPanel | `ml-tab-panel` | Tab panel content |
+
 ### Utilities
 | Utility | Description |
 |---------|-------------|
@@ -100,5 +108,5 @@ npm run build    # Build library to lib/
 ```
 
 ## Component Count
-- **Total Completed:** 17 components
-- **Remaining:** ~23 components
+- **Total Completed:** 20 components
+- **Remaining:** ~20 components

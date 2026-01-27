@@ -92,6 +92,10 @@
 		"./tooltip": {
 			"types": "./lib/components/overlays/tooltip/index.d.ts",
 			"default": "./lib/components/overlays/tooltip/index.js"
+		},
+		"./tabs": {
+			"types": "./lib/components/navigation/tabs/index.d.ts",
+			"default": "./lib/components/navigation/tabs/index.js"
 		}
 	},
 	"scripts": {

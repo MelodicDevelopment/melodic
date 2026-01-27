@@ -30,6 +30,9 @@ import '@melodicdev/components/icon';
 // Import components - Overlays
 import '@melodicdev/components/tooltip';
 
+// Import components - Navigation
+import '@melodicdev/components/tabs';
+
 // Inject base styles
 const styleSheet = document.createElement('style');
 styleSheet.textContent = baseThemeCss + '\n' + lightThemeCss + '\n' + darkThemeCss;

@@ -61,6 +61,9 @@ export const demoAppTemplate = (c: DemoApp) => {
 					<a href="#form-fields" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'form-fields')}>
 						<ml-icon icon="textbox" size="sm"></ml-icon>Form Fields
 					</a>
+					<a href="#tabs" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'tabs')}>
+						<ml-icon icon="tabs" size="sm"></ml-icon>Tabs
+					</a>
 				</nav>
 
 				<div class="demo-sidebar__footer">
@@ -612,6 +615,167 @@ export const demoAppTemplate = (c: DemoApp) => {
 								<ml-form-field label="Enable dark mode">
 									<ml-toggle></ml-toggle>
 								</ml-form-field>
+							</div>
+						</div>
+					</section>
+
+					<!-- Tabs Section -->
+					<section id="tabs" class="demo-section">
+						<div class="demo-section__header">
+							<h2>Tabs</h2>
+							<p>Tabbed interface component with multiple variants. Supports both simple panel switching and router integration.</p>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>Line Variant (default)</h3>
+							</div>
+							<ml-tabs
+								.tabs=${[
+									{ value: 'account', label: 'Account', icon: 'user' },
+									{ value: 'security', label: 'Security', icon: 'lock' },
+									{ value: 'notifications', label: 'Notifications', icon: 'bell' },
+									{ value: 'billing', label: 'Billing', icon: 'credit-card', disabled: true }
+								]}
+								value="account"
+							>
+								<ml-tab-panel value="account">
+									<p>Manage your account settings and preferences.</p>
+								</ml-tab-panel>
+								<ml-tab-panel value="security">
+									<p>Configure security options and two-factor authentication.</p>
+								</ml-tab-panel>
+								<ml-tab-panel value="notifications">
+									<p>Control how you receive notifications.</p>
+								</ml-tab-panel>
+								<ml-tab-panel value="billing">
+									<p>View and manage billing information.</p>
+								</ml-tab-panel>
+							</ml-tabs>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>Enclosed Variant</h3>
+							</div>
+							<ml-tabs
+								variant="enclosed"
+								.tabs=${[
+									{ value: 'overview', label: 'Overview' },
+									{ value: 'analytics', label: 'Analytics' },
+									{ value: 'reports', label: 'Reports' }
+								]}
+								value="overview"
+							>
+								<ml-tab-panel value="overview">
+									<p>Dashboard overview with key metrics.</p>
+								</ml-tab-panel>
+								<ml-tab-panel value="analytics">
+									<p>Detailed analytics and charts.</p>
+								</ml-tab-panel>
+								<ml-tab-panel value="reports">
+									<p>Generate and download reports.</p>
+								</ml-tab-panel>
+							</ml-tabs>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>Pills Variant</h3>
+							</div>
+							<ml-tabs
+								variant="pills"
+								.tabs=${[
+									{ value: 'all', label: 'All' },
+									{ value: 'active', label: 'Active' },
+									{ value: 'completed', label: 'Completed' },
+									{ value: 'archived', label: 'Archived' }
+								]}
+								value="all"
+							>
+								<ml-tab-panel value="all">
+									<p>Showing all items.</p>
+								</ml-tab-panel>
+								<ml-tab-panel value="active">
+									<p>Showing active items only.</p>
+								</ml-tab-panel>
+								<ml-tab-panel value="completed">
+									<p>Showing completed items only.</p>
+								</ml-tab-panel>
+								<ml-tab-panel value="archived">
+									<p>Showing archived items.</p>
+								</ml-tab-panel>
+							</ml-tabs>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>Vertical Orientation</h3>
+							</div>
+							<ml-tabs
+								orientation="vertical"
+								.tabs=${[
+									{ value: 'general', label: 'General', icon: 'gear' },
+									{ value: 'privacy', label: 'Privacy', icon: 'eye-slash' },
+									{ value: 'advanced', label: 'Advanced', icon: 'sliders' }
+								]}
+								value="general"
+							>
+								<ml-tab-panel value="general">
+									<p>General application settings.</p>
+								</ml-tab-panel>
+								<ml-tab-panel value="privacy">
+									<p>Privacy and data sharing options.</p>
+								</ml-tab-panel>
+								<ml-tab-panel value="advanced">
+									<p>Advanced configuration options.</p>
+								</ml-tab-panel>
+							</ml-tabs>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>Router Integration</h3>
+								<span class="demo-card__badge">Code Example</span>
+							</div>
+							<div class="demo-code-example">
+								<p class="demo-code-description">
+									For apps using the Melodic router, tabs can automatically sync with child routes.
+									Set <code>routed</code> and provide <code>href</code> on each tab config.
+								</p>
+								<pre class="demo-code"><code>// Route configuration
+const routes = [
+  {
+    path: 'settings',
+    component: SettingsPage,
+    children: [
+      { path: 'profile', component: ProfileTab },
+      { path: 'security', component: SecurityTab },
+      { path: 'billing', component: BillingTab }
+    ]
+  }
+];
+
+// In your template
+&lt;ml-tabs
+  routed
+  .tabs=\${[
+    { value: 'profile', label: 'Profile', href: '/settings/profile' },
+    { value: 'security', label: 'Security', href: '/settings/security' },
+    { value: 'billing', label: 'Billing', href: '/settings/billing' }
+  ]}
+&gt;
+  &lt;router-outlet&gt;&lt;/router-outlet&gt;
+&lt;/ml-tabs&gt;</code></pre>
+								<p class="demo-code-description" style="margin-top: var(--ml-space-4);">
+									<strong>Features:</strong>
+								</p>
+								<ul class="demo-code-list">
+									<li>Clicking a tab navigates to the corresponding route</li>
+									<li>Active tab automatically syncs with current URL</li>
+									<li>Child components render inside the router-outlet</li>
+									<li>Browser back/forward buttons work correctly</li>
+								</ul>
 							</div>
 						</div>
 					</section>
