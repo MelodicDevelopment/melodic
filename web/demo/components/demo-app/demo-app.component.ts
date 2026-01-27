@@ -33,6 +33,12 @@ export class DemoApp implements IElementRef {
 
 	multiSelectValues = ['us', 'ca'];
 
+	/** Modal states */
+	showBasicModal = false;
+	showFormModal = false;
+	showConfirmModal = false;
+	showCenteredModal = false;
+
 	constructor() {
 		this.isDark = getResolvedTheme() === 'dark';
 		onThemeChange((_: ThemeMode, resolved: 'light' | 'dark') => {
@@ -59,6 +65,46 @@ export class DemoApp implements IElementRef {
 		const { values } = event.detail ?? {};
 		if (Array.isArray(values)) {
 			this.multiSelectValues = values;
+		}
+	};
+
+	openModal = (modal: 'basic' | 'form' | 'confirm' | 'centered'): void => {
+		switch (modal) {
+			case 'basic':
+				this.showBasicModal = true;
+				break;
+			case 'form':
+				this.showFormModal = true;
+				break;
+			case 'confirm':
+				this.showConfirmModal = true;
+				break;
+			case 'centered':
+				this.showCenteredModal = true;
+				break;
+			default:
+				this.showBasicModal = true;
+				break;
+		}
+	};
+
+	closeModal = (modal: 'basic' | 'form' | 'confirm' | 'centered'): void => {
+		switch (modal) {
+			case 'basic':
+				this.showBasicModal = false;
+				break;
+			case 'form':
+				this.showFormModal = false;
+				break;
+			case 'confirm':
+				this.showConfirmModal = false;
+				break;
+			case 'centered':
+				this.showCenteredModal = false;
+				break;
+			default:
+				this.showBasicModal = false;
+				break;
 		}
 	};
 }

@@ -38,6 +38,7 @@ export default defineConfig({
 			'@melodicdev/components/icon': resolve(__dirname, 'packages/melodic-components/src/components/general/icon/index.ts'),
 			'@melodicdev/components/icons': resolve(__dirname, 'packages/melodic-components/src/icons/index.ts'),
 			'@melodicdev/components/tabs': resolve(__dirname, 'packages/melodic-components/src/components/navigation/tabs/index.ts'),
+			'@melodicdev/components/modal': resolve(__dirname, 'packages/melodic-components/src/components/overlays/modal/index.ts'),
 			'@melodicdev/components': resolve(__dirname, 'packages/melodic-components/src/index.ts')
 		}
 	},

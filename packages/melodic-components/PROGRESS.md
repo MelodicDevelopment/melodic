@@ -26,9 +26,10 @@
 
 ## Phase 4: Navigation & Overlays
 - [x] ml-tabs (with ml-tab, ml-tab-panel)
+- [x] ml-modal
+- [ ] ml-drawer
 - [ ] ml-breadcrumb, ml-pagination
 - [ ] ml-popover, ml-dropdown
-- [ ] ml-modal, ml-drawer
 - [ ] ml-nav, ml-sidebar
 
 ## Phase 5: Advanced & Docs
@@ -72,9 +73,10 @@
 | Badge | `ml-badge` | Status badges/tags |
 | Avatar | `ml-avatar` | User avatar with fallback |
 
-### Overlays (1 component)
+### Overlays (2 components)
 | Component | Selector | Description |
 |-----------|----------|-------------|
+| Modal | `ml-modal` | Dialog overlay with configurable header layout |
 | Tooltip | `ml-tooltip` | Tooltip on hover/focus |
 
 ### Navigation (3 components)
@@ -108,5 +110,5 @@ npm run build    # Build library to lib/
 ```
 
 ## Component Count
-- **Total Completed:** 20 components
-- **Remaining:** ~20 components
+- **Total Completed:** 21 components
+- **Remaining:** ~19 components

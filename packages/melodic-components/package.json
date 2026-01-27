@@ -96,6 +96,10 @@
 		"./tabs": {
 			"types": "./lib/components/navigation/tabs/index.d.ts",
 			"default": "./lib/components/navigation/tabs/index.js"
+		},
+		"./modal": {
+			"types": "./lib/components/overlays/modal/index.d.ts",
+			"default": "./lib/components/overlays/modal/index.js"
 		}
 	},
 	"scripts": {

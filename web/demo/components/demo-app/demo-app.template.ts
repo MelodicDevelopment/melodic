@@ -64,6 +64,9 @@ export const demoAppTemplate = (c: DemoApp) => {
 					<a href="#tabs" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'tabs')}>
 						<ml-icon icon="tabs" size="sm"></ml-icon>Tabs
 					</a>
+					<a href="#modals" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'modals')}>
+						<ml-icon icon="browsers" size="sm"></ml-icon>Modals
+					</a>
 				</nav>
 
 				<div class="demo-sidebar__footer">
@@ -776,6 +779,159 @@ const routes = [
 									<li>Child components render inside the router-outlet</li>
 									<li>Browser back/forward buttons work correctly</li>
 								</ul>
+							</div>
+						</div>
+					</section>
+
+					<!-- Modals Section -->
+					<section id="modals" class="demo-section">
+						<div class="demo-section__header">
+							<h2>Modals</h2>
+							<p>Dialog overlays for focused interactions, confirmations, and forms.</p>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>Basic Modal</h3>
+							</div>
+							<div class="demo-row">
+								<ml-button @click=${() => c.openModal('basic')}>Open Basic Modal</ml-button>
+							</div>
+
+							<ml-modal
+								.open=${c.showBasicModal}
+								title="Select plan"
+								description="Simple and flexible per-user pricing."
+								@ml-close=${() => c.closeModal('basic')}
+							>
+								<div slot="icon">
+									<ml-icon icon="stack" size="md"></ml-icon>
+								</div>
+								<p>Choose the plan that works best for your team.</p>
+								<ml-stack gap="3" style="margin-top: var(--ml-space-4);">
+									<ml-radio-group name="plan">
+										<ml-radio value="basic" label="Basic - $10/month" checked></ml-radio>
+										<ml-radio value="pro" label="Pro - $20/month"></ml-radio>
+										<ml-radio value="enterprise" label="Enterprise - Custom"></ml-radio>
+									</ml-radio-group>
+								</ml-stack>
+								<ml-button slot="footer" variant="outline" @click=${() => c.closeModal('basic')}>Cancel</ml-button>
+								<ml-button slot="footer" variant="primary" @click=${() => c.closeModal('basic')}>Select plan</ml-button>
+							</ml-modal>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>Form Modal</h3>
+							</div>
+							<div class="demo-row">
+								<ml-button @click=${() => c.openModal('form')}>Open Form Modal</ml-button>
+							</div>
+
+							<ml-modal
+								.open=${c.showFormModal}
+								title="Add experience"
+								description="Share where you've worked on your profile."
+								size="lg"
+								@ml-close=${() => c.closeModal('form')}
+							>
+								<div slot="icon">
+									<ml-icon icon="briefcase" size="md"></ml-icon>
+								</div>
+								<ml-stack gap="4">
+									<ml-input label="Title" placeholder="What is your title?"></ml-input>
+									<div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--ml-space-4);">
+										<ml-input label="Company" placeholder="Search for company"></ml-input>
+										<ml-input label="Website" placeholder="www.example.com"></ml-input>
+									</div>
+									<div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--ml-space-4);">
+										<ml-input label="Location" placeholder="Search for city"></ml-input>
+										<ml-select
+											label="Employment"
+											placeholder="Select type"
+											.options=${[
+												{ value: 'full', label: 'Full time' },
+												{ value: 'part', label: 'Part time' },
+												{ value: 'contract', label: 'Contract' }
+											]}
+										></ml-select>
+									</div>
+									<ml-textarea label="Description" placeholder="e.g. I joined Stripe's Customer Success team..." rows="3"></ml-textarea>
+								</ml-stack>
+								<ml-button slot="footer" variant="outline" @click=${() => c.closeModal('form')}>Save as draft</ml-button>
+								<ml-button slot="footer" variant="primary" @click=${() => c.closeModal('form')}>Add experience</ml-button>
+							</ml-modal>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>Confirmation Modal (Centered)</h3>
+							</div>
+							<div class="demo-row">
+								<ml-button variant="outline" @click=${() => c.openModal('confirm')}>Open Confirmation</ml-button>
+							</div>
+
+							<ml-modal
+								.open=${c.showConfirmModal}
+								title="Blog post published"
+								description="This blog post has been published. Team members will be able to edit this post and republish changes."
+								size="sm"
+								header-layout="stacked"
+								header-align="center"
+								@ml-close=${() => c.closeModal('confirm')}
+							>
+								<div slot="icon" style="background-color: var(--ml-color-success-subtle); border-color: var(--ml-color-success); color: var(--ml-color-success);">
+									<ml-icon icon="check-circle" size="md"></ml-icon>
+								</div>
+								<ml-stack gap="2">
+									<ml-checkbox label="Share on Twitter"></ml-checkbox>
+									<ml-checkbox label="Share on Medium"></ml-checkbox>
+									<ml-checkbox label="Share on Facebook"></ml-checkbox>
+								</ml-stack>
+								<ml-button slot="footer" variant="outline" @click=${() => c.closeModal('confirm')}>Cancel</ml-button>
+								<ml-button slot="footer" variant="primary" @click=${() => c.closeModal('confirm')}>Confirm</ml-button>
+							</ml-modal>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>Sizes</h3>
+								<span class="demo-card__badge">4 sizes</span>
+							</div>
+							<div class="demo-row">
+								<ml-button size="sm" variant="ghost">Small (sm)</ml-button>
+								<ml-button size="sm" variant="ghost">Medium (md)</ml-button>
+								<ml-button size="sm" variant="ghost">Large (lg)</ml-button>
+								<ml-button size="sm" variant="ghost">Extra Large (xl)</ml-button>
+							</div>
+							<p class="demo-hint" style="margin-top: var(--ml-space-2); font-size: var(--ml-text-sm); color: var(--ml-color-text-secondary);">
+								Use the <code>size</code> attribute: sm (400px), md (500px), lg (640px), xl (800px)
+							</p>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>Configuration Options</h3>
+							</div>
+							<div class="demo-code-example">
+								<pre class="demo-code"><code>&lt;ml-modal
+  open           // Control visibility
+  title="..."    // Header title
+  description="..." // Header subtitle
+  size="md"      // sm | md | lg | xl | full
+  header-layout="inline"  // inline | stacked
+  header-align="left"     // left | center
+  show-close     // Show X button (default: true)
+  close-on-backdrop  // Close on backdrop click (default: true)
+  close-on-escape    // Close on ESC key (default: true)
+  prevent-close  // Prevent all close actions
+&gt;
+  &lt;div slot="icon"&gt;...&lt;/div&gt;      &lt;!-- Header icon --&gt;
+  &lt;div slot="hero"&gt;...&lt;/div&gt;      &lt;!-- Hero image --&gt;
+  ...body content...
+  &lt;ml-button slot="footer-start"&gt;Left action&lt;/ml-button&gt;
+  &lt;ml-button slot="footer"&gt;Right action&lt;/ml-button&gt;
+&lt;/ml-modal&gt;</code></pre>
 							</div>
 						</div>
 					</section>

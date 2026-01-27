@@ -29,6 +29,7 @@ import '@melodicdev/components/icon';
 
 // Import components - Overlays
 import '@melodicdev/components/tooltip';
+import '@melodicdev/components/modal';
 
 // Import components - Navigation
 import '@melodicdev/components/tabs';
