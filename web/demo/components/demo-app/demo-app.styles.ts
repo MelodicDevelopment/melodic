@@ -334,4 +334,61 @@ export const demoAppStyles = () => css`
 			font-size: var(--ml-text-xl);
 		}
 	}
+
+	/* Code Examples */
+	.demo-code-example {
+		background-color: var(--ml-color-surface-secondary, var(--ml-gray-50));
+		border-radius: var(--ml-radius-md);
+		padding: var(--ml-space-4);
+	}
+
+	.demo-code-description {
+		font-size: var(--ml-text-sm);
+		color: var(--ml-color-text-secondary);
+		margin-bottom: var(--ml-space-3);
+		line-height: var(--ml-leading-relaxed);
+	}
+
+	.demo-code-description code {
+		background-color: var(--ml-color-surface, var(--ml-gray-100));
+		padding: var(--ml-space-0-5) var(--ml-space-1);
+		border-radius: var(--ml-radius-sm);
+		font-family: var(--ml-font-mono);
+		font-size: var(--ml-text-xs);
+		color: var(--ml-color-primary);
+	}
+
+	.demo-code {
+		background-color: var(--ml-gray-900);
+		color: var(--ml-gray-100);
+		border-radius: var(--ml-radius-md);
+		padding: var(--ml-space-4);
+		overflow-x: auto;
+		font-family: var(--ml-font-mono);
+		font-size: var(--ml-text-xs);
+		line-height: var(--ml-leading-relaxed);
+		margin: 0;
+	}
+
+	.demo-code code {
+		background: none;
+		padding: 0;
+		color: inherit;
+		font-size: inherit;
+	}
+
+	.demo-code-list {
+		font-size: var(--ml-text-sm);
+		color: var(--ml-color-text-secondary);
+		padding-left: var(--ml-space-5);
+		margin: 0;
+	}
+
+	.demo-code-list li {
+		margin-bottom: var(--ml-space-1);
+	}
+
+	.demo-code-list li:last-child {
+		margin-bottom: 0;
+	}
 `;
