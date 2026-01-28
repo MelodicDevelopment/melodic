@@ -2,8 +2,10 @@ import { MelodicComponent } from '@melodicdev/core';
 import type { IElementRef } from '@melodicdev/core';
 import { applyTheme, getResolvedTheme, onThemeChange } from '@melodicdev/components/theme';
 import type { ThemeMode, SelectOption } from '@melodicdev/components';
+import { modalService } from '../../../../packages/melodic-components/src/components/overlays/modal/modal.service';
 import { demoAppTemplate } from './demo-app.template';
 import { demoAppStyles } from './demo-app.styles';
+import { ConfirmDialog, type ConfirmDialogData } from '../confirm-dialog/confirm-dialog.component';
 
 @MelodicComponent({
 	selector: 'demo-app',
@@ -106,6 +108,26 @@ export class DemoApp implements IElementRef {
 				this.showBasicModal = false;
 				break;
 		}
+	};
+
+	/** Result from the last programmatic confirm dialog */
+	lastConfirmResult: boolean | null = null;
+
+	openProgrammaticConfirm = async (): Promise<void> => {
+		const ref = modalService.open<ConfirmDialogData, boolean>(ConfirmDialog, {
+			data: {
+				title: 'Delete this item?',
+				message: 'This action cannot be undone. The item will be permanently removed from your account.',
+				confirmText: 'Delete',
+				cancelText: 'Keep it',
+				variant: 'danger'
+			},
+			size: 'sm',
+			showClose: false
+		});
+
+		const result = await ref.afterClosed();
+		this.lastConfirmResult = result ?? null;
 	};
 }
 

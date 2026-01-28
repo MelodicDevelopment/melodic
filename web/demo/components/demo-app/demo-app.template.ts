@@ -895,6 +895,47 @@ const routes = [
 
 						<div class="demo-card">
 							<div class="demo-card__header">
+								<h3>Programmatic Usage (Modal Service)</h3>
+								<span class="demo-card__badge">Recommended</span>
+							</div>
+							<div class="demo-row">
+								<ml-button variant="danger" @click=${() => c.openProgrammaticConfirm()}>Delete Item</ml-button>
+								<span style="font-size: var(--ml-text-sm); color: var(--ml-color-text-secondary);">
+									Result: ${c.lastConfirmResult === null ? 'Not yet opened' : c.lastConfirmResult ? 'Confirmed!' : 'Cancelled'}
+								</span>
+							</div>
+							<div class="demo-code-example" style="margin-top: var(--ml-space-4);">
+								<p class="demo-code-description">
+									Use <code>modalService.open()</code> to open modals programmatically. The content component
+									implements <code>ModalContent</code> and receives <code>modalRef</code> and <code>modalData</code>.
+								</p>
+								<pre class="demo-code"><code>// Opening a modal with the service
+const ref = modalService.open(ConfirmDialog, {
+  data: {
+    title: 'Delete?',
+    message: 'This cannot be undone.',
+    variant: 'danger'
+  },
+  size: 'sm'
+});
+
+// Wait for result
+const confirmed = await ref.afterClosed();
+if (confirmed) { /* do something */ }
+
+// ConfirmDialog component
+class ConfirmDialog implements ModalContent&lt;Data, boolean&gt; {
+  modalRef!: ModalRef&lt;Data, boolean&gt;;
+  modalData!: Data;
+
+  confirm() { this.modalRef.close(true); }
+  cancel() { this.modalRef.close(false); }
+}</code></pre>
+							</div>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
 								<h3>Sizes</h3>
 								<span class="demo-card__badge">4 sizes</span>
 							</div>
@@ -911,7 +952,7 @@ const routes = [
 
 						<div class="demo-card">
 							<div class="demo-card__header">
-								<h3>Configuration Options</h3>
+								<h3>Declarative Usage</h3>
 							</div>
 							<div class="demo-code-example">
 								<pre class="demo-code"><code>&lt;ml-modal

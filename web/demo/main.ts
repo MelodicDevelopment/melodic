@@ -31,6 +31,9 @@ import '@melodicdev/components/icon';
 import '@melodicdev/components/tooltip';
 import '@melodicdev/components/modal';
 
+// Import demo dialog components
+import './components/confirm-dialog/confirm-dialog.component';
+
 // Import components - Navigation
 import '@melodicdev/components/tabs';
 
