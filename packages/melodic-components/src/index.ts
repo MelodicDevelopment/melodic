@@ -4,6 +4,8 @@ export * from './theme/index.js';
 // Utilities
 export * from './utils/index.js';
 
+export * from './functions/index.js';
+
 // Components - Forms
 export * from './components/forms/button/index.js';
 export * from './components/forms/input/index.js';
@@ -44,7 +46,7 @@ export * from './components/navigation/breadcrumb/index.js';
 export * from './components/navigation/pagination/index.js';
 
 // Components - Overlays
-export * from './components/overlays/modal/index.js';
+export * from './components/overlays/dialog/index.js';
 export * from './components/overlays/drawer/index.js';
 export * from './components/overlays/dropdown/index.js';
 export * from './components/overlays/tooltip/index.js';

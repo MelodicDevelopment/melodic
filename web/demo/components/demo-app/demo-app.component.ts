@@ -1,11 +1,10 @@
-import { MelodicComponent } from '@melodicdev/core';
+import { MelodicComponent, Service } from '@melodicdev/core';
 import type { IElementRef } from '@melodicdev/core';
+import { DialogService, type UniqueID, type ThemeMode, type SelectOption } from '@melodicdev/components';
 import { applyTheme, getResolvedTheme, onThemeChange } from '@melodicdev/components/theme';
-import type { ThemeMode, SelectOption } from '@melodicdev/components';
-import { modalService } from '../../../../packages/melodic-components/src/components/overlays/modal/modal.service';
 import { demoAppTemplate } from './demo-app.template';
 import { demoAppStyles } from './demo-app.styles';
-import { ConfirmDialog, type ConfirmDialogData } from '../confirm-dialog/confirm-dialog.component';
+// import { ConfirmDialog, type ConfirmDialogData } from '../confirm-dialog/confirm-dialog.component';
 
 @MelodicComponent({
 	selector: 'demo-app',
@@ -13,12 +12,15 @@ import { ConfirmDialog, type ConfirmDialogData } from '../confirm-dialog/confirm
 	styles: demoAppStyles
 })
 export class DemoApp implements IElementRef {
-	elementRef!: HTMLElement;
+	@Service(DialogService)
+	private readonly _dialogService!: DialogService;
 
-	isDark = false;
+	public elementRef!: HTMLElement;
+
+	public isDark = false;
 
 	/** Sample options for select demos */
-	countryOptions: SelectOption[] = [
+	public countryOptions: SelectOption[] = [
 		{ value: 'us', label: 'United States', icon: 'flag', avatarUrl: 'https://i.pravatar.cc/48?img=32', avatarAlt: 'United States' },
 		{ value: 'ca', label: 'Canada', icon: 'flag', avatarUrl: 'https://i.pravatar.cc/48?img=12', avatarAlt: 'Canada' },
 		{ value: 'mx', label: 'Mexico', icon: 'flag', avatarUrl: 'https://i.pravatar.cc/48?img=15', avatarAlt: 'Mexico' },
@@ -27,19 +29,13 @@ export class DemoApp implements IElementRef {
 		{ value: 'fr', label: 'France', icon: 'flag', avatarUrl: 'https://i.pravatar.cc/48?img=28', avatarAlt: 'France' }
 	];
 
-	statusOptions: SelectOption[] = [
+	public statusOptions: SelectOption[] = [
 		{ value: 'active', label: 'Active' },
 		{ value: 'pending', label: 'Pending' },
 		{ value: 'inactive', label: 'Inactive', disabled: true }
 	];
 
-	multiSelectValues = ['us', 'ca'];
-
-	/** Modal states */
-	showBasicModal = false;
-	showFormModal = false;
-	showConfirmModal = false;
-	showCenteredModal = false;
+	public multiSelectValues = ['us', 'ca'];
 
 	constructor() {
 		this.isDark = getResolvedTheme() === 'dark';
@@ -70,65 +66,30 @@ export class DemoApp implements IElementRef {
 		}
 	};
 
-	openModal = (modal: 'basic' | 'form' | 'confirm' | 'centered'): void => {
-		switch (modal) {
-			case 'basic':
-				this.showBasicModal = true;
-				break;
-			case 'form':
-				this.showFormModal = true;
-				break;
-			case 'confirm':
-				this.showConfirmModal = true;
-				break;
-			case 'centered':
-				this.showCenteredModal = true;
-				break;
-			default:
-				this.showBasicModal = true;
-				break;
-		}
-	};
+	openDialog(dialogID: UniqueID | string): void {
+		this._dialogService.open(dialogID as UniqueID);
+	}
 
-	closeModal = (modal: 'basic' | 'form' | 'confirm' | 'centered'): void => {
-		switch (modal) {
-			case 'basic':
-				this.showBasicModal = false;
-				break;
-			case 'form':
-				this.showFormModal = false;
-				break;
-			case 'confirm':
-				this.showConfirmModal = false;
-				break;
-			case 'centered':
-				this.showCenteredModal = false;
-				break;
-			default:
-				this.showBasicModal = false;
-				break;
-		}
-	};
+	closeDialog(dialogID: UniqueID | string): void {
+		this._dialogService.close(dialogID as UniqueID);
+	}
 
-	/** Result from the last programmatic confirm dialog */
-	lastConfirmResult: boolean | null = null;
+	// openProgrammaticConfirm = async (): Promise<void> => {
+	// 	const ref = modalService.open<ConfirmDialogData, boolean>(ConfirmDialog, {
+	// 		data: {
+	// 			title: 'Delete this item?',
+	// 			message: 'This action cannot be undone. The item will be permanently removed from your account.',
+	// 			confirmText: 'Delete',
+	// 			cancelText: 'Keep it',
+	// 			variant: 'danger'
+	// 		},
+	// 		size: 'sm',
+	// 		showClose: false
+	// 	});
 
-	openProgrammaticConfirm = async (): Promise<void> => {
-		const ref = modalService.open<ConfirmDialogData, boolean>(ConfirmDialog, {
-			data: {
-				title: 'Delete this item?',
-				message: 'This action cannot be undone. The item will be permanently removed from your account.',
-				confirmText: 'Delete',
-				cancelText: 'Keep it',
-				variant: 'danger'
-			},
-			size: 'sm',
-			showClose: false
-		});
-
-		const result = await ref.afterClosed();
-		this.lastConfirmResult = result ?? null;
-	};
+	// 	const result = await ref.afterClosed();
+	// 	this.lastConfirmResult = result ?? null;
+	// };
 }
 
 // Mount the app

@@ -29,10 +29,7 @@ import '@melodicdev/components/icon';
 
 // Import components - Overlays
 import '@melodicdev/components/tooltip';
-import '@melodicdev/components/modal';
-
-// Import demo dialog components
-import './components/confirm-dialog/confirm-dialog.component';
+import '@melodicdev/components/dialog';
 
 // Import components - Navigation
 import '@melodicdev/components/tabs';

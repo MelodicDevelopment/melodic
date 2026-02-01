@@ -64,8 +64,8 @@ export const demoAppTemplate = (c: DemoApp) => {
 					<a href="#tabs" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'tabs')}>
 						<ml-icon icon="tabs" size="sm"></ml-icon>Tabs
 					</a>
-					<a href="#modals" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'modals')}>
-						<ml-icon icon="browsers" size="sm"></ml-icon>Modals
+					<a href="#dialogs" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'dialogs')}>
+						<ml-icon icon="browsers" size="sm"></ml-icon>Dialogs
 					</a>
 				</nav>
 
@@ -440,23 +440,9 @@ export const demoAppTemplate = (c: DemoApp) => {
 						</div>
 
 						<div class="demo-grid">
-							<ml-select
-								label="Country"
-								placeholder="Select a country"
-								.options=${c.countryOptions}
-							></ml-select>
-							<ml-select
-								label="Status"
-								placeholder="Select status"
-								.options=${c.statusOptions}
-								hint="Inactive option is disabled"
-							></ml-select>
-							<ml-select
-								label="With Error"
-								placeholder="Select an option"
-								.options=${c.statusOptions}
-								error="Selection is required"
-							></ml-select>
+							<ml-select label="Country" placeholder="Select a country" .options=${c.countryOptions}></ml-select>
+							<ml-select label="Status" placeholder="Select status" .options=${c.statusOptions} hint="Inactive option is disabled"></ml-select>
+							<ml-select label="With Error" placeholder="Select an option" .options=${c.statusOptions} error="Selection is required"></ml-select>
 							<ml-select
 								label="Multi-select"
 								placeholder="Select countries"
@@ -466,12 +452,7 @@ export const demoAppTemplate = (c: DemoApp) => {
 								hint="Pick multiple options"
 								@ml-change=${c.handleMultiSelectChange}
 							></ml-select>
-							<ml-select
-								label="Disabled"
-								placeholder="Cannot select"
-								.options=${c.statusOptions}
-								disabled
-							></ml-select>
+							<ml-select label="Disabled" placeholder="Cannot select" .options=${c.statusOptions} disabled></ml-select>
 						</div>
 					</section>
 
@@ -743,8 +724,8 @@ export const demoAppTemplate = (c: DemoApp) => {
 							</div>
 							<div class="demo-code-example">
 								<p class="demo-code-description">
-									For apps using the Melodic router, tabs can automatically sync with child routes.
-									Set <code>routed</code> and provide <code>href</code> on each tab config.
+									For apps using the Melodic router, tabs can automatically sync with child routes. Set <code>routed</code> and provide
+									<code>href</code> on each tab config.
 								</p>
 								<pre class="demo-code"><code>// Route configuration
 const routes = [
@@ -783,7 +764,32 @@ const routes = [
 						</div>
 					</section>
 
-					<!-- Modals Section -->
+					<!-- Dialogs Section -->
+					<section id="dialogs" class="demo-section">
+						<div class="demo-section__header">
+							<h2>Dialogs</h2>
+							<p>Native dialog-based overlays for focused interactions, confirmations, and forms.</p>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>Dialog Development</h3>
+							</div>
+							<div class="demo-row">
+								<ml-button @click=${() => c.openDialog('test-dialog')}>Open Dialog</ml-button>
+								<ml-dialog #test-dialog>
+									<div slot="dialog-header">Dialog Header</div>
+									<p>Dialog content goes here</p>
+									<div slot="dialog-footer">
+										<ml-button variant="outline" @click=${() => c.closeDialog('test-dialog')}>Cancel</ml-button>
+										<ml-button @click=${() => c.closeDialog('test-dialog')}>Confirm</ml-button>
+									</div>
+								</ml-dialog>
+							</div>
+						</div>
+					</section>
+
+					<!-- Old Modals Section (commented out)
 					<section id="modals" class="demo-section">
 						<div class="demo-section__header">
 							<h2>Modals</h2>
@@ -795,14 +801,14 @@ const routes = [
 								<h3>Basic Modal</h3>
 							</div>
 							<div class="demo-row">
-								<ml-button @click=${() => c.openModal('basic')}>Open Basic Modal</ml-button>
+								<ml-button @click=S{() => c.openModal('basic')}>Open Basic Modal</ml-button>
 							</div>
 
 							<ml-modal
-								.open=${c.showBasicModal}
+								.open=S{c.showBasicModal}
 								title="Select plan"
 								description="Simple and flexible per-user pricing."
-								@ml-close=${() => c.closeModal('basic')}
+								@ml-close=S{() => c.closeModal('basic')}
 							>
 								<div slot="icon">
 									<ml-icon icon="stack" size="md"></ml-icon>
@@ -815,8 +821,8 @@ const routes = [
 										<ml-radio value="enterprise" label="Enterprise - Custom"></ml-radio>
 									</ml-radio-group>
 								</ml-stack>
-								<ml-button slot="footer" variant="outline" @click=${() => c.closeModal('basic')}>Cancel</ml-button>
-								<ml-button slot="footer" variant="primary" @click=${() => c.closeModal('basic')}>Select plan</ml-button>
+								<ml-button slot="footer" variant="outline" @click=S{() => c.closeModal('basic')}>Cancel</ml-button>
+								<ml-button slot="footer" variant="primary" @click=S{() => c.closeModal('basic')}>Select plan</ml-button>
 							</ml-modal>
 						</div>
 
@@ -825,15 +831,15 @@ const routes = [
 								<h3>Form Modal</h3>
 							</div>
 							<div class="demo-row">
-								<ml-button @click=${() => c.openModal('form')}>Open Form Modal</ml-button>
+								<ml-button @click=S{() => c.openModal('form')}>Open Form Modal</ml-button>
 							</div>
 
 							<ml-modal
-								.open=${c.showFormModal}
+								.open=S{c.showFormModal}
 								title="Add experience"
 								description="Share where you've worked on your profile."
 								size="lg"
-								@ml-close=${() => c.closeModal('form')}
+								@ml-close=S{() => c.closeModal('form')}
 							>
 								<div slot="icon">
 									<ml-icon icon="briefcase" size="md"></ml-icon>
@@ -849,7 +855,7 @@ const routes = [
 										<ml-select
 											label="Employment"
 											placeholder="Select type"
-											.options=${[
+											.options=S{[
 												{ value: 'full', label: 'Full time' },
 												{ value: 'part', label: 'Part time' },
 												{ value: 'contract', label: 'Contract' }
@@ -858,8 +864,8 @@ const routes = [
 									</div>
 									<ml-textarea label="Description" placeholder="e.g. I joined Stripe's Customer Success team..." rows="3"></ml-textarea>
 								</ml-stack>
-								<ml-button slot="footer" variant="outline" @click=${() => c.closeModal('form')}>Save as draft</ml-button>
-								<ml-button slot="footer" variant="primary" @click=${() => c.closeModal('form')}>Add experience</ml-button>
+								<ml-button slot="footer" variant="outline" @click=S{() => c.closeModal('form')}>Save as draft</ml-button>
+								<ml-button slot="footer" variant="primary" @click=S{() => c.closeModal('form')}>Add experience</ml-button>
 							</ml-modal>
 						</div>
 
@@ -868,17 +874,17 @@ const routes = [
 								<h3>Confirmation Modal (Centered)</h3>
 							</div>
 							<div class="demo-row">
-								<ml-button variant="outline" @click=${() => c.openModal('confirm')}>Open Confirmation</ml-button>
+								<ml-button variant="outline" @click=S{() => c.openModal('confirm')}>Open Confirmation</ml-button>
 							</div>
 
 							<ml-modal
-								.open=${c.showConfirmModal}
+								.open=S{c.showConfirmModal}
 								title="Blog post published"
 								description="This blog post has been published. Team members will be able to edit this post and republish changes."
 								size="sm"
 								header-layout="stacked"
 								header-align="center"
-								@ml-close=${() => c.closeModal('confirm')}
+								@ml-close=S{() => c.closeModal('confirm')}
 							>
 								<div slot="icon" style="background-color: var(--ml-color-success-subtle); border-color: var(--ml-color-success); color: var(--ml-color-success);">
 									<ml-icon icon="check-circle" size="md"></ml-icon>
@@ -888,8 +894,8 @@ const routes = [
 									<ml-checkbox label="Share on Medium"></ml-checkbox>
 									<ml-checkbox label="Share on Facebook"></ml-checkbox>
 								</ml-stack>
-								<ml-button slot="footer" variant="outline" @click=${() => c.closeModal('confirm')}>Cancel</ml-button>
-								<ml-button slot="footer" variant="primary" @click=${() => c.closeModal('confirm')}>Confirm</ml-button>
+								<ml-button slot="footer" variant="outline" @click=S{() => c.closeModal('confirm')}>Cancel</ml-button>
+								<ml-button slot="footer" variant="primary" @click=S{() => c.closeModal('confirm')}>Confirm</ml-button>
 							</ml-modal>
 						</div>
 
@@ -899,9 +905,9 @@ const routes = [
 								<span class="demo-card__badge">Recommended</span>
 							</div>
 							<div class="demo-row">
-								<ml-button variant="danger" @click=${() => c.openProgrammaticConfirm()}>Delete Item</ml-button>
+								<ml-button variant="danger" @click=S{() => c.openProgrammaticConfirm()}>Delete Item</ml-button>
 								<span style="font-size: var(--ml-text-sm); color: var(--ml-color-text-secondary);">
-									Result: ${c.lastConfirmResult === null ? 'Not yet opened' : c.lastConfirmResult ? 'Confirmed!' : 'Cancelled'}
+									Result: S{c.lastConfirmResult === null ? 'Not yet opened' : c.lastConfirmResult ? 'Confirmed!' : 'Cancelled'}
 								</span>
 							</div>
 							<div class="demo-code-example" style="margin-top: var(--ml-space-4);">
@@ -976,6 +982,7 @@ class ConfirmDialog implements ModalContent&lt;Data, boolean&gt; {
 							</div>
 						</div>
 					</section>
+					-->
 				</main>
 
 				<footer class="demo-footer">

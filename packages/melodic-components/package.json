@@ -25,6 +25,10 @@
 			"types": "./lib/utils/index.d.ts",
 			"default": "./lib/utils/index.js"
 		},
+		"./functions": {
+			"types": "./lib/functions/index.d.ts",
+			"default": "./lib/functions/index.js"
+		},
 		"./button": {
 			"types": "./lib/components/forms/button/index.d.ts",
 			"default": "./lib/components/forms/button/index.js"
@@ -97,9 +101,9 @@
 			"types": "./lib/components/navigation/tabs/index.d.ts",
 			"default": "./lib/components/navigation/tabs/index.js"
 		},
-		"./modal": {
-			"types": "./lib/components/overlays/modal/index.d.ts",
-			"default": "./lib/components/overlays/modal/index.js"
+		"./dialog": {
+			"types": "./lib/components/overlays/dialog/index.d.ts",
+			"default": "./lib/components/overlays/dialog/index.js"
 		}
 	},
 	"scripts": {
