@@ -25,7 +25,8 @@ export class DialogService {
 			dialogRef = new DialogRef(dialogComponentOrID);
 		} else {
 			const dialogComponent: HTMLElement = this.mountDialog(dialogComponentOrID);
-			const dialogEl: HTMLDialogElement = dialogComponent.shadowRoot?.querySelector('dialog') as HTMLDialogElement;
+			const mlDialogEl: HTMLElement = dialogComponent.shadowRoot?.querySelector('ml-dialog') as HTMLElement;
+			const dialogEl: HTMLDialogElement = mlDialogEl.shadowRoot?.querySelector('dialog') as HTMLDialogElement;
 			dialogID = dialogEl.id as UniqueID;
 
 			this.addDialog(dialogID, dialogEl);
