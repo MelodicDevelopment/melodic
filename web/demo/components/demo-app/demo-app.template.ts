@@ -787,6 +787,13 @@ const routes = [
 								</ml-dialog>
 							</div>
 						</div>
+
+						<div class="demo-card__header">
+							<h3>Custom Component</h3>
+							<div class="demo-row">
+								<ml-button @click=${() => c.openConfirmDialog()}>Open Custom Dialog</ml-button>
+							</div>
+						</div>
 					</section>
 
 					<!-- Old Modals Section (commented out)

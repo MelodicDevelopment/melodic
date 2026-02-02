@@ -4,7 +4,8 @@ import { DialogService, type UniqueID, type ThemeMode, type SelectOption } from 
 import { applyTheme, getResolvedTheme, onThemeChange } from '@melodicdev/components/theme';
 import { demoAppTemplate } from './demo-app.template';
 import { demoAppStyles } from './demo-app.styles';
-// import { ConfirmDialog, type ConfirmDialogData } from '../confirm-dialog/confirm-dialog.component';
+import { ConfirmDialog } from '../confirm-dialog/confirm-dialog.component';
+import type { DialogComponentLoader } from 'packages/melodic-components/src/components/overlays/dialog/dialog-loader.type';
 
 @MelodicComponent({
 	selector: 'demo-app',
@@ -72,6 +73,10 @@ export class DemoApp implements IElementRef {
 
 	closeDialog(dialogID: UniqueID | string): void {
 		this._dialogService.close(dialogID as UniqueID);
+	}
+
+	openConfirmDialog(): void {
+		this._dialogService.open(ConfirmDialog as DialogComponentLoader);
 	}
 
 	// openProgrammaticConfirm = async (): Promise<void> => {

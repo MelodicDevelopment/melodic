@@ -18,14 +18,14 @@ export class DialogComponent implements IElementRef, OnCreate, OnDestroy {
 	private _dialogID: UniqueID = newID();
 
 	public elementRef!: HTMLElement;
-	public dialogRef!: HTMLDialogElement;
+	public dialogEl!: HTMLDialogElement;
 
 	onCreate(): void {
-		this.dialogRef = this.elementRef.shadowRoot?.querySelector('dialog') as HTMLDialogElement;
+		this.dialogEl = this.elementRef.shadowRoot?.querySelector('dialog') as HTMLDialogElement;
 		this._dialogID = this.createDialogID();
-		this.dialogRef.id = this._dialogID;
+		this.dialogEl.id = this._dialogID;
 
-		this._dialogService.addDialog(this._dialogID, this.dialogRef);
+		this._dialogService.addDialog(this._dialogID, this.dialogEl);
 	}
 
 	onDestroy(): void {
@@ -33,11 +33,11 @@ export class DialogComponent implements IElementRef, OnCreate, OnDestroy {
 	}
 
 	open(): void {
-		this.dialogRef.showModal();
+		this.dialogEl.showModal();
 	}
 
 	close(): void {
-		this.dialogRef.close();
+		this.dialogEl.close();
 	}
 
 	private createDialogID(): UniqueID {
