@@ -13,9 +13,17 @@ import { type DialogRef, type IDialogRef } from '@melodicdev/components';
 		</ml-dialog>`
 })
 export class ConfirmDialog implements IDialogRef {
-	public dialogRef!: DialogRef;
+	private _dialogRef!: DialogRef;
+
+	onDialogRefSet(dialogRef: DialogRef): void {
+		this._dialogRef = dialogRef;
+
+		dialogRef.afterClosed((result) => {
+			console.log('Dialog closed with result:', result);
+		});
+	}
 
 	close(): void {
-		this.dialogRef.close();
+		this._dialogRef.close();
 	}
 }

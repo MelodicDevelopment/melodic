@@ -39,7 +39,7 @@ export class DialogService {
 			dialogID = dialogEl.id as UniqueID;
 			dialogRef = new DialogRef(dialogID, dialogEl, this);
 
-			(dialogComponent as IDialogComponentElement).component.dialogRef = dialogRef;
+			(dialogComponent as IDialogComponentElement).component.onDialogRefSet?.(dialogRef);
 		}
 
 		dialogRef!.open();
