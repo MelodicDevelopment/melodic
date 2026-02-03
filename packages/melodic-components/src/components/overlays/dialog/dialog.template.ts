@@ -1,7 +1,7 @@
 import { html } from '@melodicdev/core';
 
 export const dialogTemplate = () =>
-	html`<dialog class="ml-dialog" aria-labelledby="title-id" aria-describedby="desc-id">
+	html`<dialog class="ml-dialog">
 		<div class="ml-dialog-header">
 			<slot name="dialog-header"></slot>
 		</div>

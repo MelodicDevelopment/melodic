@@ -1,5 +1,4 @@
 import type { UniqueID } from '../../../functions';
-import type { DialogService } from './dialog.service';
 
 export class DialogRef<T = unknown> {
 	private _afterOpenedCallback: (() => void) | null = null;
@@ -7,8 +6,7 @@ export class DialogRef<T = unknown> {
 
 	constructor(
 		private readonly _dialogID: UniqueID,
-		private readonly _dialogEl: HTMLDialogElement,
-		private readonly _dialogService: DialogService
+		private readonly _dialogEl: HTMLDialogElement
 	) {}
 
 	open(): void {
@@ -18,7 +16,6 @@ export class DialogRef<T = unknown> {
 
 	close(result?: T): void {
 		this._dialogEl.close(JSON.stringify(result));
-		this._dialogService.removeDialog(this._dialogID);
 		this._afterClosedCallback?.(result);
 	}
 

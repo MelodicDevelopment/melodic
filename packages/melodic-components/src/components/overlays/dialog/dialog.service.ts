@@ -14,7 +14,7 @@ export class DialogService {
 	private readonly _dialogs = new Map<UniqueID, DialogRef>();
 
 	addDialog(dialogID: UniqueID, dialogEl: HTMLDialogElement): DialogRef {
-		const dialogRef = new DialogRef(dialogID, dialogEl, this);
+		const dialogRef = new DialogRef(dialogID, dialogEl);
 		this._dialogs.set(dialogID, dialogRef);
 
 		return dialogRef;
@@ -37,7 +37,7 @@ export class DialogService {
 			const dialogEl: HTMLDialogElement = mlDialogEl.shadowRoot?.querySelector('dialog') as HTMLDialogElement;
 
 			dialogID = dialogEl.id as UniqueID;
-			dialogRef = new DialogRef(dialogID, dialogEl, this);
+			dialogRef = new DialogRef(dialogID, dialogEl);
 
 			(dialogComponent as IDialogComponentElement).component.onDialogRefSet?.(dialogRef);
 		}
