@@ -1,34 +1,32 @@
 import type { UniqueID } from '../../../functions';
+import type { DialogService } from './dialog.service';
 
 export class DialogRef<T = unknown> {
-	private readonly _afterOpened: Promise<void>;
-	private _resolvedOpened!: () => void;
-	private readonly _afterClosed: Promise<T | undefined>;
-	private _resolvedClosed!: (result: T | undefined) => void;
+	private _afterOpenedCallback: (() => void) | null = null;
+	private _afterClosedCallback: ((result: T | undefined) => void) | null = null;
 
-	constructor(public readonly dialogID: UniqueID) {
-		this._afterOpened = new Promise<void>((resolve) => {
-			this._resolvedOpened = resolve;
-		});
-
-		this._afterClosed = new Promise<T | undefined>((resolve) => {
-			this._resolvedClosed = resolve;
-		});
-	}
+	constructor(
+		private readonly _dialogID: UniqueID,
+		private readonly _dialogEl: HTMLDialogElement,
+		private readonly _dialogService: DialogService
+	) {}
 
 	open(): void {
-		this._resolvedOpened();
+		this._dialogEl.showModal();
+		this._afterOpenedCallback?.();
 	}
 
 	close(result?: T): void {
-		this._resolvedClosed(result);
+		this._dialogEl.close(JSON.stringify(result));
+		this._dialogService.removeDialog(this._dialogID);
+		this._afterClosedCallback?.(result);
 	}
 
-	afterOpened(): Promise<void> {
-		return this._afterOpened;
+	afterOpened(callback: () => void): void {
+		this._afterOpenedCallback = callback;
 	}
 
-	afterClosed(): Promise<T | undefined> {
-		return this._afterClosed;
+	afterClosed(callback: (result: T | undefined) => void): void {
+		this._afterClosedCallback = callback;
 	}
 }

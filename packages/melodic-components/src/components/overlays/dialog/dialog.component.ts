@@ -4,6 +4,7 @@ import { dialogStyles } from './dialog.styles';
 import type { OnCreate, OnDestroy, IElementRef } from '@melodicdev/core';
 import { newID, type UniqueID } from '../../../functions/new-id.function';
 import { DialogService } from './dialog.service';
+import type { DialogRef } from './dialog-ref.class';
 
 @MelodicComponent({
 	selector: 'ml-dialog',
@@ -12,20 +13,21 @@ import { DialogService } from './dialog.service';
 	attributes: []
 })
 export class DialogComponent implements IElementRef, OnCreate, OnDestroy {
+	public elementRef!: HTMLElement;
+
 	@Service(DialogService)
 	private readonly _dialogService!: DialogService;
 
 	private _dialogID: UniqueID = newID();
-
-	public elementRef!: HTMLElement;
-	public dialogEl!: HTMLDialogElement;
+	private _dialogEl!: HTMLDialogElement;
+	private _dialogRef!: DialogRef;
 
 	onCreate(): void {
-		this.dialogEl = this.elementRef.shadowRoot?.querySelector('dialog') as HTMLDialogElement;
+		this._dialogEl = this.elementRef.shadowRoot?.querySelector('dialog') as HTMLDialogElement;
 		this._dialogID = this.createDialogID();
-		this.dialogEl.id = this._dialogID;
+		this._dialogEl.id = this._dialogID;
 
-		this._dialogService.addDialog(this._dialogID, this.dialogEl);
+		this._dialogRef = this._dialogService.addDialog(this._dialogID, this._dialogEl);
 	}
 
 	onDestroy(): void {
@@ -33,11 +35,11 @@ export class DialogComponent implements IElementRef, OnCreate, OnDestroy {
 	}
 
 	open(): void {
-		this.dialogEl.showModal();
+		this._dialogRef.open();
 	}
 
-	close(): void {
-		this.dialogEl.close();
+	close<T = unknown>(result?: T): void {
+		this._dialogRef.close(result);
 	}
 
 	private createDialogID(): UniqueID {

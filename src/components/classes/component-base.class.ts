@@ -14,7 +14,7 @@ export abstract class ComponentBase extends HTMLElement {
 	private readonly _style: HTMLStyleElement;
 	private _unsubscribers: Array<Unsubscriber> = [];
 	private _renderScheduled = false;
-	private _booleanProperties: Set<string> = new Set();
+	private readonly _booleanProperties: Set<string> = new Set();
 
 	constructor(meta: ComponentMeta, component: Component) {
 		super();
