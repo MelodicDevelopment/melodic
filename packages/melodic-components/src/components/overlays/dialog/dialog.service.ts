@@ -25,7 +25,7 @@ export class DialogService {
 			dialogComponent: undefined
 		});
 
-		dialogEl.addEventListener('ml:dialog-close', () => {
+		dialogEl.addEventListener('close', () => {
 			const elements = this._dialogs.get(dialogID);
 			this.cleanUpDialog(dialogID, elements?.dialogComponent);
 		});
@@ -37,7 +37,7 @@ export class DialogService {
 		this._dialogs.delete(dialogID);
 	}
 
-	open(dialogComponentOrID: UniqueID | DialogComponentLoader): DialogRef {
+	open<TResult = unknown, TData = unknown>(dialogComponentOrID: UniqueID | DialogComponentLoader, data?: TData): DialogRef<TResult, TData> {
 		let dialogID: UniqueID = dialogComponentOrID as UniqueID;
 		let dialogElements: IDialogElements = this._dialogs.get(dialogID)!;
 
@@ -53,9 +53,13 @@ export class DialogService {
 			(dialogComponent as IDialogComponentElement).component.onDialogRefSet?.(dialogElements.dialogRef);
 		}
 
+		if (data !== undefined) {
+			dialogElements.dialogRef.setData(data);
+		}
+
 		dialogElements.dialogRef.open();
 
-		return dialogElements.dialogRef;
+		return dialogElements.dialogRef as DialogRef<TResult, TData>;
 	}
 
 	close<T = unknown>(dialogID: UniqueID, result?: T): void {
@@ -66,8 +70,6 @@ export class DialogService {
 	}
 
 	private cleanUpDialog(dialogID: UniqueID, dialogComponent?: IDialogComponentElement<unknown>): void {
-		// Only full cleanup for dynamic dialogs
-		// Template dialogs stay in the map so they can be reopened
 		if (dialogComponent) {
 			this.unmountDialog(dialogComponent);
 			this.removeDialog(dialogID);
