@@ -39,7 +39,7 @@ import { tabsStyles } from './tabs.styles.js';
  * @slot tab - Tab header elements (ml-tab)
  * @slot default - Tab panel content or router-outlet
  *
- * @fires ml-change - Emitted when active tab changes
+ * @fires ml:change - Emitted when active tab changes
  */
 @MelodicComponent({
 	selector: 'ml-tabs',
@@ -124,7 +124,7 @@ export class TabsComponent implements IElementRef, OnCreate, OnDestroy, OnRender
 		this.updatePanelVisibility();
 
 		this.elementRef.dispatchEvent(
-			new CustomEvent('ml-change', {
+			new CustomEvent('ml:change', {
 				bubbles: true,
 				composed: true,
 				detail: { value: tabValue }

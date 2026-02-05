@@ -23,7 +23,7 @@ import { buttonStyles } from './button.styles.js';
  * @slot icon-start - Icon before the label
  * @slot icon-end - Icon after the label
  *
- * @fires ml-click - Emitted when button is clicked (not disabled/loading)
+ * @fires ml:click - Emitted when button is clicked (not disabled/loading)
  */
 @MelodicComponent({
 	selector: 'ml-button',
@@ -74,7 +74,7 @@ export class ButtonComponent implements IElementRef, OnInit {
 
 		// Dispatch custom event
 		this.elementRef.dispatchEvent(
-			new CustomEvent('ml-click', {
+			new CustomEvent('ml:click', {
 				bubbles: true,
 				composed: true,
 				detail: { originalEvent: event }

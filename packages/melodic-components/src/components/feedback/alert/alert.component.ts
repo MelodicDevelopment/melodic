@@ -20,7 +20,7 @@ import { alertStyles } from './alert.styles.js';
  *
  * @slot default - Alert message content
  * @slot icon - Custom icon (optional)
- * @fires ml-dismiss - Emitted when dismiss button is clicked
+ * @fires ml:dismiss - Emitted when dismiss button is clicked
  */
 @MelodicComponent({
 	selector: 'ml-alert',
@@ -42,7 +42,7 @@ export class AlertComponent implements IElementRef {
 
 	handleDismiss = (): void => {
 		this.elementRef.dispatchEvent(
-			new CustomEvent('ml-dismiss', {
+			new CustomEvent('ml:dismiss', {
 				bubbles: true,
 				composed: true
 			})

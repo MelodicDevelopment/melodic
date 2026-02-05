@@ -52,7 +52,7 @@ export class CardComponent implements IElementRef {
 	handleClick = (event: MouseEvent): void => {
 		if (this.clickable) {
 			this.elementRef.dispatchEvent(
-				new CustomEvent('ml-click', {
+				new CustomEvent('ml:click', {
 					bubbles: true,
 					composed: true,
 					detail: { originalEvent: event }

@@ -14,7 +14,7 @@ import { toggleStyles } from './toggle.styles.js';
  * <ml-toggle size="lg" label="Large toggle"></ml-toggle>
  * ```
  *
- * @fires ml-change - Emitted when toggled
+ * @fires ml:change - Emitted when toggled
  */
 @MelodicComponent({
 	selector: 'ml-toggle',
@@ -50,7 +50,7 @@ export class ToggleComponent implements IElementRef {
 		this.checked = target.checked;
 
 		this.elementRef.dispatchEvent(
-			new CustomEvent('ml-change', {
+			new CustomEvent('ml:change', {
 				bubbles: true,
 				composed: true,
 				detail: { checked: this.checked }

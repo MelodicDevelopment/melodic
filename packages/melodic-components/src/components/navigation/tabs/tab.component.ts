@@ -48,7 +48,7 @@ export class TabComponent implements IElementRef {
 
 		// Dispatch event for parent ml-tabs to handle
 		this.elementRef.dispatchEvent(
-			new CustomEvent('ml-tab-click', {
+			new CustomEvent('ml:tab-click', {
 				bubbles: true,
 				composed: true,
 				detail: { value: this.value, href: this.href }

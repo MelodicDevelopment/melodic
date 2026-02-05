@@ -112,8 +112,8 @@ export class TemplateResult {
 			const s = this.strings[i];
 			const valueIndex = i - 1;
 
-			const match = /([@.:]?[\w-]+)\s*=\s*["']?$/.exec(html);
-			const quotedAttrMatch = /([@.:]?[\w-]+)\s*=\s*(["'])([^"']*)$/.exec(html);
+			const match = /([@.:]?[\w:-]+)\s*=\s*["']?$/.exec(html);
+			const quotedAttrMatch = /([@.:]?[\w:-]+)\s*=\s*(["'])([^"']*)$/.exec(html);
 			let attrKey: string = '___';
 
 			if (activeAttributeName) {

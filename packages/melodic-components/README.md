@@ -20,6 +20,36 @@ import '@melodicdev/components/button';
 document.body.innerHTML = `<ml-button>Click me</ml-button>`;
 ```
 
+## Naming Conventions
+
+### Elements
+
+All components use kebab-case with `ml-` prefix (required by the HTML custom element spec):
+
+```
+ml-button, ml-input, ml-select, ml-checkbox, ml-toggle, etc.
+```
+
+### Events
+
+All custom events use `ml:` namespace prefix to distinguish them from native DOM events:
+
+```
+ml:click, ml:change, ml:input, ml:focus, ml:blur, ml:open, ml:close, ml:dismiss
+```
+
+### Listening to Events
+
+```html
+<ml-button @ml:click=${this.handleClick}>Click me</ml-button>
+<ml-input @ml:change=${this.handleChange}></ml-input>
+<ml-select @ml:open=${this.handleOpen} @ml:close=${this.handleClose}></ml-select>
+```
+
+This naming convention provides clear visual distinction between Melodic component events (`ml:click`) and native DOM events (`click`).
+
+---
+
 ## Icons
 
 The `ml-icon` component displays icons using [Phosphor Icons](https://phosphoricons.com/) via font ligatures.

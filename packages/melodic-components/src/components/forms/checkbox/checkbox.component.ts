@@ -14,7 +14,7 @@ import { checkboxStyles } from './checkbox.styles.js';
  * <ml-checkbox label="Indeterminate" indeterminate></ml-checkbox>
  * ```
  *
- * @fires ml-change - Emitted when checked state changes
+ * @fires ml:change - Emitted when checked state changes
  */
 @MelodicComponent({
 	selector: 'ml-checkbox',
@@ -54,7 +54,7 @@ export class CheckboxComponent implements IElementRef {
 		this.indeterminate = false;
 
 		this.elementRef.dispatchEvent(
-			new CustomEvent('ml-change', {
+			new CustomEvent('ml:change', {
 				bubbles: true,
 				composed: true,
 				detail: { checked: this.checked }

@@ -13,7 +13,7 @@ import { radioStyles } from './radio.styles.js';
  * <ml-radio name="choice" value="b" label="Option B" checked></ml-radio>
  * ```
  *
- * @fires ml-change - Emitted when selected
+ * @fires ml:change - Emitted when selected
  */
 @MelodicComponent({
 	selector: 'ml-radio',
@@ -49,7 +49,7 @@ export class RadioComponent implements IElementRef {
 		this.checked = true;
 
 		this.elementRef.dispatchEvent(
-			new CustomEvent('ml-change', {
+			new CustomEvent('ml:change', {
 				bubbles: true,
 				composed: true,
 				detail: { value: this.value, checked: true }
