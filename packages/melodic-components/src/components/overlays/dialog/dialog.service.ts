@@ -66,11 +66,12 @@ export class DialogService {
 	}
 
 	private cleanUpDialog(dialogID: UniqueID, dialogComponent?: IDialogComponentElement<unknown>): void {
+		// Only full cleanup for dynamic dialogs
+		// Template dialogs stay in the map so they can be reopened
 		if (dialogComponent) {
 			this.unmountDialog(dialogComponent);
+			this.removeDialog(dialogID);
 		}
-
-		this.removeDialog(dialogID);
 	}
 
 	private mountDialog(component: DialogComponentLoader): HTMLElement {
