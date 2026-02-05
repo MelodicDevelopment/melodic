@@ -9,14 +9,33 @@ export class DialogRef<T = unknown> {
 		private readonly _dialogEl: HTMLDialogElement
 	) {}
 
+	get dialogID(): UniqueID {
+		return this._dialogID;
+	}
+
 	open(): void {
 		this._dialogEl.showModal();
 		this._afterOpenedCallback?.();
+
+		this._dialogEl.dispatchEvent(
+			new CustomEvent('ml:dialog-open', {
+				bubbles: true,
+				composed: true
+			})
+		);
 	}
 
 	close(result?: T): void {
-		this._dialogEl.close(JSON.stringify(result));
+		this._dialogEl.close();
 		this._afterClosedCallback?.(result);
+
+		this._dialogEl.dispatchEvent(
+			new CustomEvent('ml:dialog-close', {
+				bubbles: true,
+				composed: true,
+				detail: { result }
+			})
+		);
 	}
 
 	afterOpened(callback: () => void): void {
