@@ -113,6 +113,34 @@
 			"types": "./lib/components/overlays/dropdown/index.d.ts",
 			"default": "./lib/components/overlays/dropdown/index.js"
 		},
+		"./container": {
+			"types": "./lib/components/foundation/container/index.d.ts",
+			"default": "./lib/components/foundation/container/index.js"
+		},
+		"./progress": {
+			"types": "./lib/components/feedback/progress/index.d.ts",
+			"default": "./lib/components/feedback/progress/index.js"
+		},
+		"./toast": {
+			"types": "./lib/components/feedback/toast/index.d.ts",
+			"default": "./lib/components/feedback/toast/index.js"
+		},
+		"./breadcrumb": {
+			"types": "./lib/components/navigation/breadcrumb/index.d.ts",
+			"default": "./lib/components/navigation/breadcrumb/index.js"
+		},
+		"./pagination": {
+			"types": "./lib/components/navigation/pagination/index.d.ts",
+			"default": "./lib/components/navigation/pagination/index.js"
+		},
+		"./slider": {
+			"types": "./lib/components/forms/slider/index.d.ts",
+			"default": "./lib/components/forms/slider/index.js"
+		},
+		"./drawer": {
+			"types": "./lib/components/overlays/drawer/index.d.ts",
+			"default": "./lib/components/overlays/drawer/index.js"
+		},
 		"./directives": {
 			"types": "./lib/directives/index.d.ts",
 			"default": "./lib/directives/index.js"

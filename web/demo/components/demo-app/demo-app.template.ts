@@ -76,6 +76,24 @@ export const demoAppTemplate = (c: DemoApp) => {
 					<a href="#dialogs" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'dialogs')}>
 						<ml-icon icon="browsers" size="sm"></ml-icon>Dialogs
 					</a>
+					<a href="#drawers" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'drawers')}>
+						<ml-icon icon="sidebar" size="sm"></ml-icon>Drawers
+					</a>
+					<a href="#sliders" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'sliders')}>
+						<ml-icon icon="sliders-horizontal" size="sm"></ml-icon>Sliders
+					</a>
+					<a href="#progress" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'progress')}>
+						<ml-icon icon="chart-bar" size="sm"></ml-icon>Progress
+					</a>
+					<a href="#toasts" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'toasts')}>
+						<ml-icon icon="bell-ringing" size="sm"></ml-icon>Toasts
+					</a>
+					<a href="#breadcrumbs" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'breadcrumbs')}>
+						<ml-icon icon="path" size="sm"></ml-icon>Breadcrumbs
+					</a>
+					<a href="#pagination" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'pagination')}>
+						<ml-icon icon="dots-three" size="sm"></ml-icon>Pagination
+					</a>
 				</nav>
 
 				<div class="demo-sidebar__footer">
@@ -1081,6 +1099,256 @@ const routes = [
 							<div class="demo-row">
 								<ml-button @click=${() => c.openConfirmDialog()}>Open Custom Dialog</ml-button>
 							</div>
+						</div>
+					</section>
+
+					<!-- Drawers Section -->
+					<section id="drawers" class="demo-section">
+						<div class="demo-section__header">
+							<h2>Drawers</h2>
+							<p>Slide-out panels for secondary content, forms, and details.</p>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>Side Variants</h3>
+								<span class="demo-card__badge">2 sides</span>
+							</div>
+							<div class="demo-row">
+								<ml-button variant="outline" @click=${() => c.openDrawer('drawer-right')}>Open Right</ml-button>
+								<ml-drawer id="drawer-right" side="right">
+									<h3 slot="drawer-header">Settings</h3>
+									<p>Drawer content slides in from the right. Click the backdrop or the X button to close.</p>
+									<div slot="drawer-footer">
+										<ml-button variant="outline" @click=${() => {}}>Cancel</ml-button>
+										<ml-button>Save</ml-button>
+									</div>
+								</ml-drawer>
+
+								<ml-button variant="outline" @click=${() => c.openDrawer('drawer-left')}>Open Left</ml-button>
+								<ml-drawer id="drawer-left" side="left">
+									<h3 slot="drawer-header">Navigation</h3>
+									<p>This drawer slides in from the left side.</p>
+								</ml-drawer>
+							</div>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>Size Variants</h3>
+								<span class="demo-card__badge">4 sizes</span>
+							</div>
+							<div class="demo-row">
+								<ml-button variant="outline" @click=${() => c.openDrawer('drawer-sm')}>Small</ml-button>
+								<ml-drawer id="drawer-sm" size="sm">
+									<h3 slot="drawer-header">Small Drawer</h3>
+									<p>320px wide panel.</p>
+								</ml-drawer>
+
+								<ml-button variant="outline" @click=${() => c.openDrawer('drawer-md')}>Medium</ml-button>
+								<ml-drawer id="drawer-md" size="md">
+									<h3 slot="drawer-header">Medium Drawer</h3>
+									<p>480px wide panel (default).</p>
+								</ml-drawer>
+
+								<ml-button variant="outline" @click=${() => c.openDrawer('drawer-lg')}>Large</ml-button>
+								<ml-drawer id="drawer-lg" size="lg">
+									<h3 slot="drawer-header">Large Drawer</h3>
+									<p>640px wide panel.</p>
+								</ml-drawer>
+							</div>
+						</div>
+					</section>
+
+					<!-- Sliders Section -->
+					<section id="sliders" class="demo-section">
+						<div class="demo-section__header">
+							<h2>Sliders</h2>
+							<p>Range inputs for selecting numeric values within a range.</p>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>Basic</h3>
+							</div>
+							<ml-stack gap="6">
+								<ml-slider label="Volume" value="50" show-value></ml-slider>
+								<ml-slider label="Brightness" value="75" show-value></ml-slider>
+							</ml-stack>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>Custom Range</h3>
+							</div>
+							<ml-stack gap="6">
+								<ml-slider label="Price" min="0" max="1000" step="10" value="250" show-value hint="Drag to set max price"></ml-slider>
+								<ml-slider label="Temperature" min="-20" max="50" value="22" show-value></ml-slider>
+							</ml-stack>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>States</h3>
+							</div>
+							<ml-stack gap="6">
+								<ml-slider label="Disabled" value="40" disabled show-value></ml-slider>
+								<ml-slider label="With Error" value="10" error="Value must be at least 20" show-value></ml-slider>
+							</ml-stack>
+						</div>
+					</section>
+
+					<!-- Progress Section -->
+					<section id="progress" class="demo-section">
+						<div class="demo-section__header">
+							<h2>Progress</h2>
+							<p>Linear progress bars for displaying completion state.</p>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>Variants</h3>
+								<span class="demo-card__badge">4 colors</span>
+							</div>
+							<ml-stack gap="6">
+								<ml-progress variant="primary" value="60" label="Upload" show-value></ml-progress>
+								<ml-progress variant="success" value="100" label="Complete" show-value></ml-progress>
+								<ml-progress variant="warning" value="45" label="Storage" show-value></ml-progress>
+								<ml-progress variant="error" value="15" label="Failed" show-value></ml-progress>
+							</ml-stack>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>Sizes</h3>
+								<span class="demo-card__badge">3 sizes</span>
+							</div>
+							<ml-stack gap="6">
+								<ml-progress size="sm" value="60" label="Small"></ml-progress>
+								<ml-progress size="md" value="60" label="Medium"></ml-progress>
+								<ml-progress size="lg" value="60" label="Large"></ml-progress>
+							</ml-stack>
+						</div>
+					</section>
+
+					<!-- Toasts Section -->
+					<section id="toasts" class="demo-section">
+						<div class="demo-section__header">
+							<h2>Toasts</h2>
+							<p>Notification messages that appear briefly and auto-dismiss.</p>
+						</div>
+
+						<ml-toast-container position="top-right"></ml-toast-container>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>Trigger Toasts</h3>
+								<span class="demo-card__badge">4 variants</span>
+							</div>
+							<div class="demo-row">
+								<ml-button variant="outline" @click=${() => c.showToast('info', 'Info', 'This is an informational toast.')}>
+									Info Toast
+								</ml-button>
+								<ml-button variant="outline" @click=${() => c.showToast('success', 'Success', 'Your changes have been saved.')}>
+									Success Toast
+								</ml-button>
+								<ml-button variant="outline" @click=${() => c.showToast('warning', 'Warning', 'Please check your input.')}>
+									Warning Toast
+								</ml-button>
+								<ml-button variant="outline" @click=${() => c.showToast('error', 'Error', 'Something went wrong.')}>
+									Error Toast
+								</ml-button>
+							</div>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>Static Examples</h3>
+							</div>
+							<ml-stack gap="3">
+								<ml-toast variant="info" title="Update available" message="A new version is ready to install." duration="0"></ml-toast>
+								<ml-toast variant="success" title="File uploaded" message="document.pdf was uploaded successfully." duration="0"></ml-toast>
+								<ml-toast variant="warning" title="Low storage" message="You have less than 100MB remaining." duration="0"></ml-toast>
+								<ml-toast variant="error" title="Connection lost" message="Please check your internet connection." duration="0"></ml-toast>
+							</ml-stack>
+						</div>
+					</section>
+
+					<!-- Breadcrumbs Section -->
+					<section id="breadcrumbs" class="demo-section">
+						<div class="demo-section__header">
+							<h2>Breadcrumbs</h2>
+							<p>Navigation aid showing the current page location within a hierarchy.</p>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>Chevron Separator</h3>
+								<span class="demo-card__badge">Default</span>
+							</div>
+							<ml-breadcrumb>
+								<ml-breadcrumb-item href="#" icon="house">Home</ml-breadcrumb-item>
+								<ml-breadcrumb-item href="#">Settings</ml-breadcrumb-item>
+								<ml-breadcrumb-item current>Profile</ml-breadcrumb-item>
+							</ml-breadcrumb>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>Slash Separator</h3>
+							</div>
+							<ml-breadcrumb separator="slash">
+								<ml-breadcrumb-item href="#">Dashboard</ml-breadcrumb-item>
+								<ml-breadcrumb-item href="#">Projects</ml-breadcrumb-item>
+								<ml-breadcrumb-item href="#">Melodic UI</ml-breadcrumb-item>
+								<ml-breadcrumb-item current>Components</ml-breadcrumb-item>
+							</ml-breadcrumb>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>With Icons</h3>
+							</div>
+							<ml-breadcrumb>
+								<ml-breadcrumb-item href="#" icon="house">Home</ml-breadcrumb-item>
+								<ml-breadcrumb-item href="#" icon="folder">Documents</ml-breadcrumb-item>
+								<ml-breadcrumb-item href="#" icon="file-text">Reports</ml-breadcrumb-item>
+								<ml-breadcrumb-item current icon="chart-bar">Analytics</ml-breadcrumb-item>
+							</ml-breadcrumb>
+						</div>
+					</section>
+
+					<!-- Pagination Section -->
+					<section id="pagination" class="demo-section">
+						<div class="demo-section__header">
+							<h2>Pagination</h2>
+							<p>Page navigation controls with previous/next buttons and page numbers.</p>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>Interactive</h3>
+							</div>
+							<ml-pagination
+								.page=${c.currentPage}
+								total-pages="10"
+								@ml:page-change=${c.handlePageChange}
+							></ml-pagination>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>Many Pages</h3>
+								<span class="demo-card__badge">Ellipsis</span>
+							</div>
+							<ml-pagination page="5" total-pages="20"></ml-pagination>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>Few Pages</h3>
+							</div>
+							<ml-pagination page="2" total-pages="3"></ml-pagination>
 						</div>
 					</section>
 				</main>

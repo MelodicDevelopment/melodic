@@ -84,6 +84,25 @@ export class DemoApp implements IElementRef {
 	openConfirmDialog(): void {
 		this._dialogService.open(ConfirmDialog as DialogComponentLoader, { data: { message: 'Are you sure you want to proceed?' }, size: 'sm' });
 	}
+
+	openDrawer = (id: string): void => {
+		const root = this.elementRef?.shadowRoot;
+		const drawer = root?.querySelector(`#${id}`) as HTMLElement & { open(): void } | null;
+		drawer?.open();
+	};
+
+	showToast = (variant: string, title: string, message: string): void => {
+		const root = this.elementRef?.shadowRoot;
+		const container = root?.querySelector('ml-toast-container') as HTMLElement & { addToast(opts: Record<string, unknown>): void } | null;
+		container?.addToast({ variant, title, message });
+	};
+
+	/** Pagination demo state */
+	currentPage = 1;
+
+	handlePageChange = (event: CustomEvent): void => {
+		this.currentPage = event.detail.page;
+	};
 }
 
 // Mount the app

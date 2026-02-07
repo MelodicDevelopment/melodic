@@ -38,6 +38,13 @@
 			"@melodicdev/components/dialog": ["packages/melodic-components/src/components/overlays/dialog/index.ts"],
 			"@melodicdev/components/popover": ["packages/melodic-components/src/components/overlays/popover/index.ts"],
 			"@melodicdev/components/dropdown": ["packages/melodic-components/src/components/overlays/dropdown/index.ts"],
+			"@melodicdev/components/container": ["packages/melodic-components/src/components/foundation/container/index.ts"],
+			"@melodicdev/components/progress": ["packages/melodic-components/src/components/feedback/progress/index.ts"],
+			"@melodicdev/components/toast": ["packages/melodic-components/src/components/feedback/toast/index.ts"],
+			"@melodicdev/components/breadcrumb": ["packages/melodic-components/src/components/navigation/breadcrumb/index.ts"],
+			"@melodicdev/components/pagination": ["packages/melodic-components/src/components/navigation/pagination/index.ts"],
+			"@melodicdev/components/slider": ["packages/melodic-components/src/components/forms/slider/index.ts"],
+			"@melodicdev/components/drawer": ["packages/melodic-components/src/components/overlays/drawer/index.ts"],
 			"@melodicdev/components/directives": ["packages/melodic-components/src/directives/index.ts"]
 		},
 
