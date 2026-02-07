@@ -1,0 +1,6 @@
+body {
+	margin: 0;
+	font-family: var(--ml-font-sans);
+	-webkit-font-smoothing: antialiased;
+	-moz-osx-font-smoothing: grayscale;
+}

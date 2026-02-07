@@ -6,7 +6,6 @@ export const demoAppStyles = () => css`
 		min-height: 100vh;
 		background-color: var(--ml-color-surface-raised, var(--ml-color-background));
 		color: var(--ml-color-text);
-		font-family: var(--ml-font-sans);
 	}
 
 	/* Layout */
