@@ -21,6 +21,8 @@ export class ConfirmDialog implements IDialogRef {
 		dialogRef.afterClosed((result) => {
 			console.log('Dialog closed with result:', result);
 		});
+
+		console.log('DialogRef Data:', dialogRef.data);
 	}
 
 	close(): void {

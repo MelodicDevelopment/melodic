@@ -76,25 +76,8 @@ export class DemoApp implements IElementRef {
 	}
 
 	openConfirmDialog(): void {
-		this._dialogService.open(ConfirmDialog as DialogComponentLoader);
+		this._dialogService.open(ConfirmDialog as DialogComponentLoader, { data: { message: 'Are you sure you want to proceed?' }, size: 'sm' });
 	}
-
-	// openProgrammaticConfirm = async (): Promise<void> => {
-	// 	const ref = modalService.open<ConfirmDialogData, boolean>(ConfirmDialog, {
-	// 		data: {
-	// 			title: 'Delete this item?',
-	// 			message: 'This action cannot be undone. The item will be permanently removed from your account.',
-	// 			confirmText: 'Delete',
-	// 			cancelText: 'Keep it',
-	// 			variant: 'danger'
-	// 		},
-	// 		size: 'sm',
-	// 		showClose: false
-	// 	});
-
-	// 	const result = await ref.afterClosed();
-	// 	this.lastConfirmResult = result ?? null;
-	// };
 }
 
 // Mount the app

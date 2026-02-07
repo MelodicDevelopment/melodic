@@ -4,6 +4,7 @@ import { DialogRef } from './dialog-ref.class';
 import type { DialogComponentLoader } from './dialog-loader.type';
 import type { ComponentBase } from '@melodicdev/core';
 import type { IDialogRef } from './idialog-ref.interface';
+import type { IDialogConfig } from './dialog-config.interface';
 
 interface IDialogComponentElement<T = unknown> extends HTMLElement {
 	component: ComponentBase & Partial<IDialogRef<T>>;
@@ -37,7 +38,7 @@ export class DialogService {
 		this._dialogs.delete(dialogID);
 	}
 
-	open<TResult = unknown, TData = unknown>(dialogComponentOrID: UniqueID | DialogComponentLoader, data?: TData): DialogRef<TResult, TData> {
+	open<TResult = unknown, TData = unknown>(dialogComponentOrID: UniqueID | DialogComponentLoader, config?: IDialogConfig<TData>): DialogRef<TResult, TData> {
 		let dialogID: UniqueID = dialogComponentOrID as UniqueID;
 		let dialogElements: IDialogElements = this._dialogs.get(dialogID)!;
 
@@ -50,11 +51,12 @@ export class DialogService {
 			dialogElements = this._dialogs.get(dialogID)!;
 
 			dialogElements.dialogComponent = dialogComponent as IDialogComponentElement;
-			(dialogComponent as IDialogComponentElement).component.onDialogRefSet?.(dialogElements.dialogRef);
-		}
 
-		if (data !== undefined) {
-			dialogElements.dialogRef.setData(data);
+			if (config) {
+				dialogElements.dialogRef.applyConfig(config);
+			}
+
+			(dialogComponent as IDialogComponentElement).component.onDialogRefSet?.(dialogElements.dialogRef);
 		}
 
 		dialogElements.dialogRef.open();
