@@ -5,6 +5,8 @@ import { applyTheme, getResolvedTheme, onThemeChange } from '@melodicdev/compone
 import { demoAppTemplate } from './demo-app.template';
 import { demoAppStyles } from './demo-app.styles';
 import { ConfirmDialog } from '../confirm-dialog/confirm-dialog.component';
+import '../profile-popover/profile-popover.component';
+import '../confirm-popover/confirm-popover.component';
 import type { DialogComponentLoader } from 'packages/melodic-components/src/components/overlays/dialog/dialog-loader.type';
 
 @MelodicComponent({
@@ -74,6 +76,10 @@ export class DemoApp implements IElementRef {
 	closeDialog(dialogID: UniqueID | string): void {
 		this._dialogService.close(dialogID as UniqueID);
 	}
+
+	handleConfirmResult = (event: CustomEvent): void => {
+		console.log('Confirm popover result:', event.detail);
+	};
 
 	openConfirmDialog(): void {
 		this._dialogService.open(ConfirmDialog as DialogComponentLoader, { data: { message: 'Are you sure you want to proceed?' }, size: 'sm' });

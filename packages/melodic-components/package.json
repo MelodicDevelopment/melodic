@@ -104,6 +104,10 @@
 		"./dialog": {
 			"types": "./lib/components/overlays/dialog/index.d.ts",
 			"default": "./lib/components/overlays/dialog/index.js"
+		},
+		"./popover": {
+			"types": "./lib/components/overlays/popover/index.d.ts",
+			"default": "./lib/components/overlays/popover/index.js"
 		}
 	},
 	"scripts": {

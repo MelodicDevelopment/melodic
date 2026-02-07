@@ -1,2 +1,1 @@
-// TODO: Implement popover component
-export const Popover = {};
+export { PopoverComponent } from './popover.component.js';

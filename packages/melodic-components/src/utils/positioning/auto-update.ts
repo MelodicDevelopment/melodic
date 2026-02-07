@@ -17,18 +17,27 @@ export interface AutoUpdateOptions {
  */
 function getScrollAncestors(element: Element): Element[] {
 	const ancestors: Element[] = [];
-	let current = element.parentElement;
+	let node: Node | null = element;
 
-	while (current) {
-		const { overflow, overflowX, overflowY } = getComputedStyle(current);
-		if (/auto|scroll|overlay|hidden/.test(overflow + overflowX + overflowY)) {
-			ancestors.push(current);
+	while (node) {
+		const parent: Node | null = node.parentNode;
+
+		if (parent instanceof ShadowRoot) {
+			// Cross shadow DOM boundary — continue from the host element
+			node = parent.host;
+			continue;
 		}
-		current = current.parentElement;
-	}
 
-	// Always include window for scroll events
-	ancestors.push(document.documentElement);
+		if (parent instanceof Element) {
+			const { overflow, overflowX, overflowY } = getComputedStyle(parent);
+			if (/auto|scroll|overlay|hidden/.test(overflow + overflowX + overflowY)) {
+				ancestors.push(parent);
+			}
+			node = parent;
+		} else {
+			break;
+		}
+	}
 
 	return ancestors;
 }
@@ -42,13 +51,15 @@ export function autoUpdate(reference: Element, floating: HTMLElement, update: ()
 
 	const cleanups: (() => void)[] = [];
 
-	// Update on scroll
+	// Update on scroll (ancestors + window for viewport scroll)
 	if (ancestorScroll) {
 		const ancestors = getScrollAncestors(reference);
 		for (const ancestor of ancestors) {
 			ancestor.addEventListener('scroll', update, { passive: true });
 			cleanups.push(() => ancestor.removeEventListener('scroll', update));
 		}
+		window.addEventListener('scroll', update, { passive: true });
+		cleanups.push(() => window.removeEventListener('scroll', update));
 	}
 
 	// Update on window resize

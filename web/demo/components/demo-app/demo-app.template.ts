@@ -64,6 +64,9 @@ export const demoAppTemplate = (c: DemoApp) => {
 					<a href="#tabs" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'tabs')}>
 						<ml-icon icon="tabs" size="sm"></ml-icon>Tabs
 					</a>
+					<a href="#popovers" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'popovers')}>
+						<ml-icon icon="chat-circle" size="sm"></ml-icon>Popovers
+					</a>
 					<a href="#dialogs" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'dialogs')}>
 						<ml-icon icon="browsers" size="sm"></ml-icon>Dialogs
 					</a>
@@ -760,6 +763,119 @@ const routes = [
 									<li>Child components render inside the router-outlet</li>
 									<li>Browser back/forward buttons work correctly</li>
 								</ul>
+							</div>
+						</div>
+					</section>
+
+					<!-- Popovers Section -->
+					<section id="popovers" class="demo-section">
+						<div class="demo-section__header">
+							<h2>Popovers</h2>
+							<p>Floating overlays anchored to a trigger element, using the native Popover API.</p>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>Basic Popover</h3>
+								<span class="demo-card__badge">Auto-dismiss</span>
+							</div>
+							<div class="demo-row">
+								<ml-popover placement="bottom">
+									<ml-button slot="trigger">Click me</ml-button>
+									<div>
+										<p><strong>Popover Title</strong></p>
+										<p>This popover closes when you click outside.</p>
+									</div>
+								</ml-popover>
+
+								<ml-popover placement="bottom-start">
+									<ml-button slot="trigger" variant="outline">Bottom Start</ml-button>
+									<p>Aligned to the start of the trigger.</p>
+								</ml-popover>
+
+								<ml-popover placement="top">
+									<ml-button slot="trigger" variant="outline">Top</ml-button>
+									<p>This popover appears above the trigger.</p>
+								</ml-popover>
+							</div>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>With Arrow</h3>
+							</div>
+							<div class="demo-row">
+								<ml-popover placement="bottom" arrow>
+									<ml-button slot="trigger">With Arrow</ml-button>
+									<p>This popover has an arrow pointing to the trigger.</p>
+								</ml-popover>
+
+								<ml-popover placement="right" arrow>
+									<ml-button slot="trigger" variant="outline">Right Arrow</ml-button>
+									<p>Arrow on the right side.</p>
+								</ml-popover>
+							</div>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>Manual Mode</h3>
+								<span class="demo-card__badge">No light-dismiss</span>
+							</div>
+							<div class="demo-row">
+								<ml-popover placement="bottom" manual>
+									<ml-button slot="trigger" variant="secondary">Manual Popover</ml-button>
+									<div>
+										<p>This popover won't close on outside click.</p>
+										<p>Click the trigger again to close it.</p>
+									</div>
+								</ml-popover>
+							</div>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>Profile Popover</h3>
+								<span class="demo-card__badge">Custom component</span>
+							</div>
+							<div class="demo-row">
+								<profile-popover
+									name="Jane Cooper"
+									email="jane.cooper@example.com"
+									role="Admin"
+								></profile-popover>
+								<profile-popover
+									name="Alex Morgan"
+									email="alex.morgan@example.com"
+									role="Editor"
+								></profile-popover>
+							</div>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>Confirm Popover</h3>
+								<span class="demo-card__badge">Custom events</span>
+							</div>
+							<div class="demo-row">
+								<confirm-popover
+									message="This action cannot be undone. Are you sure you want to delete this item?"
+									@ml:confirm=${c.handleConfirmResult}
+								>
+									<ml-button slot="trigger" variant="danger">
+										<ml-icon icon="trash" size="sm"></ml-icon>
+										Delete Item
+									</ml-button>
+								</confirm-popover>
+								<confirm-popover
+									message="Are you sure you want to archive this project?"
+									@ml:confirm=${c.handleConfirmResult}
+								>
+									<ml-button slot="trigger" variant="outline">
+										<ml-icon icon="archive" size="sm"></ml-icon>
+										Archive Project
+									</ml-button>
+								</confirm-popover>
 							</div>
 						</div>
 					</section>

@@ -39,6 +39,7 @@ export default defineConfig({
 			'@melodicdev/components/icons': resolve(__dirname, 'packages/melodic-components/src/icons/index.ts'),
 			'@melodicdev/components/tabs': resolve(__dirname, 'packages/melodic-components/src/components/navigation/tabs/index.ts'),
 			'@melodicdev/components/dialog': resolve(__dirname, 'packages/melodic-components/src/components/overlays/dialog/index.ts'),
+			'@melodicdev/components/popover': resolve(__dirname, 'packages/melodic-components/src/components/overlays/popover/index.ts'),
 			'@melodicdev/components': resolve(__dirname, 'packages/melodic-components/src/index.ts')
 		}
 	},
