@@ -31,6 +31,7 @@ import '@melodicdev/components/icon';
 import '@melodicdev/components/tooltip';
 import '@melodicdev/components/dialog';
 import '@melodicdev/components/popover';
+import '@melodicdev/components/dropdown';
 
 // Import components - Navigation
 import '@melodicdev/components/tabs';

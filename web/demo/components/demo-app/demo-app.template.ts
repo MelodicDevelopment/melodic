@@ -70,6 +70,9 @@ export const demoAppTemplate = (c: DemoApp) => {
 					<a href="#popovers" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'popovers')}>
 						<ml-icon icon="chat-circle" size="sm"></ml-icon>Popovers
 					</a>
+					<a href="#dropdowns" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'dropdowns')}>
+						<ml-icon icon="list" size="sm"></ml-icon>Dropdowns
+					</a>
 					<a href="#dialogs" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'dialogs')}>
 						<ml-icon icon="browsers" size="sm"></ml-icon>Dialogs
 					</a>
@@ -926,6 +929,125 @@ const routes = [
 										Archive Project
 									</ml-button>
 								</confirm-popover>
+							</div>
+						</div>
+					</section>
+
+					<!-- Dropdowns Section -->
+					<section id="dropdowns" class="demo-section">
+						<div class="demo-section__header">
+							<h2>Dropdowns</h2>
+							<p>Menu overlays anchored to a trigger, with keyboard navigation and item groups.</p>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>Basic</h3>
+								<span class="demo-card__badge">Simple items</span>
+							</div>
+							<div class="demo-row">
+								<ml-dropdown>
+									<ml-button slot="trigger" variant="outline">
+										Actions
+										<ml-icon icon="caret-down" size="sm"></ml-icon>
+									</ml-button>
+									<ml-dropdown-item value="edit" icon="pencil">Edit</ml-dropdown-item>
+									<ml-dropdown-item value="duplicate" icon="copy">Duplicate</ml-dropdown-item>
+									<ml-dropdown-item value="archive" icon="archive">Archive</ml-dropdown-item>
+								</ml-dropdown>
+							</div>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>Icons &amp; Addons</h3>
+								<span class="demo-card__badge">Shortcuts</span>
+							</div>
+							<div class="demo-row">
+								<ml-dropdown>
+									<ml-button slot="trigger" variant="outline">
+										Edit
+										<ml-icon icon="caret-down" size="sm"></ml-icon>
+									</ml-button>
+									<ml-dropdown-item value="cut" icon="scissors" addon="Cmd+X">Cut</ml-dropdown-item>
+									<ml-dropdown-item value="copy" icon="copy" addon="Cmd+C">Copy</ml-dropdown-item>
+									<ml-dropdown-item value="paste" icon="clipboard-text" addon="Cmd+V">Paste</ml-dropdown-item>
+								</ml-dropdown>
+							</div>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>Sections &amp; Separators</h3>
+								<span class="demo-card__badge">Groups</span>
+							</div>
+							<div class="demo-row">
+								<ml-dropdown>
+									<ml-button slot="trigger" variant="outline">
+										<ml-icon icon="user" size="sm"></ml-icon>
+										My Account
+										<ml-icon icon="caret-down" size="sm"></ml-icon>
+									</ml-button>
+									<ml-dropdown-group label="Account">
+										<ml-dropdown-item value="profile" icon="user">Profile</ml-dropdown-item>
+										<ml-dropdown-item value="settings" icon="gear">Settings</ml-dropdown-item>
+									</ml-dropdown-group>
+									<ml-dropdown-separator></ml-dropdown-separator>
+									<ml-dropdown-group label="Team">
+										<ml-dropdown-item value="members" icon="users">Members</ml-dropdown-item>
+										<ml-dropdown-item value="invite" icon="user-plus">Invite</ml-dropdown-item>
+									</ml-dropdown-group>
+									<ml-dropdown-separator></ml-dropdown-separator>
+									<ml-dropdown-item value="sign-out" icon="sign-out" destructive>Sign out</ml-dropdown-item>
+								</ml-dropdown>
+							</div>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>Destructive &amp; Disabled</h3>
+								<span class="demo-card__badge">States</span>
+							</div>
+							<div class="demo-row">
+								<ml-dropdown>
+									<ml-button slot="trigger" variant="outline">
+										More
+										<ml-icon icon="dots-three" size="sm"></ml-icon>
+									</ml-button>
+									<ml-dropdown-item value="edit" icon="pencil">Edit</ml-dropdown-item>
+									<ml-dropdown-item value="share" icon="share-network" disabled>Share</ml-dropdown-item>
+									<ml-dropdown-separator></ml-dropdown-separator>
+									<ml-dropdown-item value="delete" icon="trash" destructive>Delete</ml-dropdown-item>
+								</ml-dropdown>
+							</div>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>Placement</h3>
+								<span class="demo-card__badge">4 positions</span>
+							</div>
+							<div class="demo-row">
+								<ml-dropdown placement="bottom-start">
+									<ml-button slot="trigger" variant="outline">Bottom Start</ml-button>
+									<ml-dropdown-item value="1">Item one</ml-dropdown-item>
+									<ml-dropdown-item value="2">Item two</ml-dropdown-item>
+								</ml-dropdown>
+								<ml-dropdown placement="bottom-end">
+									<ml-button slot="trigger" variant="outline">Bottom End</ml-button>
+									<ml-dropdown-item value="1">Item one</ml-dropdown-item>
+									<ml-dropdown-item value="2">Item two</ml-dropdown-item>
+								</ml-dropdown>
+								<ml-dropdown placement="top-start">
+									<ml-button slot="trigger" variant="outline">Top Start</ml-button>
+									<ml-dropdown-item value="1">Item one</ml-dropdown-item>
+									<ml-dropdown-item value="2">Item two</ml-dropdown-item>
+								</ml-dropdown>
+								<ml-dropdown placement="right-start">
+									<ml-button slot="trigger" variant="outline">Right Start</ml-button>
+									<ml-dropdown-item value="1">Item one</ml-dropdown-item>
+									<ml-dropdown-item value="2">Item two</ml-dropdown-item>
+								</ml-dropdown>
 							</div>
 						</div>
 					</section>

@@ -109,6 +109,10 @@
 			"types": "./lib/components/overlays/popover/index.d.ts",
 			"default": "./lib/components/overlays/popover/index.js"
 		},
+		"./dropdown": {
+			"types": "./lib/components/overlays/dropdown/index.d.ts",
+			"default": "./lib/components/overlays/dropdown/index.js"
+		},
 		"./directives": {
 			"types": "./lib/directives/index.d.ts",
 			"default": "./lib/directives/index.js"

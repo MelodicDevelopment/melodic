@@ -40,6 +40,7 @@ export default defineConfig({
 			'@melodicdev/components/tabs': resolve(__dirname, 'packages/melodic-components/src/components/navigation/tabs/index.ts'),
 			'@melodicdev/components/dialog': resolve(__dirname, 'packages/melodic-components/src/components/overlays/dialog/index.ts'),
 			'@melodicdev/components/popover': resolve(__dirname, 'packages/melodic-components/src/components/overlays/popover/index.ts'),
+			'@melodicdev/components/dropdown': resolve(__dirname, 'packages/melodic-components/src/components/overlays/dropdown/index.ts'),
 			'@melodicdev/components/directives': resolve(__dirname, 'packages/melodic-components/src/directives/index.ts'),
 			'@melodicdev/components': resolve(__dirname, 'packages/melodic-components/src/index.ts')
 		}

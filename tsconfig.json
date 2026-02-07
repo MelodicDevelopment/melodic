@@ -37,6 +37,7 @@
 			"@melodicdev/components/icon": ["packages/melodic-components/src/components/general/icon/index.ts"],
 			"@melodicdev/components/dialog": ["packages/melodic-components/src/components/overlays/dialog/index.ts"],
 			"@melodicdev/components/popover": ["packages/melodic-components/src/components/overlays/popover/index.ts"],
+			"@melodicdev/components/dropdown": ["packages/melodic-components/src/components/overlays/dropdown/index.ts"],
 			"@melodicdev/components/directives": ["packages/melodic-components/src/directives/index.ts"]
 		},
 
