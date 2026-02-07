@@ -35,6 +35,9 @@ import '@melodicdev/components/popover';
 // Import components - Navigation
 import '@melodicdev/components/tabs';
 
+// Import directives
+import '@melodicdev/components/directives';
+
 // Inject base styles
 const styleSheet = document.createElement('style');
 styleSheet.textContent = baseThemeCss + '\n' + lightThemeCss + '\n' + darkThemeCss;

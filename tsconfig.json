@@ -35,7 +35,9 @@
 			"@melodicdev/components/avatar": ["packages/melodic-components/src/components/data-display/avatar/index.ts"],
 			"@melodicdev/components/tooltip": ["packages/melodic-components/src/components/overlays/tooltip/index.ts"],
 			"@melodicdev/components/icon": ["packages/melodic-components/src/components/general/icon/index.ts"],
-			"@melodicdev/components/dialog": ["packages/melodic-components/src/components/overlays/dialog/index.ts"]
+			"@melodicdev/components/dialog": ["packages/melodic-components/src/components/overlays/dialog/index.ts"],
+			"@melodicdev/components/popover": ["packages/melodic-components/src/components/overlays/popover/index.ts"],
+			"@melodicdev/components/directives": ["packages/melodic-components/src/directives/index.ts"]
 		},
 
 		/* Linting */

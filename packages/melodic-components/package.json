@@ -108,6 +108,10 @@
 		"./popover": {
 			"types": "./lib/components/overlays/popover/index.d.ts",
 			"default": "./lib/components/overlays/popover/index.js"
+		},
+		"./directives": {
+			"types": "./lib/directives/index.d.ts",
+			"default": "./lib/directives/index.js"
 		}
 	},
 	"scripts": {

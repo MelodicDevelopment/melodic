@@ -64,6 +64,9 @@ export const demoAppTemplate = (c: DemoApp) => {
 					<a href="#tabs" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'tabs')}>
 						<ml-icon icon="tabs" size="sm"></ml-icon>Tabs
 					</a>
+					<a href="#tooltips" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'tooltips')}>
+						<ml-icon icon="chat-centered" size="sm"></ml-icon>Tooltips
+					</a>
 					<a href="#popovers" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'popovers')}>
 						<ml-icon icon="chat-circle" size="sm"></ml-icon>Popovers
 					</a>
@@ -147,19 +150,6 @@ export const demoAppTemplate = (c: DemoApp) => {
 							</div>
 						</div>
 
-						<div class="demo-card">
-							<div class="demo-card__header">
-								<h3>With Tooltips</h3>
-							</div>
-							<div class="demo-row">
-								<ml-tooltip content="This is a tooltip!">
-									<ml-button>Hover me</ml-button>
-								</ml-tooltip>
-								<ml-tooltip content="Tooltip on bottom" placement="bottom">
-									<ml-button variant="outline">Bottom tooltip</ml-button>
-								</ml-tooltip>
-							</div>
-						</div>
 					</section>
 
 					<!-- Cards Section -->
@@ -763,6 +753,66 @@ const routes = [
 									<li>Child components render inside the router-outlet</li>
 									<li>Browser back/forward buttons work correctly</li>
 								</ul>
+							</div>
+						</div>
+					</section>
+
+					<!-- Tooltips Section -->
+					<section id="tooltips" class="demo-section">
+						<div class="demo-section__header">
+							<h2>Tooltips</h2>
+							<p>Contextual hints that appear on hover or focus, anchored to a trigger element.</p>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>Placement</h3>
+								<span class="demo-card__badge">4 sides</span>
+							</div>
+							<div class="demo-row">
+								<ml-tooltip content="Tooltip on top" placement="top">
+									<ml-button variant="outline">Top</ml-button>
+								</ml-tooltip>
+								<ml-tooltip content="Tooltip on bottom" placement="bottom">
+									<ml-button variant="outline">Bottom</ml-button>
+								</ml-tooltip>
+								<ml-tooltip content="Tooltip on left" placement="left">
+									<ml-button variant="outline">Left</ml-button>
+								</ml-tooltip>
+								<ml-tooltip content="Tooltip on right" placement="right">
+									<ml-button variant="outline">Right</ml-button>
+								</ml-tooltip>
+							</div>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>On Various Elements</h3>
+							</div>
+							<div class="demo-row">
+								<ml-tooltip content="This is a button tooltip">
+									<ml-button>Hover me</ml-button>
+								</ml-tooltip>
+								<ml-tooltip content="Icon with a tooltip">
+									<ml-icon icon="info" size="lg"></ml-icon>
+								</ml-tooltip>
+								<ml-tooltip content="Badge with a tooltip">
+									<ml-badge variant="primary">Hover</ml-badge>
+								</ml-tooltip>
+							</div>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>Directive Shorthand</h3>
+								<span class="demo-card__badge">:tooltip</span>
+							</div>
+							<div class="demo-row">
+								<ml-button :tooltip="Quick and easy tooltip">Hover me</ml-button>
+								<ml-button variant="outline" :tooltip=${{ content: 'Bottom placement', placement: 'bottom' }}>With placement</ml-button>
+								<ml-button variant="ghost" :tooltip="Works on any element">
+									<ml-icon icon="gear" size="sm"></ml-icon>
+								</ml-button>
 							</div>
 						</div>
 					</section>
