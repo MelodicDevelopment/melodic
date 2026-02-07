@@ -7,12 +7,14 @@ export class DialogRef<TResult = unknown, TData = unknown> {
 	private _data: TData | undefined;
 	private _disableClose = false;
 	private readonly _handleCancel = this.onCancel.bind(this);
+	private readonly _handleBackdropClick = this.onBackdropClick.bind(this);
 
 	constructor(
 		private readonly _dialogID: UniqueID,
 		private readonly _dialogEl: HTMLDialogElement
 	) {
 		this._dialogEl.addEventListener('cancel', this._handleCancel);
+		this._dialogEl.addEventListener('click', this._handleBackdropClick);
 	}
 
 	get dialogID(): UniqueID {
@@ -73,6 +75,12 @@ export class DialogRef<TResult = unknown, TData = unknown> {
 	private onCancel(event: Event): void {
 		if (this._disableClose) {
 			event.preventDefault();
+		}
+	}
+
+	private onBackdropClick(event: MouseEvent): void {
+		if (event.target === this._dialogEl && !this._disableClose) {
+			this.close();
 		}
 	}
 }
