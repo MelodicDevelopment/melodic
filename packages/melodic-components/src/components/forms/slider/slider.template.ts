@@ -23,7 +23,7 @@ export function sliderTemplate(c: SliderComponent) {
 
 			<div class="ml-slider__track-wrapper">
 				<div class="ml-slider__track">
-					<div class="ml-slider__fill" style=${styleMap({ width: `${c.percentage}%` })}></div>
+					<div class="ml-slider__fill" style=${styleMap({ width: c.fillWidth })}></div>
 				</div>
 				<input
 					class="ml-slider__input"
@@ -32,7 +32,7 @@ export function sliderTemplate(c: SliderComponent) {
 					min=${c.min}
 					max=${c.max}
 					step=${c.step}
-					?disabled=${c.disabled}
+					disabled=${c.disabled}
 					aria-label=${c.label || 'Slider'}
 					@input=${c.handleInput}
 					@change=${c.handleChange}

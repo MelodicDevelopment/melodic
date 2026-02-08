@@ -1193,7 +1193,7 @@ const routes = [
 							</div>
 							<ml-stack gap="6">
 								<ml-slider label="Disabled" value="40" disabled show-value></ml-slider>
-								<ml-slider label="With Error" value="10" error="Value must be at least 20" show-value></ml-slider>
+								<ml-slider label="With Error" value="10" .error=${c.sliderError} show-value @ml:input=${c.handleSliderValidation}></ml-slider>
 							</ml-stack>
 						</div>
 					</section>

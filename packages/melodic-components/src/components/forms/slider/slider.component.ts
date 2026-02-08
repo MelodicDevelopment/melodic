@@ -55,11 +55,17 @@ export class SliderComponent implements IElementRef {
 	/** Error message */
 	error = '';
 
-	/** Percentage for fill track */
-	get percentage(): number {
+	/** Ratio 0–1 for fill track */
+	get ratio(): number {
 		const range = this.max - this.min;
 		if (range <= 0) return 0;
-		return ((this.value - this.min) / range) * 100;
+		return (this.value - this.min) / range;
+	}
+
+	/** CSS width for fill that matches native thumb position */
+	get fillWidth(): string {
+		const p = this.ratio;
+		return `calc(${p * 100}% + ${10 - p * 20}px)`;
 	}
 
 	handleInput = (event: Event): void => {

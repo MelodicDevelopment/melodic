@@ -35,9 +35,9 @@ export class PaginationComponent implements IElementRef {
 	siblings = 1;
 
 	get pages(): PaginationPage[] {
-		const total = Math.max(1, this.totalPages);
-		const current = Math.min(Math.max(1, this.page), total);
-		const siblings = Math.max(0, this.siblings);
+		const total = Math.max(1, Number(this.totalPages));
+		const current = Math.min(Math.max(1, Number(this.page)), total);
+		const siblings = Math.max(0, Number(this.siblings));
 
 		const range = (start: number, end: number) =>
 			Array.from({ length: end - start + 1 }, (_, i): PaginationPage => ({ type: 'page', value: start + i }));
@@ -72,15 +72,17 @@ export class PaginationComponent implements IElementRef {
 	}
 
 	get hasPrevious(): boolean {
-		return this.page > 1;
+		return Number(this.page) > 1;
 	}
 
 	get hasNext(): boolean {
-		return this.page < this.totalPages;
+		return Number(this.page) < Number(this.totalPages);
 	}
 
 	goToPage = (page: number): void => {
-		if (page < 1 || page > this.totalPages || page === this.page) return;
+		const currentPage = Number(this.page);
+		const total = Number(this.totalPages);
+		if (page < 1 || page > total || page === currentPage) return;
 
 		this.page = page;
 		this.elementRef.dispatchEvent(
@@ -93,10 +95,10 @@ export class PaginationComponent implements IElementRef {
 	};
 
 	previous = (): void => {
-		this.goToPage(this.page - 1);
+		this.goToPage(Number(this.page) - 1);
 	};
 
 	next = (): void => {
-		this.goToPage(this.page + 1);
+		this.goToPage(Number(this.page) + 1);
 	};
 }

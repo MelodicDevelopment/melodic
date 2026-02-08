@@ -64,7 +64,6 @@ export const sliderStyles = () => css`
 		background-color: var(--ml-color-primary);
 		border-radius: var(--ml-radius-full);
 		pointer-events: none;
-		transition: width var(--ml-duration-100) var(--ml-ease-out);
 	}
 
 	.ml-slider--sm .ml-slider__fill {
@@ -80,7 +79,7 @@ export const sliderStyles = () => css`
 	}
 
 	.ml-slider--error .ml-slider__fill {
-		background-color: var(--ml-color-error);
+		background-color: var(--ml-color-danger);
 	}
 
 	/* Native range input - overlays the track */
@@ -125,7 +124,7 @@ export const sliderStyles = () => css`
 	}
 
 	.ml-slider--error .ml-slider__input::-webkit-slider-thumb {
-		border-color: var(--ml-color-error);
+		border-color: var(--ml-color-danger);
 	}
 
 	/* Firefox thumb */
@@ -139,7 +138,7 @@ export const sliderStyles = () => css`
 	}
 
 	.ml-slider--error .ml-slider__input::-moz-range-thumb {
-		border-color: var(--ml-color-error);
+		border-color: var(--ml-color-danger);
 	}
 
 	/* Hide browser track (we use custom track) */
@@ -165,6 +164,6 @@ export const sliderStyles = () => css`
 		display: block;
 		margin-top: var(--ml-space-2);
 		font-size: var(--ml-text-sm);
-		color: var(--ml-color-error);
+		color: var(--ml-color-danger);
 	}
 `;

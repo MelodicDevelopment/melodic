@@ -11,7 +11,7 @@ export function paginationTemplate(c: PaginationComponent) {
 					'ml-pagination__btn--disabled': !c.hasPrevious
 				})}
 				aria-label="Previous page"
-				?disabled=${!c.hasPrevious}
+				disabled=${!c.hasPrevious}
 				@click=${c.previous}
 			>
 				<ml-icon icon="arrow-left" size="sm"></ml-icon>
@@ -31,10 +31,10 @@ export function paginationTemplate(c: PaginationComponent) {
 								class=${classMap({
 									'ml-pagination__btn': true,
 									'ml-pagination__btn--page': true,
-									'ml-pagination__btn--active': p.value === c.page
+									'ml-pagination__btn--active': p.value === Number(c.page)
 								})}
 								aria-label=${`Page ${p.value}`}
-								aria-current=${p.value === c.page ? 'page' : false}
+								aria-current=${p.value === Number(c.page) ? 'page' : false}
 								@click=${() => c.goToPage(p.value)}
 							>
 								${p.value}
@@ -51,7 +51,7 @@ export function paginationTemplate(c: PaginationComponent) {
 					'ml-pagination__btn--disabled': !c.hasNext
 				})}
 				aria-label="Next page"
-				?disabled=${!c.hasNext}
+				disabled=${!c.hasNext}
 				@click=${c.next}
 			>
 				Next

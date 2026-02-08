@@ -98,6 +98,13 @@ export class DemoApp implements IElementRef {
 		this._toastService.show({ variant: variant as 'info' | 'success' | 'warning' | 'error', title, message });
 	};
 
+	/** Slider error demo state */
+	sliderError = 'Value must be at least 20';
+
+	handleSliderValidation = (event: CustomEvent): void => {
+		this.sliderError = event.detail.value < 20 ? 'Value must be at least 20' : '';
+	};
+
 	/** Pagination demo state */
 	currentPage = 1;
 
