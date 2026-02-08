@@ -1,9 +1,8 @@
 import { MelodicComponent, html } from '@melodicdev/core';
 import type { IElementRef, OnCreate } from '@melodicdev/core';
+import type { ToastVariant } from './toast-config.interface.js';
 import { toastTemplate } from './toast.template.js';
 import { toastStyles } from './toast.styles.js';
-
-type ToastVariant = 'info' | 'success' | 'warning' | 'error';
 
 /**
  * ml-toast - Individual toast notification

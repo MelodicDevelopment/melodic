@@ -1238,8 +1238,6 @@ const routes = [
 							<p>Notification messages that appear briefly and auto-dismiss.</p>
 						</div>
 
-						<ml-toast-container position="top-right"></ml-toast-container>
-
 						<div class="demo-card">
 							<div class="demo-card__header">
 								<h3>Trigger Toasts</h3>

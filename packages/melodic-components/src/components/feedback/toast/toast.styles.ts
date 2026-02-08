@@ -49,7 +49,7 @@ export const toastStyles = () => css`
 	}
 
 	.ml-toast--error .ml-toast__icon {
-		color: var(--ml-color-error);
+		color: var(--ml-color-danger);
 	}
 
 	.ml-toast__content {

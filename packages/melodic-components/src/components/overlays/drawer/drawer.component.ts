@@ -44,13 +44,17 @@ export class DrawerComponent implements IElementRef, OnCreate, OnDestroy {
 	/** Show close button in header */
 	showClose = true;
 
-	/** Open state */
-	isOpen = false;
-
 	private _dialogEl!: HTMLDialogElement;
+	private _panelEl!: HTMLElement;
+	private _animation: Animation | null = null;
+
+	private get _offScreen(): string {
+		return this.side === 'right' ? 'translateX(100%)' : 'translateX(-100%)';
+	}
 
 	onCreate(): void {
 		this._dialogEl = this.elementRef.shadowRoot?.querySelector('dialog') as HTMLDialogElement;
+		this._panelEl = this._dialogEl?.querySelector('.ml-drawer__panel') as HTMLElement;
 		this._dialogEl?.addEventListener('click', this.handleBackdropClick);
 	}
 
@@ -60,9 +64,13 @@ export class DrawerComponent implements IElementRef, OnCreate, OnDestroy {
 
 	/** Open the drawer */
 	open(): void {
-		if (this.isOpen) return;
-		this._dialogEl?.showModal();
-		this.isOpen = true;
+		if (this._dialogEl?.open) return;
+		this._dialogEl.showModal();
+		this._animation?.cancel();
+		this._animation = this._panelEl.animate(
+			[{ transform: this._offScreen }, { transform: 'translateX(0)' }],
+			{ duration: 300, easing: 'cubic-bezier(0.16, 1, 0.3, 1)', fill: 'forwards' }
+		);
 
 		this.elementRef.dispatchEvent(
 			new CustomEvent('ml:open', { bubbles: true, composed: true })
@@ -71,9 +79,16 @@ export class DrawerComponent implements IElementRef, OnCreate, OnDestroy {
 
 	/** Close the drawer */
 	close = (): void => {
-		if (!this.isOpen) return;
-		this._dialogEl?.close();
-		this.isOpen = false;
+		if (!this._dialogEl?.open) return;
+		this._animation?.cancel();
+		this._animation = this._panelEl.animate(
+			[{ transform: 'translateX(0)' }, { transform: this._offScreen }],
+			{ duration: 300, easing: 'cubic-bezier(0.16, 1, 0.3, 1)', fill: 'forwards' }
+		);
+		this._animation.onfinish = () => {
+			this._dialogEl.close();
+			this._animation = null;
+		};
 
 		this.elementRef.dispatchEvent(
 			new CustomEvent('ml:close', { bubbles: true, composed: true })

@@ -1,6 +1,6 @@
 import { MelodicComponent, Service } from '@melodicdev/core';
 import type { IElementRef } from '@melodicdev/core';
-import { DialogService, type UniqueID, type ThemeMode, type SelectOption } from '@melodicdev/components';
+import { DialogService, ToastService, type UniqueID, type ThemeMode, type SelectOption } from '@melodicdev/components';
 import { applyTheme, getResolvedTheme, onThemeChange } from '@melodicdev/components/theme';
 import { demoAppTemplate } from './demo-app.template';
 import { demoAppStyles } from './demo-app.styles';
@@ -17,6 +17,9 @@ import type { DialogComponentLoader } from 'packages/melodic-components/src/comp
 export class DemoApp implements IElementRef {
 	@Service(DialogService)
 	private readonly _dialogService!: DialogService;
+
+	@Service(ToastService)
+	private readonly _toastService!: ToastService;
 
 	public elementRef!: HTMLElement;
 
@@ -87,14 +90,12 @@ export class DemoApp implements IElementRef {
 
 	openDrawer = (id: string): void => {
 		const root = this.elementRef?.shadowRoot;
-		const drawer = root?.querySelector(`#${id}`) as HTMLElement & { open(): void } | null;
-		drawer?.open();
+		const drawer = root?.querySelector(`#${id}`) as HTMLElement & { component: { open(): void } } | null;
+		drawer?.component.open();
 	};
 
 	showToast = (variant: string, title: string, message: string): void => {
-		const root = this.elementRef?.shadowRoot;
-		const container = root?.querySelector('ml-toast-container') as HTMLElement & { addToast(opts: Record<string, unknown>): void } | null;
-		container?.addToast({ variant, title, message });
+		this._toastService.show({ variant: variant as 'info' | 'success' | 'warning' | 'error', title, message });
 	};
 
 	/** Pagination demo state */

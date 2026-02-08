@@ -49,7 +49,6 @@ export const drawerStyles = () => css`
 		height: 100%;
 		background-color: var(--ml-color-surface);
 		box-shadow: var(--ml-shadow-xl);
-		transition: transform var(--ml-duration-300) var(--ml-ease-out);
 	}
 
 	/* Side variants */
@@ -57,36 +56,8 @@ export const drawerStyles = () => css`
 		justify-content: flex-end;
 	}
 
-	dialog.ml-drawer--right .ml-drawer__panel {
-		transform: translateX(100%);
-	}
-
-	dialog.ml-drawer--right[open] .ml-drawer__panel {
-		transform: translateX(0);
-	}
-
-	@starting-style {
-		dialog.ml-drawer--right[open] .ml-drawer__panel {
-			transform: translateX(100%);
-		}
-	}
-
 	dialog.ml-drawer--left {
 		justify-content: flex-start;
-	}
-
-	dialog.ml-drawer--left .ml-drawer__panel {
-		transform: translateX(-100%);
-	}
-
-	dialog.ml-drawer--left[open] .ml-drawer__panel {
-		transform: translateX(0);
-	}
-
-	@starting-style {
-		dialog.ml-drawer--left[open] .ml-drawer__panel {
-			transform: translateX(-100%);
-		}
 	}
 
 	/* Size variants */
