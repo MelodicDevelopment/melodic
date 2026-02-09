@@ -307,28 +307,504 @@ export const demoAppTemplate = (c: DemoApp) => {
 						</div>
 					</section>
 
-					<!-- Cards Section -->
-					<section id="cards" class="demo-section">
+					<!-- Icons Section -->
+					<section id="icons" class="demo-section">
 						<div class="demo-section__header">
-							<h2>Cards</h2>
-							<p>Flexible containers for grouping related content and actions.</p>
+							<h2>Icons</h2>
+							<p>
+								Vector icons using Phosphor Icons via font ligatures. Browse all icons at
+								<a href="https://phosphoricons.com/" target="_blank">phosphoricons.com</a>.
+							</p>
 						</div>
 
-						<div class="demo-grid-3">
-							<ml-card>
-								<h3 slot="header">Default Card</h3>
-								<p>This is a default card with header and content.</p>
-							</ml-card>
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>Sizes</h3>
+								<span class="demo-card__badge">5 sizes</span>
+							</div>
+							<div class="demo-row demo-row--align-end">
+								<ml-icon icon="house" size="xs"></ml-icon>
+								<ml-icon icon="house" size="sm"></ml-icon>
+								<ml-icon icon="house" size="md"></ml-icon>
+								<ml-icon icon="house" size="lg"></ml-icon>
+								<ml-icon icon="house" size="xl"></ml-icon>
+							</div>
+						</div>
 
-							<ml-card variant="elevated">
-								<h3 slot="header">Elevated Card</h3>
-								<p>This card has an elevated shadow.</p>
-							</ml-card>
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>Formats</h3>
+								<span class="demo-card__badge">5 styles</span>
+							</div>
+							<div class="demo-row">
+								<ml-stack gap="2" align="center">
+									<ml-icon .icon=${'heart'} size="lg" format="thin"></ml-icon>
+									<span class="demo-label">Thin</span>
+								</ml-stack>
+								<ml-stack gap="2" align="center">
+									<ml-icon icon="heart" size="lg" format="light"></ml-icon>
+									<span class="demo-label">Light</span>
+								</ml-stack>
+								<ml-stack gap="2" align="center">
+									<ml-icon icon="heart" size="lg" format="regular"></ml-icon>
+									<span class="demo-label">Regular</span>
+								</ml-stack>
+								<ml-stack gap="2" align="center">
+									<ml-icon icon="heart" size="lg" format="bold"></ml-icon>
+									<span class="demo-label">Bold</span>
+								</ml-stack>
+								<ml-stack gap="2" align="center">
+									<ml-icon icon="heart" size="lg" format="fill"></ml-icon>
+									<span class="demo-label">Fill</span>
+								</ml-stack>
+							</div>
+						</div>
 
-							<ml-card variant="outlined" hoverable>
-								<h3 slot="header">Hoverable Card</h3>
-								<p>Hover over this card to see the effect.</p>
-							</ml-card>
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>Common Icons</h3>
+							</div>
+							<div class="demo-row">
+								<ml-icon icon="house" size="lg"></ml-icon>
+								<ml-icon icon="gear" size="lg"></ml-icon>
+								<ml-icon icon="user" size="lg"></ml-icon>
+								<ml-icon icon="magnifying-glass" size="lg"></ml-icon>
+								<ml-icon icon="bell" size="lg"></ml-icon>
+								<ml-icon icon="envelope" size="lg"></ml-icon>
+								<ml-icon icon="trash" size="lg"></ml-icon>
+								<ml-icon icon="pencil" size="lg"></ml-icon>
+								<ml-icon icon="check" size="lg"></ml-icon>
+								<ml-icon icon="x" size="lg"></ml-icon>
+								<ml-icon icon="plus" size="lg"></ml-icon>
+								<ml-icon icon="minus" size="lg"></ml-icon>
+							</div>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>In Buttons</h3>
+							</div>
+							<div class="demo-row">
+								<ml-button variant="primary">
+									<ml-icon icon="plus" size="sm"></ml-icon>
+									Add Item
+								</ml-button>
+								<ml-button variant="outline">
+									<ml-icon icon="pencil" size="sm"></ml-icon>
+									Edit
+								</ml-button>
+								<ml-button variant="danger">
+									<ml-icon icon="trash" size="sm"></ml-icon>
+									Delete
+								</ml-button>
+								<ml-button variant="ghost">
+									<ml-icon icon="gear" size="sm"></ml-icon>
+								</ml-button>
+							</div>
+						</div>
+					</section>
+
+					<!-- Input Section -->
+					<section id="inputs" class="demo-section">
+						<div class="demo-section__header">
+							<h2>Inputs</h2>
+							<p>Text fields for capturing user input with validation support.</p>
+						</div>
+
+						<div class="demo-grid">
+							<ml-input label="Text Input" placeholder="Enter text..."></ml-input>
+							<ml-input label="Email" type="email" placeholder="email@example.com"></ml-input>
+							<ml-input label="With Hint" hint="This is a helpful hint"></ml-input>
+							<ml-input label="With Error" error="This field is required"></ml-input>
+							<ml-input label="Disabled" disabled placeholder="Disabled input"></ml-input>
+							<ml-input label="Required" required placeholder="Required field"></ml-input>
+						</div>
+					</section>
+
+					<!-- Textarea Section -->
+					<section id="textareas" class="demo-section">
+						<div class="demo-section__header">
+							<h2>Textareas</h2>
+							<p>Multi-line text inputs for longer form content.</p>
+						</div>
+
+						<div class="demo-grid-2">
+							<ml-textarea label="Description" placeholder="Enter description..."></ml-textarea>
+							<ml-textarea label="With Max Length" max-length="100" hint="Limited to 100 characters"></ml-textarea>
+							<ml-textarea label="Resizable" resize></ml-textarea>
+							<ml-textarea label="With Error" error="Description is required"></ml-textarea>
+						</div>
+					</section>
+
+					<!-- Select Section -->
+					<section id="selects" class="demo-section">
+						<div class="demo-section__header">
+							<h2>Selects</h2>
+							<p>Dropdown selection controls for choosing from a list of options.</p>
+						</div>
+
+						<div class="demo-grid">
+							<ml-select label="Country" placeholder="Select a country" .options=${c.countryOptions}></ml-select>
+							<ml-select label="Status" placeholder="Select status" .options=${c.statusOptions} hint="Inactive option is disabled"></ml-select>
+							<ml-select label="With Error" placeholder="Select an option" .options=${c.statusOptions} error="Selection is required"></ml-select>
+							<ml-select
+								label="Multi-select"
+								placeholder="Select countries"
+								.options=${c.countryOptions}
+								.values=${c.multiSelectValues}
+								multiple
+								hint="Pick multiple options"
+								@ml-change=${c.handleMultiSelectChange}
+							></ml-select>
+							<ml-select label="Disabled" placeholder="Cannot select" .options=${c.statusOptions} disabled></ml-select>
+						</div>
+					</section>
+
+					<!-- Checkbox Section -->
+					<section id="checkboxes" class="demo-section">
+						<div class="demo-section__header">
+							<h2>Checkboxes</h2>
+							<p>Selection controls for multiple choice options.</p>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-column">
+								<ml-checkbox label="Default checkbox"></ml-checkbox>
+								<ml-checkbox label="Checked by default" checked></ml-checkbox>
+								<ml-checkbox label="With hint" hint="Additional information about this option"></ml-checkbox>
+								<ml-checkbox label="Indeterminate state" indeterminate></ml-checkbox>
+								<ml-checkbox label="Disabled" disabled></ml-checkbox>
+							</div>
+						</div>
+					</section>
+
+					<!-- Radio Section -->
+					<section id="radios" class="demo-section">
+						<div class="demo-section__header">
+							<h2>Radio Buttons</h2>
+							<p>Selection controls for mutually exclusive options.</p>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>Vertical Layout</h3>
+							</div>
+							<ml-radio-group label="Select an option" name="demo-radios">
+								<ml-radio value="option1" label="Option 1"></ml-radio>
+								<ml-radio value="option2" label="Option 2" checked></ml-radio>
+								<ml-radio value="option3" label="Option 3"></ml-radio>
+							</ml-radio-group>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>Horizontal Layout</h3>
+							</div>
+							<ml-radio-group label="Choose one" orientation="horizontal" name="demo-radios-h">
+								<ml-radio value="a" label="Choice A" checked></ml-radio>
+								<ml-radio value="b" label="Choice B"></ml-radio>
+								<ml-radio value="c" label="Choice C"></ml-radio>
+							</ml-radio-group>
+						</div>
+					</section>
+
+					<!-- Radio Cards Section -->
+					<section id="radio-cards" class="demo-section">
+						<div class="demo-section__header">
+							<h2>Radio Cards</h2>
+							<p>Card-style selection controls for choosing between options with rich content.</p>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>Pricing Plans</h3>
+							</div>
+							<ml-radio-card-group value="business" label="Select a plan">
+								<ml-radio-card value="basic" label="Basic plan" description="Up to 5 users, 10GB storage" detail="$10/mo"></ml-radio-card>
+								<ml-radio-card value="business" label="Business plan" description="Up to 50 users, 100GB storage" detail="$25/mo"></ml-radio-card>
+								<ml-radio-card value="enterprise" label="Enterprise plan" description="Unlimited users, 1TB storage" detail="$99/mo"></ml-radio-card>
+							</ml-radio-card-group>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>Horizontal Layout</h3>
+							</div>
+							<ml-radio-card-group value="monthly" orientation="horizontal">
+								<ml-radio-card value="monthly" label="Monthly" description="Billed monthly" detail="$12/mo"></ml-radio-card>
+								<ml-radio-card value="annual" label="Annual" description="Save 20%" detail="$9.60/mo"></ml-radio-card>
+								<ml-radio-card value="lifetime" label="Lifetime" description="One-time payment" detail="$299"></ml-radio-card>
+							</ml-radio-card-group>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>With Icons</h3>
+							</div>
+							<ml-radio-card-group value="visa" label="Payment method">
+								<ml-radio-card value="visa" label="Visa" description="Ending in 4242" icon="credit-card"></ml-radio-card>
+								<ml-radio-card value="mastercard" label="Mastercard" description="Ending in 8888" icon="credit-card"></ml-radio-card>
+								<ml-radio-card value="paypal" label="PayPal" description="john@example.com" icon="wallet"></ml-radio-card>
+							</ml-radio-card-group>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>Disabled</h3>
+							</div>
+							<ml-radio-card-group value="free" label="Locked plan" disabled>
+								<ml-radio-card value="free" label="Free tier" description="Currently active"></ml-radio-card>
+								<ml-radio-card value="pro" label="Pro tier" description="Upgrade required" detail="$19/mo"></ml-radio-card>
+							</ml-radio-card-group>
+						</div>
+					</section>
+
+					<!-- Toggle Section -->
+					<section id="toggles" class="demo-section">
+						<div class="demo-section__header">
+							<h2>Toggles</h2>
+							<p>Switch controls for binary on/off settings.</p>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-column">
+								<ml-toggle label="Enable notifications"></ml-toggle>
+								<ml-toggle label="Auto-save" checked></ml-toggle>
+								<ml-toggle label="With hint" hint="This will enable automatic saving"></ml-toggle>
+								<ml-toggle label="Disabled" disabled></ml-toggle>
+							</div>
+						</div>
+					</section>
+
+					<!-- Sliders Section -->
+					<section id="sliders" class="demo-section">
+						<div class="demo-section__header">
+							<h2>Sliders</h2>
+							<p>Range inputs for selecting numeric values within a range.</p>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>Basic</h3>
+							</div>
+							<ml-stack gap="6">
+								<ml-slider label="Volume" value="50" show-value></ml-slider>
+								<ml-slider label="Brightness" value="75" show-value></ml-slider>
+							</ml-stack>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>Custom Range</h3>
+							</div>
+							<ml-stack gap="6">
+								<ml-slider label="Price" min="0" max="1000" step="10" value="250" show-value hint="Drag to set max price"></ml-slider>
+								<ml-slider label="Temperature" min="-20" max="50" value="22" show-value></ml-slider>
+							</ml-stack>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>States</h3>
+							</div>
+							<ml-stack gap="6">
+								<ml-slider label="Disabled" value="40" disabled show-value></ml-slider>
+								<ml-slider label="With Error" value="10" .error=${c.sliderError} show-value @ml:input=${c.handleSliderValidation}></ml-slider>
+							</ml-stack>
+						</div>
+					</section>
+
+					<!-- Date Pickers Section -->
+					<section id="date-pickers" class="demo-section">
+						<div class="demo-section__header">
+							<h2>Date Pickers</h2>
+							<p>Date selection with calendar dropdown and standalone calendar components.</p>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>Date Picker</h3>
+							</div>
+							<div class="demo-grid">
+								<ml-date-picker label="Start date" value="2026-02-08" hint="Select a start date"></ml-date-picker>
+								<ml-date-picker label="End date" placeholder="Pick a date"></ml-date-picker>
+							</div>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>Sizes</h3>
+								<span class="demo-card__badge">3 sizes</span>
+							</div>
+							<div class="demo-grid">
+								<ml-date-picker label="Small" size="sm" placeholder="Select date"></ml-date-picker>
+								<ml-date-picker label="Medium" size="md" placeholder="Select date"></ml-date-picker>
+								<ml-date-picker label="Large" size="lg" placeholder="Select date"></ml-date-picker>
+							</div>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>States</h3>
+							</div>
+							<div class="demo-grid">
+								<ml-date-picker label="With error" .error=${c.datePickerError} required @ml:change=${c.handleDatePickerChange}></ml-date-picker>
+								<ml-date-picker label="Disabled" value="2026-02-08" disabled></ml-date-picker>
+							</div>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>Min/Max Constraints</h3>
+							</div>
+							<ml-date-picker label="Select a date in February 2026" min="2026-02-01" max="2026-02-28" placeholder="Feb only"></ml-date-picker>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>Standalone Calendar</h3>
+							</div>
+							<div class="demo-row">
+								<ml-calendar value="2026-02-08"></ml-calendar>
+							</div>
+						</div>
+					</section>
+
+					<!-- Form Field Section -->
+					<section id="form-fields" class="demo-section">
+						<div class="demo-section__header">
+							<h2>Form Fields</h2>
+							<p>Wrapper component that adds labels, hints, and error messages to any form control.</p>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>With Native Inputs</h3>
+							</div>
+							<div class="demo-grid">
+								<ml-form-field label="Username" hint="Choose a unique username" required>
+									<input type="text" placeholder="Enter username" />
+								</ml-form-field>
+								<ml-form-field label="Email" error="Invalid email address">
+									<input type="email" placeholder="Enter email" />
+								</ml-form-field>
+							</div>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>Horizontal Layout</h3>
+							</div>
+							<ml-stack gap="4">
+								<ml-form-field label="Full Name" orientation="horizontal" required>
+									<input type="text" placeholder="John Doe" />
+								</ml-form-field>
+								<ml-form-field label="Company" orientation="horizontal" hint="Optional">
+									<input type="text" placeholder="Acme Inc." />
+								</ml-form-field>
+							</ml-stack>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>Size Variants</h3>
+							</div>
+							<ml-stack gap="4">
+								<ml-form-field label="Small" size="sm">
+									<input type="text" placeholder="Small input" />
+								</ml-form-field>
+								<ml-form-field label="Medium (default)" size="md">
+									<input type="text" placeholder="Medium input" />
+								</ml-form-field>
+								<ml-form-field label="Large" size="lg">
+									<input type="text" placeholder="Large input" />
+								</ml-form-field>
+							</ml-stack>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>With Melodic Components</h3>
+							</div>
+							<div class="demo-grid">
+								<ml-form-field label="Subscribe to newsletter" hint="We'll never spam you">
+									<ml-checkbox></ml-checkbox>
+								</ml-form-field>
+								<ml-form-field label="Enable dark mode">
+									<ml-toggle></ml-toggle>
+								</ml-form-field>
+							</div>
+						</div>
+					</section>
+
+					<!-- Tables Section -->
+					<section id="tables" class="demo-section">
+						<div class="demo-section__header">
+							<h2>Tables</h2>
+							<p>Data tables with sorting, selection, custom cell rendering, and card wrapper.</p>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>Team Members</h3>
+								<span class="demo-card__badge">Header actions + Pagination</span>
+							</div>
+							<ml-table
+								table-title="Team members"
+								description="Manage your team and their account permissions."
+								.columns=${c.teamColumns}
+								.rows=${c.teamRows}
+								selectable
+								hoverable
+								@ml:sort=${c.handleTableSort}
+								@ml:select=${c.handleTableSelect}
+							>
+								<div slot="header-actions" style="display: flex; gap: 0.5rem; align-items: center;">
+									<ml-button variant="outline" size="sm">
+										<ml-icon icon="funnel" size="sm"></ml-icon>
+										Filters
+									</ml-button>
+									<ml-button variant="primary" size="sm">
+										<ml-icon icon="plus" size="sm"></ml-icon>
+										Add member
+									</ml-button>
+								</div>
+								<div slot="footer" style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
+									<span style="font-size: var(--ml-text-sm); color: var(--ml-color-text-muted);">
+										Page ${c.teamPage} of ${c.teamTotalPages}
+									</span>
+									<ml-pagination
+										page=${c.teamPage}
+										total-pages=${c.teamTotalPages}
+										@ml:page-change=${c.handleTeamPageChange}
+									></ml-pagination>
+								</div>
+							</ml-table>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>Invoices</h3>
+								<span class="demo-card__badge">Striped</span>
+							</div>
+							<ml-table
+								table-title="Recent invoices"
+								.columns=${c.simpleColumns}
+								.rows=${c.invoiceRows}
+								striped
+								@ml:sort=${c.handleTableSort}
+							></ml-table>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>Compact Size</h3>
+							</div>
+							<ml-table
+								.columns=${c.simpleColumns}
+								.rows=${c.invoiceRows}
+								size="sm"
+							></ml-table>
 						</div>
 					</section>
 
@@ -473,119 +949,29 @@ export const demoAppTemplate = (c: DemoApp) => {
 						</div>
 					</section>
 
-					<!-- Icons Section -->
-					<section id="icons" class="demo-section">
+					<!-- Cards Section -->
+					<section id="cards" class="demo-section">
 						<div class="demo-section__header">
-							<h2>Icons</h2>
-							<p>
-								Vector icons using Phosphor Icons via font ligatures. Browse all icons at
-								<a href="https://phosphoricons.com/" target="_blank">phosphoricons.com</a>.
-							</p>
+							<h2>Cards</h2>
+							<p>Flexible containers for grouping related content and actions.</p>
 						</div>
 
-						<div class="demo-card">
-							<div class="demo-card__header">
-								<h3>Sizes</h3>
-								<span class="demo-card__badge">5 sizes</span>
-							</div>
-							<div class="demo-row demo-row--align-end">
-								<ml-icon icon="house" size="xs"></ml-icon>
-								<ml-icon icon="house" size="sm"></ml-icon>
-								<ml-icon icon="house" size="md"></ml-icon>
-								<ml-icon icon="house" size="lg"></ml-icon>
-								<ml-icon icon="house" size="xl"></ml-icon>
-							</div>
+						<div class="demo-grid-3">
+							<ml-card>
+								<h3 slot="header">Default Card</h3>
+								<p>This is a default card with header and content.</p>
+							</ml-card>
+
+							<ml-card variant="elevated">
+								<h3 slot="header">Elevated Card</h3>
+								<p>This card has an elevated shadow.</p>
+							</ml-card>
+
+							<ml-card variant="outlined" hoverable>
+								<h3 slot="header">Hoverable Card</h3>
+								<p>Hover over this card to see the effect.</p>
+							</ml-card>
 						</div>
-
-						<div class="demo-card">
-							<div class="demo-card__header">
-								<h3>Formats</h3>
-								<span class="demo-card__badge">5 styles</span>
-							</div>
-							<div class="demo-row">
-								<ml-stack gap="2" align="center">
-									<ml-icon .icon=${'heart'} size="lg" format="thin"></ml-icon>
-									<span class="demo-label">Thin</span>
-								</ml-stack>
-								<ml-stack gap="2" align="center">
-									<ml-icon icon="heart" size="lg" format="light"></ml-icon>
-									<span class="demo-label">Light</span>
-								</ml-stack>
-								<ml-stack gap="2" align="center">
-									<ml-icon icon="heart" size="lg" format="regular"></ml-icon>
-									<span class="demo-label">Regular</span>
-								</ml-stack>
-								<ml-stack gap="2" align="center">
-									<ml-icon icon="heart" size="lg" format="bold"></ml-icon>
-									<span class="demo-label">Bold</span>
-								</ml-stack>
-								<ml-stack gap="2" align="center">
-									<ml-icon icon="heart" size="lg" format="fill"></ml-icon>
-									<span class="demo-label">Fill</span>
-								</ml-stack>
-							</div>
-						</div>
-
-						<div class="demo-card">
-							<div class="demo-card__header">
-								<h3>Common Icons</h3>
-							</div>
-							<div class="demo-row">
-								<ml-icon icon="house" size="lg"></ml-icon>
-								<ml-icon icon="gear" size="lg"></ml-icon>
-								<ml-icon icon="user" size="lg"></ml-icon>
-								<ml-icon icon="magnifying-glass" size="lg"></ml-icon>
-								<ml-icon icon="bell" size="lg"></ml-icon>
-								<ml-icon icon="envelope" size="lg"></ml-icon>
-								<ml-icon icon="trash" size="lg"></ml-icon>
-								<ml-icon icon="pencil" size="lg"></ml-icon>
-								<ml-icon icon="check" size="lg"></ml-icon>
-								<ml-icon icon="x" size="lg"></ml-icon>
-								<ml-icon icon="plus" size="lg"></ml-icon>
-								<ml-icon icon="minus" size="lg"></ml-icon>
-							</div>
-						</div>
-
-						<div class="demo-card">
-							<div class="demo-card__header">
-								<h3>In Buttons</h3>
-							</div>
-							<div class="demo-row">
-								<ml-button variant="primary">
-									<ml-icon icon="plus" size="sm"></ml-icon>
-									Add Item
-								</ml-button>
-								<ml-button variant="outline">
-									<ml-icon icon="pencil" size="sm"></ml-icon>
-									Edit
-								</ml-button>
-								<ml-button variant="danger">
-									<ml-icon icon="trash" size="sm"></ml-icon>
-									Delete
-								</ml-button>
-								<ml-button variant="ghost">
-									<ml-icon icon="gear" size="sm"></ml-icon>
-								</ml-button>
-							</div>
-						</div>
-					</section>
-
-					<!-- Alerts Section -->
-					<section id="alerts" class="demo-section">
-						<div class="demo-section__header">
-							<h2>Alerts</h2>
-							<p>Contextual feedback messages for user actions and system status.</p>
-						</div>
-
-						<ml-stack gap="4">
-							<ml-alert variant="info" title="Information"> This is an informational message for the user. </ml-alert>
-
-							<ml-alert variant="success" title="Success"> Your changes have been saved successfully. </ml-alert>
-
-							<ml-alert variant="warning" title="Warning"> Please review your input before proceeding. </ml-alert>
-
-							<ml-alert variant="error" title="Error" dismissible> There was an error processing your request. </ml-alert>
-						</ml-stack>
 					</section>
 
 					<!-- Dividers Section -->
@@ -603,267 +989,6 @@ export const demoAppTemplate = (c: DemoApp) => {
 								<ml-divider>OR</ml-divider>
 								<p>Divider with label</p>
 							</ml-stack>
-						</div>
-					</section>
-
-					<!-- Spinner Section -->
-					<section id="spinners" class="demo-section">
-						<div class="demo-section__header">
-							<h2>Spinners</h2>
-							<p>Loading indicators for async operations and pending states.</p>
-						</div>
-
-						<div class="demo-card">
-							<div class="demo-card__header">
-								<h3>Sizes</h3>
-								<span class="demo-card__badge">5 sizes</span>
-							</div>
-							<div class="demo-row demo-row--align-end">
-								<ml-spinner size="xs"></ml-spinner>
-								<ml-spinner size="sm"></ml-spinner>
-								<ml-spinner size="md"></ml-spinner>
-								<ml-spinner size="lg"></ml-spinner>
-								<ml-spinner size="xl"></ml-spinner>
-							</div>
-						</div>
-					</section>
-
-					<!-- Input Section -->
-					<section id="inputs" class="demo-section">
-						<div class="demo-section__header">
-							<h2>Inputs</h2>
-							<p>Text fields for capturing user input with validation support.</p>
-						</div>
-
-						<div class="demo-grid">
-							<ml-input label="Text Input" placeholder="Enter text..."></ml-input>
-							<ml-input label="Email" type="email" placeholder="email@example.com"></ml-input>
-							<ml-input label="With Hint" hint="This is a helpful hint"></ml-input>
-							<ml-input label="With Error" error="This field is required"></ml-input>
-							<ml-input label="Disabled" disabled placeholder="Disabled input"></ml-input>
-							<ml-input label="Required" required placeholder="Required field"></ml-input>
-						</div>
-					</section>
-
-					<!-- Select Section -->
-					<section id="selects" class="demo-section">
-						<div class="demo-section__header">
-							<h2>Selects</h2>
-							<p>Dropdown selection controls for choosing from a list of options.</p>
-						</div>
-
-						<div class="demo-grid">
-							<ml-select label="Country" placeholder="Select a country" .options=${c.countryOptions}></ml-select>
-							<ml-select label="Status" placeholder="Select status" .options=${c.statusOptions} hint="Inactive option is disabled"></ml-select>
-							<ml-select label="With Error" placeholder="Select an option" .options=${c.statusOptions} error="Selection is required"></ml-select>
-							<ml-select
-								label="Multi-select"
-								placeholder="Select countries"
-								.options=${c.countryOptions}
-								.values=${c.multiSelectValues}
-								multiple
-								hint="Pick multiple options"
-								@ml-change=${c.handleMultiSelectChange}
-							></ml-select>
-							<ml-select label="Disabled" placeholder="Cannot select" .options=${c.statusOptions} disabled></ml-select>
-						</div>
-					</section>
-
-					<!-- Textarea Section -->
-					<section id="textareas" class="demo-section">
-						<div class="demo-section__header">
-							<h2>Textareas</h2>
-							<p>Multi-line text inputs for longer form content.</p>
-						</div>
-
-						<div class="demo-grid-2">
-							<ml-textarea label="Description" placeholder="Enter description..."></ml-textarea>
-							<ml-textarea label="With Max Length" max-length="100" hint="Limited to 100 characters"></ml-textarea>
-							<ml-textarea label="Resizable" resize></ml-textarea>
-							<ml-textarea label="With Error" error="Description is required"></ml-textarea>
-						</div>
-					</section>
-
-					<!-- Checkbox Section -->
-					<section id="checkboxes" class="demo-section">
-						<div class="demo-section__header">
-							<h2>Checkboxes</h2>
-							<p>Selection controls for multiple choice options.</p>
-						</div>
-
-						<div class="demo-card">
-							<div class="demo-column">
-								<ml-checkbox label="Default checkbox"></ml-checkbox>
-								<ml-checkbox label="Checked by default" checked></ml-checkbox>
-								<ml-checkbox label="With hint" hint="Additional information about this option"></ml-checkbox>
-								<ml-checkbox label="Indeterminate state" indeterminate></ml-checkbox>
-								<ml-checkbox label="Disabled" disabled></ml-checkbox>
-							</div>
-						</div>
-					</section>
-
-					<!-- Radio Section -->
-					<section id="radios" class="demo-section">
-						<div class="demo-section__header">
-							<h2>Radio Buttons</h2>
-							<p>Selection controls for mutually exclusive options.</p>
-						</div>
-
-						<div class="demo-card">
-							<div class="demo-card__header">
-								<h3>Vertical Layout</h3>
-							</div>
-							<ml-radio-group label="Select an option" name="demo-radios">
-								<ml-radio value="option1" label="Option 1"></ml-radio>
-								<ml-radio value="option2" label="Option 2" checked></ml-radio>
-								<ml-radio value="option3" label="Option 3"></ml-radio>
-							</ml-radio-group>
-						</div>
-
-						<div class="demo-card">
-							<div class="demo-card__header">
-								<h3>Horizontal Layout</h3>
-							</div>
-							<ml-radio-group label="Choose one" orientation="horizontal" name="demo-radios-h">
-								<ml-radio value="a" label="Choice A" checked></ml-radio>
-								<ml-radio value="b" label="Choice B"></ml-radio>
-								<ml-radio value="c" label="Choice C"></ml-radio>
-							</ml-radio-group>
-						</div>
-					</section>
-
-					<!-- Radio Cards Section -->
-					<section id="radio-cards" class="demo-section">
-						<div class="demo-section__header">
-							<h2>Radio Cards</h2>
-							<p>Card-style selection controls for choosing between options with rich content.</p>
-						</div>
-
-						<div class="demo-card">
-							<div class="demo-card__header">
-								<h3>Pricing Plans</h3>
-							</div>
-							<ml-radio-card-group value="business" label="Select a plan">
-								<ml-radio-card value="basic" label="Basic plan" description="Up to 5 users, 10GB storage" detail="$10/mo"></ml-radio-card>
-								<ml-radio-card value="business" label="Business plan" description="Up to 50 users, 100GB storage" detail="$25/mo"></ml-radio-card>
-								<ml-radio-card value="enterprise" label="Enterprise plan" description="Unlimited users, 1TB storage" detail="$99/mo"></ml-radio-card>
-							</ml-radio-card-group>
-						</div>
-
-						<div class="demo-card">
-							<div class="demo-card__header">
-								<h3>Horizontal Layout</h3>
-							</div>
-							<ml-radio-card-group value="monthly" orientation="horizontal">
-								<ml-radio-card value="monthly" label="Monthly" description="Billed monthly" detail="$12/mo"></ml-radio-card>
-								<ml-radio-card value="annual" label="Annual" description="Save 20%" detail="$9.60/mo"></ml-radio-card>
-								<ml-radio-card value="lifetime" label="Lifetime" description="One-time payment" detail="$299"></ml-radio-card>
-							</ml-radio-card-group>
-						</div>
-
-						<div class="demo-card">
-							<div class="demo-card__header">
-								<h3>With Icons</h3>
-							</div>
-							<ml-radio-card-group value="visa" label="Payment method">
-								<ml-radio-card value="visa" label="Visa" description="Ending in 4242" icon="credit-card"></ml-radio-card>
-								<ml-radio-card value="mastercard" label="Mastercard" description="Ending in 8888" icon="credit-card"></ml-radio-card>
-								<ml-radio-card value="paypal" label="PayPal" description="john@example.com" icon="wallet"></ml-radio-card>
-							</ml-radio-card-group>
-						</div>
-
-						<div class="demo-card">
-							<div class="demo-card__header">
-								<h3>Disabled</h3>
-							</div>
-							<ml-radio-card-group value="free" label="Locked plan" disabled>
-								<ml-radio-card value="free" label="Free tier" description="Currently active"></ml-radio-card>
-								<ml-radio-card value="pro" label="Pro tier" description="Upgrade required" detail="$19/mo"></ml-radio-card>
-							</ml-radio-card-group>
-						</div>
-					</section>
-
-					<!-- Toggle Section -->
-					<section id="toggles" class="demo-section">
-						<div class="demo-section__header">
-							<h2>Toggles</h2>
-							<p>Switch controls for binary on/off settings.</p>
-						</div>
-
-						<div class="demo-card">
-							<div class="demo-column">
-								<ml-toggle label="Enable notifications"></ml-toggle>
-								<ml-toggle label="Auto-save" checked></ml-toggle>
-								<ml-toggle label="With hint" hint="This will enable automatic saving"></ml-toggle>
-								<ml-toggle label="Disabled" disabled></ml-toggle>
-							</div>
-						</div>
-					</section>
-
-					<!-- Form Field Section -->
-					<section id="form-fields" class="demo-section">
-						<div class="demo-section__header">
-							<h2>Form Fields</h2>
-							<p>Wrapper component that adds labels, hints, and error messages to any form control.</p>
-						</div>
-
-						<div class="demo-card">
-							<div class="demo-card__header">
-								<h3>With Native Inputs</h3>
-							</div>
-							<div class="demo-grid">
-								<ml-form-field label="Username" hint="Choose a unique username" required>
-									<input type="text" placeholder="Enter username" />
-								</ml-form-field>
-								<ml-form-field label="Email" error="Invalid email address">
-									<input type="email" placeholder="Enter email" />
-								</ml-form-field>
-							</div>
-						</div>
-
-						<div class="demo-card">
-							<div class="demo-card__header">
-								<h3>Horizontal Layout</h3>
-							</div>
-							<ml-stack gap="4">
-								<ml-form-field label="Full Name" orientation="horizontal" required>
-									<input type="text" placeholder="John Doe" />
-								</ml-form-field>
-								<ml-form-field label="Company" orientation="horizontal" hint="Optional">
-									<input type="text" placeholder="Acme Inc." />
-								</ml-form-field>
-							</ml-stack>
-						</div>
-
-						<div class="demo-card">
-							<div class="demo-card__header">
-								<h3>Size Variants</h3>
-							</div>
-							<ml-stack gap="4">
-								<ml-form-field label="Small" size="sm">
-									<input type="text" placeholder="Small input" />
-								</ml-form-field>
-								<ml-form-field label="Medium (default)" size="md">
-									<input type="text" placeholder="Medium input" />
-								</ml-form-field>
-								<ml-form-field label="Large" size="lg">
-									<input type="text" placeholder="Large input" />
-								</ml-form-field>
-							</ml-stack>
-						</div>
-
-						<div class="demo-card">
-							<div class="demo-card__header">
-								<h3>With Melodic Components</h3>
-							</div>
-							<div class="demo-grid">
-								<ml-form-field label="Subscribe to newsletter" hint="We'll never spam you">
-									<ml-checkbox></ml-checkbox>
-								</ml-form-field>
-								<ml-form-field label="Enable dark mode">
-									<ml-toggle></ml-toggle>
-								</ml-form-field>
-							</div>
 						</div>
 					</section>
 
@@ -1024,6 +1149,256 @@ const routes = [
 									<li>Child components render inside the router-outlet</li>
 									<li>Browser back/forward buttons work correctly</li>
 								</ul>
+							</div>
+						</div>
+					</section>
+
+					<!-- Breadcrumbs Section -->
+					<section id="breadcrumbs" class="demo-section">
+						<div class="demo-section__header">
+							<h2>Breadcrumbs</h2>
+							<p>Navigation aid showing the current page location within a hierarchy.</p>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>Chevron Separator</h3>
+								<span class="demo-card__badge">Default</span>
+							</div>
+							<ml-breadcrumb>
+								<ml-breadcrumb-item href="#" icon="house">Home</ml-breadcrumb-item>
+								<ml-breadcrumb-item href="#">Settings</ml-breadcrumb-item>
+								<ml-breadcrumb-item current>Profile</ml-breadcrumb-item>
+							</ml-breadcrumb>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>Slash Separator</h3>
+							</div>
+							<ml-breadcrumb separator="slash">
+								<ml-breadcrumb-item href="#">Dashboard</ml-breadcrumb-item>
+								<ml-breadcrumb-item href="#">Projects</ml-breadcrumb-item>
+								<ml-breadcrumb-item href="#">Melodic UI</ml-breadcrumb-item>
+								<ml-breadcrumb-item current>Components</ml-breadcrumb-item>
+							</ml-breadcrumb>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>With Icons</h3>
+							</div>
+							<ml-breadcrumb>
+								<ml-breadcrumb-item href="#" icon="house">Home</ml-breadcrumb-item>
+								<ml-breadcrumb-item href="#" icon="folder">Documents</ml-breadcrumb-item>
+								<ml-breadcrumb-item href="#" icon="file-text">Reports</ml-breadcrumb-item>
+								<ml-breadcrumb-item current icon="chart-bar">Analytics</ml-breadcrumb-item>
+							</ml-breadcrumb>
+						</div>
+					</section>
+
+					<!-- Pagination Section -->
+					<section id="pagination" class="demo-section">
+						<div class="demo-section__header">
+							<h2>Pagination</h2>
+							<p>Page navigation controls with previous/next buttons and page numbers.</p>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>Interactive</h3>
+							</div>
+							<ml-pagination
+								.page=${c.currentPage}
+								total-pages="10"
+								@ml:page-change=${c.handlePageChange}
+							></ml-pagination>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>Many Pages</h3>
+								<span class="demo-card__badge">Ellipsis</span>
+							</div>
+							<ml-pagination page="5" total-pages="20"></ml-pagination>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>Few Pages</h3>
+							</div>
+							<ml-pagination page="2" total-pages="3"></ml-pagination>
+						</div>
+					</section>
+
+					<!-- Alerts Section -->
+					<section id="alerts" class="demo-section">
+						<div class="demo-section__header">
+							<h2>Alerts</h2>
+							<p>Contextual feedback messages for user actions and system status.</p>
+						</div>
+
+						<ml-stack gap="4">
+							<ml-alert variant="info" title="Information"> This is an informational message for the user. </ml-alert>
+
+							<ml-alert variant="success" title="Success"> Your changes have been saved successfully. </ml-alert>
+
+							<ml-alert variant="warning" title="Warning"> Please review your input before proceeding. </ml-alert>
+
+							<ml-alert variant="error" title="Error" dismissible> There was an error processing your request. </ml-alert>
+						</ml-stack>
+					</section>
+
+					<!-- Toasts Section -->
+					<section id="toasts" class="demo-section">
+						<div class="demo-section__header">
+							<h2>Toasts</h2>
+							<p>Notification messages that appear briefly and auto-dismiss.</p>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>Trigger Toasts</h3>
+								<span class="demo-card__badge">4 variants</span>
+							</div>
+							<div class="demo-row">
+								<ml-button variant="outline" @click=${() => c.showToast('info', 'Info', 'This is an informational toast.')}>
+									Info Toast
+								</ml-button>
+								<ml-button variant="outline" @click=${() => c.showToast('success', 'Success', 'Your changes have been saved.')}>
+									Success Toast
+								</ml-button>
+								<ml-button variant="outline" @click=${() => c.showToast('warning', 'Warning', 'Please check your input.')}>
+									Warning Toast
+								</ml-button>
+								<ml-button variant="outline" @click=${() => c.showToast('error', 'Error', 'Something went wrong.')}>
+									Error Toast
+								</ml-button>
+							</div>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>Static Examples</h3>
+							</div>
+							<ml-stack gap="3">
+								<ml-toast variant="info" title="Update available" message="A new version is ready to install." duration="0"></ml-toast>
+								<ml-toast variant="success" title="File uploaded" message="document.pdf was uploaded successfully." duration="0"></ml-toast>
+								<ml-toast variant="warning" title="Low storage" message="You have less than 100MB remaining." duration="0"></ml-toast>
+								<ml-toast variant="error" title="Connection lost" message="Please check your internet connection." duration="0"></ml-toast>
+							</ml-stack>
+						</div>
+					</section>
+
+					<!-- Progress Section -->
+					<section id="progress" class="demo-section">
+						<div class="demo-section__header">
+							<h2>Progress</h2>
+							<p>Progress indicators for displaying completion state. Linear, circle, and half-circle shapes.</p>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>Label Positions</h3>
+								<span class="demo-card__badge">5 positions</span>
+							</div>
+							<ml-stack gap="8">
+								<ml-progress value="40" label="Default (top)" show-value></ml-progress>
+								<ml-progress value="40" show-value label-position="right"></ml-progress>
+								<ml-progress value="40" show-value label-position="bottom"></ml-progress>
+								<ml-progress value="40" show-value label-position="floating-top" style="margin-top: 32px;"></ml-progress>
+								<ml-progress value="40" show-value label-position="floating-bottom" style="margin-bottom: 28px;"></ml-progress>
+							</ml-stack>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>Variants</h3>
+								<span class="demo-card__badge">4 colors</span>
+							</div>
+							<ml-stack gap="6">
+								<ml-progress variant="primary" value="60" label="Upload" show-value></ml-progress>
+								<ml-progress variant="success" value="100" label="Complete" show-value></ml-progress>
+								<ml-progress variant="warning" value="45" label="Storage" show-value></ml-progress>
+								<ml-progress variant="error" value="15" label="Failed" show-value></ml-progress>
+							</ml-stack>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>Sizes</h3>
+								<span class="demo-card__badge">3 sizes</span>
+							</div>
+							<ml-stack gap="6">
+								<ml-progress size="sm" value="60" label="Small"></ml-progress>
+								<ml-progress size="md" value="60" label="Medium"></ml-progress>
+								<ml-progress size="lg" value="60" label="Large"></ml-progress>
+							</ml-stack>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>Circle Progress</h3>
+							</div>
+							<div class="demo-row">
+								<ml-progress shape="circle" value="40" size="sm" show-value></ml-progress>
+								<ml-progress shape="circle" value="40" size="md" show-value></ml-progress>
+								<ml-progress shape="circle" value="40" size="lg" show-value></ml-progress>
+							</div>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>Circle with Labels</h3>
+							</div>
+							<div class="demo-row">
+								<ml-progress shape="circle" value="72" variant="primary" size="lg" show-value label="Users"></ml-progress>
+								<ml-progress shape="circle" value="90" variant="success" size="lg" show-value label="Uptime"></ml-progress>
+								<ml-progress shape="circle" value="35" variant="warning" size="lg" show-value label="Storage"></ml-progress>
+								<ml-progress shape="circle" value="12" variant="error" size="lg" show-value label="Errors"></ml-progress>
+							</div>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>Half Circle Progress</h3>
+							</div>
+							<div class="demo-row">
+								<ml-progress shape="half-circle" value="40" size="sm" show-value></ml-progress>
+								<ml-progress shape="half-circle" value="40" size="md" show-value></ml-progress>
+								<ml-progress shape="half-circle" value="40" size="lg" show-value></ml-progress>
+							</div>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>Half Circle with Labels</h3>
+							</div>
+							<div class="demo-row">
+								<ml-progress shape="half-circle" value="68" variant="primary" size="lg" show-value label="Active users"></ml-progress>
+								<ml-progress shape="half-circle" value="95" variant="success" size="lg" show-value label="Health"></ml-progress>
+							</div>
+						</div>
+					</section>
+
+					<!-- Spinner Section -->
+					<section id="spinners" class="demo-section">
+						<div class="demo-section__header">
+							<h2>Spinners</h2>
+							<p>Loading indicators for async operations and pending states.</p>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>Sizes</h3>
+								<span class="demo-card__badge">5 sizes</span>
+							</div>
+							<div class="demo-row demo-row--align-end">
+								<ml-spinner size="xs"></ml-spinner>
+								<ml-spinner size="sm"></ml-spinner>
+								<ml-spinner size="md"></ml-spinner>
+								<ml-spinner size="lg"></ml-spinner>
+								<ml-spinner size="xl"></ml-spinner>
 							</div>
 						</div>
 					</section>
@@ -1407,381 +1782,6 @@ const routes = [
 									<p>640px wide panel.</p>
 								</ml-drawer>
 							</div>
-						</div>
-					</section>
-
-					<!-- Sliders Section -->
-					<section id="sliders" class="demo-section">
-						<div class="demo-section__header">
-							<h2>Sliders</h2>
-							<p>Range inputs for selecting numeric values within a range.</p>
-						</div>
-
-						<div class="demo-card">
-							<div class="demo-card__header">
-								<h3>Basic</h3>
-							</div>
-							<ml-stack gap="6">
-								<ml-slider label="Volume" value="50" show-value></ml-slider>
-								<ml-slider label="Brightness" value="75" show-value></ml-slider>
-							</ml-stack>
-						</div>
-
-						<div class="demo-card">
-							<div class="demo-card__header">
-								<h3>Custom Range</h3>
-							</div>
-							<ml-stack gap="6">
-								<ml-slider label="Price" min="0" max="1000" step="10" value="250" show-value hint="Drag to set max price"></ml-slider>
-								<ml-slider label="Temperature" min="-20" max="50" value="22" show-value></ml-slider>
-							</ml-stack>
-						</div>
-
-						<div class="demo-card">
-							<div class="demo-card__header">
-								<h3>States</h3>
-							</div>
-							<ml-stack gap="6">
-								<ml-slider label="Disabled" value="40" disabled show-value></ml-slider>
-								<ml-slider label="With Error" value="10" .error=${c.sliderError} show-value @ml:input=${c.handleSliderValidation}></ml-slider>
-							</ml-stack>
-						</div>
-					</section>
-
-					<!-- Date Pickers Section -->
-					<section id="date-pickers" class="demo-section">
-						<div class="demo-section__header">
-							<h2>Date Pickers</h2>
-							<p>Date selection with calendar dropdown and standalone calendar components.</p>
-						</div>
-
-						<div class="demo-card">
-							<div class="demo-card__header">
-								<h3>Date Picker</h3>
-							</div>
-							<div class="demo-grid">
-								<ml-date-picker label="Start date" value="2026-02-08" hint="Select a start date"></ml-date-picker>
-								<ml-date-picker label="End date" placeholder="Pick a date"></ml-date-picker>
-							</div>
-						</div>
-
-						<div class="demo-card">
-							<div class="demo-card__header">
-								<h3>Sizes</h3>
-								<span class="demo-card__badge">3 sizes</span>
-							</div>
-							<div class="demo-grid">
-								<ml-date-picker label="Small" size="sm" placeholder="Select date"></ml-date-picker>
-								<ml-date-picker label="Medium" size="md" placeholder="Select date"></ml-date-picker>
-								<ml-date-picker label="Large" size="lg" placeholder="Select date"></ml-date-picker>
-							</div>
-						</div>
-
-						<div class="demo-card">
-							<div class="demo-card__header">
-								<h3>States</h3>
-							</div>
-							<div class="demo-grid">
-								<ml-date-picker label="With error" .error=${c.datePickerError} required @ml:change=${c.handleDatePickerChange}></ml-date-picker>
-								<ml-date-picker label="Disabled" value="2026-02-08" disabled></ml-date-picker>
-							</div>
-						</div>
-
-						<div class="demo-card">
-							<div class="demo-card__header">
-								<h3>Min/Max Constraints</h3>
-							</div>
-							<ml-date-picker label="Select a date in February 2026" min="2026-02-01" max="2026-02-28" placeholder="Feb only"></ml-date-picker>
-						</div>
-
-						<div class="demo-card">
-							<div class="demo-card__header">
-								<h3>Standalone Calendar</h3>
-							</div>
-							<div class="demo-row">
-								<ml-calendar value="2026-02-08"></ml-calendar>
-							</div>
-						</div>
-					</section>
-
-					<!-- Tables Section -->
-					<section id="tables" class="demo-section">
-						<div class="demo-section__header">
-							<h2>Tables</h2>
-							<p>Data tables with sorting, selection, custom cell rendering, and card wrapper.</p>
-						</div>
-
-						<div class="demo-card">
-							<div class="demo-card__header">
-								<h3>Team Members</h3>
-								<span class="demo-card__badge">Header actions + Pagination</span>
-							</div>
-							<ml-table
-								table-title="Team members"
-								description="Manage your team and their account permissions."
-								.columns=${c.teamColumns}
-								.rows=${c.teamRows}
-								selectable
-								hoverable
-								@ml:sort=${c.handleTableSort}
-								@ml:select=${c.handleTableSelect}
-							>
-								<div slot="header-actions" style="display: flex; gap: 0.5rem; align-items: center;">
-									<ml-button variant="outline" size="sm">
-										<ml-icon icon="funnel" size="sm"></ml-icon>
-										Filters
-									</ml-button>
-									<ml-button variant="primary" size="sm">
-										<ml-icon icon="plus" size="sm"></ml-icon>
-										Add member
-									</ml-button>
-								</div>
-								<div slot="footer" style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
-									<span style="font-size: var(--ml-text-sm); color: var(--ml-color-text-muted);">
-										Page ${c.teamPage} of ${c.teamTotalPages}
-									</span>
-									<ml-pagination
-										page=${c.teamPage}
-										total-pages=${c.teamTotalPages}
-										@ml:page-change=${c.handleTeamPageChange}
-									></ml-pagination>
-								</div>
-							</ml-table>
-						</div>
-
-						<div class="demo-card">
-							<div class="demo-card__header">
-								<h3>Invoices</h3>
-								<span class="demo-card__badge">Striped</span>
-							</div>
-							<ml-table
-								table-title="Recent invoices"
-								.columns=${c.simpleColumns}
-								.rows=${c.invoiceRows}
-								striped
-								@ml:sort=${c.handleTableSort}
-							></ml-table>
-						</div>
-
-						<div class="demo-card">
-							<div class="demo-card__header">
-								<h3>Compact Size</h3>
-							</div>
-							<ml-table
-								.columns=${c.simpleColumns}
-								.rows=${c.invoiceRows}
-								size="sm"
-							></ml-table>
-						</div>
-					</section>
-
-					<!-- Progress Section -->
-					<section id="progress" class="demo-section">
-						<div class="demo-section__header">
-							<h2>Progress</h2>
-							<p>Progress indicators for displaying completion state. Linear, circle, and half-circle shapes.</p>
-						</div>
-
-						<div class="demo-card">
-							<div class="demo-card__header">
-								<h3>Label Positions</h3>
-								<span class="demo-card__badge">5 positions</span>
-							</div>
-							<ml-stack gap="8">
-								<ml-progress value="40" label="Default (top)" show-value></ml-progress>
-								<ml-progress value="40" show-value label-position="right"></ml-progress>
-								<ml-progress value="40" show-value label-position="bottom"></ml-progress>
-								<ml-progress value="40" show-value label-position="floating-top" style="margin-top: 32px;"></ml-progress>
-								<ml-progress value="40" show-value label-position="floating-bottom" style="margin-bottom: 28px;"></ml-progress>
-							</ml-stack>
-						</div>
-
-						<div class="demo-card">
-							<div class="demo-card__header">
-								<h3>Variants</h3>
-								<span class="demo-card__badge">4 colors</span>
-							</div>
-							<ml-stack gap="6">
-								<ml-progress variant="primary" value="60" label="Upload" show-value></ml-progress>
-								<ml-progress variant="success" value="100" label="Complete" show-value></ml-progress>
-								<ml-progress variant="warning" value="45" label="Storage" show-value></ml-progress>
-								<ml-progress variant="error" value="15" label="Failed" show-value></ml-progress>
-							</ml-stack>
-						</div>
-
-						<div class="demo-card">
-							<div class="demo-card__header">
-								<h3>Sizes</h3>
-								<span class="demo-card__badge">3 sizes</span>
-							</div>
-							<ml-stack gap="6">
-								<ml-progress size="sm" value="60" label="Small"></ml-progress>
-								<ml-progress size="md" value="60" label="Medium"></ml-progress>
-								<ml-progress size="lg" value="60" label="Large"></ml-progress>
-							</ml-stack>
-						</div>
-
-						<div class="demo-card">
-							<div class="demo-card__header">
-								<h3>Circle Progress</h3>
-							</div>
-							<div class="demo-row">
-								<ml-progress shape="circle" value="40" size="sm" show-value></ml-progress>
-								<ml-progress shape="circle" value="40" size="md" show-value></ml-progress>
-								<ml-progress shape="circle" value="40" size="lg" show-value></ml-progress>
-							</div>
-						</div>
-
-						<div class="demo-card">
-							<div class="demo-card__header">
-								<h3>Circle with Labels</h3>
-							</div>
-							<div class="demo-row">
-								<ml-progress shape="circle" value="72" variant="primary" size="lg" show-value label="Users"></ml-progress>
-								<ml-progress shape="circle" value="90" variant="success" size="lg" show-value label="Uptime"></ml-progress>
-								<ml-progress shape="circle" value="35" variant="warning" size="lg" show-value label="Storage"></ml-progress>
-								<ml-progress shape="circle" value="12" variant="error" size="lg" show-value label="Errors"></ml-progress>
-							</div>
-						</div>
-
-						<div class="demo-card">
-							<div class="demo-card__header">
-								<h3>Half Circle Progress</h3>
-							</div>
-							<div class="demo-row">
-								<ml-progress shape="half-circle" value="40" size="sm" show-value></ml-progress>
-								<ml-progress shape="half-circle" value="40" size="md" show-value></ml-progress>
-								<ml-progress shape="half-circle" value="40" size="lg" show-value></ml-progress>
-							</div>
-						</div>
-
-						<div class="demo-card">
-							<div class="demo-card__header">
-								<h3>Half Circle with Labels</h3>
-							</div>
-							<div class="demo-row">
-								<ml-progress shape="half-circle" value="68" variant="primary" size="lg" show-value label="Active users"></ml-progress>
-								<ml-progress shape="half-circle" value="95" variant="success" size="lg" show-value label="Health"></ml-progress>
-							</div>
-						</div>
-					</section>
-
-					<!-- Toasts Section -->
-					<section id="toasts" class="demo-section">
-						<div class="demo-section__header">
-							<h2>Toasts</h2>
-							<p>Notification messages that appear briefly and auto-dismiss.</p>
-						</div>
-
-						<div class="demo-card">
-							<div class="demo-card__header">
-								<h3>Trigger Toasts</h3>
-								<span class="demo-card__badge">4 variants</span>
-							</div>
-							<div class="demo-row">
-								<ml-button variant="outline" @click=${() => c.showToast('info', 'Info', 'This is an informational toast.')}>
-									Info Toast
-								</ml-button>
-								<ml-button variant="outline" @click=${() => c.showToast('success', 'Success', 'Your changes have been saved.')}>
-									Success Toast
-								</ml-button>
-								<ml-button variant="outline" @click=${() => c.showToast('warning', 'Warning', 'Please check your input.')}>
-									Warning Toast
-								</ml-button>
-								<ml-button variant="outline" @click=${() => c.showToast('error', 'Error', 'Something went wrong.')}>
-									Error Toast
-								</ml-button>
-							</div>
-						</div>
-
-						<div class="demo-card">
-							<div class="demo-card__header">
-								<h3>Static Examples</h3>
-							</div>
-							<ml-stack gap="3">
-								<ml-toast variant="info" title="Update available" message="A new version is ready to install." duration="0"></ml-toast>
-								<ml-toast variant="success" title="File uploaded" message="document.pdf was uploaded successfully." duration="0"></ml-toast>
-								<ml-toast variant="warning" title="Low storage" message="You have less than 100MB remaining." duration="0"></ml-toast>
-								<ml-toast variant="error" title="Connection lost" message="Please check your internet connection." duration="0"></ml-toast>
-							</ml-stack>
-						</div>
-					</section>
-
-					<!-- Breadcrumbs Section -->
-					<section id="breadcrumbs" class="demo-section">
-						<div class="demo-section__header">
-							<h2>Breadcrumbs</h2>
-							<p>Navigation aid showing the current page location within a hierarchy.</p>
-						</div>
-
-						<div class="demo-card">
-							<div class="demo-card__header">
-								<h3>Chevron Separator</h3>
-								<span class="demo-card__badge">Default</span>
-							</div>
-							<ml-breadcrumb>
-								<ml-breadcrumb-item href="#" icon="house">Home</ml-breadcrumb-item>
-								<ml-breadcrumb-item href="#">Settings</ml-breadcrumb-item>
-								<ml-breadcrumb-item current>Profile</ml-breadcrumb-item>
-							</ml-breadcrumb>
-						</div>
-
-						<div class="demo-card">
-							<div class="demo-card__header">
-								<h3>Slash Separator</h3>
-							</div>
-							<ml-breadcrumb separator="slash">
-								<ml-breadcrumb-item href="#">Dashboard</ml-breadcrumb-item>
-								<ml-breadcrumb-item href="#">Projects</ml-breadcrumb-item>
-								<ml-breadcrumb-item href="#">Melodic UI</ml-breadcrumb-item>
-								<ml-breadcrumb-item current>Components</ml-breadcrumb-item>
-							</ml-breadcrumb>
-						</div>
-
-						<div class="demo-card">
-							<div class="demo-card__header">
-								<h3>With Icons</h3>
-							</div>
-							<ml-breadcrumb>
-								<ml-breadcrumb-item href="#" icon="house">Home</ml-breadcrumb-item>
-								<ml-breadcrumb-item href="#" icon="folder">Documents</ml-breadcrumb-item>
-								<ml-breadcrumb-item href="#" icon="file-text">Reports</ml-breadcrumb-item>
-								<ml-breadcrumb-item current icon="chart-bar">Analytics</ml-breadcrumb-item>
-							</ml-breadcrumb>
-						</div>
-					</section>
-
-					<!-- Pagination Section -->
-					<section id="pagination" class="demo-section">
-						<div class="demo-section__header">
-							<h2>Pagination</h2>
-							<p>Page navigation controls with previous/next buttons and page numbers.</p>
-						</div>
-
-						<div class="demo-card">
-							<div class="demo-card__header">
-								<h3>Interactive</h3>
-							</div>
-							<ml-pagination
-								.page=${c.currentPage}
-								total-pages="10"
-								@ml:page-change=${c.handlePageChange}
-							></ml-pagination>
-						</div>
-
-						<div class="demo-card">
-							<div class="demo-card__header">
-								<h3>Many Pages</h3>
-								<span class="demo-card__badge">Ellipsis</span>
-							</div>
-							<ml-pagination page="5" total-pages="20"></ml-pagination>
-						</div>
-
-						<div class="demo-card">
-							<div class="demo-card__header">
-								<h3>Few Pages</h3>
-							</div>
-							<ml-pagination page="2" total-pages="3"></ml-pagination>
 						</div>
 					</section>
 				</main>
