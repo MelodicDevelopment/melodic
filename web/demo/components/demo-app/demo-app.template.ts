@@ -94,6 +94,9 @@ export const demoAppTemplate = (c: DemoApp) => {
 					<a href="#date-pickers" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'date-pickers')}>
 						<ml-icon icon="calendar-blank" size="sm"></ml-icon>Date Pickers
 					</a>
+					<a href="#tables" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'tables')}>
+						<ml-icon icon="table" size="sm"></ml-icon>Tables
+					</a>
 					<a href="#progress" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'progress')}>
 						<ml-icon icon="chart-bar" size="sm"></ml-icon>Progress
 					</a>
@@ -1486,6 +1489,77 @@ const routes = [
 							<div class="demo-row">
 								<ml-calendar value="2026-02-08"></ml-calendar>
 							</div>
+						</div>
+					</section>
+
+					<!-- Tables Section -->
+					<section id="tables" class="demo-section">
+						<div class="demo-section__header">
+							<h2>Tables</h2>
+							<p>Data tables with sorting, selection, custom cell rendering, and card wrapper.</p>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>Team Members</h3>
+								<span class="demo-card__badge">Header actions + Pagination</span>
+							</div>
+							<ml-table
+								table-title="Team members"
+								description="Manage your team and their account permissions."
+								.columns=${c.teamColumns}
+								.rows=${c.teamRows}
+								selectable
+								hoverable
+								@ml:sort=${c.handleTableSort}
+								@ml:select=${c.handleTableSelect}
+							>
+								<div slot="header-actions" style="display: flex; gap: 0.5rem; align-items: center;">
+									<ml-button variant="outline" size="sm">
+										<ml-icon icon="funnel" size="sm"></ml-icon>
+										Filters
+									</ml-button>
+									<ml-button variant="primary" size="sm">
+										<ml-icon icon="plus" size="sm"></ml-icon>
+										Add member
+									</ml-button>
+								</div>
+								<div slot="footer" style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
+									<span style="font-size: var(--ml-text-sm); color: var(--ml-color-text-muted);">
+										Page ${c.teamPage} of ${c.teamTotalPages}
+									</span>
+									<ml-pagination
+										page=${c.teamPage}
+										total-pages=${c.teamTotalPages}
+										@ml:page-change=${c.handleTeamPageChange}
+									></ml-pagination>
+								</div>
+							</ml-table>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>Invoices</h3>
+								<span class="demo-card__badge">Striped</span>
+							</div>
+							<ml-table
+								table-title="Recent invoices"
+								.columns=${c.simpleColumns}
+								.rows=${c.invoiceRows}
+								striped
+								@ml:sort=${c.handleTableSort}
+							></ml-table>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>Compact Size</h3>
+							</div>
+							<ml-table
+								.columns=${c.simpleColumns}
+								.rows=${c.invoiceRows}
+								size="sm"
+							></ml-table>
 						</div>
 					</section>
 

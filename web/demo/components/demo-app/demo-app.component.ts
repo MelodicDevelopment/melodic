@@ -1,6 +1,7 @@
-import { MelodicComponent, Service } from '@melodicdev/core';
+import { MelodicComponent, Service, html } from '@melodicdev/core';
 import type { IElementRef } from '@melodicdev/core';
 import { DialogService, ToastService, type UniqueID, type ThemeMode, type SelectOption } from '@melodicdev/components';
+import type { TableColumn } from '@melodicdev/components/table';
 import { applyTheme, getResolvedTheme, onThemeChange } from '@melodicdev/components/theme';
 import { demoAppTemplate } from './demo-app.template';
 import { demoAppStyles } from './demo-app.styles';
@@ -110,6 +111,93 @@ export class DemoApp implements IElementRef {
 
 	handleDatePickerChange = (event: CustomEvent): void => {
 		this.datePickerError = event.detail.value ? '' : 'Date is required';
+	};
+
+	/** Table demo data */
+	teamColumns: TableColumn[] = [
+		{
+			key: 'name', label: 'Name', sortable: true,
+			render: (_, row) => html`
+				<div style="display: flex; align-items: center; gap: 0.75rem;">
+					<ml-avatar src=${row.avatar as string} size="sm"></ml-avatar>
+					<div>
+						<div style="font-weight: 500;">${row.name}</div>
+						<div style="font-size: var(--ml-text-xs); color: var(--ml-color-text-muted);">${row.email}</div>
+					</div>
+				</div>
+			`
+		},
+		{ key: 'role', label: 'Role', sortable: true },
+		{
+			key: 'status', label: 'Status',
+			render: (val) => html`<ml-badge variant=${val === 'Active' ? 'success' : val === 'Pending' ? 'warning' : 'default'} size="sm">${val}</ml-badge>`
+		},
+		{ key: 'department', label: 'Department' },
+		{
+			key: 'actions', label: '', align: 'right', width: '80px',
+			render: () => html`
+				<ml-button variant="ghost" size="sm">
+					<ml-icon icon="dots-three" size="sm"></ml-icon>
+				</ml-button>
+			`
+		}
+	];
+
+	allTeamRows = [
+		{ name: 'Olivia Rhye', email: 'olivia@example.com', avatar: 'https://i.pravatar.cc/48?img=5', role: 'Designer', status: 'Active', department: 'Design' },
+		{ name: 'Phoenix Baker', email: 'phoenix@example.com', avatar: 'https://i.pravatar.cc/48?img=12', role: 'Developer', status: 'Active', department: 'Engineering' },
+		{ name: 'Lana Steiner', email: 'lana@example.com', avatar: 'https://i.pravatar.cc/48?img=32', role: 'PM', status: 'Pending', department: 'Product' },
+		{ name: 'Demi Wilkinson', email: 'demi@example.com', avatar: 'https://i.pravatar.cc/48?img=26', role: 'Designer', status: 'Active', department: 'Design' },
+		{ name: 'Candice Wu', email: 'candice@example.com', avatar: 'https://i.pravatar.cc/48?img=44', role: 'Developer', status: 'Offline', department: 'Engineering' },
+		{ name: 'Natali Craig', email: 'natali@example.com', avatar: 'https://i.pravatar.cc/48?img=47', role: 'Designer', status: 'Active', department: 'Design' },
+		{ name: 'Drew Cano', email: 'drew@example.com', avatar: 'https://i.pravatar.cc/48?img=53', role: 'Manager', status: 'Active', department: 'Engineering' },
+		{ name: 'Orlando Diggs', email: 'orlando@example.com', avatar: 'https://i.pravatar.cc/48?img=57', role: 'Developer', status: 'Pending', department: 'Engineering' },
+		{ name: 'Andi Lane', email: 'andi@example.com', avatar: 'https://i.pravatar.cc/48?img=36', role: 'Developer', status: 'Active', department: 'Engineering' },
+		{ name: 'Kate Morrison', email: 'kate@example.com', avatar: 'https://i.pravatar.cc/48?img=23', role: 'PM', status: 'Active', department: 'Product' },
+		{ name: 'Koray Okumus', email: 'koray@example.com', avatar: 'https://i.pravatar.cc/48?img=60', role: 'Designer', status: 'Offline', department: 'Design' },
+		{ name: 'Emily Pham', email: 'emily@example.com', avatar: 'https://i.pravatar.cc/48?img=9', role: 'Developer', status: 'Active', department: 'Engineering' },
+	];
+
+	teamPageSize = 5;
+	teamPage = 1;
+
+	get teamTotalPages(): number {
+		return Math.ceil(this.allTeamRows.length / this.teamPageSize);
+	}
+
+	get teamRows(): Record<string, unknown>[] {
+		const start = (this.teamPage - 1) * this.teamPageSize;
+		return this.allTeamRows.slice(start, start + this.teamPageSize);
+	}
+
+	simpleColumns: TableColumn[] = [
+		{ key: 'invoice', label: 'Invoice', sortable: true },
+		{ key: 'date', label: 'Date', sortable: true },
+		{ key: 'amount', label: 'Amount', align: 'right', sortable: true },
+		{
+			key: 'status', label: 'Status',
+			render: (val) => html`<ml-badge variant=${val === 'Paid' ? 'success' : val === 'Pending' ? 'warning' : 'error'} size="sm" pill>${val}</ml-badge>`
+		}
+	];
+
+	invoiceRows = [
+		{ invoice: 'INV-001', date: 'Jan 15, 2026', amount: '$1,250.00', status: 'Paid' },
+		{ invoice: 'INV-002', date: 'Jan 20, 2026', amount: '$3,600.00', status: 'Pending' },
+		{ invoice: 'INV-003', date: 'Feb 01, 2026', amount: '$890.00', status: 'Paid' },
+		{ invoice: 'INV-004', date: 'Feb 05, 2026', amount: '$2,100.00', status: 'Overdue' },
+		{ invoice: 'INV-005', date: 'Feb 08, 2026', amount: '$4,500.00', status: 'Paid' },
+	];
+
+	handleTeamPageChange = (event: CustomEvent): void => {
+		this.teamPage = event.detail.page;
+	};
+
+	handleTableSort = (event: CustomEvent): void => {
+		console.log('Sort:', event.detail);
+	};
+
+	handleTableSelect = (event: CustomEvent): void => {
+		console.log('Selected:', event.detail);
 	};
 
 	/** Pagination demo state */

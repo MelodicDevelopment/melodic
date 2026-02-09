@@ -31,6 +31,7 @@ import '@melodicdev/components/container';
 import '@melodicdev/components/badge';
 import '@melodicdev/components/avatar';
 import '@melodicdev/components/badge-group';
+import '@melodicdev/components/table';
 
 // import components - Icons
 import '@melodicdev/components/icon';
