@@ -44,6 +44,7 @@
 			"@melodicdev/components/toast": ["packages/melodic-components/src/components/feedback/toast/index.ts"],
 			"@melodicdev/components/breadcrumb": ["packages/melodic-components/src/components/navigation/breadcrumb/index.ts"],
 			"@melodicdev/components/pagination": ["packages/melodic-components/src/components/navigation/pagination/index.ts"],
+			"@melodicdev/components/radio-card-group": ["packages/melodic-components/src/components/forms/radio-card-group/index.ts"],
 			"@melodicdev/components/slider": ["packages/melodic-components/src/components/forms/slider/index.ts"],
 			"@melodicdev/components/button-group": ["packages/melodic-components/src/components/forms/button-group/index.ts"],
 			"@melodicdev/components/drawer": ["packages/melodic-components/src/components/overlays/drawer/index.ts"],

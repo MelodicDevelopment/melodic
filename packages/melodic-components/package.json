@@ -137,6 +137,10 @@
 			"types": "./lib/components/navigation/pagination/index.d.ts",
 			"default": "./lib/components/navigation/pagination/index.js"
 		},
+		"./radio-card-group": {
+			"types": "./lib/components/forms/radio-card-group/index.d.ts",
+			"default": "./lib/components/forms/radio-card-group/index.js"
+		},
 		"./slider": {
 			"types": "./lib/components/forms/slider/index.d.ts",
 			"default": "./lib/components/forms/slider/index.js"

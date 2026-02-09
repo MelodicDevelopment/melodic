@@ -47,6 +47,7 @@ export default defineConfig({
 			'@melodicdev/components/toast': resolve(__dirname, 'packages/melodic-components/src/components/feedback/toast/index.ts'),
 			'@melodicdev/components/breadcrumb': resolve(__dirname, 'packages/melodic-components/src/components/navigation/breadcrumb/index.ts'),
 			'@melodicdev/components/pagination': resolve(__dirname, 'packages/melodic-components/src/components/navigation/pagination/index.ts'),
+			'@melodicdev/components/radio-card-group': resolve(__dirname, 'packages/melodic-components/src/components/forms/radio-card-group/index.ts'),
 			'@melodicdev/components/slider': resolve(__dirname, 'packages/melodic-components/src/components/forms/slider/index.ts'),
 			'@melodicdev/components/button-group': resolve(__dirname, 'packages/melodic-components/src/components/forms/button-group/index.ts'),
 			'@melodicdev/components/drawer': resolve(__dirname, 'packages/melodic-components/src/components/overlays/drawer/index.ts'),
