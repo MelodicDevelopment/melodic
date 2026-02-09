@@ -32,6 +32,7 @@
 			"@melodicdev/components/divider": ["packages/melodic-components/src/components/foundation/divider/index.ts"],
 			"@melodicdev/components/alert": ["packages/melodic-components/src/components/feedback/alert/index.ts"],
 			"@melodicdev/components/badge": ["packages/melodic-components/src/components/data-display/badge/index.ts"],
+			"@melodicdev/components/badge-group": ["packages/melodic-components/src/components/data-display/badge-group/index.ts"],
 			"@melodicdev/components/avatar": ["packages/melodic-components/src/components/data-display/avatar/index.ts"],
 			"@melodicdev/components/tooltip": ["packages/melodic-components/src/components/overlays/tooltip/index.ts"],
 			"@melodicdev/components/icon": ["packages/melodic-components/src/components/general/icon/index.ts"],

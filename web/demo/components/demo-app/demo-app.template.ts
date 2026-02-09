@@ -28,6 +28,9 @@ export const demoAppTemplate = (c: DemoApp) => {
 					<a href="#badges" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'badges')}>
 						<ml-icon icon="seal" size="sm"></ml-icon>Badges
 					</a>
+					<a href="#badge-groups" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'badge-groups')}>
+						<ml-icon icon="seal" size="sm"></ml-icon>Badge Groups
+					</a>
 					<a href="#avatars" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'avatars')}>
 						<ml-icon icon="user-circle" size="sm"></ml-icon>Avatars
 					</a>
@@ -347,6 +350,71 @@ export const demoAppTemplate = (c: DemoApp) => {
 								<ml-badge pill>Label</ml-badge>
 								<ml-badge variant="primary" pill>New</ml-badge>
 								<ml-badge variant="success" pill>Complete</ml-badge>
+							</div>
+						</div>
+					</section>
+
+					<!-- Badge Groups Section -->
+					<section id="badge-groups" class="demo-section">
+						<div class="demo-section__header">
+							<h2>Badge Groups</h2>
+							<p>Compound badges that pair an inner label with descriptive text.</p>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>Variants</h3>
+							</div>
+							<div class="demo-row">
+								<ml-badge-group label="New" variant="default">Feature release</ml-badge-group>
+								<ml-badge-group label="New" variant="primary">Feature release</ml-badge-group>
+								<ml-badge-group label="Live" variant="success">System operational</ml-badge-group>
+								<ml-badge-group label="Alert" variant="warning">Maintenance soon</ml-badge-group>
+								<ml-badge-group label="Down" variant="error">Service outage</ml-badge-group>
+							</div>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>Themes</h3>
+								<span class="demo-card__badge">pill &amp; modern</span>
+							</div>
+							<div class="demo-row">
+								<ml-badge-group label="New" variant="primary" theme="pill">Pill theme</ml-badge-group>
+								<ml-badge-group label="New" variant="primary" theme="modern">Modern theme</ml-badge-group>
+							</div>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>Badge Position</h3>
+							</div>
+							<div class="demo-row">
+								<ml-badge-group label="New" variant="primary">Leading (default)</ml-badge-group>
+								<ml-badge-group label="New" variant="primary" badge-position="trailing">Trailing</ml-badge-group>
+							</div>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>Sizes</h3>
+								<span class="demo-card__badge">3 sizes</span>
+							</div>
+							<div class="demo-row">
+								<ml-badge-group label="New" variant="primary" size="sm">Small</ml-badge-group>
+								<ml-badge-group label="New" variant="primary" size="md">Medium</ml-badge-group>
+								<ml-badge-group label="New" variant="primary" size="lg">Large</ml-badge-group>
+							</div>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>With Icons</h3>
+							</div>
+							<div class="demo-row">
+								<ml-badge-group label="New" variant="primary" icon="arrow-right">With arrow</ml-badge-group>
+								<ml-badge-group label="Live" variant="success" icon="arrow-up-right">View status</ml-badge-group>
+								<ml-badge-group label="v2.0" variant="default" icon="arrow-right" theme="modern">Release notes</ml-badge-group>
 							</div>
 						</div>
 					</section>

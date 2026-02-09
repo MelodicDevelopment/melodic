@@ -28,6 +28,7 @@ import '@melodicdev/components/container';
 // Import components - Data Display
 import '@melodicdev/components/badge';
 import '@melodicdev/components/avatar';
+import '@melodicdev/components/badge-group';
 
 // import components - Icons
 import '@melodicdev/components/icon';

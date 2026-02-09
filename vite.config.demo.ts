@@ -33,6 +33,7 @@ export default defineConfig({
 			'@melodicdev/components/divider': resolve(__dirname, 'packages/melodic-components/src/components/foundation/divider/index.ts'),
 			'@melodicdev/components/alert': resolve(__dirname, 'packages/melodic-components/src/components/feedback/alert/index.ts'),
 			'@melodicdev/components/badge': resolve(__dirname, 'packages/melodic-components/src/components/data-display/badge/index.ts'),
+			'@melodicdev/components/badge-group': resolve(__dirname, 'packages/melodic-components/src/components/data-display/badge-group/index.ts'),
 			'@melodicdev/components/avatar': resolve(__dirname, 'packages/melodic-components/src/components/data-display/avatar/index.ts'),
 			'@melodicdev/components/tooltip': resolve(__dirname, 'packages/melodic-components/src/components/overlays/tooltip/index.ts'),
 			'@melodicdev/components/icon': resolve(__dirname, 'packages/melodic-components/src/components/general/icon/index.ts'),

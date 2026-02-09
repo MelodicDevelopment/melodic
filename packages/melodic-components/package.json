@@ -85,6 +85,10 @@
 			"types": "./lib/components/data-display/badge/index.d.ts",
 			"default": "./lib/components/data-display/badge/index.js"
 		},
+		"./badge-group": {
+			"types": "./lib/components/data-display/badge-group/index.d.ts",
+			"default": "./lib/components/data-display/badge-group/index.js"
+		},
 		"./avatar": {
 			"types": "./lib/components/data-display/avatar/index.d.ts",
 			"default": "./lib/components/data-display/avatar/index.js"
