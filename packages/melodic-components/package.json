@@ -137,6 +137,10 @@
 			"types": "./lib/components/navigation/pagination/index.d.ts",
 			"default": "./lib/components/navigation/pagination/index.js"
 		},
+		"./date-picker": {
+			"types": "./lib/components/forms/date-picker/index.d.ts",
+			"default": "./lib/components/forms/date-picker/index.js"
+		},
 		"./radio-card-group": {
 			"types": "./lib/components/forms/radio-card-group/index.d.ts",
 			"default": "./lib/components/forms/radio-card-group/index.js"

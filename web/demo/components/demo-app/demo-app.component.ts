@@ -105,6 +105,13 @@ export class DemoApp implements IElementRef {
 		this.sliderError = event.detail.value < 20 ? 'Value must be at least 20' : '';
 	};
 
+	/** Date picker error demo state */
+	datePickerError = 'Date is required';
+
+	handleDatePickerChange = (event: CustomEvent): void => {
+		this.datePickerError = event.detail.value ? '' : 'Date is required';
+	};
+
 	/** Pagination demo state */
 	currentPage = 1;
 

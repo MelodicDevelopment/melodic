@@ -91,6 +91,9 @@ export const demoAppTemplate = (c: DemoApp) => {
 					<a href="#sliders" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'sliders')}>
 						<ml-icon icon="sliders-horizontal" size="sm"></ml-icon>Sliders
 					</a>
+					<a href="#date-pickers" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'date-pickers')}>
+						<ml-icon icon="calendar-blank" size="sm"></ml-icon>Date Pickers
+					</a>
 					<a href="#progress" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'progress')}>
 						<ml-icon icon="chart-bar" size="sm"></ml-icon>Progress
 					</a>
@@ -1427,6 +1430,62 @@ const routes = [
 								<ml-slider label="Disabled" value="40" disabled show-value></ml-slider>
 								<ml-slider label="With Error" value="10" .error=${c.sliderError} show-value @ml:input=${c.handleSliderValidation}></ml-slider>
 							</ml-stack>
+						</div>
+					</section>
+
+					<!-- Date Pickers Section -->
+					<section id="date-pickers" class="demo-section">
+						<div class="demo-section__header">
+							<h2>Date Pickers</h2>
+							<p>Date selection with calendar dropdown and standalone calendar components.</p>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>Date Picker</h3>
+							</div>
+							<div class="demo-grid">
+								<ml-date-picker label="Start date" value="2026-02-08" hint="Select a start date"></ml-date-picker>
+								<ml-date-picker label="End date" placeholder="Pick a date"></ml-date-picker>
+							</div>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>Sizes</h3>
+								<span class="demo-card__badge">3 sizes</span>
+							</div>
+							<div class="demo-grid">
+								<ml-date-picker label="Small" size="sm" placeholder="Select date"></ml-date-picker>
+								<ml-date-picker label="Medium" size="md" placeholder="Select date"></ml-date-picker>
+								<ml-date-picker label="Large" size="lg" placeholder="Select date"></ml-date-picker>
+							</div>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>States</h3>
+							</div>
+							<div class="demo-grid">
+								<ml-date-picker label="With error" .error=${c.datePickerError} required @ml:change=${c.handleDatePickerChange}></ml-date-picker>
+								<ml-date-picker label="Disabled" value="2026-02-08" disabled></ml-date-picker>
+							</div>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>Min/Max Constraints</h3>
+							</div>
+							<ml-date-picker label="Select a date in February 2026" min="2026-02-01" max="2026-02-28" placeholder="Feb only"></ml-date-picker>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>Standalone Calendar</h3>
+							</div>
+							<div class="demo-row">
+								<ml-calendar value="2026-02-08"></ml-calendar>
+							</div>
 						</div>
 					</section>
 
