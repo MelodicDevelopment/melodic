@@ -15,45 +15,26 @@ export const demoAppTemplate = (c: DemoApp) => {
 				</div>
 
 				<nav class="demo-nav">
-					<span class="demo-nav__label">Components</span>
+					<span class="demo-nav__label">General</span>
 					<a href="#buttons" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'buttons')}>
 						<ml-icon icon="cursor-click" size="sm"></ml-icon>Buttons
 					</a>
 					<a href="#button-groups" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'button-groups')}>
 						<ml-icon icon="rows" size="sm"></ml-icon>Button Groups
 					</a>
-					<a href="#cards" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'cards')}>
-						<ml-icon icon="square" size="sm"></ml-icon>Cards
-					</a>
-					<a href="#badges" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'badges')}>
-						<ml-icon icon="seal" size="sm"></ml-icon>Badges
-					</a>
-					<a href="#badge-groups" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'badge-groups')}>
-						<ml-icon icon="seal" size="sm"></ml-icon>Badge Groups
-					</a>
-					<a href="#avatars" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'avatars')}>
-						<ml-icon icon="user-circle" size="sm"></ml-icon>Avatars
-					</a>
 					<a href="#icons" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'icons')}>
 						<ml-icon icon="star" size="sm"></ml-icon>Icons
 					</a>
-					<a href="#alerts" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'alerts')}>
-						<ml-icon icon="warning" size="sm"></ml-icon>Alerts
-					</a>
-					<a href="#dividers" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'dividers')}>
-						<ml-icon icon="minus" size="sm"></ml-icon>Dividers
-					</a>
-					<a href="#spinners" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'spinners')}>
-						<ml-icon icon="spinner-gap" size="sm"></ml-icon>Spinners
-					</a>
+
+					<span class="demo-nav__label">Forms</span>
 					<a href="#inputs" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'inputs')}>
 						<ml-icon icon="textbox" size="sm"></ml-icon>Inputs
 					</a>
-					<a href="#selects" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'selects')}>
-						<ml-icon icon="caret-circle-down" size="sm"></ml-icon>Selects
-					</a>
 					<a href="#textareas" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'textareas')}>
 						<ml-icon icon="article" size="sm"></ml-icon>Textareas
+					</a>
+					<a href="#selects" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'selects')}>
+						<ml-icon icon="caret-circle-down" size="sm"></ml-icon>Selects
 					</a>
 					<a href="#checkboxes" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'checkboxes')}>
 						<ml-icon icon="check-square" size="sm"></ml-icon>Checkboxes
@@ -67,12 +48,64 @@ export const demoAppTemplate = (c: DemoApp) => {
 					<a href="#toggles" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'toggles')}>
 						<ml-icon icon="toggle-left" size="sm"></ml-icon>Toggles
 					</a>
+					<a href="#sliders" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'sliders')}>
+						<ml-icon icon="sliders-horizontal" size="sm"></ml-icon>Sliders
+					</a>
+					<a href="#date-pickers" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'date-pickers')}>
+						<ml-icon icon="calendar-blank" size="sm"></ml-icon>Date Pickers
+					</a>
 					<a href="#form-fields" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'form-fields')}>
 						<ml-icon icon="textbox" size="sm"></ml-icon>Form Fields
 					</a>
+
+					<span class="demo-nav__label">Data Display</span>
+					<a href="#tables" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'tables')}>
+						<ml-icon icon="table" size="sm"></ml-icon>Tables
+					</a>
+					<a href="#badges" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'badges')}>
+						<ml-icon icon="seal" size="sm"></ml-icon>Badges
+					</a>
+					<a href="#badge-groups" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'badge-groups')}>
+						<ml-icon icon="seal" size="sm"></ml-icon>Badge Groups
+					</a>
+					<a href="#avatars" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'avatars')}>
+						<ml-icon icon="user-circle" size="sm"></ml-icon>Avatars
+					</a>
+
+					<span class="demo-nav__label">Layout</span>
+					<a href="#cards" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'cards')}>
+						<ml-icon icon="square" size="sm"></ml-icon>Cards
+					</a>
+					<a href="#dividers" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'dividers')}>
+						<ml-icon icon="minus" size="sm"></ml-icon>Dividers
+					</a>
+
+					<span class="demo-nav__label">Navigation</span>
 					<a href="#tabs" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'tabs')}>
 						<ml-icon icon="tabs" size="sm"></ml-icon>Tabs
 					</a>
+					<a href="#breadcrumbs" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'breadcrumbs')}>
+						<ml-icon icon="path" size="sm"></ml-icon>Breadcrumbs
+					</a>
+					<a href="#pagination" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'pagination')}>
+						<ml-icon icon="dots-three" size="sm"></ml-icon>Pagination
+					</a>
+
+					<span class="demo-nav__label">Feedback</span>
+					<a href="#alerts" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'alerts')}>
+						<ml-icon icon="warning" size="sm"></ml-icon>Alerts
+					</a>
+					<a href="#toasts" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'toasts')}>
+						<ml-icon icon="bell-ringing" size="sm"></ml-icon>Toasts
+					</a>
+					<a href="#progress" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'progress')}>
+						<ml-icon icon="chart-bar" size="sm"></ml-icon>Progress
+					</a>
+					<a href="#spinners" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'spinners')}>
+						<ml-icon icon="spinner-gap" size="sm"></ml-icon>Spinners
+					</a>
+
+					<span class="demo-nav__label">Overlays</span>
 					<a href="#tooltips" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'tooltips')}>
 						<ml-icon icon="chat-centered" size="sm"></ml-icon>Tooltips
 					</a>
@@ -87,27 +120,6 @@ export const demoAppTemplate = (c: DemoApp) => {
 					</a>
 					<a href="#drawers" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'drawers')}>
 						<ml-icon icon="sidebar" size="sm"></ml-icon>Drawers
-					</a>
-					<a href="#sliders" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'sliders')}>
-						<ml-icon icon="sliders-horizontal" size="sm"></ml-icon>Sliders
-					</a>
-					<a href="#date-pickers" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'date-pickers')}>
-						<ml-icon icon="calendar-blank" size="sm"></ml-icon>Date Pickers
-					</a>
-					<a href="#tables" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'tables')}>
-						<ml-icon icon="table" size="sm"></ml-icon>Tables
-					</a>
-					<a href="#progress" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'progress')}>
-						<ml-icon icon="chart-bar" size="sm"></ml-icon>Progress
-					</a>
-					<a href="#toasts" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'toasts')}>
-						<ml-icon icon="bell-ringing" size="sm"></ml-icon>Toasts
-					</a>
-					<a href="#breadcrumbs" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'breadcrumbs')}>
-						<ml-icon icon="path" size="sm"></ml-icon>Breadcrumbs
-					</a>
-					<a href="#pagination" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'pagination')}>
-						<ml-icon icon="dots-three" size="sm"></ml-icon>Pagination
 					</a>
 				</nav>
 

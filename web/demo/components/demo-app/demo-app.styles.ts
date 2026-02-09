@@ -83,8 +83,13 @@ export const demoAppStyles = () => css`
 		color: var(--ml-color-text-muted);
 		text-transform: uppercase;
 		letter-spacing: var(--ml-tracking-wider);
-		margin-bottom: var(--ml-space-3);
+		margin-bottom: var(--ml-space-2);
 		padding: 0 var(--ml-space-3);
+	}
+
+	.demo-nav__label + .demo-nav__label,
+	.demo-nav__item + .demo-nav__label {
+		margin-top: var(--ml-space-5);
 	}
 
 	.demo-nav__item {
