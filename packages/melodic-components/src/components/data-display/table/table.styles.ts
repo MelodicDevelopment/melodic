@@ -171,6 +171,7 @@ export const tableStyles = () => css`
 		width: 2.5rem;
 		padding: var(--ml-space-3) var(--ml-space-3) var(--ml-space-3) var(--ml-space-6);
 		vertical-align: middle;
+		text-align: center;
 	}
 
 	.ml-table--sm .ml-table__check-cell {
