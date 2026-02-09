@@ -11,6 +11,7 @@ import '@melodicdev/components/radio';
 import '@melodicdev/components/toggle';
 import '@melodicdev/components/form-field';
 import '@melodicdev/components/slider';
+import '@melodicdev/components/button-group';
 
 // Import components - Feedback
 import '@melodicdev/components/spinner';

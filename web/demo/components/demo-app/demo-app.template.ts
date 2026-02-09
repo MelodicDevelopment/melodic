@@ -19,6 +19,9 @@ export const demoAppTemplate = (c: DemoApp) => {
 					<a href="#buttons" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'buttons')}>
 						<ml-icon icon="cursor-click" size="sm"></ml-icon>Buttons
 					</a>
+					<a href="#button-groups" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'button-groups')}>
+						<ml-icon icon="rows" size="sm"></ml-icon>Button Groups
+					</a>
 					<a href="#cards" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'cards')}>
 						<ml-icon icon="square" size="sm"></ml-icon>Cards
 					</a>
@@ -171,6 +174,113 @@ export const demoAppTemplate = (c: DemoApp) => {
 							</div>
 						</div>
 
+					</section>
+
+					<!-- Button Groups Section -->
+					<section id="button-groups" class="demo-section">
+						<div class="demo-section__header">
+							<h2>Button Groups</h2>
+							<p>Connected toggle buttons for selecting between related options.</p>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>Single Selection</h3>
+								<span class="demo-card__badge">Toggle</span>
+							</div>
+							<div class="demo-row">
+								<ml-button-group value="list">
+									<ml-button-group-item value="list" icon="list">List</ml-button-group-item>
+									<ml-button-group-item value="grid" icon="grid-four">Grid</ml-button-group-item>
+									<ml-button-group-item value="columns" icon="columns">Columns</ml-button-group-item>
+								</ml-button-group>
+							</div>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>Multiple Selection</h3>
+								<span class="demo-card__badge">Multi-toggle</span>
+							</div>
+							<div class="demo-row">
+								<ml-button-group multiple .values=${['bold']}>
+									<ml-button-group-item value="bold" icon="text-bolder"></ml-button-group-item>
+									<ml-button-group-item value="italic" icon="text-italic"></ml-button-group-item>
+									<ml-button-group-item value="underline" icon="text-underline"></ml-button-group-item>
+									<ml-button-group-item value="strikethrough" icon="text-strikethrough"></ml-button-group-item>
+								</ml-button-group>
+							</div>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>Text Only</h3>
+							</div>
+							<div class="demo-row">
+								<ml-button-group value="monthly">
+									<ml-button-group-item value="daily">Daily</ml-button-group-item>
+									<ml-button-group-item value="weekly">Weekly</ml-button-group-item>
+									<ml-button-group-item value="monthly">Monthly</ml-button-group-item>
+									<ml-button-group-item value="yearly">Yearly</ml-button-group-item>
+								</ml-button-group>
+							</div>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>Sizes</h3>
+								<span class="demo-card__badge">3 sizes</span>
+							</div>
+							<div class="demo-column" style="gap: var(--ml-space-4);">
+								<ml-button-group value="a" size="sm">
+									<ml-button-group-item value="a">Option A</ml-button-group-item>
+									<ml-button-group-item value="b">Option B</ml-button-group-item>
+									<ml-button-group-item value="c">Option C</ml-button-group-item>
+								</ml-button-group>
+								<ml-button-group value="a" size="md">
+									<ml-button-group-item value="a">Option A</ml-button-group-item>
+									<ml-button-group-item value="b">Option B</ml-button-group-item>
+									<ml-button-group-item value="c">Option C</ml-button-group-item>
+								</ml-button-group>
+								<ml-button-group value="a" size="lg">
+									<ml-button-group-item value="a">Option A</ml-button-group-item>
+									<ml-button-group-item value="b">Option B</ml-button-group-item>
+									<ml-button-group-item value="c">Option C</ml-button-group-item>
+								</ml-button-group>
+							</div>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>Variants</h3>
+								<span class="demo-card__badge">2 styles</span>
+							</div>
+							<div class="demo-row">
+								<ml-button-group value="overview">
+									<ml-button-group-item value="overview" icon="chart-bar">Overview</ml-button-group-item>
+									<ml-button-group-item value="analytics" icon="chart-line">Analytics</ml-button-group-item>
+									<ml-button-group-item value="reports" icon="file-text">Reports</ml-button-group-item>
+								</ml-button-group>
+								<ml-button-group value="overview" variant="solid">
+									<ml-button-group-item value="overview" icon="chart-bar">Overview</ml-button-group-item>
+									<ml-button-group-item value="analytics" icon="chart-line">Analytics</ml-button-group-item>
+									<ml-button-group-item value="reports" icon="file-text">Reports</ml-button-group-item>
+								</ml-button-group>
+							</div>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>Disabled</h3>
+							</div>
+							<div class="demo-row">
+								<ml-button-group value="a" disabled>
+									<ml-button-group-item value="a">Option A</ml-button-group-item>
+									<ml-button-group-item value="b">Option B</ml-button-group-item>
+									<ml-button-group-item value="c">Option C</ml-button-group-item>
+								</ml-button-group>
+							</div>
+						</div>
 					</section>
 
 					<!-- Cards Section -->

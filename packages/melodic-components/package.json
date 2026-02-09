@@ -137,6 +137,10 @@
 			"types": "./lib/components/forms/slider/index.d.ts",
 			"default": "./lib/components/forms/slider/index.js"
 		},
+		"./button-group": {
+			"types": "./lib/components/forms/button-group/index.d.ts",
+			"default": "./lib/components/forms/button-group/index.js"
+		},
 		"./drawer": {
 			"types": "./lib/components/overlays/drawer/index.d.ts",
 			"default": "./lib/components/overlays/drawer/index.js"

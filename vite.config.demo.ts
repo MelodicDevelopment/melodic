@@ -47,6 +47,7 @@ export default defineConfig({
 			'@melodicdev/components/breadcrumb': resolve(__dirname, 'packages/melodic-components/src/components/navigation/breadcrumb/index.ts'),
 			'@melodicdev/components/pagination': resolve(__dirname, 'packages/melodic-components/src/components/navigation/pagination/index.ts'),
 			'@melodicdev/components/slider': resolve(__dirname, 'packages/melodic-components/src/components/forms/slider/index.ts'),
+			'@melodicdev/components/button-group': resolve(__dirname, 'packages/melodic-components/src/components/forms/button-group/index.ts'),
 			'@melodicdev/components/drawer': resolve(__dirname, 'packages/melodic-components/src/components/overlays/drawer/index.ts'),
 			'@melodicdev/components/directives': resolve(__dirname, 'packages/melodic-components/src/directives/index.ts'),
 			'@melodicdev/components': resolve(__dirname, 'packages/melodic-components/src/index.ts')
