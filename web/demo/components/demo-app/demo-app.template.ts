@@ -1434,7 +1434,21 @@ const routes = [
 					<section id="progress" class="demo-section">
 						<div class="demo-section__header">
 							<h2>Progress</h2>
-							<p>Linear progress bars for displaying completion state.</p>
+							<p>Progress indicators for displaying completion state. Linear, circle, and half-circle shapes.</p>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>Label Positions</h3>
+								<span class="demo-card__badge">5 positions</span>
+							</div>
+							<ml-stack gap="8">
+								<ml-progress value="40" label="Default (top)" show-value></ml-progress>
+								<ml-progress value="40" show-value label-position="right"></ml-progress>
+								<ml-progress value="40" show-value label-position="bottom"></ml-progress>
+								<ml-progress value="40" show-value label-position="floating-top" style="margin-top: 32px;"></ml-progress>
+								<ml-progress value="40" show-value label-position="floating-bottom" style="margin-bottom: 28px;"></ml-progress>
+							</ml-stack>
 						</div>
 
 						<div class="demo-card">
@@ -1460,6 +1474,50 @@ const routes = [
 								<ml-progress size="md" value="60" label="Medium"></ml-progress>
 								<ml-progress size="lg" value="60" label="Large"></ml-progress>
 							</ml-stack>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>Circle Progress</h3>
+							</div>
+							<div class="demo-row">
+								<ml-progress shape="circle" value="40" size="sm" show-value></ml-progress>
+								<ml-progress shape="circle" value="40" size="md" show-value></ml-progress>
+								<ml-progress shape="circle" value="40" size="lg" show-value></ml-progress>
+							</div>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>Circle with Labels</h3>
+							</div>
+							<div class="demo-row">
+								<ml-progress shape="circle" value="72" variant="primary" size="lg" show-value label="Users"></ml-progress>
+								<ml-progress shape="circle" value="90" variant="success" size="lg" show-value label="Uptime"></ml-progress>
+								<ml-progress shape="circle" value="35" variant="warning" size="lg" show-value label="Storage"></ml-progress>
+								<ml-progress shape="circle" value="12" variant="error" size="lg" show-value label="Errors"></ml-progress>
+							</div>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>Half Circle Progress</h3>
+							</div>
+							<div class="demo-row">
+								<ml-progress shape="half-circle" value="40" size="sm" show-value></ml-progress>
+								<ml-progress shape="half-circle" value="40" size="md" show-value></ml-progress>
+								<ml-progress shape="half-circle" value="40" size="lg" show-value></ml-progress>
+							</div>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>Half Circle with Labels</h3>
+							</div>
+							<div class="demo-row">
+								<ml-progress shape="half-circle" value="68" variant="primary" size="lg" show-value label="Active users"></ml-progress>
+								<ml-progress shape="half-circle" value="95" variant="success" size="lg" show-value label="Health"></ml-progress>
+							</div>
 						</div>
 					</section>
 
