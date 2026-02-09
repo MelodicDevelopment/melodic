@@ -46,31 +46,45 @@ export class DrawerComponent implements IElementRef, OnCreate, OnDestroy {
 
 	private _dialogEl!: HTMLDialogElement;
 	private _panelEl!: HTMLElement;
-	private _animation: Animation | null = null;
 
-	private get _offScreen(): string {
-		return this.side === 'right' ? 'translateX(100%)' : 'translateX(-100%)';
+	private get _positionProp(): 'left' | 'right' {
+		return this.side === 'left' ? 'left' : 'right';
+	}
+
+	private cancelAnimations(): void {
+		for (const anim of this._panelEl.getAnimations()) {
+			anim.cancel();
+		}
 	}
 
 	onCreate(): void {
 		this._dialogEl = this.elementRef.shadowRoot?.querySelector('dialog') as HTMLDialogElement;
 		this._panelEl = this._dialogEl?.querySelector('.ml-drawer__panel') as HTMLElement;
 		this._dialogEl?.addEventListener('click', this.handleBackdropClick);
+		this._dialogEl?.addEventListener('cancel', this.handleDialogCancel);
 	}
 
 	onDestroy(): void {
 		this._dialogEl?.removeEventListener('click', this.handleBackdropClick);
+		this._dialogEl?.removeEventListener('cancel', this.handleDialogCancel);
 	}
 
 	/** Open the drawer */
 	open(): void {
 		if (this._dialogEl?.open) return;
+		this.cancelAnimations();
 		this._dialogEl.showModal();
-		this._animation?.cancel();
-		this._animation = this._panelEl.animate(
-			[{ transform: this._offScreen }, { transform: 'translateX(0)' }],
+		const prop = this._positionProp;
+		const width = this._panelEl.offsetWidth;
+		this._panelEl.style[prop] = `${-width}px`;
+		this._panelEl.getBoundingClientRect();
+		const anim = this._panelEl.animate(
+			[{ [prop]: `${-width}px` }, { [prop]: '0px' }],
 			{ duration: 300, easing: 'cubic-bezier(0.16, 1, 0.3, 1)', fill: 'forwards' }
 		);
+		anim.onfinish = () => {
+			this._panelEl.style[prop] = '0px';
+		};
 
 		this.elementRef.dispatchEvent(
 			new CustomEvent('ml:open', { bubbles: true, composed: true })
@@ -80,14 +94,16 @@ export class DrawerComponent implements IElementRef, OnCreate, OnDestroy {
 	/** Close the drawer */
 	close = (): void => {
 		if (!this._dialogEl?.open) return;
-		this._animation?.cancel();
-		this._animation = this._panelEl.animate(
-			[{ transform: 'translateX(0)' }, { transform: this._offScreen }],
+		this.cancelAnimations();
+		const prop = this._positionProp;
+		const width = this._panelEl.offsetWidth;
+		const anim = this._panelEl.animate(
+			[{ [prop]: '0px' }, { [prop]: `${-width}px` }],
 			{ duration: 300, easing: 'cubic-bezier(0.16, 1, 0.3, 1)', fill: 'forwards' }
 		);
-		this._animation.onfinish = () => {
+		anim.onfinish = () => {
+			this._panelEl.style[prop] = '';
 			this._dialogEl.close();
-			this._animation = null;
 		};
 
 		this.elementRef.dispatchEvent(
@@ -99,5 +115,10 @@ export class DrawerComponent implements IElementRef, OnCreate, OnDestroy {
 		if (event.target === this._dialogEl) {
 			this.close();
 		}
+	};
+
+	private readonly handleDialogCancel = (event: Event): void => {
+		event.preventDefault();
+		this.close();
 	};
 }

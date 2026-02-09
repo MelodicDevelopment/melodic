@@ -7,7 +7,7 @@ export const drawerStyles = () => css`
 
 	dialog.ml-drawer {
 		position: fixed;
-		display: flex;
+		inset: 0;
 		margin: 0;
 		padding: 0;
 		border: none;
@@ -44,6 +44,9 @@ export const drawerStyles = () => css`
 
 	/* Panel */
 	.ml-drawer__panel {
+		position: absolute;
+		top: 0;
+		bottom: 0;
 		display: flex;
 		flex-direction: column;
 		height: 100%;
@@ -51,13 +54,13 @@ export const drawerStyles = () => css`
 		box-shadow: var(--ml-shadow-xl);
 	}
 
-	/* Side variants */
-	dialog.ml-drawer--right {
-		justify-content: flex-end;
+	/* Side variants - panel is off-screen by default */
+	dialog.ml-drawer--right .ml-drawer__panel {
+		right: 0;
 	}
 
-	dialog.ml-drawer--left {
-		justify-content: flex-start;
+	dialog.ml-drawer--left .ml-drawer__panel {
+		left: 0;
 	}
 
 	/* Size variants */

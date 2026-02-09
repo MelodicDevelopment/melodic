@@ -52,9 +52,10 @@ export const paginationStyles = () => css`
 		padding: 0;
 	}
 
-	.ml-pagination__btn--active {
-		background-color: var(--ml-color-surface-hover);
-		color: var(--ml-color-text);
+	.ml-pagination__btn--active,
+	.ml-pagination__btn--active:hover {
+		background-color: var(--ml-color-primary);
+		color: var(--ml-color-text-inverse);
 		font-weight: var(--ml-font-semibold);
 	}
 

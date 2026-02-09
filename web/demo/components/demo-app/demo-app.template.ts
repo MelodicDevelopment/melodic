@@ -97,7 +97,7 @@ export const demoAppTemplate = (c: DemoApp) => {
 				</nav>
 
 				<div class="demo-sidebar__footer">
-					<ml-toggle label="Dark mode" .checked=${c.isDark} @ml-change=${c.handleThemeToggle}></ml-toggle>
+					<ml-toggle label="Dark mode" .checked=${c.isDark} @ml:change=${c.handleThemeToggle}></ml-toggle>
 				</div>
 			</aside>
 
