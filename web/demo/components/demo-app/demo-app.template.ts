@@ -71,6 +71,9 @@ export const demoAppTemplate = (c: DemoApp) => {
 					<a href="#avatars" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'avatars')}>
 						<ml-icon icon="user-circle" size="sm"></ml-icon>Avatars
 					</a>
+					<a href="#tags" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'tags')}>
+						<ml-icon icon="tag" size="sm"></ml-icon>Tags
+					</a>
 
 					<span class="demo-nav__label">Layout</span>
 					<a href="#cards" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'cards')}>
@@ -912,6 +915,128 @@ export const demoAppTemplate = (c: DemoApp) => {
 								<ml-badge-group label="New" variant="primary" icon="arrow-right">With arrow</ml-badge-group>
 								<ml-badge-group label="Live" variant="success" icon="arrow-up-right">View status</ml-badge-group>
 								<ml-badge-group label="v2.0" variant="default" icon="arrow-right" theme="modern">Release notes</ml-badge-group>
+							</div>
+						</div>
+					</section>
+
+					<!-- Tags Section -->
+					<section id="tags" class="demo-section">
+						<div class="demo-section__header">
+							<h2>Tags</h2>
+							<p>Compact elements for labeling, categorizing, and organizing items.</p>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>Basic</h3>
+							</div>
+							<div class="demo-row">
+								<ml-tag>Label</ml-tag>
+								<ml-tag icon="flag">Label</ml-tag>
+								<ml-tag avatar-src="https://i.pravatar.cc/32?img=3">Label</ml-tag>
+								<ml-tag dot>Label</ml-tag>
+							</div>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>Sizes</h3>
+								<span class="demo-card__badge">3 sizes</span>
+							</div>
+							<div class="demo-row" style="align-items: flex-start;">
+								<div style="display: flex; flex-direction: column; gap: 8px; align-items: flex-start;">
+									<ml-tag size="sm">Label</ml-tag>
+									<ml-tag size="md">Label</ml-tag>
+									<ml-tag size="lg">Label</ml-tag>
+								</div>
+								<div style="display: flex; flex-direction: column; gap: 8px; align-items: flex-start;">
+									<ml-tag size="sm" icon="flag">Label</ml-tag>
+									<ml-tag size="md" icon="flag">Label</ml-tag>
+									<ml-tag size="lg" icon="flag">Label</ml-tag>
+								</div>
+								<div style="display: flex; flex-direction: column; gap: 8px; align-items: flex-start;">
+									<ml-tag size="sm" avatar-src="https://i.pravatar.cc/32?img=3">Label</ml-tag>
+									<ml-tag size="md" avatar-src="https://i.pravatar.cc/32?img=3">Label</ml-tag>
+									<ml-tag size="lg" avatar-src="https://i.pravatar.cc/32?img=3">Label</ml-tag>
+								</div>
+								<div style="display: flex; flex-direction: column; gap: 8px; align-items: flex-start;">
+									<ml-tag size="sm" dot>Label</ml-tag>
+									<ml-tag size="md" dot>Label</ml-tag>
+									<ml-tag size="lg" dot>Label</ml-tag>
+								</div>
+							</div>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>Closable</h3>
+							</div>
+							<div class="demo-row">
+								<ml-tag closable>Label</ml-tag>
+								<ml-tag closable icon="flag">Label</ml-tag>
+								<ml-tag closable avatar-src="https://i.pravatar.cc/32?img=3">Label</ml-tag>
+								<ml-tag closable dot>Label</ml-tag>
+							</div>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>With Count</h3>
+							</div>
+							<div class="demo-row">
+								<ml-tag count="5">Label</ml-tag>
+								<ml-tag count="5" icon="flag">Label</ml-tag>
+								<ml-tag count="5" avatar-src="https://i.pravatar.cc/32?img=3">Label</ml-tag>
+								<ml-tag count="5" dot>Label</ml-tag>
+							</div>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>With Checkbox</h3>
+							</div>
+							<div class="demo-row">
+								<ml-tag checkable checked>Label</ml-tag>
+								<ml-tag checkable checked icon="flag">Label</ml-tag>
+								<ml-tag checkable avatar-src="https://i.pravatar.cc/32?img=3">Label</ml-tag>
+								<ml-tag checkable dot>Label</ml-tag>
+							</div>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>Checkbox + Closable</h3>
+							</div>
+							<div class="demo-row">
+								<ml-tag checkable checked closable>Label</ml-tag>
+								<ml-tag checkable checked closable icon="flag">Label</ml-tag>
+								<ml-tag checkable closable avatar-src="https://i.pravatar.cc/32?img=3">Label</ml-tag>
+								<ml-tag checkable closable dot>Label</ml-tag>
+							</div>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>Checkbox + Count</h3>
+							</div>
+							<div class="demo-row">
+								<ml-tag checkable checked count="5">Label</ml-tag>
+								<ml-tag checkable checked count="5" icon="flag">Label</ml-tag>
+								<ml-tag checkable count="5" avatar-src="https://i.pravatar.cc/32?img=3">Label</ml-tag>
+								<ml-tag checkable count="5" dot>Label</ml-tag>
+							</div>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>Dot Colors</h3>
+							</div>
+							<div class="demo-row">
+								<ml-tag dot dot-color="success">Success</ml-tag>
+								<ml-tag dot dot-color="warning">Warning</ml-tag>
+								<ml-tag dot dot-color="danger">Danger</ml-tag>
+								<ml-tag dot dot-color="info">Info</ml-tag>
+								<ml-tag dot dot-color="primary">Primary</ml-tag>
 							</div>
 						</div>
 					</section>

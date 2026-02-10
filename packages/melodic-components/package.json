@@ -93,6 +93,10 @@
 			"types": "./lib/components/data-display/avatar/index.d.ts",
 			"default": "./lib/components/data-display/avatar/index.js"
 		},
+		"./tag": {
+			"types": "./lib/components/data-display/tag/index.d.ts",
+			"default": "./lib/components/data-display/tag/index.js"
+		},
 		"./icon": {
 			"types": "./lib/components/general/icon/index.d.ts",
 			"default": "./lib/components/general/icon/index.js"
