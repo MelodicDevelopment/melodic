@@ -2,6 +2,7 @@ import { MelodicComponent, Service, html } from '@melodicdev/core';
 import type { IElementRef } from '@melodicdev/core';
 import { DialogService, ToastService, type UniqueID, type ThemeMode, type SelectOption } from '@melodicdev/components';
 import type { TableColumn } from '@melodicdev/components/table';
+import type { StepConfig } from '@melodicdev/components/steps';
 import { applyTheme, getResolvedTheme, onThemeChange } from '@melodicdev/components/theme';
 import { demoAppTemplate } from './demo-app.template';
 import { demoAppStyles } from './demo-app.styles';
@@ -205,6 +206,31 @@ export class DemoApp implements IElementRef {
 
 	handlePageChange = (event: CustomEvent): void => {
 		this.currentPage = event.detail.page;
+	};
+
+	/** Steps demo data */
+	wizardSteps: StepConfig[] = [
+		{ value: 'details', label: 'Your details', description: 'Name and email address' },
+		{ value: 'company', label: 'Company details', description: 'A few details about your company' },
+		{ value: 'invite', label: 'Invite your team', description: 'Start collaborating with your team' },
+		{ value: 'review', label: 'Review', description: 'Review and confirm' }
+	];
+
+	iconSteps: StepConfig[] = [
+		{ value: 'details', label: 'Your details', description: 'Name and email address', icon: 'user' },
+		{ value: 'company', label: 'Company details', description: 'A few details about your company', icon: 'buildings' },
+		{ value: 'invite', label: 'Invite your team', description: 'Start collaborating with your team', icon: 'users' },
+		{ value: 'review', label: 'Review', description: 'Review and confirm', icon: 'check-circle' }
+	];
+
+	activeStep = 'company';
+
+	handleStepChange = (event: CustomEvent): void => {
+		this.activeStep = event.detail.value;
+	};
+
+	goToStep = (value: string): void => {
+		this.activeStep = value;
 	};
 }
 

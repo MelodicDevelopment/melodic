@@ -93,6 +93,9 @@ export const demoAppTemplate = (c: DemoApp) => {
 					<a href="#pagination" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'pagination')}>
 						<ml-icon icon="dots-three" size="sm"></ml-icon>Pagination
 					</a>
+					<a href="#steps" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'steps')}>
+						<ml-icon icon="list-numbers" size="sm"></ml-icon>Steps
+					</a>
 
 					<span class="demo-nav__label">Feedback</span>
 					<a href="#alerts" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'alerts')}>
@@ -1353,6 +1356,110 @@ const routes = [
 								<h3>Few Pages</h3>
 							</div>
 							<ml-pagination page="2" total-pages="3"></ml-pagination>
+						</div>
+					</section>
+
+					<!-- Steps Section -->
+					<section id="steps" class="demo-section">
+						<div class="demo-section__header">
+							<h2>Steps</h2>
+							<p>Multi-step progress indicators for wizard flows and onboarding sequences.</p>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>Numbered</h3>
+								<span class="demo-card__badge">Dotted / Success</span>
+							</div>
+							<ml-steps active="company" variant="numbered" connector="dotted" color="success" .steps=${c.wizardSteps}></ml-steps>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>Circles</h3>
+								<span class="demo-card__badge">Solid / Primary</span>
+							</div>
+							<ml-steps active="company" variant="circles" .steps=${c.wizardSteps}></ml-steps>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>Icons</h3>
+							</div>
+							<ml-steps active="company" variant="icons" .steps=${c.iconSteps}></ml-steps>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>Bar</h3>
+							</div>
+							<ml-steps active="company" variant="bar" .steps=${c.wizardSteps}></ml-steps>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>Compact Dots</h3>
+							</div>
+							<ml-steps active="company" compact .steps=${c.wizardSteps}></ml-steps>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>Vertical Circles</h3>
+							</div>
+							<ml-steps active="company" variant="circles" orientation="vertical" .steps=${c.wizardSteps}></ml-steps>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>Vertical Numbered</h3>
+								<span class="demo-card__badge">Dotted</span>
+							</div>
+							<ml-steps active="company" variant="numbered" orientation="vertical" connector="dotted" .steps=${c.wizardSteps}></ml-steps>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>Interactive with Panels</h3>
+							</div>
+							<ml-steps .active=${c.activeStep} variant="numbered" connector="dotted" color="success" .steps=${c.wizardSteps} @ml:change=${c.handleStepChange}>
+								<ml-step-panel value="details">
+									<div style="padding: var(--ml-space-4); border: 1px solid var(--ml-color-border); border-radius: var(--ml-radius-lg);">
+										<h4 style="margin: 0 0 var(--ml-space-2) 0; font-family: var(--ml-font-sans);">Your Details</h4>
+										<p style="margin: 0; color: var(--ml-color-text-secondary); font-family: var(--ml-font-sans); font-size: var(--ml-text-sm);">Please provide your name and email address.</p>
+									</div>
+								</ml-step-panel>
+								<ml-step-panel value="company">
+									<div style="padding: var(--ml-space-4); border: 1px solid var(--ml-color-border); border-radius: var(--ml-radius-lg);">
+										<h4 style="margin: 0 0 var(--ml-space-2) 0; font-family: var(--ml-font-sans);">Company Details</h4>
+										<p style="margin: 0; color: var(--ml-color-text-secondary); font-family: var(--ml-font-sans); font-size: var(--ml-text-sm);">Tell us a few details about your company.</p>
+									</div>
+								</ml-step-panel>
+								<ml-step-panel value="invite">
+									<div style="padding: var(--ml-space-4); border: 1px solid var(--ml-color-border); border-radius: var(--ml-radius-lg);">
+										<h4 style="margin: 0 0 var(--ml-space-2) 0; font-family: var(--ml-font-sans);">Invite Your Team</h4>
+										<p style="margin: 0; color: var(--ml-color-text-secondary); font-family: var(--ml-font-sans); font-size: var(--ml-text-sm);">Start collaborating with your team members.</p>
+									</div>
+								</ml-step-panel>
+								<ml-step-panel value="review">
+									<div style="padding: var(--ml-space-4); border: 1px solid var(--ml-color-border); border-radius: var(--ml-radius-lg);">
+										<h4 style="margin: 0 0 var(--ml-space-2) 0; font-family: var(--ml-font-sans);">Review</h4>
+										<p style="margin: 0; color: var(--ml-color-text-secondary); font-family: var(--ml-font-sans); font-size: var(--ml-text-sm);">Review all your information and confirm.</p>
+									</div>
+								</ml-step-panel>
+							</ml-steps>
+							<div style="display: flex; gap: var(--ml-space-3); margin-top: var(--ml-space-4);">
+								<ml-button variant="outline" size="sm" @click=${() => {
+									const steps = c.wizardSteps;
+									const idx = steps.findIndex(s => s.value === c.activeStep);
+									if (idx > 0) c.goToStep(steps[idx - 1].value);
+								}}>Back</ml-button>
+								<ml-button variant="primary" size="sm" @click=${() => {
+									const steps = c.wizardSteps;
+									const idx = steps.findIndex(s => s.value === c.activeStep);
+									if (idx < steps.length - 1) c.goToStep(steps[idx + 1].value);
+								}}>Next</ml-button>
+							</div>
 						</div>
 					</section>
 

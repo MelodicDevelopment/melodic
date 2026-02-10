@@ -48,6 +48,7 @@ export default defineConfig({
 			'@melodicdev/components/toast': resolve(__dirname, 'packages/melodic-components/src/components/feedback/toast/index.ts'),
 			'@melodicdev/components/breadcrumb': resolve(__dirname, 'packages/melodic-components/src/components/navigation/breadcrumb/index.ts'),
 			'@melodicdev/components/pagination': resolve(__dirname, 'packages/melodic-components/src/components/navigation/pagination/index.ts'),
+			'@melodicdev/components/steps': resolve(__dirname, 'packages/melodic-components/src/components/navigation/steps/index.ts'),
 			'@melodicdev/components/date-picker': resolve(__dirname, 'packages/melodic-components/src/components/forms/date-picker/index.ts'),
 			'@melodicdev/components/table': resolve(__dirname, 'packages/melodic-components/src/components/data-display/table/index.ts'),
 			'@melodicdev/components/radio-card-group': resolve(__dirname, 'packages/melodic-components/src/components/forms/radio-card-group/index.ts'),

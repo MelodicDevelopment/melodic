@@ -48,6 +48,7 @@ import '@melodicdev/components/drawer';
 import '@melodicdev/components/tabs';
 import '@melodicdev/components/breadcrumb';
 import '@melodicdev/components/pagination';
+import '@melodicdev/components/steps';
 
 // Import directives
 import '@melodicdev/components/directives';
