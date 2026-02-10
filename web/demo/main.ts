@@ -33,6 +33,7 @@ import '@melodicdev/components/avatar';
 import '@melodicdev/components/badge-group';
 import '@melodicdev/components/table';
 import '@melodicdev/components/tag';
+import '@melodicdev/components/calendar-view';
 
 // import components - Icons
 import '@melodicdev/components/icon';

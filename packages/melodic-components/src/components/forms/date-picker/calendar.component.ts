@@ -14,10 +14,7 @@ export interface CalendarDay {
 	isDisabled: boolean;
 }
 
-const MONTH_NAMES = [
-	'January', 'February', 'March', 'April', 'May', 'June',
-	'July', 'August', 'September', 'October', 'November', 'December'
-];
+const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
 const WEEKDAYS = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
 
@@ -66,21 +63,21 @@ export class CalendarComponent implements IElementRef, OnInit, OnAttributeChange
 	viewYear = new Date().getFullYear();
 
 	onInit(): void {
-		this._navigateToValue();
+		this.navigateToValue();
 	}
 
-	onAttributeChange(name: string, _oldVal: unknown, newVal: unknown): void {
+	onAttributeChange(name: string, _: unknown, newVal: unknown): void {
 		if (name === 'value' && newVal) {
-			this._navigateToValue();
+			this.navigateToValue();
 		}
 	}
 
-	private _navigateToValue(): void {
+	private navigateToValue(): void {
 		if (!this.value) return;
 		const parts = this.value.split('-');
 		if (parts.length === 3) {
-			this.viewYear = parseInt(parts[0], 10);
-			this.viewMonth = parseInt(parts[1], 10) - 1;
+			this.viewYear = Number.parseInt(parts[0], 10);
+			this.viewMonth = Number.parseInt(parts[1], 10) - 1;
 		}
 	}
 
@@ -109,11 +106,14 @@ export class CalendarComponent implements IElementRef, OnInit, OnAttributeChange
 			const d = daysInPrevMonth - i;
 			const iso = toIso(prevYear, prevMonth, d);
 			result.push({
-				date: d, month: prevMonth, year: prevYear, iso,
+				date: d,
+				month: prevMonth,
+				year: prevYear,
+				iso,
 				isCurrentMonth: false,
 				isToday: iso === today,
 				isSelected: iso === this.value,
-				isDisabled: this._isDisabled(iso)
+				isDisabled: this.isDisabled(iso)
 			});
 		}
 
@@ -121,11 +121,14 @@ export class CalendarComponent implements IElementRef, OnInit, OnAttributeChange
 		for (let d = 1; d <= daysInMonth; d++) {
 			const iso = toIso(year, month, d);
 			result.push({
-				date: d, month, year, iso,
+				date: d,
+				month,
+				year,
+				iso,
 				isCurrentMonth: true,
 				isToday: iso === today,
 				isSelected: iso === this.value,
-				isDisabled: this._isDisabled(iso)
+				isDisabled: this.isDisabled(iso)
 			});
 		}
 
@@ -138,11 +141,14 @@ export class CalendarComponent implements IElementRef, OnInit, OnAttributeChange
 			for (let t = 1; t <= trailingCount; t++) {
 				const iso = toIso(nextYear, nextMonth, t);
 				result.push({
-					date: t, month: nextMonth, year: nextYear, iso,
+					date: t,
+					month: nextMonth,
+					year: nextYear,
+					iso,
 					isCurrentMonth: false,
 					isToday: iso === today,
 					isSelected: iso === this.value,
-					isDisabled: this._isDisabled(iso)
+					isDisabled: this.isDisabled(iso)
 				});
 			}
 		}
@@ -196,7 +202,7 @@ export class CalendarComponent implements IElementRef, OnInit, OnAttributeChange
 		this.viewMonth = now.getMonth();
 		this.viewYear = now.getFullYear();
 		const iso = todayIso();
-		if (!this._isDisabled(iso)) {
+		if (!this.isDisabled(iso)) {
 			this.value = iso;
 			this.elementRef.dispatchEvent(
 				new CustomEvent('ml:select', {
@@ -208,7 +214,7 @@ export class CalendarComponent implements IElementRef, OnInit, OnAttributeChange
 		}
 	};
 
-	private _isDisabled(iso: string): boolean {
+	private isDisabled(iso: string): boolean {
 		if (this.min && iso < this.min) return true;
 		if (this.max && iso > this.max) return true;
 		return false;

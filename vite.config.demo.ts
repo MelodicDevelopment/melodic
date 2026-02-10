@@ -51,6 +51,7 @@ export default defineConfig({
 			'@melodicdev/components/steps': resolve(__dirname, 'packages/melodic-components/src/components/navigation/steps/index.ts'),
 			'@melodicdev/components/date-picker': resolve(__dirname, 'packages/melodic-components/src/components/forms/date-picker/index.ts'),
 			'@melodicdev/components/table': resolve(__dirname, 'packages/melodic-components/src/components/data-display/table/index.ts'),
+			'@melodicdev/components/calendar-view': resolve(__dirname, 'packages/melodic-components/src/components/data-display/calendar-view/index.ts'),
 			'@melodicdev/components/radio-card-group': resolve(__dirname, 'packages/melodic-components/src/components/forms/radio-card-group/index.ts'),
 			'@melodicdev/components/slider': resolve(__dirname, 'packages/melodic-components/src/components/forms/slider/index.ts'),
 			'@melodicdev/components/button-group': resolve(__dirname, 'packages/melodic-components/src/components/forms/button-group/index.ts'),

@@ -3,6 +3,7 @@ import type { IElementRef } from '@melodicdev/core';
 import { DialogService, ToastService, type UniqueID, type ThemeMode, type SelectOption } from '@melodicdev/components';
 import type { TableColumn } from '@melodicdev/components/table';
 import type { StepConfig } from '@melodicdev/components/steps';
+import type { CalendarEvent } from '@melodicdev/components/calendar-view';
 import { applyTheme, getResolvedTheme, onThemeChange } from '@melodicdev/components/theme';
 import { demoAppTemplate } from './demo-app.template';
 import { demoAppStyles } from './demo-app.styles';
@@ -231,6 +232,55 @@ export class DemoApp implements IElementRef {
 
 	goToStep = (value: string): void => {
 		this.activeStep = value;
+	};
+
+	/** Calendar view demo data */
+	calendarView = 'month';
+	calendarEvents: CalendarEvent[] = [
+		{ id: '1', title: 'Team standup', start: '2026-02-09T09:00:00', end: '2026-02-09T09:30:00', color: 'blue' },
+		{ id: '2', title: 'Sprint planning', start: '2026-02-09T10:00:00', end: '2026-02-09T11:30:00', color: 'purple' },
+		{ id: '3', title: 'Design review', start: '2026-02-10T09:00:00', end: '2026-02-10T10:00:00', color: 'purple' },
+		{ id: '4', title: 'Lunch with client', start: '2026-02-10T12:00:00', end: '2026-02-10T13:00:00', color: 'green' },
+		{ id: '5', title: '1:1 with manager', start: '2026-02-10T14:00:00', end: '2026-02-10T14:30:00', color: 'blue' },
+		{ id: '6', title: 'Product demo', start: '2026-02-10T15:00:00', end: '2026-02-10T16:00:00', color: 'orange' },
+		{ id: '7', title: 'Team standup', start: '2026-02-11T09:00:00', end: '2026-02-11T09:30:00', color: 'blue' },
+		{ id: '8', title: 'Code review', start: '2026-02-11T11:00:00', end: '2026-02-11T12:00:00', color: 'gray' },
+		{ id: '9', title: 'QA sync', start: '2026-02-11T14:00:00', end: '2026-02-11T14:45:00', color: 'pink' },
+		{ id: '10', title: 'Team standup', start: '2026-02-12T09:00:00', end: '2026-02-12T09:30:00', color: 'blue' },
+		{ id: '11', title: 'Architecture discussion', start: '2026-02-12T10:00:00', end: '2026-02-12T11:30:00', color: 'purple' },
+		{ id: '12', title: 'Yoga break', start: '2026-02-12T12:30:00', end: '2026-02-12T13:00:00', color: 'green' },
+		{ id: '13', title: 'Team standup', start: '2026-02-13T09:00:00', end: '2026-02-13T09:30:00', color: 'blue' },
+		{ id: '14', title: 'Sprint retrospective', start: '2026-02-13T15:00:00', end: '2026-02-13T16:00:00', color: 'yellow' },
+		{ id: '15', title: 'All hands meeting', start: '2026-02-14T10:00:00', end: '2026-02-14T11:00:00', color: 'purple', allDay: false },
+		{ id: '16', title: "Valentine's day lunch", start: '2026-02-14T12:00:00', end: '2026-02-14T13:30:00', color: 'pink' },
+		{ id: '17', title: 'Release planning', start: '2026-02-16T09:30:00', end: '2026-02-16T10:30:00', color: 'orange' },
+		{ id: '18', title: 'Team standup', start: '2026-02-16T09:00:00', end: '2026-02-16T09:30:00', color: 'blue' },
+		{ id: '19', title: 'UX workshop', start: '2026-02-17T13:00:00', end: '2026-02-17T15:00:00', color: 'purple' },
+		{ id: '20', title: 'Budget review', start: '2026-02-18T10:00:00', end: '2026-02-18T11:00:00', color: 'gray' },
+		{ id: '21', title: 'Team standup', start: '2026-02-18T09:00:00', end: '2026-02-18T09:30:00', color: 'blue' },
+		{ id: '22', title: 'Interview candidate', start: '2026-02-19T11:00:00', end: '2026-02-19T12:00:00', color: 'green' },
+		{ id: '23', title: 'Hackathon kickoff', start: '2026-02-20T09:00:00', end: '2026-02-20T10:00:00', color: 'orange' },
+		{ id: '24', title: 'Demo day', start: '2026-02-20T16:00:00', end: '2026-02-20T17:00:00', color: 'yellow' },
+		{ id: '25', title: 'Team lunch', start: '2026-02-21T12:00:00', end: '2026-02-21T13:00:00', color: 'green' },
+		{ id: '26', title: 'Board presentation', start: '2026-02-24T10:00:00', end: '2026-02-24T12:00:00', color: 'purple' },
+		{ id: '27', title: 'Security audit', start: '2026-02-25T09:00:00', end: '2026-02-25T11:00:00', color: 'pink' },
+		{ id: '28', title: 'Offsite planning', start: '2026-02-26T14:00:00', end: '2026-02-26T15:30:00', color: 'orange' },
+	];
+
+	handleCalendarViewChange = (event: CustomEvent): void => {
+		this.calendarView = event.detail.view;
+	};
+
+	handleCalendarEventClick = (event: CustomEvent): void => {
+		console.log('Calendar event clicked:', event.detail.event);
+	};
+
+	handleCalendarDateClick = (event: CustomEvent): void => {
+		console.log('Calendar date clicked:', event.detail.date);
+	};
+
+	handleCalendarAddEvent = (event: CustomEvent): void => {
+		console.log('Calendar add event:', event.detail.date ?? 'no date');
 	};
 }
 

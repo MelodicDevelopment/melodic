@@ -74,6 +74,9 @@ export const demoAppTemplate = (c: DemoApp) => {
 					<a href="#tags" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'tags')}>
 						<ml-icon icon="tag" size="sm"></ml-icon>Tags
 					</a>
+					<a href="#calendar-view" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'calendar-view')}>
+						<ml-icon icon="calendar-blank" size="sm"></ml-icon>Calendar View
+					</a>
 
 					<span class="demo-nav__label">Layout</span>
 					<a href="#cards" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'cards')}>
@@ -1041,6 +1044,30 @@ export const demoAppTemplate = (c: DemoApp) => {
 								<ml-tag dot dot-color="info">Info</ml-tag>
 								<ml-tag dot dot-color="primary">Primary</ml-tag>
 							</div>
+						</div>
+					</section>
+
+					<!-- Calendar View Section -->
+					<section id="calendar-view" class="demo-section">
+						<div class="demo-section__header">
+							<h2>Calendar View</h2>
+							<p>Full-featured calendar with month, week, and day views for scheduling and event management.</p>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>Interactive Calendar</h3>
+								<span class="demo-card__badge">3 views</span>
+							</div>
+							<ml-calendar-view
+								.events=${c.calendarEvents}
+								view=${c.calendarView}
+								date="2026-02-10"
+								@ml:view-change=${c.handleCalendarViewChange}
+								@ml:event-click=${c.handleCalendarEventClick}
+								@ml:date-click=${c.handleCalendarDateClick}
+								@ml:add-event=${c.handleCalendarAddEvent}
+							></ml-calendar-view>
 						</div>
 					</section>
 

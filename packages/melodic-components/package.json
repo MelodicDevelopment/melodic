@@ -153,6 +153,10 @@
 			"types": "./lib/components/data-display/table/index.d.ts",
 			"default": "./lib/components/data-display/table/index.js"
 		},
+		"./calendar-view": {
+			"types": "./lib/components/data-display/calendar-view/index.d.ts",
+			"default": "./lib/components/data-display/calendar-view/index.js"
+		},
 		"./radio-card-group": {
 			"types": "./lib/components/forms/radio-card-group/index.d.ts",
 			"default": "./lib/components/forms/radio-card-group/index.js"

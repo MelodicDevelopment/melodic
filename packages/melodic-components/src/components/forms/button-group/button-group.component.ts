@@ -55,7 +55,7 @@ export class ButtonGroupComponent implements IElementRef, OnCreate, OnDestroy {
 
 	onCreate(): void {
 		this.elementRef.addEventListener('ml:item-click', this._handleItemClick as EventListener);
-		this._syncItems();
+		this.syncItems();
 	}
 
 	onDestroy(): void {
@@ -64,7 +64,7 @@ export class ButtonGroupComponent implements IElementRef, OnCreate, OnDestroy {
 
 	/** Handle slot changes to sync initial state */
 	handleSlotChange = (): void => {
-		this._syncItems();
+		this.syncItems();
 	};
 
 	private readonly _handleItemClick = (event: CustomEvent<{ value: string }>): void => {
@@ -78,7 +78,7 @@ export class ButtonGroupComponent implements IElementRef, OnCreate, OnDestroy {
 			} else {
 				this.values = [...this.values, itemValue];
 			}
-			this._syncItems();
+			this.syncItems();
 			this.elementRef.dispatchEvent(
 				new CustomEvent('ml:change', {
 					bubbles: true,
@@ -88,7 +88,7 @@ export class ButtonGroupComponent implements IElementRef, OnCreate, OnDestroy {
 			);
 		} else {
 			this.value = itemValue;
-			this._syncItems();
+			this.syncItems();
 			this.elementRef.dispatchEvent(
 				new CustomEvent('ml:change', {
 					bubbles: true,
@@ -99,13 +99,11 @@ export class ButtonGroupComponent implements IElementRef, OnCreate, OnDestroy {
 		}
 	};
 
-	private _syncItems(): void {
+	private syncItems(): void {
 		const items = this.elementRef.querySelectorAll('ml-button-group-item');
 		items.forEach((item) => {
 			const itemValue = item.getAttribute('value') ?? '';
-			const isActive = this.multiple
-				? this.values.includes(itemValue)
-				: itemValue === this.value;
+			const isActive = this.multiple ? this.values.includes(itemValue) : itemValue === this.value;
 
 			item.toggleAttribute('active', isActive);
 			item.toggleAttribute('group-disabled', this.disabled);

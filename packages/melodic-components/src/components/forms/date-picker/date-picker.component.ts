@@ -4,10 +4,7 @@ import { computePosition, autoUpdate, offset, flip, shift } from '../../../utils
 import { datePickerTemplate } from './date-picker.template.js';
 import { datePickerStyles } from './date-picker.styles.js';
 
-const MONTH_SHORT = [
-	'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-	'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
-];
+const MONTH_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 function formatDisplay(iso: string): string {
 	if (!iso) return '';
@@ -79,7 +76,7 @@ export class DatePickerComponent implements IElementRef, OnCreate, OnDestroy {
 	}
 
 	onCreate(): void {
-		const popoverEl = this._getPopoverEl();
+		const popoverEl = this.getPopoverEl();
 		if (popoverEl) {
 			popoverEl.addEventListener('toggle', this._handleToggle);
 		}
@@ -87,7 +84,7 @@ export class DatePickerComponent implements IElementRef, OnCreate, OnDestroy {
 
 	onDestroy(): void {
 		this._cleanupAutoUpdate?.();
-		const popoverEl = this._getPopoverEl();
+		const popoverEl = this.getPopoverEl();
 		if (popoverEl) {
 			popoverEl.removeEventListener('toggle', this._handleToggle);
 		}
@@ -95,7 +92,7 @@ export class DatePickerComponent implements IElementRef, OnCreate, OnDestroy {
 
 	toggleCalendar = (): void => {
 		if (this.disabled) return;
-		const popoverEl = this._getPopoverEl();
+		const popoverEl = this.getPopoverEl();
 		if (popoverEl) {
 			popoverEl.togglePopover();
 		}
@@ -105,21 +102,21 @@ export class DatePickerComponent implements IElementRef, OnCreate, OnDestroy {
 	handleDateSelect = (event: Event): void => {
 		event.stopPropagation();
 		const detail = (event as CustomEvent).detail as { value: string };
-		this._commitValue(detail.value);
-		this._closePopover();
+		this.commitValue(detail.value);
+		this.closePopover();
 	};
 
 	handleKeyDown = (event: KeyboardEvent): void => {
 		if (event.key === 'Escape' && this.isOpen) {
 			event.preventDefault();
-			this._closePopover();
+			this.closePopover();
 		} else if ((event.key === 'Enter' || event.key === ' ' || event.key === 'ArrowDown') && !this.isOpen) {
 			event.preventDefault();
 			this.toggleCalendar();
 		}
 	};
 
-	private _commitValue(iso: string): void {
+	private commitValue(iso: string): void {
 		this.value = iso;
 		this.elementRef.dispatchEvent(
 			new CustomEvent('ml:change', {
@@ -134,33 +131,33 @@ export class DatePickerComponent implements IElementRef, OnCreate, OnDestroy {
 		const toggleEvent = event as ToggleEvent;
 		if (toggleEvent.newState === 'open') {
 			this.isOpen = true;
-			this._startPositioning();
+			this.startPositioning();
 		} else {
 			this.isOpen = false;
 			this._cleanupAutoUpdate?.();
 			this._cleanupAutoUpdate = null;
-			this._returnFocus();
+			this.returnFocus();
 		}
 	};
 
-	private _closePopover(): void {
-		const popoverEl = this._getPopoverEl();
+	private closePopover(): void {
+		const popoverEl = this.getPopoverEl();
 		if (popoverEl && this.isOpen) {
 			popoverEl.hidePopover();
 		}
 	}
 
-	private _startPositioning(): void {
-		const triggerEl = this._getTriggerEl();
-		const popoverEl = this._getPopoverEl();
+	private startPositioning(): void {
+		const triggerEl = this.getTriggerEl();
+		const popoverEl = this.getPopoverEl();
 		if (!triggerEl || !popoverEl) return;
 
-		const update = () => this._updatePosition(triggerEl, popoverEl);
+		const update = () => this.updatePosition(triggerEl, popoverEl);
 		this._cleanupAutoUpdate?.();
 		this._cleanupAutoUpdate = autoUpdate(triggerEl, popoverEl, update);
 	}
 
-	private _updatePosition(triggerEl: HTMLElement, popoverEl: HTMLElement): void {
+	private updatePosition(triggerEl: HTMLElement, popoverEl: HTMLElement): void {
 		const middleware = [offset(4), flip(), shift({ padding: 8 })];
 		const { x, y } = computePosition(triggerEl, popoverEl, {
 			placement: 'bottom-start',
@@ -170,18 +167,18 @@ export class DatePickerComponent implements IElementRef, OnCreate, OnDestroy {
 		popoverEl.style.top = `${y}px`;
 	}
 
-	private _returnFocus(): void {
-		const triggerEl = this._getTriggerEl();
+	private returnFocus(): void {
+		const triggerEl = this.getTriggerEl();
 		if (triggerEl) {
 			triggerEl.focus();
 		}
 	}
 
-	private _getTriggerEl(): HTMLElement | null {
+	private getTriggerEl(): HTMLElement | null {
 		return this.elementRef.shadowRoot?.querySelector('.ml-date-picker__trigger') as HTMLElement | null;
 	}
 
-	private _getPopoverEl(): HTMLElement | null {
+	private getPopoverEl(): HTMLElement | null {
 		return this.elementRef.shadowRoot?.querySelector('.ml-date-picker__popover') as HTMLElement | null;
 	}
 }

@@ -48,7 +48,7 @@ export class RadioCardGroupComponent implements IElementRef, OnCreate, OnDestroy
 
 	onCreate(): void {
 		this.elementRef.addEventListener('ml:card-select', this._handleCardSelect as EventListener);
-		this._syncCards();
+		this.syncCards();
 	}
 
 	onDestroy(): void {
@@ -56,13 +56,13 @@ export class RadioCardGroupComponent implements IElementRef, OnCreate, OnDestroy
 	}
 
 	handleSlotChange = (): void => {
-		this._syncCards();
+		this.syncCards();
 	};
 
 	private readonly _handleCardSelect = (event: CustomEvent<{ value: string }>): void => {
 		event.stopPropagation();
 		this.value = event.detail.value;
-		this._syncCards();
+		this.syncCards();
 
 		this.elementRef.dispatchEvent(
 			new CustomEvent('ml:change', {
@@ -73,7 +73,7 @@ export class RadioCardGroupComponent implements IElementRef, OnCreate, OnDestroy
 		);
 	};
 
-	private _syncCards(): void {
+	private syncCards(): void {
 		const cards = this.elementRef.querySelectorAll('ml-radio-card');
 
 		// If no value set, check for initially-selected card
