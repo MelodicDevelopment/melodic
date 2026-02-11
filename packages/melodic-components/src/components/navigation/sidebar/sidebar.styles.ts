@@ -164,8 +164,8 @@ export const sidebarStyles = () => css`
 			color var(--ml-duration-150) var(--ml-ease-in-out);
 	}
 
-	.ml-sidebar__item-link:hover:not(.ml-sidebar__item-link--disabled) {
-		background-color: var(--ml-color-surface-secondary);
+	.ml-sidebar__item-link:hover:not(.ml-sidebar__item-link--disabled):not(.ml-sidebar__item-link--active) {
+		background-color: var(--ml-gray-100);
 		color: var(--ml-color-text);
 	}
 
@@ -175,13 +175,13 @@ export const sidebarStyles = () => css`
 	}
 
 	.ml-sidebar__item-link--active {
-		background-color: var(--ml-color-primary-subtle);
-		color: var(--ml-color-primary);
+		background-color: var(--ml-color-primary);
+		color: var(--ml-color-text-inverse);
 	}
 
 	.ml-sidebar__item-link--active:hover {
-		background-color: var(--ml-color-primary-subtle);
-		color: var(--ml-color-primary);
+		background-color: var(--ml-color-primary-hover);
+		color: var(--ml-color-text-inverse);
 	}
 
 	.ml-sidebar__item-link--disabled {
