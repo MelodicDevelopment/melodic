@@ -80,6 +80,9 @@ export const demoAppTemplate = (c: DemoApp) => {
 					<a href="#activity-feed" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'activity-feed')}>
 						<ml-icon icon="list-bullets" size="sm"></ml-icon>Activity Feed
 					</a>
+					<a href="#list" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'list')}>
+						<ml-icon icon="list-dashes" size="sm"></ml-icon>List
+					</a>
 
 					<span class="demo-nav__label">Layout</span>
 					<a href="#cards" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'cards')}>
@@ -1173,6 +1176,232 @@ export const demoAppTemplate = (c: DemoApp) => {
 									<span>Database migration <strong>v3.2.1</strong> failed — <a href="#">view logs</a></span>
 								</ml-activity-feed-item>
 							</ml-activity-feed>
+						</div>
+					</section>
+
+					<!-- List Section -->
+					<section id="list" class="demo-section">
+						<div class="demo-section__header">
+							<h2>List</h2>
+							<p>Generic list container with structured items supporting leading, content, and trailing slots.</p>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>Default Variant</h3>
+								<span class="demo-card__badge">Dividers</span>
+							</div>
+							<ml-list>
+								<ml-list-item primary="Olivia Rhye" secondary="Product Designer — Working on the checkout redesign for Q3 launch">
+									<ml-avatar slot="leading" initials="OR" size="sm"></ml-avatar>
+									<div slot="trailing" style="display: flex; align-items: center; gap: var(--ml-space-2);">
+										<span style="width: 8px; height: 8px; border-radius: var(--ml-radius-full); background-color: var(--ml-color-success);"></span>
+										<span style="font-size: var(--ml-text-xs); color: var(--ml-color-text-tertiary);">Online</span>
+									</div>
+								</ml-list-item>
+								<ml-list-item primary="Phoenix Baker" secondary="Engineering Lead — Reviewing pull requests and sprint planning">
+									<ml-avatar slot="leading" initials="PB" size="sm"></ml-avatar>
+									<div slot="trailing" style="display: flex; align-items: center; gap: var(--ml-space-2);">
+										<span style="width: 8px; height: 8px; border-radius: var(--ml-radius-full); background-color: var(--ml-color-success);"></span>
+										<span style="font-size: var(--ml-text-xs); color: var(--ml-color-text-tertiary);">Online</span>
+									</div>
+								</ml-list-item>
+								<ml-list-item primary="Lana Steiner" secondary="Frontend Developer — Out for lunch, back at 1:00 PM">
+									<ml-avatar slot="leading" initials="LS" size="sm"></ml-avatar>
+									<div slot="trailing" style="display: flex; align-items: center; gap: var(--ml-space-2);">
+										<span style="width: 8px; height: 8px; border-radius: var(--ml-radius-full); background-color: var(--ml-color-warning);"></span>
+										<span style="font-size: var(--ml-text-xs); color: var(--ml-color-text-tertiary);">Away</span>
+									</div>
+								</ml-list-item>
+								<ml-list-item primary="Demi Wilkinson" secondary="QA Engineer — Last seen yesterday at 5:32 PM">
+									<ml-avatar slot="leading" initials="DW" size="sm"></ml-avatar>
+									<div slot="trailing" style="display: flex; align-items: center; gap: var(--ml-space-2);">
+										<span style="width: 8px; height: 8px; border-radius: var(--ml-radius-full); background-color: var(--ml-color-text-tertiary);"></span>
+										<span style="font-size: var(--ml-text-xs); color: var(--ml-color-text-tertiary);">Offline</span>
+									</div>
+								</ml-list-item>
+								<ml-list-item primary="Candice Wu" secondary="Backend Developer — In a meeting until 3:00 PM">
+									<ml-avatar slot="leading" initials="CW" size="sm"></ml-avatar>
+									<div slot="trailing" style="display: flex; align-items: center; gap: var(--ml-space-2);">
+										<span style="width: 8px; height: 8px; border-radius: var(--ml-radius-full); background-color: var(--ml-color-error);"></span>
+										<span style="font-size: var(--ml-text-xs); color: var(--ml-color-text-tertiary);">Busy</span>
+									</div>
+								</ml-list-item>
+							</ml-list>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>Plain Variant</h3>
+								<span class="demo-card__badge">No dividers</span>
+							</div>
+							<ml-list variant="plain">
+								<ml-list-item primary="Dashboard" secondary="View real-time metrics, recent activity, and project health at a glance">
+									<ml-icon slot="leading" icon="squares-four" size="sm"></ml-icon>
+									<ml-badge slot="trailing" variant="pill" color="primary">New</ml-badge>
+								</ml-list-item>
+								<ml-list-item primary="Analytics" secondary="Explore traffic sources, engagement trends, and conversion funnels">
+									<ml-icon slot="leading" icon="chart-bar" size="sm"></ml-icon>
+									<span slot="trailing" style="font-size: var(--ml-text-xs); color: var(--ml-color-text-tertiary);">24 reports</span>
+								</ml-list-item>
+								<ml-list-item primary="Team Members" secondary="Invite collaborators, assign roles, and manage access permissions">
+									<ml-icon slot="leading" icon="users" size="sm"></ml-icon>
+									<span slot="trailing" style="font-size: var(--ml-text-xs); color: var(--ml-color-text-tertiary);">12 members</span>
+								</ml-list-item>
+								<ml-list-item primary="Integrations" secondary="Connect third-party services like Slack, GitHub, and Jira">
+									<ml-icon slot="leading" icon="plug" size="sm"></ml-icon>
+									<ml-badge slot="trailing" variant="pill" color="success">3 active</ml-badge>
+								</ml-list-item>
+								<ml-list-item primary="Settings" secondary="Configure your workspace, billing, and notification preferences">
+									<ml-icon slot="leading" icon="gear" size="sm"></ml-icon>
+								</ml-list-item>
+							</ml-list>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>Interactive Items</h3>
+								<span class="demo-card__badge">Hover &amp; disabled</span>
+							</div>
+							<ml-list>
+								<ml-list-item primary="Edit profile" secondary="Change your name, bio, avatar, and public profile details" interactive>
+									<ml-avatar slot="leading" size="xs" style="background-color: var(--ml-color-primary-light); color: var(--ml-color-primary);">
+										<ml-icon icon="user" size="xs"></ml-icon>
+									</ml-avatar>
+									<ml-icon slot="trailing" icon="caret-right" size="sm" style="color: var(--ml-color-text-tertiary);"></ml-icon>
+								</ml-list-item>
+								<ml-list-item primary="Notifications" secondary="Choose which emails and push alerts you receive for updates" interactive>
+									<ml-avatar slot="leading" size="xs" style="background-color: var(--ml-color-warning-light); color: var(--ml-color-warning);">
+										<ml-icon icon="bell" size="xs"></ml-icon>
+									</ml-avatar>
+									<div slot="trailing" style="display: flex; align-items: center; gap: var(--ml-space-2);">
+										<ml-badge variant="pill" color="error">3</ml-badge>
+										<ml-icon icon="caret-right" size="sm" style="color: var(--ml-color-text-tertiary);"></ml-icon>
+									</div>
+								</ml-list-item>
+								<ml-list-item primary="Security" secondary="Update your password, enable two-factor auth, and review login sessions" interactive>
+									<ml-avatar slot="leading" size="xs" style="background-color: var(--ml-color-success-light); color: var(--ml-color-success);">
+										<ml-icon icon="lock" size="xs"></ml-icon>
+									</ml-avatar>
+									<ml-icon slot="trailing" icon="caret-right" size="sm" style="color: var(--ml-color-text-tertiary);"></ml-icon>
+								</ml-list-item>
+								<ml-list-item primary="Billing" secondary="Manage your subscription, download invoices, and update payment methods" interactive>
+									<ml-avatar slot="leading" size="xs" style="background-color: var(--ml-color-primary-light); color: var(--ml-color-primary);">
+										<ml-icon icon="credit-card" size="xs"></ml-icon>
+									</ml-avatar>
+									<div slot="trailing" style="display: flex; align-items: center; gap: var(--ml-space-2);">
+										<span style="font-size: var(--ml-text-xs); color: var(--ml-color-text-tertiary);">Pro plan</span>
+										<ml-icon icon="caret-right" size="sm" style="color: var(--ml-color-text-tertiary);"></ml-icon>
+									</div>
+								</ml-list-item>
+								<ml-list-item primary="Delete account" secondary="Permanently erase your account, projects, and all associated data" interactive disabled>
+									<ml-avatar slot="leading" size="xs" style="background-color: var(--ml-color-error-light); color: var(--ml-color-error);">
+										<ml-icon icon="trash" size="xs"></ml-icon>
+									</ml-avatar>
+									<ml-icon slot="trailing" icon="caret-right" size="sm" style="color: var(--ml-color-text-tertiary);"></ml-icon>
+								</ml-list-item>
+							</ml-list>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>Custom Slotted Content</h3>
+								<span class="demo-card__badge">Default slot</span>
+							</div>
+							<ml-list>
+								<ml-list-item>
+									<ml-avatar slot="leading" initials="OR" size="sm"></ml-avatar>
+									<div>
+										<div style="font-size: var(--ml-text-sm); font-weight: var(--ml-font-semibold); color: var(--ml-color-text);">Olivia Rhye</div>
+										<div style="font-size: var(--ml-text-xs); color: var(--ml-color-text-secondary);">Finished the <strong style="color: var(--ml-color-text);">design system audit</strong> and handed off the final report to engineering — 2 hours ago</div>
+									</div>
+									<ml-badge slot="trailing" variant="pill" color="success">Done</ml-badge>
+								</ml-list-item>
+								<ml-list-item>
+									<ml-avatar slot="leading" initials="PB" size="sm"></ml-avatar>
+									<div>
+										<div style="font-size: var(--ml-text-sm); font-weight: var(--ml-font-semibold); color: var(--ml-color-text);">Phoenix Baker</div>
+										<div style="font-size: var(--ml-text-xs); color: var(--ml-color-text-secondary);">Building the REST endpoints for the <strong style="color: var(--ml-color-text);">payment gateway integration</strong> — updated 30 min ago</div>
+									</div>
+									<ml-badge slot="trailing" variant="pill" color="warning">In Progress</ml-badge>
+								</ml-list-item>
+								<ml-list-item>
+									<ml-avatar slot="leading" initials="LS" size="sm"></ml-avatar>
+									<div>
+										<div style="font-size: var(--ml-text-sm); font-weight: var(--ml-font-semibold); color: var(--ml-color-text);">Lana Steiner</div>
+										<div style="font-size: var(--ml-text-xs); color: var(--ml-color-text-secondary);">Left comments on <strong style="color: var(--ml-color-text);">Pull Request #482</strong> requesting changes to the auth flow — 1 day ago</div>
+									</div>
+									<ml-badge slot="trailing" variant="pill" color="primary">Review</ml-badge>
+								</ml-list-item>
+								<ml-list-item>
+									<ml-avatar slot="leading" initials="DW" size="sm"></ml-avatar>
+									<div>
+										<div style="font-size: var(--ml-text-sm); font-weight: var(--ml-font-semibold); color: var(--ml-color-text);">Demi Wilkinson</div>
+										<div style="font-size: var(--ml-text-xs); color: var(--ml-color-text-secondary);">Waiting on DevOps to resolve the <strong style="color: var(--ml-color-text);">staging database migration</strong> before testing can continue — 3 days ago</div>
+									</div>
+									<ml-badge slot="trailing" variant="pill" color="error">Blocked</ml-badge>
+								</ml-list-item>
+							</ml-list>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>Sizes</h3>
+								<span class="demo-card__badge">sm / md / lg</span>
+							</div>
+							<div style="display: flex; flex-direction: column; gap: var(--ml-space-6);">
+								<div>
+									<p style="font-size: var(--ml-text-xs); color: var(--ml-color-text-tertiary); margin-bottom: var(--ml-space-2); text-transform: uppercase; font-weight: var(--ml-font-semibold); letter-spacing: 0.05em;">Small</p>
+									<ml-list size="sm">
+										<ml-list-item primary="Weekly standup" secondary="Recurring meeting every Monday at 9:00 AM with the product team">
+											<ml-icon slot="leading" icon="calendar-blank" size="sm"></ml-icon>
+											<span slot="trailing" style="font-size: var(--ml-text-xs); color: var(--ml-color-text-tertiary);">Mon 9 AM</span>
+										</ml-list-item>
+										<ml-list-item primary="Design review" secondary="Walk through the latest mockups for the onboarding flow">
+											<ml-icon slot="leading" icon="calendar-blank" size="sm"></ml-icon>
+											<span slot="trailing" style="font-size: var(--ml-text-xs); color: var(--ml-color-text-tertiary);">Tue 2 PM</span>
+										</ml-list-item>
+										<ml-list-item primary="Sprint retro" secondary="Discuss what went well and what to improve from last sprint">
+											<ml-icon slot="leading" icon="calendar-blank" size="sm"></ml-icon>
+											<span slot="trailing" style="font-size: var(--ml-text-xs); color: var(--ml-color-text-tertiary);">Fri 4 PM</span>
+										</ml-list-item>
+									</ml-list>
+								</div>
+								<div>
+									<p style="font-size: var(--ml-text-xs); color: var(--ml-color-text-tertiary); margin-bottom: var(--ml-space-2); text-transform: uppercase; font-weight: var(--ml-font-semibold); letter-spacing: 0.05em;">Medium (default)</p>
+									<ml-list size="md">
+										<ml-list-item primary="Weekly standup" secondary="Recurring meeting every Monday at 9:00 AM with the product team">
+											<ml-icon slot="leading" icon="calendar-blank" size="sm"></ml-icon>
+											<span slot="trailing" style="font-size: var(--ml-text-xs); color: var(--ml-color-text-tertiary);">Mon 9 AM</span>
+										</ml-list-item>
+										<ml-list-item primary="Design review" secondary="Walk through the latest mockups for the onboarding flow">
+											<ml-icon slot="leading" icon="calendar-blank" size="sm"></ml-icon>
+											<span slot="trailing" style="font-size: var(--ml-text-xs); color: var(--ml-color-text-tertiary);">Tue 2 PM</span>
+										</ml-list-item>
+										<ml-list-item primary="Sprint retro" secondary="Discuss what went well and what to improve from last sprint">
+											<ml-icon slot="leading" icon="calendar-blank" size="sm"></ml-icon>
+											<span slot="trailing" style="font-size: var(--ml-text-xs); color: var(--ml-color-text-tertiary);">Fri 4 PM</span>
+										</ml-list-item>
+									</ml-list>
+								</div>
+								<div>
+									<p style="font-size: var(--ml-text-xs); color: var(--ml-color-text-tertiary); margin-bottom: var(--ml-space-2); text-transform: uppercase; font-weight: var(--ml-font-semibold); letter-spacing: 0.05em;">Large</p>
+									<ml-list size="lg">
+										<ml-list-item primary="Weekly standup" secondary="Recurring meeting every Monday at 9:00 AM with the product team">
+											<ml-icon slot="leading" icon="calendar-blank" size="sm"></ml-icon>
+											<span slot="trailing" style="font-size: var(--ml-text-xs); color: var(--ml-color-text-tertiary);">Mon 9 AM</span>
+										</ml-list-item>
+										<ml-list-item primary="Design review" secondary="Walk through the latest mockups for the onboarding flow">
+											<ml-icon slot="leading" icon="calendar-blank" size="sm"></ml-icon>
+											<span slot="trailing" style="font-size: var(--ml-text-xs); color: var(--ml-color-text-tertiary);">Tue 2 PM</span>
+										</ml-list-item>
+										<ml-list-item primary="Sprint retro" secondary="Discuss what went well and what to improve from last sprint">
+											<ml-icon slot="leading" icon="calendar-blank" size="sm"></ml-icon>
+											<span slot="trailing" style="font-size: var(--ml-text-xs); color: var(--ml-color-text-tertiary);">Fri 4 PM</span>
+										</ml-list-item>
+									</ml-list>
+								</div>
+							</div>
 						</div>
 					</section>
 
