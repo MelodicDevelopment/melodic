@@ -46,6 +46,7 @@
 			"@melodicdev/components/breadcrumb": ["packages/melodic-components/src/components/navigation/breadcrumb/index.ts"],
 			"@melodicdev/components/pagination": ["packages/melodic-components/src/components/navigation/pagination/index.ts"],
 			"@melodicdev/components/steps": ["packages/melodic-components/src/components/navigation/steps/index.ts"],
+			"@melodicdev/components/sidebar": ["packages/melodic-components/src/components/navigation/sidebar/index.ts"],
 			"@melodicdev/components/date-picker": ["packages/melodic-components/src/components/forms/date-picker/index.ts"],
 			"@melodicdev/components/table": ["packages/melodic-components/src/components/data-display/table/index.ts"],
 			"@melodicdev/components/calendar-view": ["packages/melodic-components/src/components/data-display/calendar-view/index.ts"],

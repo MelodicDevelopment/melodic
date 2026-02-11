@@ -102,6 +102,9 @@ export const demoAppTemplate = (c: DemoApp) => {
 					<a href="#steps" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'steps')}>
 						<ml-icon icon="list-numbers" size="sm"></ml-icon>Steps
 					</a>
+					<a href="#sidebar" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'sidebar')}>
+						<ml-icon icon="sidebar-simple" size="sm"></ml-icon>Sidebar
+					</a>
 
 					<span class="demo-nav__label">Feedback</span>
 					<a href="#alerts" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'alerts')}>
@@ -1588,6 +1591,137 @@ const routes = [
 									const idx = steps.findIndex(s => s.value === c.activeStep);
 									if (idx < steps.length - 1) c.goToStep(steps[idx + 1].value);
 								}}>Next</ml-button>
+							</div>
+						</div>
+					</section>
+
+					<!-- Sidebar Section -->
+					<section id="sidebar" class="demo-section">
+						<div class="demo-section__header">
+							<h2>Sidebar</h2>
+							<p>App-level sidebar navigation with support for groups, icons, badges, and expandable items.</p>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>Default Sidebar (Slotted)</h3>
+								<span class="demo-card__badge">Full width</span>
+							</div>
+							<div style="height: 600px; border: var(--ml-border) solid var(--ml-color-border); border-radius: var(--ml-radius-lg); overflow: hidden;">
+								<ml-sidebar active="home">
+									<div slot="header" style="display: flex; align-items: center; gap: var(--ml-space-3);">
+										<div style="width: 32px; height: 32px; border-radius: var(--ml-radius); background: var(--ml-color-primary); display: flex; align-items: center; justify-content: center; color: white; font-weight: var(--ml-font-bold); font-size: var(--ml-text-sm);">U</div>
+										<span style="font-family: var(--ml-font-sans); font-weight: var(--ml-font-semibold); font-size: var(--ml-text-base);">Untitled UI</span>
+									</div>
+									<div slot="search">
+										<ml-input placeholder="Search" size="sm" icon="magnifying-glass"></ml-input>
+									</div>
+									<ml-sidebar-group label="GENERAL">
+										<ml-sidebar-item icon="house" label="Home" value="home">
+											<ml-sidebar-item label="Overview" value="home-overview" level="1"></ml-sidebar-item>
+											<ml-sidebar-item label="Analytics" value="home-analytics" level="1"></ml-sidebar-item>
+										</ml-sidebar-item>
+										<ml-sidebar-item icon="chart-bar" label="Dashboard" value="dashboard"></ml-sidebar-item>
+										<ml-sidebar-item icon="folder" label="Projects" value="projects"></ml-sidebar-item>
+										<ml-sidebar-item icon="check-square" label="Tasks" value="tasks" badge="10"></ml-sidebar-item>
+										<ml-sidebar-item icon="chart-line-up" label="Reporting" value="reporting"></ml-sidebar-item>
+										<ml-sidebar-item icon="users" label="Users" value="users"></ml-sidebar-item>
+									</ml-sidebar-group>
+									<ml-sidebar-item slot="footer-nav" icon="gear" label="Settings" value="settings"></ml-sidebar-item>
+									<ml-sidebar-item slot="footer-nav" icon="lifebuoy" label="Support" value="support" badge="Online" badge-color="success"></ml-sidebar-item>
+									<ml-sidebar-item slot="footer-nav" icon="arrow-square-out" label="Open in browser" value="browser" href="#" external></ml-sidebar-item>
+									<div slot="feature" style="padding: var(--ml-space-4); background: var(--ml-color-surface-secondary); border-radius: var(--ml-radius-lg); font-family: var(--ml-font-sans);">
+										<p style="margin: 0 0 var(--ml-space-1) 0; font-size: var(--ml-text-sm); font-weight: var(--ml-font-medium); color: var(--ml-color-text);">Used space</p>
+										<p style="margin: 0 0 var(--ml-space-3) 0; font-size: var(--ml-text-xs); color: var(--ml-color-text-secondary);">Your team has used 80% of available space.</p>
+										<ml-progress value="80" size="sm"></ml-progress>
+										<div style="display: flex; gap: var(--ml-space-3); margin-top: var(--ml-space-3);">
+											<a href="#" style="font-size: var(--ml-text-sm); color: var(--ml-color-text-secondary); text-decoration: none;">Dismiss</a>
+											<a href="#" style="font-size: var(--ml-text-sm); color: var(--ml-color-primary); text-decoration: none; font-weight: var(--ml-font-medium);">Upgrade plan</a>
+										</div>
+									</div>
+									<div slot="user" style="display: flex; align-items: center; gap: var(--ml-space-3); font-family: var(--ml-font-sans);">
+										<ml-avatar name="Olivia Rhye" size="sm"></ml-avatar>
+										<div style="flex: 1; min-width: 0;">
+											<div style="font-size: var(--ml-text-sm); font-weight: var(--ml-font-semibold); color: var(--ml-color-text);">Olivia Rhye</div>
+											<div style="font-size: var(--ml-text-xs); color: var(--ml-color-text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">olivia@untitledui.com</div>
+										</div>
+										<ml-icon icon="caret-up-down" size="sm" style="color: var(--ml-color-text-muted);"></ml-icon>
+									</div>
+								</ml-sidebar>
+							</div>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>Config-Driven Sidebar</h3>
+								<span class="demo-card__badge">Navigation property</span>
+							</div>
+							<div style="height: 500px; border: var(--ml-border) solid var(--ml-color-border); border-radius: var(--ml-radius-lg); overflow: hidden;">
+								<ml-sidebar active="dashboard" .navigation=${[
+									{
+										label: 'GENERAL',
+										items: [
+											{ value: 'dashboard', label: 'Dashboard', icon: 'chart-bar' },
+											{ value: 'projects', label: 'Projects', icon: 'folder', children: [
+												{ value: 'proj-active', label: 'Active' },
+												{ value: 'proj-archived', label: 'Archived' }
+											]},
+											{ value: 'documents', label: 'Documents', icon: 'file-text' },
+											{ value: 'calendar', label: 'Calendar', icon: 'calendar' }
+										]
+									},
+									{
+										label: 'UNTITLED UI',
+										items: [
+											{ value: 'reporting', label: 'Reporting', icon: 'chart-line-up' },
+											{ value: 'tasks', label: 'Tasks', icon: 'check-square', badge: '5', badgeColor: 'primary' },
+											{ value: 'users', label: 'Users', icon: 'users' }
+										]
+									}
+								]} .footerNavigation=${[
+									{ value: 'settings', label: 'Settings', icon: 'gear' },
+									{ value: 'support', label: 'Support', icon: 'lifebuoy' }
+								]}>
+									<div slot="header" style="display: flex; align-items: center; gap: var(--ml-space-3);">
+										<div style="width: 32px; height: 32px; border-radius: var(--ml-radius); background: var(--ml-color-primary); display: flex; align-items: center; justify-content: center; color: white; font-weight: var(--ml-font-bold); font-size: var(--ml-text-sm);">U</div>
+										<span style="font-family: var(--ml-font-sans); font-weight: var(--ml-font-semibold); font-size: var(--ml-text-base);">Untitled UI</span>
+									</div>
+									<div slot="user" style="display: flex; align-items: center; gap: var(--ml-space-3); font-family: var(--ml-font-sans);">
+										<ml-avatar name="Phoenix Baker" size="sm"></ml-avatar>
+										<div style="flex: 1; min-width: 0;">
+											<div style="font-size: var(--ml-text-sm); font-weight: var(--ml-font-semibold); color: var(--ml-color-text);">Phoenix Baker</div>
+											<div style="font-size: var(--ml-text-xs); color: var(--ml-color-text-secondary);">phoenix@untitledui.com</div>
+										</div>
+									</div>
+								</ml-sidebar>
+							</div>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>Slim Variant</h3>
+								<span class="demo-card__badge">Expands on hover</span>
+							</div>
+							<div style="height: 400px; border: var(--ml-border) solid var(--ml-color-border); border-radius: var(--ml-radius-lg); overflow: hidden;">
+								<ml-sidebar variant="slim" active="home" .navigation=${[
+									{
+										items: [
+											{ value: 'home', label: 'Home', icon: 'house' },
+											{ value: 'dashboard', label: 'Dashboard', icon: 'chart-bar' },
+											{ value: 'projects', label: 'Projects', icon: 'folder' },
+											{ value: 'tasks', label: 'Tasks', icon: 'check-square' },
+											{ value: 'reporting', label: 'Reporting', icon: 'chart-line-up' },
+											{ value: 'users', label: 'Users', icon: 'users' }
+										]
+									}
+								]} .footerNavigation=${[
+									{ value: 'settings', label: 'Settings', icon: 'gear' },
+									{ value: 'support', label: 'Support', icon: 'lifebuoy' }
+								]}>
+									<div slot="user" style="display: flex; align-items: center; justify-content: center;">
+										<ml-avatar name="Olivia Rhye" size="sm"></ml-avatar>
+									</div>
+								</ml-sidebar>
 							</div>
 						</div>
 					</section>

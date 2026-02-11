@@ -51,6 +51,7 @@ import '@melodicdev/components/tabs';
 import '@melodicdev/components/breadcrumb';
 import '@melodicdev/components/pagination';
 import '@melodicdev/components/steps';
+import '@melodicdev/components/sidebar';
 
 // Import directives
 import '@melodicdev/components/directives';

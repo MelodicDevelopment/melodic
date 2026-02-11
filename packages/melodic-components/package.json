@@ -145,6 +145,10 @@
 			"types": "./lib/components/navigation/steps/index.d.ts",
 			"default": "./lib/components/navigation/steps/index.js"
 		},
+		"./sidebar": {
+			"types": "./lib/components/navigation/sidebar/index.d.ts",
+			"default": "./lib/components/navigation/sidebar/index.js"
+		},
 		"./date-picker": {
 			"types": "./lib/components/forms/date-picker/index.d.ts",
 			"default": "./lib/components/forms/date-picker/index.js"
