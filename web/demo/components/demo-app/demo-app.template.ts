@@ -77,6 +77,9 @@ export const demoAppTemplate = (c: DemoApp) => {
 					<a href="#calendar-view" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'calendar-view')}>
 						<ml-icon icon="calendar-blank" size="sm"></ml-icon>Calendar View
 					</a>
+					<a href="#activity-feed" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'activity-feed')}>
+						<ml-icon icon="list-bullets" size="sm"></ml-icon>Activity Feed
+					</a>
 
 					<span class="demo-nav__label">Layout</span>
 					<a href="#cards" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'cards')}>
@@ -1068,6 +1071,105 @@ export const demoAppTemplate = (c: DemoApp) => {
 								@ml:date-click=${c.handleCalendarDateClick}
 								@ml:add-event=${c.handleCalendarAddEvent}
 							></ml-calendar-view>
+						</div>
+					</section>
+
+					<!-- Activity Feed Section -->
+					<section id="activity-feed" class="demo-section">
+						<div class="demo-section__header">
+							<h2>Activity Feed</h2>
+							<p>Chronological display of user activities and events. Available in list and timeline variants.</p>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>List Variant</h3>
+								<span class="demo-card__badge">Default</span>
+							</div>
+							<ml-activity-feed variant="list">
+								<ml-activity-feed-item name="Olivia Rhye" timestamp="2 hours ago" avatar-initials="OR" indicator indicator-color="success">
+									<span>Completed the task <a href="#">Design system audit</a> in project <strong>Website Redesign</strong></span>
+								</ml-activity-feed-item>
+								<ml-activity-feed-item name="Phoenix Baker" timestamp="5 hours ago" avatar-initials="PB" indicator indicator-color="primary">
+									<span>Added a new tag <strong>v2.0</strong> to the repository</span>
+								</ml-activity-feed-item>
+								<ml-activity-feed-item name="Lana Steiner" timestamp="1 day ago" avatar-initials="LS" indicator indicator-color="warning">
+									<span>Requested a review on <a href="#">Pull Request #482</a></span>
+								</ml-activity-feed-item>
+								<ml-activity-feed-item name="Demi Wilkinson" timestamp="2 days ago" avatar-initials="DW">
+									<span>Joined the team <strong>Engineering</strong></span>
+								</ml-activity-feed-item>
+							</ml-activity-feed>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>Timeline Variant</h3>
+								<span class="demo-card__badge">Connector line</span>
+							</div>
+							<ml-activity-feed variant="timeline">
+								<ml-activity-feed-item name="Olivia Rhye" timestamp="Just now" avatar-initials="OR" subtitle="@olivia">
+									<span>Pushed 3 commits to <a href="#">main</a></span>
+									<div slot="content">
+										<ml-card variant="outlined">
+											<div style="font-size: var(--ml-text-xs); color: var(--ml-color-text-secondary); display: flex; flex-direction: column; gap: var(--ml-space-1);">
+												<div><strong style="color: var(--ml-color-text)">a1b2c3d</strong> Fix responsive layout on dashboard</div>
+												<div><strong style="color: var(--ml-color-text)">e4f5g6h</strong> Update API error handling</div>
+												<div><strong style="color: var(--ml-color-text)">i7j8k9l</strong> Add unit tests for auth module</div>
+											</div>
+										</ml-card>
+									</div>
+								</ml-activity-feed-item>
+								<ml-activity-feed-item name="Phoenix Baker" timestamp="30 min ago" avatar-initials="PB" subtitle="@phoenix">
+									<span>Commented on <a href="#">Issue #128</a></span>
+									<div slot="content">
+										<ml-card variant="outlined">
+											<div style="font-size: var(--ml-text-sm); color: var(--ml-color-text-secondary);">
+												I think we should refactor this to use the new composable pattern. It will be much cleaner and easier to test.
+											</div>
+										</ml-card>
+									</div>
+								</ml-activity-feed-item>
+								<ml-activity-feed-item name="Lana Steiner" timestamp="1 hour ago" avatar-initials="LS" subtitle="@lana">
+									<span>Opened <a href="#">Pull Request #495</a></span>
+								</ml-activity-feed-item>
+								<ml-activity-feed-item name="Demi Wilkinson" timestamp="3 hours ago" avatar-initials="DW" subtitle="@demi">
+									<span>Merged <a href="#">Pull Request #491</a> into <strong>main</strong></span>
+								</ml-activity-feed-item>
+							</ml-activity-feed>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>Custom Avatars</h3>
+								<span class="demo-card__badge">Icon slots</span>
+							</div>
+							<ml-activity-feed variant="timeline">
+								<ml-activity-feed-item name="System" timestamp="10 min ago">
+									<ml-avatar slot="avatar" size="sm" style="background-color: var(--ml-color-success-light); color: var(--ml-color-success);">
+										<ml-icon icon="check-circle" size="sm"></ml-icon>
+									</ml-avatar>
+									<span>Deployment to <strong>production</strong> completed successfully</span>
+								</ml-activity-feed-item>
+								<ml-activity-feed-item name="CI Pipeline" timestamp="15 min ago">
+									<ml-avatar slot="avatar" size="sm" style="background-color: var(--ml-color-primary-light); color: var(--ml-color-primary);">
+										<ml-icon icon="gear" size="sm"></ml-icon>
+									</ml-avatar>
+									<span>Build <strong>#1247</strong> passed all checks</span>
+								</ml-activity-feed-item>
+								<ml-activity-feed-item name="Security" timestamp="1 hour ago">
+									<ml-avatar slot="avatar" size="sm" style="background-color: var(--ml-color-warning-light); color: var(--ml-color-warning);">
+										<ml-icon icon="warning" size="sm"></ml-icon>
+									</ml-avatar>
+									<span>Dependency vulnerability detected in <a href="#">package-lock.json</a></span>
+								</ml-activity-feed-item>
+								<ml-activity-feed-item name="System" timestamp="2 hours ago">
+									<ml-avatar slot="avatar" size="sm" style="background-color: var(--ml-color-error-light); color: var(--ml-color-error);">
+										<ml-icon icon="x-circle" size="sm"></ml-icon>
+									</ml-avatar>
+									<span>Database migration <strong>v3.2.1</strong> failed — <a href="#">view logs</a></span>
+								</ml-activity-feed-item>
+							</ml-activity-feed>
 						</div>
 					</section>
 

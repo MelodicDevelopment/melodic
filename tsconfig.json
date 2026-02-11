@@ -49,6 +49,7 @@
 			"@melodicdev/components/date-picker": ["packages/melodic-components/src/components/forms/date-picker/index.ts"],
 			"@melodicdev/components/table": ["packages/melodic-components/src/components/data-display/table/index.ts"],
 			"@melodicdev/components/calendar-view": ["packages/melodic-components/src/components/data-display/calendar-view/index.ts"],
+			"@melodicdev/components/activity-feed": ["packages/melodic-components/src/components/data-display/activity-feed/index.ts"],
 			"@melodicdev/components/radio-card-group": ["packages/melodic-components/src/components/forms/radio-card-group/index.ts"],
 			"@melodicdev/components/slider": ["packages/melodic-components/src/components/forms/slider/index.ts"],
 			"@melodicdev/components/button-group": ["packages/melodic-components/src/components/forms/button-group/index.ts"],

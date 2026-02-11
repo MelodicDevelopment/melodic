@@ -34,6 +34,7 @@ import '@melodicdev/components/badge-group';
 import '@melodicdev/components/table';
 import '@melodicdev/components/tag';
 import '@melodicdev/components/calendar-view';
+import '@melodicdev/components/activity-feed';
 
 // import components - Icons
 import '@melodicdev/components/icon';
