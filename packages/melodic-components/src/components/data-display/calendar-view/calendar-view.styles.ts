@@ -94,6 +94,19 @@ export const calendarViewStyles = () => css`
 		gap: var(--ml-space-2);
 	}
 
+	/* Slotted header content */
+	::slotted([slot="header-left"]) {
+		display: flex;
+		align-items: center;
+		gap: var(--ml-space-3);
+	}
+
+	::slotted([slot="header-actions"]) {
+		display: flex;
+		align-items: center;
+		gap: var(--ml-space-2);
+	}
+
 	.ml-cv__nav-group {
 		display: flex;
 		align-items: center;

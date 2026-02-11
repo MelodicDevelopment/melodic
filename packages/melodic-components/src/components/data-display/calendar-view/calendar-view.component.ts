@@ -42,7 +42,17 @@ import { calendarViewStyles } from './calendar-view.styles.js';
 	selector: 'ml-calendar-view',
 	template: calendarViewTemplate,
 	styles: calendarViewStyles,
-	attributes: ['view', 'date', 'week-starts-on', 'max-visible-events']
+	attributes: [
+		'view',
+		'date',
+		'week-starts-on',
+		'max-visible-events',
+		'add-button-text',
+		'hide-nav',
+		'hide-today-button',
+		'hide-view-selector',
+		'hide-add-button'
+	]
 })
 export class CalendarViewComponent implements IElementRef, OnCreate, OnDestroy, OnRender {
 	elementRef!: HTMLElement;
@@ -59,11 +69,36 @@ export class CalendarViewComponent implements IElementRef, OnCreate, OnDestroy, 
 	/** Maximum visible events per day cell in month view */
 	maxVisibleEvents = 3;
 
+	/** Label for the add event button */
+	addButtonText = 'Add event';
+
+	/** Hide prev/next navigation arrows */
+	hideNav = false;
+
+	/** Hide the "Today" button */
+	hideTodayButton = false;
+
+	/** Hide the view dropdown */
+	hideViewSelector = false;
+
+	/** Hide the add event button */
+	hideAddButton = false;
+
 	/** Calendar events (property-only) */
 	events: CalendarEvent[] = [];
 
 	/** Whether the view dropdown is open */
 	isViewDropdownOpen = false;
+
+	/** Check if header-left slot has consumer content */
+	get hasHeaderLeftSlot(): boolean {
+		return this.elementRef?.querySelector('[slot="header-left"]') !== null;
+	}
+
+	/** Check if header-actions slot has consumer content */
+	get hasHeaderActionsSlot(): boolean {
+		return this.elementRef?.querySelector('[slot="header-actions"]') !== null;
+	}
 
 	/** Mini calendar state for day view sidebar */
 	private _miniCalYear = 0;
