@@ -4,6 +4,8 @@ export * from './theme/index.js';
 // Utilities
 export * from './utils/index.js';
 
+export * from './functions/index.js';
+
 // Components - Forms
 export * from './components/forms/button/index.js';
 export * from './components/forms/input/index.js';
@@ -19,7 +21,6 @@ export * from './components/forms/form-field/index.js';
 export * from './components/feedback/spinner/index.js';
 export * from './components/feedback/alert/index.js';
 export * from './components/feedback/toast/index.js';
-export * from './components/feedback/skeleton/index.js';
 export * from './components/feedback/progress/index.js';
 
 // Components - Foundation
@@ -27,13 +28,10 @@ export * from './components/foundation/card/index.js';
 export * from './components/foundation/divider/index.js';
 export * from './components/foundation/stack/index.js';
 export * from './components/foundation/container/index.js';
-export * from './components/foundation/grid/index.js';
 
 // Components - Data Display
 export * from './components/data-display/avatar/index.js';
 export * from './components/data-display/badge/index.js';
-export * from './components/data-display/stat/index.js';
-export * from './components/data-display/empty-state/index.js';
 
 // Components - General
 export * from './components/general/icon/index.js';
@@ -44,7 +42,7 @@ export * from './components/navigation/breadcrumb/index.js';
 export * from './components/navigation/pagination/index.js';
 
 // Components - Overlays
-export * from './components/overlays/modal/index.js';
+export * from './components/overlays/dialog/index.js';
 export * from './components/overlays/drawer/index.js';
 export * from './components/overlays/dropdown/index.js';
 export * from './components/overlays/tooltip/index.js';

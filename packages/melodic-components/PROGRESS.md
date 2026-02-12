@@ -20,14 +20,16 @@
 - [x] ml-tooltip
 
 ## Phase 3: Forms Continued - IN PROGRESS
-- [ ] ml-select
+- [x] ml-select
 - [ ] ml-slider
-- [ ] ml-form-field
+- [x] ml-form-field
 
 ## Phase 4: Navigation & Overlays
-- [ ] ml-tabs, ml-breadcrumb, ml-pagination
+- [x] ml-tabs (with ml-tab, ml-tab-panel)
+- [x] ml-modal
+- [ ] ml-drawer
+- [ ] ml-breadcrumb, ml-pagination
 - [ ] ml-popover, ml-dropdown
-- [ ] ml-modal, ml-drawer
 - [ ] ml-nav, ml-sidebar
 
 ## Phase 5: Advanced & Docs
@@ -39,7 +41,7 @@
 
 ## Completed Components
 
-### Forms (7 components)
+### Forms (9 components)
 | Component | Selector | Description |
 |-----------|----------|-------------|
 | Button | `ml-button` | Primary, secondary, outline, ghost, danger, link variants |
@@ -49,6 +51,8 @@
 | Radio | `ml-radio` | Radio button |
 | RadioGroup | `ml-radio-group` | Radio group container |
 | Toggle | `ml-toggle` | Toggle/switch component |
+| Select | `ml-select` | Dropdown select with single/multi-select modes |
+| FormField | `ml-form-field` | Wrapper for adding labels, hints, errors to any control |
 
 ### Foundation (3 components)
 | Component | Selector | Description |
@@ -69,10 +73,18 @@
 | Badge | `ml-badge` | Status badges/tags |
 | Avatar | `ml-avatar` | User avatar with fallback |
 
-### Overlays (1 component)
+### Overlays (2 components)
 | Component | Selector | Description |
 |-----------|----------|-------------|
+| Modal | `ml-modal` | Dialog overlay with configurable header layout |
 | Tooltip | `ml-tooltip` | Tooltip on hover/focus |
+
+### Navigation (3 components)
+| Component | Selector | Description |
+|-----------|----------|-------------|
+| Tabs | `ml-tabs` | Tabbed interface with line/enclosed/pills variants |
+| Tab | `ml-tab` | Individual tab header |
+| TabPanel | `ml-tab-panel` | Tab panel content |
 
 ### Utilities
 | Utility | Description |
@@ -98,5 +110,5 @@ npm run build    # Build library to lib/
 ```
 
 ## Component Count
-- **Total Completed:** 15 components
-- **Remaining:** ~25 components
+- **Total Completed:** 21 components
+- **Remaining:** ~19 components

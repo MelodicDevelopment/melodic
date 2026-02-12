@@ -33,9 +33,9 @@ import { selectStyles } from './select.styles.js';
  * ></ml-select>
  * ```
  *
- * @fires ml-change - Emitted when selection changes
- * @fires ml-open - Emitted when dropdown opens
- * @fires ml-close - Emitted when dropdown closes
+ * @fires ml:change - Emitted when selection changes
+ * @fires ml:open - Emitted when dropdown opens
+ * @fires ml:close - Emitted when dropdown closes
  */
 @MelodicComponent({
 	selector: 'ml-select',
@@ -222,7 +222,7 @@ export class SelectComponent implements IElementRef, OnCreate, OnDestroy {
 		this.focusedIndex = this.getInitialFocusIndex();
 
 		this.elementRef.dispatchEvent(
-			new CustomEvent('ml-open', {
+			new CustomEvent('ml:open', {
 				bubbles: true,
 				composed: true
 			})
@@ -238,7 +238,7 @@ export class SelectComponent implements IElementRef, OnCreate, OnDestroy {
 		this.search = '';
 
 		this.elementRef.dispatchEvent(
-			new CustomEvent('ml-close', {
+			new CustomEvent('ml:close', {
 				bubbles: true,
 				composed: true
 			})
@@ -258,7 +258,7 @@ export class SelectComponent implements IElementRef, OnCreate, OnDestroy {
 		this.close();
 
 		this.elementRef.dispatchEvent(
-			new CustomEvent('ml-change', {
+			new CustomEvent('ml:change', {
 				bubbles: true,
 				composed: true,
 				detail: { value: this.value, option }
@@ -272,7 +272,7 @@ export class SelectComponent implements IElementRef, OnCreate, OnDestroy {
 		this.values = exists ? this.values.filter((value) => value !== option.value) : [...this.values, option.value];
 
 		this.elementRef.dispatchEvent(
-			new CustomEvent('ml-change', {
+			new CustomEvent('ml:change', {
 				bubbles: true,
 				composed: true,
 				detail: { values: [...this.values], options: this.selectedOptions, option }
@@ -292,7 +292,7 @@ export class SelectComponent implements IElementRef, OnCreate, OnDestroy {
 
 		this.values = this.values.filter((item) => item !== value);
 		this.elementRef.dispatchEvent(
-			new CustomEvent('ml-change', {
+			new CustomEvent('ml:change', {
 				bubbles: true,
 				composed: true,
 				detail: { values: [...this.values], options: this.selectedOptions }

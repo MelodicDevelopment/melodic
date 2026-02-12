@@ -40,16 +40,19 @@ export class TemplateResult {
 
 	/**
 	 * Optimized render for single-use containers (like repeat items).
-	 * Skips container caching overhead for better performance.
 	 * Returns the rendered nodes directly.
 	 */
 	renderOnce(container: DocumentFragment): Node[] {
-		const cache = this.getTemplate(getTemplateKey(this.strings));
+		const templateKey = getTemplateKey(this.strings);
+		const cache = this.getTemplate(templateKey);
 		const clone = cache.element.content.cloneNode(true);
 		const parts = this.prepareParts(clone, cache);
 
 		this.commit(parts);
 		container.appendChild(clone);
+
+		(container as any).__parts = parts;
+		(container as any).__templateKey = templateKey;
 
 		return Array.from(container.childNodes);
 	}
@@ -112,8 +115,8 @@ export class TemplateResult {
 			const s = this.strings[i];
 			const valueIndex = i - 1;
 
-			const match = /([@.:]?[\w-]+)\s*=\s*["']?$/.exec(html);
-			const quotedAttrMatch = /([@.:]?[\w-]+)\s*=\s*(["'])([^"']*)$/.exec(html);
+			const match = /([@.:]?[\w:-]+)\s*=\s*["']?$/.exec(html);
+			const quotedAttrMatch = /([@.:]?[\w:-]+)\s*=\s*(["'])([^"']*)$/.exec(html);
 			let attrKey: string = '___';
 
 			if (activeAttributeName) {

@@ -14,7 +14,7 @@ export abstract class ComponentBase extends HTMLElement {
 	private readonly _style: HTMLStyleElement;
 	private _unsubscribers: Array<Unsubscriber> = [];
 	private _renderScheduled = false;
-	private _booleanProperties: Set<string> = new Set();
+	private readonly _booleanProperties: Set<string> = new Set();
 
 	constructor(meta: ComponentMeta, component: Component) {
 		super();
@@ -70,15 +70,17 @@ export abstract class ComponentBase extends HTMLElement {
 	}
 
 	attributeChangedCallback(attribute: string, oldVal: unknown, newVal: unknown): void {
-		if ((this._component as any)[attribute] !== undefined) {
+		const prop = attribute.replace(/-([a-z])/g, (_, ch: string) => ch.toUpperCase());
+
+		if ((this._component as any)[prop] !== undefined) {
 			let value = newVal;
 
 			// Convert boolean attributes: present (any value including "") = true, null/absent = false
-			if (this._booleanProperties.has(attribute)) {
+			if (this._booleanProperties.has(prop)) {
 				value = newVal !== null && newVal !== 'false';
 			}
 
-			(this._component as any)[attribute] = value;
+			(this._component as any)[prop] = value;
 		}
 
 		this.scheduleRender();

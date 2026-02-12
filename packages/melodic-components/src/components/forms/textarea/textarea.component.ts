@@ -14,10 +14,10 @@ import { textareaStyles } from './textarea.styles.js';
  * <ml-textarea label="Notes" auto-resize></ml-textarea>
  * ```
  *
- * @fires ml-input - Emitted on input
- * @fires ml-change - Emitted on change (blur)
- * @fires ml-focus - Emitted on focus
- * @fires ml-blur - Emitted on blur
+ * @fires ml:input - Emitted on input
+ * @fires ml:change - Emitted on change (blur)
+ * @fires ml:focus - Emitted on focus
+ * @fires ml:blur - Emitted on blur
  */
 @MelodicComponent({
 	selector: 'ml-textarea',
@@ -78,7 +78,7 @@ export class TextareaComponent implements IElementRef, OnInit {
 		this.value = target.value;
 
 		this.elementRef.dispatchEvent(
-			new CustomEvent('ml-input', {
+			new CustomEvent('ml:input', {
 				bubbles: true,
 				composed: true,
 				detail: { value: this.value }
@@ -91,7 +91,7 @@ export class TextareaComponent implements IElementRef, OnInit {
 		this.value = target.value;
 
 		this.elementRef.dispatchEvent(
-			new CustomEvent('ml-change', {
+			new CustomEvent('ml:change', {
 				bubbles: true,
 				composed: true,
 				detail: { value: this.value }
@@ -102,7 +102,7 @@ export class TextareaComponent implements IElementRef, OnInit {
 	handleFocus = (): void => {
 		this._focused = true;
 		this.elementRef.dispatchEvent(
-			new CustomEvent('ml-focus', {
+			new CustomEvent('ml:focus', {
 				bubbles: true,
 				composed: true
 			})
@@ -112,7 +112,7 @@ export class TextareaComponent implements IElementRef, OnInit {
 	handleBlur = (): void => {
 		this._focused = false;
 		this.elementRef.dispatchEvent(
-			new CustomEvent('ml-blur', {
+			new CustomEvent('ml:blur', {
 				bubbles: true,
 				composed: true
 			})

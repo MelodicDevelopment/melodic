@@ -29,6 +29,9 @@ export function MelodicComponent<C extends Component>(meta: TypedComponentMeta<C
 				static readonly observedAttributes: string[] = meta.attributes ?? [];
 			};
 
+			const componentWithSelector: INewable<C> & { selector?: string } = component as INewable<C> & { selector?: string };
+			componentWithSelector.selector = meta.selector;
+
 			customElements.define(meta.selector, webComponent);
 		}
 	};

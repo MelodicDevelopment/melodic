@@ -6,7 +6,6 @@ export const demoAppStyles = () => css`
 		min-height: 100vh;
 		background-color: var(--ml-color-surface-raised, var(--ml-color-background));
 		color: var(--ml-color-text);
-		font-family: var(--ml-font-sans);
 	}
 
 	/* Layout */
@@ -84,8 +83,13 @@ export const demoAppStyles = () => css`
 		color: var(--ml-color-text-muted);
 		text-transform: uppercase;
 		letter-spacing: var(--ml-tracking-wider);
-		margin-bottom: var(--ml-space-3);
+		margin-bottom: var(--ml-space-2);
 		padding: 0 var(--ml-space-3);
+	}
+
+	.demo-nav__label + .demo-nav__label,
+	.demo-nav__item + .demo-nav__label {
+		margin-top: var(--ml-space-5);
 	}
 
 	.demo-nav__item {
@@ -333,5 +337,62 @@ export const demoAppStyles = () => css`
 		.demo-stat__value {
 			font-size: var(--ml-text-xl);
 		}
+	}
+
+	/* Code Examples */
+	.demo-code-example {
+		background-color: var(--ml-color-surface-secondary, var(--ml-gray-50));
+		border-radius: var(--ml-radius-md);
+		padding: var(--ml-space-4);
+	}
+
+	.demo-code-description {
+		font-size: var(--ml-text-sm);
+		color: var(--ml-color-text-secondary);
+		margin-bottom: var(--ml-space-3);
+		line-height: var(--ml-leading-relaxed);
+	}
+
+	.demo-code-description code {
+		background-color: var(--ml-color-surface, var(--ml-gray-100));
+		padding: var(--ml-space-0-5) var(--ml-space-1);
+		border-radius: var(--ml-radius-sm);
+		font-family: var(--ml-font-mono);
+		font-size: var(--ml-text-xs);
+		color: var(--ml-color-primary);
+	}
+
+	.demo-code {
+		background-color: var(--ml-gray-900);
+		color: var(--ml-gray-100);
+		border-radius: var(--ml-radius-md);
+		padding: var(--ml-space-4);
+		overflow-x: auto;
+		font-family: var(--ml-font-mono);
+		font-size: var(--ml-text-xs);
+		line-height: var(--ml-leading-relaxed);
+		margin: 0;
+	}
+
+	.demo-code code {
+		background: none;
+		padding: 0;
+		color: inherit;
+		font-size: inherit;
+	}
+
+	.demo-code-list {
+		font-size: var(--ml-text-sm);
+		color: var(--ml-color-text-secondary);
+		padding-left: var(--ml-space-5);
+		margin: 0;
+	}
+
+	.demo-code-list li {
+		margin-bottom: var(--ml-space-1);
+	}
+
+	.demo-code-list li:last-child {
+		margin-bottom: 0;
 	}
 `;

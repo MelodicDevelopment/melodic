@@ -15,7 +15,7 @@ import { radioGroupStyles } from './radio-group.styles.js';
  * </ml-radio-group>
  * ```
  *
- * @fires ml-change - Emitted when selection changes
+ * @fires ml:change - Emitted when selection changes
  */
 @MelodicComponent({
 	selector: 'ml-radio-group',
@@ -52,7 +52,7 @@ export class RadioGroupComponent implements IElementRef, OnInit {
 
 	onInit(): void {
 		// Listen for changes from child radios
-		this.elementRef.addEventListener('ml-change', this.handleChildChange as EventListener);
+		this.elementRef.addEventListener('ml:change', this.handleChildChange as EventListener);
 
 		// Set initial name on child radios
 		this.updateChildRadios();
@@ -71,7 +71,7 @@ export class RadioGroupComponent implements IElementRef, OnInit {
 
 		// Re-emit the event
 		this.elementRef.dispatchEvent(
-			new CustomEvent('ml-change', {
+			new CustomEvent('ml:change', {
 				bubbles: true,
 				composed: true,
 				detail: { value: this.value }
