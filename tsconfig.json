@@ -56,6 +56,12 @@
 			"@melodicdev/components/slider": ["packages/melodic-components/src/components/forms/slider/index.ts"],
 			"@melodicdev/components/button-group": ["packages/melodic-components/src/components/forms/button-group/index.ts"],
 			"@melodicdev/components/drawer": ["packages/melodic-components/src/components/overlays/drawer/index.ts"],
+			"@melodicdev/components/app-shell": ["packages/melodic-components/src/components/sections/app-shell/index.ts"],
+			"@melodicdev/components/hero-section": ["packages/melodic-components/src/components/sections/hero/index.ts"],
+			"@melodicdev/components/page-header": ["packages/melodic-components/src/components/sections/page-header/index.ts"],
+			"@melodicdev/components/login-page": ["packages/melodic-components/src/components/pages/auth/index.ts"],
+			"@melodicdev/components/signup-page": ["packages/melodic-components/src/components/pages/auth/index.ts"],
+			"@melodicdev/components/dashboard-page": ["packages/melodic-components/src/components/pages/dashboard/index.ts"],
 			"@melodicdev/components/directives": ["packages/melodic-components/src/directives/index.ts"]
 		},
 

@@ -139,6 +139,28 @@ export const demoAppTemplate = (c: DemoApp) => {
 					<a href="#drawers" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'drawers')}>
 						<ml-icon icon="sidebar" size="sm"></ml-icon>Drawers
 					</a>
+
+					<span class="demo-nav__label">Sections</span>
+					<a href="#app-shell" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'app-shell')}>
+						<ml-icon icon="layout" size="sm"></ml-icon>App Shell
+					</a>
+					<a href="#page-header" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'page-header')}>
+						<ml-icon icon="article" size="sm"></ml-icon>Page Header
+					</a>
+					<a href="#hero-section" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'hero-section')}>
+						<ml-icon icon="star" size="sm"></ml-icon>Hero Section
+					</a>
+
+					<span class="demo-nav__label">Pages</span>
+					<a href="#login-page" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'login-page')}>
+						<ml-icon icon="sign-in" size="sm"></ml-icon>Login Page
+					</a>
+					<a href="#signup-page" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'signup-page')}>
+						<ml-icon icon="user-plus" size="sm"></ml-icon>Signup Page
+					</a>
+					<a href="#dashboard-page" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'dashboard-page')}>
+						<ml-icon icon="chart-bar" size="sm"></ml-icon>Dashboard Page
+					</a>
 				</nav>
 
 				<div class="demo-sidebar__footer">
@@ -2505,6 +2527,399 @@ const routes = [
 									<h3 slot="drawer-header">Large Drawer</h3>
 									<p>640px wide panel.</p>
 								</ml-drawer>
+							</div>
+						</div>
+					</section>
+
+					<!-- ============================================
+					     SECTIONS
+					     ============================================ -->
+
+					<!-- App Shell Section -->
+					<section id="app-shell" class="demo-section">
+						<div class="demo-section__header">
+							<h2>App Shell</h2>
+							<p>Application layout component with sidebar, header, and content areas using CSS Grid.</p>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>Default Layout</h3>
+								<span class="demo-card__badge">Sidebar + Content</span>
+							</div>
+							<div style="height: 400px; border: var(--ml-border) solid var(--ml-color-border); border-radius: var(--ml-radius-lg); overflow: hidden;">
+								<ml-app-shell>
+									<div slot="sidebar" style="padding: var(--ml-space-4); background: var(--ml-color-surface); border-right: var(--ml-border) solid var(--ml-color-border); height: 100%; box-sizing: border-box; font-family: var(--ml-font-sans);">
+										<div style="font-weight: var(--ml-font-semibold); font-size: var(--ml-text-sm); margin-bottom: var(--ml-space-4);">Sidebar</div>
+										<div style="display: flex; flex-direction: column; gap: var(--ml-space-2);">
+											<span style="font-size: var(--ml-text-sm); color: var(--ml-color-text-secondary);">Nav Item 1</span>
+											<span style="font-size: var(--ml-text-sm); color: var(--ml-color-text-secondary);">Nav Item 2</span>
+											<span style="font-size: var(--ml-text-sm); color: var(--ml-color-text-secondary);">Nav Item 3</span>
+										</div>
+									</div>
+									<div slot="header" style="font-family: var(--ml-font-sans); font-weight: var(--ml-font-semibold); font-size: var(--ml-text-lg); color: var(--ml-color-text);">
+										Page Title
+									</div>
+									<div style="padding: var(--ml-space-6); font-family: var(--ml-font-sans);">
+										<p style="color: var(--ml-color-text-secondary); font-size: var(--ml-text-sm);">Main content area. This scrolls independently from the sidebar and header.</p>
+									</div>
+								</ml-app-shell>
+							</div>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>Fixed Header</h3>
+								<span class="demo-card__badge">header-fixed</span>
+							</div>
+							<div style="height: 300px; border: var(--ml-border) solid var(--ml-color-border); border-radius: var(--ml-radius-lg); overflow: hidden;">
+								<ml-app-shell header-fixed>
+									<div slot="sidebar" style="padding: var(--ml-space-4); background: var(--ml-color-surface); border-right: var(--ml-border) solid var(--ml-color-border); height: 100%; box-sizing: border-box; font-family: var(--ml-font-sans);">
+										<div style="font-weight: var(--ml-font-semibold); font-size: var(--ml-text-sm);">Sidebar</div>
+									</div>
+									<div slot="header" style="font-family: var(--ml-font-sans); font-weight: var(--ml-font-semibold); font-size: var(--ml-text-sm); color: var(--ml-color-text);">
+										Fixed Header
+									</div>
+									<div style="padding: var(--ml-space-6); font-family: var(--ml-font-sans); font-size: var(--ml-text-sm); color: var(--ml-color-text-secondary);">
+										<p>The header stays fixed while content scrolls.</p>
+									</div>
+								</ml-app-shell>
+							</div>
+						</div>
+					</section>
+
+					<!-- Page Header Section -->
+					<section id="page-header" class="demo-section">
+						<div class="demo-section__header">
+							<h2>Page Header</h2>
+							<p>Section component for page titles with breadcrumb, description, and action buttons.</p>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>Default</h3>
+								<span class="demo-card__badge">Title + Actions</span>
+							</div>
+							<div style="border: var(--ml-border) solid var(--ml-color-border); border-radius: var(--ml-radius-lg); overflow: hidden;">
+								<ml-page-header title="Team Members" description="Manage your team members and their account permissions here.">
+									<ml-breadcrumb slot="breadcrumb">
+										<ml-breadcrumb-item href="#">Home</ml-breadcrumb-item>
+										<ml-breadcrumb-item href="#">Settings</ml-breadcrumb-item>
+										<ml-breadcrumb-item>Team</ml-breadcrumb-item>
+									</ml-breadcrumb>
+									<ml-button slot="actions" variant="outline" size="sm">
+										<ml-icon icon="download-simple" size="sm"></ml-icon>Export
+									</ml-button>
+									<ml-button slot="actions" variant="primary" size="sm">
+										<ml-icon icon="plus" size="sm"></ml-icon>Add Member
+									</ml-button>
+								</ml-page-header>
+							</div>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>Compact Variant</h3>
+								<span class="demo-card__badge">Less padding</span>
+							</div>
+							<div style="border: var(--ml-border) solid var(--ml-color-border); border-radius: var(--ml-radius-lg); overflow: hidden;">
+								<ml-page-header variant="compact" title="Settings" description="Manage your account settings.">
+									<ml-button slot="actions" variant="outline" size="sm">Cancel</ml-button>
+									<ml-button slot="actions" variant="primary" size="sm">Save Changes</ml-button>
+								</ml-page-header>
+							</div>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>Centered Variant</h3>
+								<span class="demo-card__badge">Centered layout</span>
+							</div>
+							<div style="border: var(--ml-border) solid var(--ml-color-border); border-radius: var(--ml-radius-lg); overflow: hidden;">
+								<ml-page-header variant="centered" title="Welcome to Your Dashboard" description="Here you can manage all of your projects, team members, and settings.">
+									<ml-button slot="actions" variant="primary">Get Started</ml-button>
+								</ml-page-header>
+							</div>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>With Meta</h3>
+								<span class="demo-card__badge">Badges + status</span>
+							</div>
+							<div style="border: var(--ml-border) solid var(--ml-color-border); border-radius: var(--ml-radius-lg); overflow: hidden;">
+								<ml-page-header title="Project Alpha" description="Mobile app redesign for Q1 2026">
+									<ml-badge slot="meta" variant="success" size="sm">Active</ml-badge>
+									<ml-badge slot="meta" variant="default" size="sm">v2.1.0</ml-badge>
+									<ml-button slot="actions" variant="outline" size="sm">
+										<ml-icon icon="gear" size="sm"></ml-icon>Settings
+									</ml-button>
+								</ml-page-header>
+							</div>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>No Divider</h3>
+							</div>
+							<div style="border: var(--ml-border) solid var(--ml-color-border); border-radius: var(--ml-radius-lg); overflow: hidden; background: var(--ml-color-surface-secondary);">
+								<ml-page-header title="Notifications" divider="false"></ml-page-header>
+							</div>
+						</div>
+					</section>
+
+					<!-- Hero Section -->
+					<section id="hero-section" class="demo-section">
+						<div class="demo-section__header">
+							<h2>Hero Section</h2>
+							<p>Marketing hero/header section with support for centered and split layouts.</p>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>Centered</h3>
+								<span class="demo-card__badge">Default</span>
+							</div>
+							<div style="border: var(--ml-border) solid var(--ml-color-border); border-radius: var(--ml-radius-lg); overflow: hidden;">
+								<ml-hero-section variant="centered" size="md" background="subtle">
+									<ml-badge slot="eyebrow" variant="primary" size="sm" pill>New Release</ml-badge>
+									<span slot="title">Build amazing web apps with Melodic</span>
+									<span slot="description">A modern, lightweight web component framework with built-in routing, state management, and a beautiful component library.</span>
+									<div slot="actions" style="display: flex; gap: var(--ml-space-3); justify-content: center;">
+										<ml-button variant="primary" size="lg">Get Started</ml-button>
+										<ml-button variant="outline" size="lg">Documentation</ml-button>
+									</div>
+								</ml-hero-section>
+							</div>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>Split Layout</h3>
+								<span class="demo-card__badge">Content + Media</span>
+							</div>
+							<div style="border: var(--ml-border) solid var(--ml-color-border); border-radius: var(--ml-radius-lg); overflow: hidden;">
+								<ml-hero-section variant="split" size="sm">
+									<span slot="title">Ship features faster</span>
+									<span slot="description">Melodic gives you everything you need to build production-ready web applications in record time.</span>
+									<div slot="actions" style="display: flex; gap: var(--ml-space-3);">
+										<ml-button variant="primary">Start Free Trial</ml-button>
+										<ml-button variant="ghost">Learn More</ml-button>
+									</div>
+									<div slot="media" style="background: var(--ml-color-surface-secondary); border-radius: var(--ml-radius-lg); height: 280px; display: flex; align-items: center; justify-content: center; color: var(--ml-color-text-muted); font-family: var(--ml-font-sans); font-size: var(--ml-text-sm);">
+										Image / Illustration
+									</div>
+								</ml-hero-section>
+							</div>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>Gradient Background</h3>
+								<span class="demo-card__badge">background="gradient"</span>
+							</div>
+							<div style="border: var(--ml-border) solid var(--ml-color-border); border-radius: var(--ml-radius-lg); overflow: hidden;">
+								<ml-hero-section variant="centered" size="sm" background="gradient">
+									<span slot="title">Start your journey today</span>
+									<span slot="description">Join thousands of developers building with Melodic.</span>
+									<div slot="actions" style="display: flex; gap: var(--ml-space-3); justify-content: center;">
+										<ml-button variant="primary">Sign Up Free</ml-button>
+									</div>
+								</ml-hero-section>
+							</div>
+						</div>
+					</section>
+
+					<!-- ============================================
+					     PAGES
+					     ============================================ -->
+
+					<!-- Login Page Section -->
+					<section id="login-page" class="demo-section">
+						<div class="demo-section__header">
+							<h2>Login Page</h2>
+							<p>Full-page login component with centered and split layout variants.</p>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>Centered (Default)</h3>
+								<span class="demo-card__badge">Card layout</span>
+							</div>
+							<div style="border: var(--ml-border) solid var(--ml-color-border); border-radius: var(--ml-radius-lg); overflow: hidden;">
+								<ml-login-page>
+									<div slot="logo" style="display: flex; align-items: center; gap: var(--ml-space-2); justify-content: center;">
+										<div style="width: 32px; height: 32px; border-radius: var(--ml-radius); background: var(--ml-color-primary); display: flex; align-items: center; justify-content: center; color: white; font-weight: var(--ml-font-bold); font-size: var(--ml-text-sm);">M</div>
+									</div>
+									<div slot="social" style="display: flex; flex-direction: column; gap: var(--ml-space-2); font-family: var(--ml-font-sans);">
+										<ml-button variant="outline" full-width>
+											<ml-icon icon="google-logo" size="sm"></ml-icon>Sign in with Google
+										</ml-button>
+									</div>
+									<div slot="form" style="display: flex; flex-direction: column; gap: var(--ml-space-4); font-family: var(--ml-font-sans);">
+										<ml-form-field label="Email">
+											<ml-input type="email" placeholder="Enter your email"></ml-input>
+										</ml-form-field>
+										<ml-form-field label="Password">
+											<ml-input type="password" placeholder="Enter your password"></ml-input>
+										</ml-form-field>
+										<ml-button variant="primary" full-width>Sign In</ml-button>
+									</div>
+									<div slot="footer" style="text-align: center; font-family: var(--ml-font-sans); font-size: var(--ml-text-sm); color: var(--ml-color-text-secondary);">
+										Don't have an account? <a href="#" style="color: var(--ml-color-primary); text-decoration: none; font-weight: var(--ml-font-medium);">Sign up</a>
+									</div>
+								</ml-login-page>
+							</div>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>Split Variant</h3>
+								<span class="demo-card__badge">Form + Brand</span>
+							</div>
+							<div style="min-height: 500px; border: var(--ml-border) solid var(--ml-color-border); border-radius: var(--ml-radius-lg); overflow: hidden;">
+								<ml-login-page variant="split">
+									<div slot="form" style="display: flex; flex-direction: column; gap: var(--ml-space-4); font-family: var(--ml-font-sans);">
+										<ml-form-field label="Email">
+											<ml-input type="email" placeholder="Enter your email"></ml-input>
+										</ml-form-field>
+										<ml-form-field label="Password">
+											<ml-input type="password" placeholder="Enter your password"></ml-input>
+										</ml-form-field>
+										<ml-button variant="primary" full-width>Sign In</ml-button>
+									</div>
+									<div slot="brand" style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; font-family: var(--ml-font-sans); color: white; text-align: center; padding: var(--ml-space-8);">
+										<h2 style="font-size: var(--ml-text-2xl); font-weight: var(--ml-font-bold); margin: 0 0 var(--ml-space-2) 0;">Welcome Back</h2>
+										<p style="font-size: var(--ml-text-base); opacity: 0.9; margin: 0;">Sign in to continue to your dashboard.</p>
+									</div>
+								</ml-login-page>
+							</div>
+						</div>
+					</section>
+
+					<!-- Signup Page Section -->
+					<section id="signup-page" class="demo-section">
+						<div class="demo-section__header">
+							<h2>Signup Page</h2>
+							<p>Full-page registration component with centered and split layout variants.</p>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>Centered (Default)</h3>
+								<span class="demo-card__badge">Card layout</span>
+							</div>
+							<div style="border: var(--ml-border) solid var(--ml-color-border); border-radius: var(--ml-radius-lg); overflow: hidden;">
+								<ml-signup-page>
+									<div slot="logo" style="display: flex; align-items: center; gap: var(--ml-space-2); justify-content: center;">
+										<div style="width: 32px; height: 32px; border-radius: var(--ml-radius); background: var(--ml-color-primary); display: flex; align-items: center; justify-content: center; color: white; font-weight: var(--ml-font-bold); font-size: var(--ml-text-sm);">M</div>
+									</div>
+									<div slot="social" style="display: flex; flex-direction: column; gap: var(--ml-space-2); font-family: var(--ml-font-sans);">
+										<ml-button variant="outline" full-width>
+											<ml-icon icon="google-logo" size="sm"></ml-icon>Sign up with Google
+										</ml-button>
+									</div>
+									<div slot="form" style="display: flex; flex-direction: column; gap: var(--ml-space-4); font-family: var(--ml-font-sans);">
+										<div style="display: flex; gap: var(--ml-space-3);">
+											<ml-form-field label="First Name" style="flex: 1;">
+												<ml-input placeholder="First name"></ml-input>
+											</ml-form-field>
+											<ml-form-field label="Last Name" style="flex: 1;">
+												<ml-input placeholder="Last name"></ml-input>
+											</ml-form-field>
+										</div>
+										<ml-form-field label="Email">
+											<ml-input type="email" placeholder="Enter your email"></ml-input>
+										</ml-form-field>
+										<ml-form-field label="Password">
+											<ml-input type="password" placeholder="Create a password"></ml-input>
+										</ml-form-field>
+										<ml-button variant="primary" full-width>Create Account</ml-button>
+									</div>
+									<div slot="footer" style="text-align: center; font-family: var(--ml-font-sans); font-size: var(--ml-text-sm); color: var(--ml-color-text-secondary);">
+										Already have an account? <a href="#" style="color: var(--ml-color-primary); text-decoration: none; font-weight: var(--ml-font-medium);">Log in</a>
+									</div>
+								</ml-signup-page>
+							</div>
+						</div>
+					</section>
+
+					<!-- Dashboard Page Section -->
+					<section id="dashboard-page" class="demo-section">
+						<div class="demo-section__header">
+							<h2>Dashboard Page</h2>
+							<p>Composite dashboard layout composing app shell, page header, metrics, and content areas.</p>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>Full Dashboard</h3>
+								<span class="demo-card__badge">Composite layout</span>
+							</div>
+							<div style="height: 600px; border: var(--ml-border) solid var(--ml-color-border); border-radius: var(--ml-radius-lg); overflow: hidden;">
+								<ml-dashboard-page title="Dashboard" description="Overview of your account activity.">
+									<div slot="sidebar" style="padding: var(--ml-space-4); background: var(--ml-color-surface); border-right: var(--ml-border) solid var(--ml-color-border); height: 100%; box-sizing: border-box; font-family: var(--ml-font-sans);">
+										<div style="font-weight: var(--ml-font-semibold); font-size: var(--ml-text-sm); margin-bottom: var(--ml-space-4);">Navigation</div>
+										<div style="display: flex; flex-direction: column; gap: var(--ml-space-2);">
+											<span style="font-size: var(--ml-text-sm); color: var(--ml-color-primary); font-weight: var(--ml-font-medium);">Dashboard</span>
+											<span style="font-size: var(--ml-text-sm); color: var(--ml-color-text-secondary);">Projects</span>
+											<span style="font-size: var(--ml-text-sm); color: var(--ml-color-text-secondary);">Team</span>
+											<span style="font-size: var(--ml-text-sm); color: var(--ml-color-text-secondary);">Settings</span>
+										</div>
+									</div>
+									<ml-button slot="header-actions" variant="primary" size="sm">
+										<ml-icon icon="plus" size="sm"></ml-icon>New Project
+									</ml-button>
+									<div slot="metrics" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--ml-space-4); font-family: var(--ml-font-sans);">
+										<ml-card>
+											<div style="padding: var(--ml-space-1);">
+												<div style="font-size: var(--ml-text-sm); color: var(--ml-color-text-secondary);">Total Revenue</div>
+												<div style="font-size: var(--ml-text-2xl); font-weight: var(--ml-font-bold); color: var(--ml-color-text); margin-top: var(--ml-space-1);">$45,231</div>
+											</div>
+										</ml-card>
+										<ml-card>
+											<div style="padding: var(--ml-space-1);">
+												<div style="font-size: var(--ml-text-sm); color: var(--ml-color-text-secondary);">Active Users</div>
+												<div style="font-size: var(--ml-text-2xl); font-weight: var(--ml-font-bold); color: var(--ml-color-text); margin-top: var(--ml-space-1);">2,350</div>
+											</div>
+										</ml-card>
+										<ml-card>
+											<div style="padding: var(--ml-space-1);">
+												<div style="font-size: var(--ml-text-sm); color: var(--ml-color-text-secondary);">Conversion Rate</div>
+												<div style="font-size: var(--ml-text-2xl); font-weight: var(--ml-font-bold); color: var(--ml-color-text); margin-top: var(--ml-space-1);">3.2%</div>
+											</div>
+										</ml-card>
+									</div>
+									<div slot="main" style="font-family: var(--ml-font-sans);">
+										<ml-card>
+											<h3 slot="header" style="font-size: var(--ml-text-base); font-weight: var(--ml-font-semibold);">Recent Activity</h3>
+											<div style="display: flex; flex-direction: column; gap: var(--ml-space-3);">
+												<div style="display: flex; align-items: center; gap: var(--ml-space-3);">
+													<ml-avatar name="Olivia Rhye" size="sm"></ml-avatar>
+													<div style="flex: 1;">
+														<div style="font-size: var(--ml-text-sm); font-weight: var(--ml-font-medium);">Olivia Rhye created a new project</div>
+														<div style="font-size: var(--ml-text-xs); color: var(--ml-color-text-muted);">2 hours ago</div>
+													</div>
+												</div>
+												<div style="display: flex; align-items: center; gap: var(--ml-space-3);">
+													<ml-avatar name="Phoenix Baker" size="sm"></ml-avatar>
+													<div style="flex: 1;">
+														<div style="font-size: var(--ml-text-sm); font-weight: var(--ml-font-medium);">Phoenix Baker updated sprint board</div>
+														<div style="font-size: var(--ml-text-xs); color: var(--ml-color-text-muted);">4 hours ago</div>
+													</div>
+												</div>
+											</div>
+										</ml-card>
+									</div>
+									<div slot="aside" style="font-family: var(--ml-font-sans);">
+										<ml-card>
+											<h3 slot="header" style="font-size: var(--ml-text-base); font-weight: var(--ml-font-semibold);">Notifications</h3>
+											<div style="font-size: var(--ml-text-sm); color: var(--ml-color-text-secondary);">
+												<p>You have 3 unread messages and 2 pending tasks.</p>
+											</div>
+										</ml-card>
+									</div>
+								</ml-dashboard-page>
 							</div>
 						</div>
 					</section>

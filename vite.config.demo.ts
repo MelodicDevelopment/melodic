@@ -59,6 +59,12 @@ export default defineConfig({
 			'@melodicdev/components/slider': resolve(__dirname, 'packages/melodic-components/src/components/forms/slider/index.ts'),
 			'@melodicdev/components/button-group': resolve(__dirname, 'packages/melodic-components/src/components/forms/button-group/index.ts'),
 			'@melodicdev/components/drawer': resolve(__dirname, 'packages/melodic-components/src/components/overlays/drawer/index.ts'),
+			'@melodicdev/components/app-shell': resolve(__dirname, 'packages/melodic-components/src/components/sections/app-shell/index.ts'),
+			'@melodicdev/components/hero-section': resolve(__dirname, 'packages/melodic-components/src/components/sections/hero/index.ts'),
+			'@melodicdev/components/page-header': resolve(__dirname, 'packages/melodic-components/src/components/sections/page-header/index.ts'),
+			'@melodicdev/components/login-page': resolve(__dirname, 'packages/melodic-components/src/components/pages/auth/index.ts'),
+			'@melodicdev/components/signup-page': resolve(__dirname, 'packages/melodic-components/src/components/pages/auth/index.ts'),
+			'@melodicdev/components/dashboard-page': resolve(__dirname, 'packages/melodic-components/src/components/pages/dashboard/index.ts'),
 			'@melodicdev/components/directives': resolve(__dirname, 'packages/melodic-components/src/directives/index.ts'),
 			'@melodicdev/components': resolve(__dirname, 'packages/melodic-components/src/index.ts')
 		}
