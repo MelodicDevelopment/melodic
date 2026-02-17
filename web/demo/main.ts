@@ -54,6 +54,16 @@ import '@melodicdev/components/pagination';
 import '@melodicdev/components/steps';
 import '@melodicdev/components/sidebar';
 
+// Import components - Sections
+import '@melodicdev/components/app-shell';
+import '@melodicdev/components/hero-section';
+import '@melodicdev/components/page-header';
+
+// Import components - Pages
+import '@melodicdev/components/login-page';
+import '@melodicdev/components/signup-page';
+import '@melodicdev/components/dashboard-page';
+
 // Import directives
 import '@melodicdev/components/directives';
 

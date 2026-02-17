@@ -185,6 +185,30 @@
 			"types": "./lib/components/overlays/drawer/index.d.ts",
 			"default": "./lib/components/overlays/drawer/index.js"
 		},
+		"./app-shell": {
+			"types": "./lib/components/sections/app-shell/index.d.ts",
+			"default": "./lib/components/sections/app-shell/index.js"
+		},
+		"./hero-section": {
+			"types": "./lib/components/sections/hero/index.d.ts",
+			"default": "./lib/components/sections/hero/index.js"
+		},
+		"./page-header": {
+			"types": "./lib/components/sections/page-header/index.d.ts",
+			"default": "./lib/components/sections/page-header/index.js"
+		},
+		"./login-page": {
+			"types": "./lib/components/pages/auth/index.d.ts",
+			"default": "./lib/components/pages/auth/index.js"
+		},
+		"./signup-page": {
+			"types": "./lib/components/pages/auth/index.d.ts",
+			"default": "./lib/components/pages/auth/index.js"
+		},
+		"./dashboard-page": {
+			"types": "./lib/components/pages/dashboard/index.d.ts",
+			"default": "./lib/components/pages/dashboard/index.js"
+		},
 		"./directives": {
 			"types": "./lib/directives/index.d.ts",
 			"default": "./lib/directives/index.js"
