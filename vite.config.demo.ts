@@ -7,7 +7,7 @@ export default defineConfig({
 		viteStaticCopy({
 			targets: [
 				{
-					src: resolve(__dirname, 'packages/melodic-components/src/assets/*'),
+					src: resolve(__dirname, 'packages/melodic-components/assets/*'),
 					dest: 'public'
 				}
 			]

@@ -1,14 +1,34 @@
 {
 	"name": "@melodicdev/components",
-	"version": "0.1.0",
-	"description": "A themeable UI component library built on the Melodic Framework",
+	"version": "1.0.0",
+	"description": "Themeable UI component library built on the Melodic Framework",
 	"license": "MIT",
 	"author": "Melodic Development",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/MelodicDevelopment/melodic.git",
+		"directory": "packages/melodic-components"
+	},
+	"bugs": {
+		"url": "https://github.com/MelodicDevelopment/melodic/issues"
+	},
+	"homepage": "https://github.com/MelodicDevelopment/melodic/tree/main/packages/melodic-components#readme",
+	"keywords": [
+		"web-components",
+		"ui",
+		"component-library",
+		"melodic",
+		"custom-elements",
+		"theming",
+		"design-system",
+		"typescript"
+	],
 	"type": "module",
 	"main": "./lib/index.js",
 	"types": "./lib/index.d.ts",
 	"files": [
 		"lib",
+		"assets",
 		"README.md",
 		"LICENSE"
 	],
@@ -29,57 +49,25 @@
 			"types": "./lib/functions/index.d.ts",
 			"default": "./lib/functions/index.js"
 		},
-		"./button": {
-			"types": "./lib/components/forms/button/index.d.ts",
-			"default": "./lib/components/forms/button/index.js"
+		"./directives": {
+			"types": "./lib/directives/index.d.ts",
+			"default": "./lib/directives/index.js"
 		},
-		"./spinner": {
-			"types": "./lib/components/feedback/spinner/index.d.ts",
-			"default": "./lib/components/feedback/spinner/index.js"
-		},
-		"./input": {
-			"types": "./lib/components/forms/input/index.d.ts",
-			"default": "./lib/components/forms/input/index.js"
-		},
-		"./textarea": {
-			"types": "./lib/components/forms/textarea/index.d.ts",
-			"default": "./lib/components/forms/textarea/index.js"
-		},
-		"./checkbox": {
-			"types": "./lib/components/forms/checkbox/index.d.ts",
-			"default": "./lib/components/forms/checkbox/index.js"
-		},
-		"./radio": {
-			"types": "./lib/components/forms/radio/index.d.ts",
-			"default": "./lib/components/forms/radio/index.js"
-		},
-		"./toggle": {
-			"types": "./lib/components/forms/toggle/index.d.ts",
-			"default": "./lib/components/forms/toggle/index.js"
-		},
-		"./select": {
-			"types": "./lib/components/forms/select/index.d.ts",
-			"default": "./lib/components/forms/select/index.js"
-		},
-		"./form-field": {
-			"types": "./lib/components/forms/form-field/index.d.ts",
-			"default": "./lib/components/forms/form-field/index.js"
-		},
-		"./card": {
-			"types": "./lib/components/foundation/card/index.d.ts",
-			"default": "./lib/components/foundation/card/index.js"
-		},
-		"./stack": {
-			"types": "./lib/components/foundation/stack/index.d.ts",
-			"default": "./lib/components/foundation/stack/index.js"
-		},
-		"./divider": {
-			"types": "./lib/components/foundation/divider/index.d.ts",
-			"default": "./lib/components/foundation/divider/index.js"
+		"./activity-feed": {
+			"types": "./lib/components/data-display/activity-feed/index.d.ts",
+			"default": "./lib/components/data-display/activity-feed/index.js"
 		},
 		"./alert": {
 			"types": "./lib/components/feedback/alert/index.d.ts",
 			"default": "./lib/components/feedback/alert/index.js"
+		},
+		"./app-shell": {
+			"types": "./lib/components/sections/app-shell/index.d.ts",
+			"default": "./lib/components/sections/app-shell/index.js"
+		},
+		"./avatar": {
+			"types": "./lib/components/data-display/avatar/index.d.ts",
+			"default": "./lib/components/data-display/avatar/index.js"
 		},
 		"./badge": {
 			"types": "./lib/components/data-display/badge/index.d.ts",
@@ -89,143 +77,172 @@
 			"types": "./lib/components/data-display/badge-group/index.d.ts",
 			"default": "./lib/components/data-display/badge-group/index.js"
 		},
-		"./avatar": {
-			"types": "./lib/components/data-display/avatar/index.d.ts",
-			"default": "./lib/components/data-display/avatar/index.js"
-		},
-		"./tag": {
-			"types": "./lib/components/data-display/tag/index.d.ts",
-			"default": "./lib/components/data-display/tag/index.js"
-		},
-		"./icon": {
-			"types": "./lib/components/general/icon/index.d.ts",
-			"default": "./lib/components/general/icon/index.js"
-		},
-		"./tooltip": {
-			"types": "./lib/components/overlays/tooltip/index.d.ts",
-			"default": "./lib/components/overlays/tooltip/index.js"
-		},
-		"./tabs": {
-			"types": "./lib/components/navigation/tabs/index.d.ts",
-			"default": "./lib/components/navigation/tabs/index.js"
-		},
-		"./dialog": {
-			"types": "./lib/components/overlays/dialog/index.d.ts",
-			"default": "./lib/components/overlays/dialog/index.js"
-		},
-		"./popover": {
-			"types": "./lib/components/overlays/popover/index.d.ts",
-			"default": "./lib/components/overlays/popover/index.js"
-		},
-		"./dropdown": {
-			"types": "./lib/components/overlays/dropdown/index.d.ts",
-			"default": "./lib/components/overlays/dropdown/index.js"
-		},
-		"./container": {
-			"types": "./lib/components/foundation/container/index.d.ts",
-			"default": "./lib/components/foundation/container/index.js"
-		},
-		"./progress": {
-			"types": "./lib/components/feedback/progress/index.d.ts",
-			"default": "./lib/components/feedback/progress/index.js"
-		},
-		"./toast": {
-			"types": "./lib/components/feedback/toast/index.d.ts",
-			"default": "./lib/components/feedback/toast/index.js"
-		},
 		"./breadcrumb": {
 			"types": "./lib/components/navigation/breadcrumb/index.d.ts",
 			"default": "./lib/components/navigation/breadcrumb/index.js"
 		},
-		"./pagination": {
-			"types": "./lib/components/navigation/pagination/index.d.ts",
-			"default": "./lib/components/navigation/pagination/index.js"
-		},
-		"./steps": {
-			"types": "./lib/components/navigation/steps/index.d.ts",
-			"default": "./lib/components/navigation/steps/index.js"
-		},
-		"./sidebar": {
-			"types": "./lib/components/navigation/sidebar/index.d.ts",
-			"default": "./lib/components/navigation/sidebar/index.js"
-		},
-		"./date-picker": {
-			"types": "./lib/components/forms/date-picker/index.d.ts",
-			"default": "./lib/components/forms/date-picker/index.js"
-		},
-		"./table": {
-			"types": "./lib/components/data-display/table/index.d.ts",
-			"default": "./lib/components/data-display/table/index.js"
-		},
-		"./calendar-view": {
-			"types": "./lib/components/data-display/calendar-view/index.d.ts",
-			"default": "./lib/components/data-display/calendar-view/index.js"
-		},
-		"./activity-feed": {
-			"types": "./lib/components/data-display/activity-feed/index.d.ts",
-			"default": "./lib/components/data-display/activity-feed/index.js"
-		},
-		"./data-grid": {
-			"types": "./lib/components/data-display/data-grid/index.d.ts",
-			"default": "./lib/components/data-display/data-grid/index.js"
-		},
-		"./list": {
-			"types": "./lib/components/data-display/list/index.d.ts",
-			"default": "./lib/components/data-display/list/index.js"
-		},
-		"./radio-card-group": {
-			"types": "./lib/components/forms/radio-card-group/index.d.ts",
-			"default": "./lib/components/forms/radio-card-group/index.js"
-		},
-		"./slider": {
-			"types": "./lib/components/forms/slider/index.d.ts",
-			"default": "./lib/components/forms/slider/index.js"
+		"./button": {
+			"types": "./lib/components/forms/button/index.d.ts",
+			"default": "./lib/components/forms/button/index.js"
 		},
 		"./button-group": {
 			"types": "./lib/components/forms/button-group/index.d.ts",
 			"default": "./lib/components/forms/button-group/index.js"
 		},
-		"./drawer": {
-			"types": "./lib/components/overlays/drawer/index.d.ts",
-			"default": "./lib/components/overlays/drawer/index.js"
+		"./calendar-view": {
+			"types": "./lib/components/data-display/calendar-view/index.d.ts",
+			"default": "./lib/components/data-display/calendar-view/index.js"
 		},
-		"./app-shell": {
-			"types": "./lib/components/sections/app-shell/index.d.ts",
-			"default": "./lib/components/sections/app-shell/index.js"
+		"./card": {
+			"types": "./lib/components/foundation/card/index.d.ts",
+			"default": "./lib/components/foundation/card/index.js"
 		},
-		"./hero-section": {
-			"types": "./lib/components/sections/hero/index.d.ts",
-			"default": "./lib/components/sections/hero/index.js"
+		"./checkbox": {
+			"types": "./lib/components/forms/checkbox/index.d.ts",
+			"default": "./lib/components/forms/checkbox/index.js"
 		},
-		"./page-header": {
-			"types": "./lib/components/sections/page-header/index.d.ts",
-			"default": "./lib/components/sections/page-header/index.js"
-		},
-		"./login-page": {
-			"types": "./lib/components/pages/auth/index.d.ts",
-			"default": "./lib/components/pages/auth/index.js"
-		},
-		"./signup-page": {
-			"types": "./lib/components/pages/auth/index.d.ts",
-			"default": "./lib/components/pages/auth/index.js"
+		"./container": {
+			"types": "./lib/components/foundation/container/index.d.ts",
+			"default": "./lib/components/foundation/container/index.js"
 		},
 		"./dashboard-page": {
 			"types": "./lib/components/pages/dashboard/index.d.ts",
 			"default": "./lib/components/pages/dashboard/index.js"
 		},
-		"./directives": {
-			"types": "./lib/directives/index.d.ts",
-			"default": "./lib/directives/index.js"
+		"./data-grid": {
+			"types": "./lib/components/data-display/data-grid/index.d.ts",
+			"default": "./lib/components/data-display/data-grid/index.js"
+		},
+		"./date-picker": {
+			"types": "./lib/components/forms/date-picker/index.d.ts",
+			"default": "./lib/components/forms/date-picker/index.js"
+		},
+		"./dialog": {
+			"types": "./lib/components/overlays/dialog/index.d.ts",
+			"default": "./lib/components/overlays/dialog/index.js"
+		},
+		"./divider": {
+			"types": "./lib/components/foundation/divider/index.d.ts",
+			"default": "./lib/components/foundation/divider/index.js"
+		},
+		"./drawer": {
+			"types": "./lib/components/overlays/drawer/index.d.ts",
+			"default": "./lib/components/overlays/drawer/index.js"
+		},
+		"./dropdown": {
+			"types": "./lib/components/overlays/dropdown/index.d.ts",
+			"default": "./lib/components/overlays/dropdown/index.js"
+		},
+		"./form-field": {
+			"types": "./lib/components/forms/form-field/index.d.ts",
+			"default": "./lib/components/forms/form-field/index.js"
+		},
+		"./hero-section": {
+			"types": "./lib/components/sections/hero/index.d.ts",
+			"default": "./lib/components/sections/hero/index.js"
+		},
+		"./icon": {
+			"types": "./lib/components/general/icon/index.d.ts",
+			"default": "./lib/components/general/icon/index.js"
+		},
+		"./input": {
+			"types": "./lib/components/forms/input/index.d.ts",
+			"default": "./lib/components/forms/input/index.js"
+		},
+		"./list": {
+			"types": "./lib/components/data-display/list/index.d.ts",
+			"default": "./lib/components/data-display/list/index.js"
+		},
+		"./login-page": {
+			"types": "./lib/components/pages/auth/index.d.ts",
+			"default": "./lib/components/pages/auth/index.js"
+		},
+		"./page-header": {
+			"types": "./lib/components/sections/page-header/index.d.ts",
+			"default": "./lib/components/sections/page-header/index.js"
+		},
+		"./pagination": {
+			"types": "./lib/components/navigation/pagination/index.d.ts",
+			"default": "./lib/components/navigation/pagination/index.js"
+		},
+		"./popover": {
+			"types": "./lib/components/overlays/popover/index.d.ts",
+			"default": "./lib/components/overlays/popover/index.js"
+		},
+		"./progress": {
+			"types": "./lib/components/feedback/progress/index.d.ts",
+			"default": "./lib/components/feedback/progress/index.js"
+		},
+		"./radio": {
+			"types": "./lib/components/forms/radio/index.d.ts",
+			"default": "./lib/components/forms/radio/index.js"
+		},
+		"./radio-card-group": {
+			"types": "./lib/components/forms/radio-card-group/index.d.ts",
+			"default": "./lib/components/forms/radio-card-group/index.js"
+		},
+		"./sidebar": {
+			"types": "./lib/components/navigation/sidebar/index.d.ts",
+			"default": "./lib/components/navigation/sidebar/index.js"
+		},
+		"./signup-page": {
+			"types": "./lib/components/pages/auth/index.d.ts",
+			"default": "./lib/components/pages/auth/index.js"
+		},
+		"./slider": {
+			"types": "./lib/components/forms/slider/index.d.ts",
+			"default": "./lib/components/forms/slider/index.js"
+		},
+		"./spinner": {
+			"types": "./lib/components/feedback/spinner/index.d.ts",
+			"default": "./lib/components/feedback/spinner/index.js"
+		},
+		"./stack": {
+			"types": "./lib/components/foundation/stack/index.d.ts",
+			"default": "./lib/components/foundation/stack/index.js"
+		},
+		"./steps": {
+			"types": "./lib/components/navigation/steps/index.d.ts",
+			"default": "./lib/components/navigation/steps/index.js"
+		},
+		"./table": {
+			"types": "./lib/components/data-display/table/index.d.ts",
+			"default": "./lib/components/data-display/table/index.js"
+		},
+		"./tabs": {
+			"types": "./lib/components/navigation/tabs/index.d.ts",
+			"default": "./lib/components/navigation/tabs/index.js"
+		},
+		"./tag": {
+			"types": "./lib/components/data-display/tag/index.d.ts",
+			"default": "./lib/components/data-display/tag/index.js"
+		},
+		"./textarea": {
+			"types": "./lib/components/forms/textarea/index.d.ts",
+			"default": "./lib/components/forms/textarea/index.js"
+		},
+		"./toast": {
+			"types": "./lib/components/feedback/toast/index.d.ts",
+			"default": "./lib/components/feedback/toast/index.js"
+		},
+		"./toggle": {
+			"types": "./lib/components/forms/toggle/index.d.ts",
+			"default": "./lib/components/forms/toggle/index.js"
+		},
+		"./tooltip": {
+			"types": "./lib/components/overlays/tooltip/index.d.ts",
+			"default": "./lib/components/overlays/tooltip/index.js"
 		}
 	},
 	"scripts": {
 		"build": "tsc -p tsconfig.build.json",
 		"build:watch": "tsc -p tsconfig.build.json --watch",
+		"prepublishOnly": "npm run build",
 		"docs": "vite --config vite.config.docs.ts",
 		"docs:build": "vite build --config vite.config.docs.ts"
 	},
 	"peerDependencies": {
-		"@melodicdev/core": "^1.2.0"
+		"@melodicdev/core": "^1.3.0"
 	},
 	"devDependencies": {
 		"typescript": "~5.9.3",

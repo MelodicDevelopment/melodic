@@ -27,6 +27,8 @@
 			"@melodicdev/components/checkbox": ["packages/melodic-components/src/components/forms/checkbox/index.ts"],
 			"@melodicdev/components/radio": ["packages/melodic-components/src/components/forms/radio/index.ts"],
 			"@melodicdev/components/toggle": ["packages/melodic-components/src/components/forms/toggle/index.ts"],
+			"@melodicdev/components/select": ["packages/melodic-components/src/components/forms/select/index.ts"],
+			"@melodicdev/components/form-field": ["packages/melodic-components/src/components/forms/form-field/index.ts"],
 			"@melodicdev/components/card": ["packages/melodic-components/src/components/foundation/card/index.ts"],
 			"@melodicdev/components/stack": ["packages/melodic-components/src/components/foundation/stack/index.ts"],
 			"@melodicdev/components/divider": ["packages/melodic-components/src/components/foundation/divider/index.ts"],

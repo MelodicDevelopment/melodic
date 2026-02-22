@@ -6,10 +6,19 @@ Standalone helpers for DOM event handling and ID generation.
 
 ## Directives
 
+There are two separate directive entry points:
+
+| Import path | What it exports |
+|-------------|-----------------|
+| `@melodicdev/components/utils` | `clickOutside`, `createClickOutsideHandler` — imperative DOM helpers |
+| `@melodicdev/components/directives` | `tooltipDirective` — declarative attribute directive for the Melodic template engine |
+
+---
+
+### `clickOutside` / `createClickOutsideHandler`
+
 ```ts
 import { clickOutside, createClickOutsideHandler } from '@melodicdev/components/utils';
-// or
-import { clickOutside, createClickOutsideHandler } from '@melodicdev/components/directives';
 ```
 
 ### `clickOutside(element, callback)`
@@ -57,6 +66,37 @@ The returned per-element function also returns a cleanup function.
 | `callback` | `(event: MouseEvent) => void` | Called on outside click |
 
 **Returns:** `(element: HTMLElement) => () => void`
+
+---
+
+### `tooltipDirective`
+
+```ts
+import { tooltipDirective } from '@melodicdev/components/directives';
+import type { TooltipDirectiveOptions } from '@melodicdev/components/directives';
+```
+
+An **attribute directive** for the Melodic template engine that wraps any element with an `ml-tooltip` component automatically. Register it once; use `:tooltip` as an HTML attribute anywhere in your templates.
+
+```html
+<!-- Simple string -->
+<ml-icon icon="info" :tooltip="More information"></ml-icon>
+
+<!-- With placement -->
+<ml-button :tooltip=${{ content: 'Save changes', placement: 'bottom' }}>Save</ml-button>
+
+<!-- Dynamic content -->
+<span :tooltip=${this.helpText}>Hover me</span>
+```
+
+The directive is registered globally via `registerAttributeDirective` when the module is imported — no further setup required.
+
+| `TooltipDirectiveOptions` | Type | Default | Description |
+|---------------------------|------|---------|-------------|
+| `content` | `string` | — | Tooltip text |
+| `placement` | `string` | `'top'` | Preferred placement (any `Placement` value) |
+
+Passing a plain `string` is shorthand for `{ content: string }`.
 
 ---
 

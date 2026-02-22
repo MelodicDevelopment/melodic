@@ -23,7 +23,7 @@ lib
 *.njsproj
 *.sln
 *.sw?
-.claude/
+.claude/settings.local.json
 
 src/_poc
 .npmrc
