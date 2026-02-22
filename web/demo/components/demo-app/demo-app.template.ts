@@ -849,6 +849,25 @@ export const demoAppTemplate = (c: DemoApp) => {
 								size="sm"
 							></ml-table>
 						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>Virtual Scroll</h3>
+								<span class="demo-card__badge">1 000 rows · virtual</span>
+							</div>
+							<div style="height: 420px;">
+								<ml-table
+									table-title="All employees"
+									description="1 000 rows rendered with virtual scrolling — only visible rows are in the DOM."
+									.columns=${c.virtualTableColumns}
+									.rows=${c.virtualTableRows}
+									virtual
+									hoverable
+									striped
+									@ml:sort=${c.handleTableSort}
+								></ml-table>
+							</div>
+						</div>
 					</section>
 
 					<!-- Data Grid Section -->

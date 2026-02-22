@@ -28,7 +28,7 @@ melodic/
 ├── web/
 │   ├── demo/               # Component library demo
 │   └── example/            # Framework example app
-└── docs/                   # Documentation files
+└── docs/                   # Core framework documentation files
 ```
 
 ### Packages
@@ -72,7 +72,8 @@ Components use the `@MelodicComponent` decorator and extend `HTMLElement` via `C
 @MelodicComponent({
   selector: 'my-component',
   template: myTemplate,
-  styles: myStyles
+  styles: myStyles,
+  attributes: ['my-attr']   // observed HTML attributes
 })
 export class MyComponent {
   count = 0;
@@ -81,6 +82,8 @@ export class MyComponent {
   onCreate() { }
   onRender() { }
   onDestroy() { }
+  onPropertyChange(name, oldVal, newVal) { }
+  onAttributeChange(name, oldVal, newVal) { }
 }
 ```
 
@@ -91,6 +94,8 @@ export class MyComponent {
 - `onDestroy()` - On `disconnectedCallback()` (element removed)
 - `onAttributeChange(name, oldVal, newVal)` - Observed attribute changes
 - `onPropertyChange(name, oldVal, newVal)` - Before property changes
+
+**Important:** Properties prefixed with `_` are excluded from reactivity. Use `_` for private fields that should not trigger re-renders.
 
 ### Signals System (`src/signals/`)
 
@@ -210,51 +215,137 @@ const template = (name: string) => html`
 - `styleMap({ prop: value })` - Dynamic inline styles
 - `unsafeHTML(htmlString)` - Raw HTML rendering
 
+---
+
 ## Melodic Components Library
 
-Located in `packages/melodic-components/`, this is a themeable UI component library.
+Located in `packages/melodic-components/`. Full documentation in `packages/melodic-components/docs/`.
+
+### Component Import Paths
+
+```typescript
+// Register a component's custom element
+import '@melodicdev/components/button';
+import '@melodicdev/components/table';
+// etc.
+
+// Theme system
+import { applyTheme, toggleTheme, injectTheme, createBrandTheme } from '@melodicdev/components/theme';
+
+// Utilities (positioning, a11y, virtual scroll, styles)
+import { computePosition, focusTrap, announce, VirtualScroller, resetStyles } from '@melodicdev/components/utils';
+
+// Event/DOM directives
+import { clickOutside } from '@melodicdev/components/directives';
+
+// Misc functions
+import { newID } from '@melodicdev/components/functions';
+
+// Design token objects (for JS use)
+import { breakpoints, colorTokens, allTokens, tokensToCss } from '@melodicdev/components/theme';
+```
 
 ### Available Components
 
-**Forms:** Button, Input, Textarea, Checkbox, Radio, RadioGroup, Toggle, Select, FormField
+**Forms:** `ml-button`, `ml-button-group`, `ml-input`, `ml-textarea`, `ml-checkbox`, `ml-radio`, `ml-radio-group`, `ml-radio-card-group`, `ml-toggle`, `ml-select`, `ml-slider`, `ml-date-picker`, `ml-form-field`
 
-**Feedback:** Spinner, Alert, Toast, Skeleton, Progress
+**Feedback:** `ml-spinner`, `ml-alert`, `ml-progress`, `ml-toast` (+ `ToastService`)
 
-**Foundation:** Card, Divider, Stack, Container, Grid
+**Foundation:** `ml-card`, `ml-divider`, `ml-stack`, `ml-container`
 
-**Data Display:** Avatar, Badge, Stat, EmptyState
+**Data Display:** `ml-avatar`, `ml-badge`, `ml-badge-group`, `ml-tag`, `ml-list`, `ml-list-item`, `ml-activity-feed`, `ml-activity-item`, `ml-table`, `ml-data-grid`, `ml-calendar-view`
 
-**Navigation:** Tabs, Breadcrumb, Pagination
+**Navigation:** `ml-tabs`, `ml-tab`, `ml-tab-panel`, `ml-breadcrumb`, `ml-breadcrumb-item`, `ml-pagination`, `ml-sidebar`, `ml-sidebar-group`, `ml-sidebar-item`, `ml-steps`, `ml-step`, `ml-step-panel`
 
-**Overlays:** Modal, Drawer, Dropdown, Tooltip, Popover
+**Overlays:** `ml-dialog` (+ `DialogService`), `ml-drawer`, `ml-popover`, `ml-dropdown`, `ml-dropdown-item`, `ml-dropdown-group`, `ml-dropdown-separator`, `ml-tooltip`
+
+**Sections:** `ml-app-shell`, `ml-page-header`, `ml-hero-section`
+
+**General:** `ml-icon` (Phosphor Icons via font ligatures)
 
 ### Theme System
 
-Token-based theming with light/dark mode support:
+Token-based CSS custom property system with light/dark/system mode and custom theme support.
 
 ```typescript
-import { applyTheme, createTheme } from '@melodicdev/components';
+import { applyTheme, toggleTheme, injectTheme, createBrandTheme } from '@melodicdev/components/theme';
 
-// Apply built-in theme
-applyTheme('light'); // or 'dark'
+// Built-in modes — applyTheme handles setAttribute internally
+applyTheme('light');   // data-theme="light"
+applyTheme('dark');    // data-theme="dark"
+applyTheme('system');  // follows OS preference, auto-updates
 
-// Create custom theme
-const customTheme = createTheme({
-  colors: { ... },
-  spacing: { ... }
+toggleTheme();         // flip between light and dark
+
+// Named custom theme (manual setAttribute required — do NOT also call applyTheme)
+injectTheme('brand', {
+  '--ml-color-primary':       '#7c3aed',
+  '--ml-color-primary-hover': '#6d28d9',
 });
+document.documentElement.setAttribute('data-theme', 'brand');
+
+// Brand color convenience helper
+const css = createBrandTheme('brand', { primary: '#7c3aed', secondary: '#6b7280' });
 ```
 
-**Token categories:** colors, typography, spacing, shadows, borders, breakpoints, transitions
+**Token categories:** colors (semantic + primitive palette), typography, spacing (4px scale), shadows, borders/radius, breakpoints, transitions
+
+**IMPORTANT:** `applyTheme` and named themes via `setAttribute` are mutually exclusive. Calling `applyTheme` after setting a custom `data-theme` will overwrite it.
+
+### Virtual Scrolling
+
+`ml-table` and `ml-data-grid` support virtual scrolling via the `virtual` attribute. The parent element must have a defined height.
+
+```html
+<div style="height: 500px;">
+  <ml-table virtual .rows=${rows} .columns=${cols}></ml-table>
+</div>
+
+<div style="height: 500px;">
+  <ml-data-grid virtual .rows=${rows} .columns=${cols}></ml-data-grid>
+</div>
+```
+
+The underlying `VirtualScroller` class is exported from `@melodicdev/components/utils` for use in custom components.
+
+### Key Utilities
+
+```typescript
+import { computePosition, autoUpdate, offset, flip, shift, arrow } from '@melodicdev/components/utils';
+import { focusTrap, createFocusTrap, getFocusableElements, announce } from '@melodicdev/components/utils';
+import { focusVisible, isFocusVisible } from '@melodicdev/components/utils';
+import { clickOutside, createClickOutsideHandler } from '@melodicdev/components/utils';
+import { VirtualScroller } from '@melodicdev/components/utils';
+import { resetStyles, visuallyHiddenStyles, componentBaseStyles } from '@melodicdev/components/utils';
+import { newID } from '@melodicdev/components/functions';
+```
+
+See `packages/melodic-components/docs/utilities.md` and `packages/melodic-components/docs/directives-and-functions.md` for full API details.
 
 ### Component File Structure
 
 ```
 component-name/
-├── component-name.component.ts  # Component class
-├── component-name.template.ts   # HTML template
-└── component-name.styles.ts     # CSS styles
+├── index.ts                     # Barrel export
+├── component-name.component.ts  # Component class (@MelodicComponent)
+├── component-name.template.ts   # HTML template function
+├── component-name.styles.ts     # CSS styles (css tagged template)
+└── component-name.types.ts      # Shared types (optional)
 ```
+
+Multi-component directories (e.g. tabs, sidebar, steps) use the same pattern with one file per element and a shared `index.ts` barrel.
+
+### Adding a New Component Checklist
+
+1. Create files in `packages/melodic-components/src/components/<category>/<name>/`
+2. Add `<name>/index.ts` barrel exports
+3. Add `"./name"` export entry to `packages/melodic-components/package.json`
+4. Add path alias to `tsconfig.json`
+5. Add Vite alias to `vite.config.demo.ts`
+6. Add `import '@melodicdev/components/name'` to `web/demo/main.ts`
+7. Add nav link + demo section to `web/demo/components/demo-app/demo-app.template.ts`
+
+---
 
 ## CLI Tool
 
@@ -283,7 +374,7 @@ melodic generate directive <name>
 
 ## Documentation Files
 
-Located in `/docs/`:
+Core framework docs in `/docs/`:
 - `COMPONENT_SYSTEM.md` - Component creation and lifecycle
 - `TEMPLATE_SYSTEM.md` - Template syntax and directives
 - `SIGNALS.md` - Reactive signals system
@@ -294,6 +385,18 @@ Located in `/docs/`:
 - `BOOTSTRAP.md` - App initialization
 - `STATE.md` - State management
 - `CODING_PRACTICES.md` - Code standards and ESLint
+
+Component library docs in `packages/melodic-components/docs/`:
+- `theming.md` - Token system, theme API, dark mode, custom themes
+- `utilities.md` - Positioning, accessibility, virtual scroll, style utilities
+- `directives-and-functions.md` - clickOutside, newID, token objects
+- `components/forms.md`
+- `components/foundation.md`
+- `components/feedback.md`
+- `components/data-display.md`
+- `components/navigation.md`
+- `components/overlays.md`
+- `components/sections.md`
 
 ## Git Commit Preferences
 
@@ -311,3 +414,7 @@ npm test
 
 - **Directive state caching:** Custom directives should always return state from render functions
 - **Property observation:** The `observe()` method preserves existing getters/setters on component properties
+- **Shadow DOM styling:** All components use Shadow DOM. External styles reach internals only via CSS custom properties (tokens). Override tokens on the host element or a parent selector.
+- **Virtual scroll layout:** When using the `virtual` attribute on `ml-table` or `ml-data-grid`, the parent must have a defined height. The host uses `:host([virtual]) { height: 100% }` so it fills that container via a flex column layout.
+- **`ml-list` virtual scrolling:** `ml-list` uses `<slot>` for composition and cannot support virtual scrolling — use `ml-table` or `ml-data-grid` for large virtualized datasets.
+- **Overlays:** Popover, dropdown, and tooltip use the Popover API + `computePosition`/`autoUpdate` from `utils/positioning/`. Import `Placement` type from `../../../types/index.js` in component files.

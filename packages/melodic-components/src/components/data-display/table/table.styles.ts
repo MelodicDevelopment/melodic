@@ -188,9 +188,22 @@ export const tableStyles = () => css`
 	}
 
 	/* ── Virtual scroll ── */
-	.ml-table--virtual .ml-table__wrapper {
-		overflow-y: auto;
+	/* Host fills parent container so height: 100% resolves correctly */
+	:host([virtual]) {
 		height: 100%;
+	}
+
+	/* Flex column so the wrapper can take remaining space after header/footer */
+	.ml-table--virtual {
+		display: flex;
+		flex-direction: column;
+		height: 100%;
+	}
+
+	.ml-table--virtual .ml-table__wrapper {
+		flex: 1;
+		min-height: 0; /* lets flex child shrink below content height */
+		overflow-y: auto;
 	}
 
 	.ml-table--virtual .ml-table__td {

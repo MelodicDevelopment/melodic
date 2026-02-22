@@ -5,8 +5,8 @@ export * from './tokens/index.js';
 export * from './presets/index.js';
 
 // Theme functions
-export { applyTheme, getResolvedTheme, getTheme, onThemeChange } from './functions/apply-theme.function.js';
-export { createTheme } from './functions/create-theme.function.js';
+export { applyTheme, getResolvedTheme, getTheme, onThemeChange, toggleTheme } from './functions/apply-theme.function.js';
+export { createTheme, injectTheme, createBrandTheme } from './functions/create-theme.function.js';
 
 // Re-export types
 export type { ThemeMode } from '../types/index.js';

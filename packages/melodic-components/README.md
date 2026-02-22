@@ -22,6 +22,7 @@ document.body.innerHTML = `<ml-button>Click me</ml-button>`;
 
 ## Documentation
 
+### Components
 - [**Theming**](./docs/theming.md) — Token system, applying themes, creating custom themes, overriding styles
 - [**Forms**](./docs/components/forms.md) — button, button-group, input, textarea, checkbox, radio, radio-card-group, toggle, select, slider, date-picker, form-field
 - [**Foundation**](./docs/components/foundation.md) — card, divider, stack, container
@@ -30,6 +31,10 @@ document.body.innerHTML = `<ml-button>Click me</ml-button>`;
 - [**Navigation**](./docs/components/navigation.md) — tabs, breadcrumb, pagination, sidebar, steps
 - [**Overlays**](./docs/components/overlays.md) — dialog, drawer, popover, dropdown, tooltip
 - [**Sections**](./docs/components/sections.md) — app-shell, page-header, hero-section
+
+### Utilities & Helpers
+- [**Utilities**](./docs/utilities.md) — positioning, accessibility (focus trap, live regions), virtual scrolling, style utilities
+- [**Directives & Functions**](./docs/directives-and-functions.md) — clickOutside, newID, theme functions, design token objects
 
 ---
 

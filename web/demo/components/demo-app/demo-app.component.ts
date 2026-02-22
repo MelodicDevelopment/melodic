@@ -280,6 +280,46 @@ export class DemoApp implements IElementRef {
 		console.log('Selected:', event.detail);
 	};
 
+	/** Virtual table demo data — 1 000 generated rows */
+	virtualTableColumns: TableColumn[] = [
+		{ key: 'id', label: '#', width: '60px', sortable: true },
+		{ key: 'name', label: 'Name', sortable: true },
+		{ key: 'email', label: 'Email', sortable: true },
+		{ key: 'department', label: 'Department', sortable: true },
+		{
+			key: 'status',
+			label: 'Status',
+			render: (val) => html`<ml-badge variant=${val === 'Active' ? 'success' : val === 'Inactive' ? 'default' : 'warning'} size="sm" pill>${val}</ml-badge>`
+		},
+		{
+			key: 'salary',
+			label: 'Salary',
+			align: 'right' as const,
+			sortable: true,
+			render: (val) => html`$${(val as number).toLocaleString()}`
+		}
+	];
+
+	virtualTableRows = (() => {
+		const depts = ['Engineering', 'Design', 'Product', 'Marketing', 'Sales', 'Finance', 'HR', 'Operations'];
+		const statuses = ['Active', 'Inactive', 'Pending'];
+		const firstNames = ['Alex', 'Blake', 'Cameron', 'Dana', 'Eden', 'Finley', 'Gray', 'Harper', 'Indigo', 'Jordan'];
+		const lastNames = ['Anderson', 'Brown', 'Chen', 'Davis', 'Evans', 'Foster', 'Garcia', 'Harris', 'Ivanov', 'Johnson'];
+		return Array.from({ length: 1000 }, (_, i) => {
+			const first = firstNames[i % firstNames.length];
+			const last = lastNames[Math.floor(i / firstNames.length) % lastNames.length];
+			const name = `${first} ${last}`;
+			return {
+				id: i + 1,
+				name,
+				email: `${first.toLowerCase()}.${last.toLowerCase()}${i > 99 ? i : ''}@example.com`,
+				department: depts[i % depts.length],
+				status: statuses[i % statuses.length],
+				salary: 50000 + (i % 10) * 5000 + (i % 3) * 2500
+			};
+		});
+	})();
+
 	/** Pagination demo state */
 	currentPage = 1;
 
