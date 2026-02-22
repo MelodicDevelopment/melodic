@@ -165,6 +165,10 @@
 			"types": "./lib/components/data-display/activity-feed/index.d.ts",
 			"default": "./lib/components/data-display/activity-feed/index.js"
 		},
+		"./data-grid": {
+			"types": "./lib/components/data-display/data-grid/index.d.ts",
+			"default": "./lib/components/data-display/data-grid/index.js"
+		},
 		"./list": {
 			"types": "./lib/components/data-display/list/index.d.ts",
 			"default": "./lib/components/data-display/list/index.js"

@@ -62,6 +62,9 @@ export const demoAppTemplate = (c: DemoApp) => {
 					<a href="#tables" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'tables')}>
 						<ml-icon icon="table" size="sm"></ml-icon>Tables
 					</a>
+					<a href="#data-grid" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'data-grid')}>
+						<ml-icon icon="grid-four" size="sm"></ml-icon>Data Grid
+					</a>
 					<a href="#badges" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'badges')}>
 						<ml-icon icon="seal" size="sm"></ml-icon>Badges
 					</a>
@@ -845,6 +848,52 @@ export const demoAppTemplate = (c: DemoApp) => {
 								.rows=${c.invoiceRows}
 								size="sm"
 							></ml-table>
+						</div>
+					</section>
+
+					<!-- Data Grid Section -->
+					<section id="data-grid" class="demo-section">
+						<div class="demo-section__header">
+							<h2>Data Grid</h2>
+							<p>Full-featured spreadsheet-style grid with virtual scrolling, sorting, filtering, selection, pinned columns, column resizing, and reordering.</p>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>Full-Featured Grid</h3>
+								<span class="demo-card__badge">500 rows · Virtual scroll · Pinned columns</span>
+							</div>
+							<div style="height: 500px;">
+								<ml-data-grid
+									grid-title="Employees"
+									description="500 rows with virtual scrolling, 2 pinned columns, and a filter row."
+									.columns=${c.gridColumns}
+									.rows=${c.gridRows}
+									selectable
+									show-filter-row
+									virtual
+									@ml:sort=${c.handleGridSort}
+									@ml:filter=${c.handleGridFilter}
+									@ml:select=${c.handleGridSelect}
+								></ml-data-grid>
+							</div>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>Server-Side Mode</h3>
+								<span class="demo-card__badge">server-side · External data control</span>
+							</div>
+							<div style="height: 360px;">
+								<ml-data-grid
+									grid-title="Audit Log"
+									description="Server-side mode — the grid renders rows as-is. Sorting and filtering are handled externally."
+									.columns=${c.gridServerColumns}
+									.rows=${c.gridServerRows}
+									server-side
+									@ml:sort=${c.handleGridSort}
+								></ml-data-grid>
+							</div>
 						</div>
 					</section>
 

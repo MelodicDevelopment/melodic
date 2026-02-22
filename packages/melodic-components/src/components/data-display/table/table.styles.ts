@@ -187,6 +187,28 @@ export const tableStyles = () => css`
 		vertical-align: middle;
 	}
 
+	/* ── Virtual scroll ── */
+	.ml-table--virtual .ml-table__wrapper {
+		overflow-y: auto;
+		height: 100%;
+	}
+
+	.ml-table--virtual .ml-table__td {
+		height: 44px;
+		padding-top: 0;
+		padding-bottom: 0;
+		box-sizing: border-box;
+	}
+
+	.ml-table--virtual.ml-table--sm .ml-table__td {
+		height: 36px;
+	}
+
+	.ml-table__spacer td {
+		padding: 0;
+		border: none;
+	}
+
 	/* ── Footer ── */
 	.ml-table__footer {
 		display: none;

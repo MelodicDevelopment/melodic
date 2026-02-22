@@ -9,3 +9,6 @@ export * from './styles/index.js';
 
 // Directives
 export * from './directives/index.js';
+
+// Virtual scroll
+export * from './virtual-scroll/index.js';

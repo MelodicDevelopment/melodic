@@ -16,7 +16,8 @@ export function tableTemplate(c: TableComponent) {
 			[`ml-table--${c.size}`]: true,
 			'ml-table--striped': c.striped,
 			'ml-table--hoverable': c.hoverable,
-			'ml-table--sticky-header': c.stickyHeader
+			'ml-table--sticky-header': c.stickyHeader,
+			'ml-table--virtual': c.virtual
 		})}>
 			${when(!!c.tableTitle || !!c.description, () => html`
 				<div class="ml-table__header">
@@ -74,34 +75,47 @@ export function tableTemplate(c: TableComponent) {
 						</tr>
 					</thead>
 					<tbody>
-						${repeat(c.sortedRows, (_: Record<string, unknown>, i: number) => i, (row: Record<string, unknown>, i: number) => html`
-							<tr
-								class=${classMap({
-									'ml-table__row': true,
-									'ml-table__row--selected': c.isRowSelected(i)
-								})}
-								@click=${() => c.handleRowClick(row, i)}
-							>
-								${when(c.selectable, () => html`
-									<td class="ml-table__check-cell">
-										<input
-											type="checkbox"
-											class="ml-table__checkbox"
-											.checked=${c.isRowSelected(i)}
-											@change=${(e: Event) => c.handleSelectRow(i, e)}
-											@click=${(e: Event) => e.stopPropagation()}
-											aria-label=${`Select row ${i + 1}`}
-										/>
-									</td>
-								`)}
-								${repeat(c.columns, (col: TableColumn) => col.key, (col: TableColumn) => html`
-									<td class=${classMap({
-										'ml-table__td': true,
-										[`ml-table__td--${col.align ?? 'left'}`]: true
-									})}>
-										${renderCell(col, row, i)}
-									</td>
-								`)}
+						${when(c.virtual && c.topSpacerHeight > 0, () => html`
+							<tr class="ml-table__spacer">
+								<td colspan="${c.colCount}" style="height: ${c.topSpacerHeight}px"></td>
+							</tr>
+						`)}
+						${repeat(c.visibleRows, (_: Record<string, unknown>, i: number) => c.startIndex + i, (row: Record<string, unknown>, i: number) => {
+							const absoluteIndex = c.startIndex + i;
+							return html`
+								<tr
+									class=${classMap({
+										'ml-table__row': true,
+										'ml-table__row--selected': c.isRowSelected(absoluteIndex)
+									})}
+									@click=${() => c.handleRowClick(row, absoluteIndex)}
+								>
+									${when(c.selectable, () => html`
+										<td class="ml-table__check-cell">
+											<input
+												type="checkbox"
+												class="ml-table__checkbox"
+												.checked=${c.isRowSelected(absoluteIndex)}
+												@change=${(e: Event) => c.handleSelectRow(absoluteIndex, e)}
+												@click=${(e: Event) => e.stopPropagation()}
+												aria-label=${`Select row ${absoluteIndex + 1}`}
+											/>
+										</td>
+									`)}
+									${repeat(c.columns, (col: TableColumn) => col.key, (col: TableColumn) => html`
+										<td class=${classMap({
+											'ml-table__td': true,
+											[`ml-table__td--${col.align ?? 'left'}`]: true
+										})}>
+											${renderCell(col, row, absoluteIndex)}
+										</td>
+									`)}
+								</tr>
+							`;
+						})}
+						${when(c.virtual && c.bottomSpacerHeight > 0, () => html`
+							<tr class="ml-table__spacer">
+								<td colspan="${c.colCount}" style="height: ${c.bottomSpacerHeight}px"></td>
 							</tr>
 						`)}
 					</tbody>

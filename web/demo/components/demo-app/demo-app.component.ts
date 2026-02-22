@@ -2,6 +2,7 @@ import { MelodicComponent, Service, html } from '@melodicdev/core';
 import type { IElementRef } from '@melodicdev/core';
 import { DialogService, ToastService, type UniqueID, type ThemeMode, type SelectOption } from '@melodicdev/components';
 import type { TableColumn } from '@melodicdev/components/table';
+import type { DataGridColumn } from '@melodicdev/components/data-grid';
 import type { StepConfig } from '@melodicdev/components/steps';
 import type { CalendarEvent } from '@melodicdev/components/calendar-view';
 import { applyTheme, getResolvedTheme, onThemeChange } from '@melodicdev/components/theme';
@@ -93,7 +94,7 @@ export class DemoApp implements IElementRef {
 
 	openDrawer = (id: string): void => {
 		const root = this.elementRef?.shadowRoot;
-		const drawer = root?.querySelector(`#${id}`) as HTMLElement & { component: { open(): void } } | null;
+		const drawer = root?.querySelector(`#${id}`) as (HTMLElement & { component: { open(): void } }) | null;
 		drawer?.component.open();
 	};
 
@@ -118,7 +119,9 @@ export class DemoApp implements IElementRef {
 	/** Table demo data */
 	teamColumns: TableColumn[] = [
 		{
-			key: 'name', label: 'Name', sortable: true,
+			key: 'name',
+			label: 'Name',
+			sortable: true,
 			render: (_, row) => html`
 				<div style="display: flex; align-items: center; gap: 0.75rem;">
 					<ml-avatar src=${row.avatar as string} size="sm"></ml-avatar>
@@ -131,12 +134,16 @@ export class DemoApp implements IElementRef {
 		},
 		{ key: 'role', label: 'Role', sortable: true },
 		{
-			key: 'status', label: 'Status',
+			key: 'status',
+			label: 'Status',
 			render: (val) => html`<ml-badge variant=${val === 'Active' ? 'success' : val === 'Pending' ? 'warning' : 'default'} size="sm">${val}</ml-badge>`
 		},
 		{ key: 'department', label: 'Department' },
 		{
-			key: 'actions', label: '', align: 'right', width: '80px',
+			key: 'actions',
+			label: '',
+			align: 'right',
+			width: '80px',
 			render: () => html`
 				<ml-button variant="ghost" size="sm">
 					<ml-icon icon="dots-three" size="sm"></ml-icon>
@@ -146,18 +153,88 @@ export class DemoApp implements IElementRef {
 	];
 
 	allTeamRows = [
-		{ name: 'Olivia Rhye', email: 'olivia@example.com', avatar: 'https://i.pravatar.cc/48?img=5', role: 'Designer', status: 'Active', department: 'Design' },
-		{ name: 'Phoenix Baker', email: 'phoenix@example.com', avatar: 'https://i.pravatar.cc/48?img=12', role: 'Developer', status: 'Active', department: 'Engineering' },
+		{
+			name: 'Olivia Rhye',
+			email: 'olivia@example.com',
+			avatar: 'https://i.pravatar.cc/48?img=5',
+			role: 'Designer',
+			status: 'Active',
+			department: 'Design'
+		},
+		{
+			name: 'Phoenix Baker',
+			email: 'phoenix@example.com',
+			avatar: 'https://i.pravatar.cc/48?img=12',
+			role: 'Developer',
+			status: 'Active',
+			department: 'Engineering'
+		},
 		{ name: 'Lana Steiner', email: 'lana@example.com', avatar: 'https://i.pravatar.cc/48?img=32', role: 'PM', status: 'Pending', department: 'Product' },
-		{ name: 'Demi Wilkinson', email: 'demi@example.com', avatar: 'https://i.pravatar.cc/48?img=26', role: 'Designer', status: 'Active', department: 'Design' },
-		{ name: 'Candice Wu', email: 'candice@example.com', avatar: 'https://i.pravatar.cc/48?img=44', role: 'Developer', status: 'Offline', department: 'Engineering' },
-		{ name: 'Natali Craig', email: 'natali@example.com', avatar: 'https://i.pravatar.cc/48?img=47', role: 'Designer', status: 'Active', department: 'Design' },
-		{ name: 'Drew Cano', email: 'drew@example.com', avatar: 'https://i.pravatar.cc/48?img=53', role: 'Manager', status: 'Active', department: 'Engineering' },
-		{ name: 'Orlando Diggs', email: 'orlando@example.com', avatar: 'https://i.pravatar.cc/48?img=57', role: 'Developer', status: 'Pending', department: 'Engineering' },
-		{ name: 'Andi Lane', email: 'andi@example.com', avatar: 'https://i.pravatar.cc/48?img=36', role: 'Developer', status: 'Active', department: 'Engineering' },
+		{
+			name: 'Demi Wilkinson',
+			email: 'demi@example.com',
+			avatar: 'https://i.pravatar.cc/48?img=26',
+			role: 'Designer',
+			status: 'Active',
+			department: 'Design'
+		},
+		{
+			name: 'Candice Wu',
+			email: 'candice@example.com',
+			avatar: 'https://i.pravatar.cc/48?img=44',
+			role: 'Developer',
+			status: 'Offline',
+			department: 'Engineering'
+		},
+		{
+			name: 'Natali Craig',
+			email: 'natali@example.com',
+			avatar: 'https://i.pravatar.cc/48?img=47',
+			role: 'Designer',
+			status: 'Active',
+			department: 'Design'
+		},
+		{
+			name: 'Drew Cano',
+			email: 'drew@example.com',
+			avatar: 'https://i.pravatar.cc/48?img=53',
+			role: 'Manager',
+			status: 'Active',
+			department: 'Engineering'
+		},
+		{
+			name: 'Orlando Diggs',
+			email: 'orlando@example.com',
+			avatar: 'https://i.pravatar.cc/48?img=57',
+			role: 'Developer',
+			status: 'Pending',
+			department: 'Engineering'
+		},
+		{
+			name: 'Andi Lane',
+			email: 'andi@example.com',
+			avatar: 'https://i.pravatar.cc/48?img=36',
+			role: 'Developer',
+			status: 'Active',
+			department: 'Engineering'
+		},
 		{ name: 'Kate Morrison', email: 'kate@example.com', avatar: 'https://i.pravatar.cc/48?img=23', role: 'PM', status: 'Active', department: 'Product' },
-		{ name: 'Koray Okumus', email: 'koray@example.com', avatar: 'https://i.pravatar.cc/48?img=60', role: 'Designer', status: 'Offline', department: 'Design' },
-		{ name: 'Emily Pham', email: 'emily@example.com', avatar: 'https://i.pravatar.cc/48?img=9', role: 'Developer', status: 'Active', department: 'Engineering' },
+		{
+			name: 'Koray Okumus',
+			email: 'koray@example.com',
+			avatar: 'https://i.pravatar.cc/48?img=60',
+			role: 'Designer',
+			status: 'Offline',
+			department: 'Design'
+		},
+		{
+			name: 'Emily Pham',
+			email: 'emily@example.com',
+			avatar: 'https://i.pravatar.cc/48?img=9',
+			role: 'Developer',
+			status: 'Active',
+			department: 'Engineering'
+		}
 	];
 
 	teamPageSize = 5;
@@ -177,7 +254,8 @@ export class DemoApp implements IElementRef {
 		{ key: 'date', label: 'Date', sortable: true },
 		{ key: 'amount', label: 'Amount', align: 'right', sortable: true },
 		{
-			key: 'status', label: 'Status',
+			key: 'status',
+			label: 'Status',
 			render: (val) => html`<ml-badge variant=${val === 'Paid' ? 'success' : val === 'Pending' ? 'warning' : 'error'} size="sm" pill>${val}</ml-badge>`
 		}
 	];
@@ -187,7 +265,7 @@ export class DemoApp implements IElementRef {
 		{ invoice: 'INV-002', date: 'Jan 20, 2026', amount: '$3,600.00', status: 'Pending' },
 		{ invoice: 'INV-003', date: 'Feb 01, 2026', amount: '$890.00', status: 'Paid' },
 		{ invoice: 'INV-004', date: 'Feb 05, 2026', amount: '$2,100.00', status: 'Overdue' },
-		{ invoice: 'INV-005', date: 'Feb 08, 2026', amount: '$4,500.00', status: 'Paid' },
+		{ invoice: 'INV-005', date: 'Feb 08, 2026', amount: '$4,500.00', status: 'Paid' }
 	];
 
 	handleTeamPageChange = (event: CustomEvent): void => {
@@ -264,7 +342,7 @@ export class DemoApp implements IElementRef {
 		{ id: '25', title: 'Team lunch', start: '2026-02-21T12:00:00', end: '2026-02-21T13:00:00', color: 'green' },
 		{ id: '26', title: 'Board presentation', start: '2026-02-24T10:00:00', end: '2026-02-24T12:00:00', color: 'purple' },
 		{ id: '27', title: 'Security audit', start: '2026-02-25T09:00:00', end: '2026-02-25T11:00:00', color: 'pink' },
-		{ id: '28', title: 'Offsite planning', start: '2026-02-26T14:00:00', end: '2026-02-26T15:30:00', color: 'orange' },
+		{ id: '28', title: 'Offsite planning', start: '2026-02-26T14:00:00', end: '2026-02-26T15:30:00', color: 'orange' }
 	];
 
 	handleCalendarViewChange = (event: CustomEvent): void => {
@@ -282,6 +360,129 @@ export class DemoApp implements IElementRef {
 	handleCalendarAddEvent = (event: CustomEvent): void => {
 		console.log('Calendar add event:', event.detail.date ?? 'no date');
 	};
+
+	/** Data grid demo data */
+	gridColumns: DataGridColumn[] = [
+		{ key: 'id', label: 'ID', width: 80, pinned: 'left', sortable: true, filterable: true },
+		{ key: 'name', label: 'Name', width: 180, pinned: 'left', sortable: true, filterable: true },
+		{ key: 'email', label: 'Email', width: 220, sortable: true, filterable: true },
+		{ key: 'department', label: 'Department', width: 160, sortable: true, filterable: true },
+		{ key: 'role', label: 'Role', width: 160, sortable: true, filterable: true },
+		{
+			key: 'status',
+			label: 'Status',
+			width: 130,
+			sortable: true,
+			filterable: true,
+			render: (val: unknown) =>
+				html`<ml-badge variant=${val === 'Active' ? 'success' : val === 'Pending' ? 'warning' : 'default'} size="sm">${val}</ml-badge>`
+		},
+		{ key: 'salary', label: 'Salary', width: 130, align: 'right', sortable: true, render: (val: unknown) => `$${(val as number).toLocaleString()}` },
+		{ key: 'joined', label: 'Joined', width: 140, sortable: true }
+	];
+
+	gridRows: Record<string, unknown>[] = this.generateGridRows(500);
+
+	gridServerColumns: DataGridColumn[] = [
+		{ key: 'id', label: 'ID', width: 70 },
+		{ key: 'name', label: 'Name', width: 180, sortable: true },
+		{ key: 'event', label: 'Event', width: 220 },
+		{
+			key: 'status',
+			label: 'Status',
+			width: 120,
+			render: (val: unknown) =>
+				html`<ml-badge variant=${val === 'Success' ? 'success' : val === 'Error' ? 'error' : 'warning'} size="sm">${val}</ml-badge>`
+		},
+		{ key: 'ts', label: 'Timestamp', width: 200 }
+	];
+
+	gridServerRows: Record<string, unknown>[] = [
+		{ id: 1, name: 'alice@example.com', event: 'User login', status: 'Success', ts: '2026-02-22 09:01:00' },
+		{ id: 2, name: 'bob@example.com', event: 'Password reset', status: 'Success', ts: '2026-02-22 09:03:22' },
+		{ id: 3, name: 'carol@example.com', event: 'Export data', status: 'Success', ts: '2026-02-22 09:07:45' },
+		{ id: 4, name: 'dave@example.com', event: 'User login', status: 'Error', ts: '2026-02-22 09:10:11' },
+		{ id: 5, name: 'eve@example.com', event: 'Permission change', status: 'Pending', ts: '2026-02-22 09:12:50' },
+		{ id: 6, name: 'frank@example.com', event: 'User login', status: 'Success', ts: '2026-02-22 09:15:00' },
+		{ id: 7, name: 'grace@example.com', event: 'Delete record', status: 'Error', ts: '2026-02-22 09:18:30' },
+		{ id: 8, name: 'henry@example.com', event: 'Export data', status: 'Pending', ts: '2026-02-22 09:22:00' }
+	];
+
+	handleGridSort = (event: CustomEvent): void => {
+		console.log('Grid sort:', event.detail);
+	};
+
+	handleGridFilter = (event: CustomEvent): void => {
+		console.log('Grid filter:', event.detail);
+	};
+
+	handleGridSelect = (event: CustomEvent): void => {
+		console.log('Grid select:', event.detail);
+	};
+
+	private generateGridRows(count: number): Record<string, unknown>[] {
+		const firstNames = [
+			'Alex',
+			'Jordan',
+			'Taylor',
+			'Morgan',
+			'Casey',
+			'Riley',
+			'Jamie',
+			'Avery',
+			'Quinn',
+			'Blake',
+			'Drew',
+			'Hayden',
+			'Reese',
+			'Parker',
+			'Logan',
+			'Cameron'
+		];
+		const lastNames = [
+			'Smith',
+			'Johnson',
+			'Williams',
+			'Brown',
+			'Jones',
+			'Garcia',
+			'Miller',
+			'Davis',
+			'Wilson',
+			'Anderson',
+			'Thomas',
+			'Martinez',
+			'Harris',
+			'Robinson',
+			'Clark',
+			'Lee'
+		];
+		const departments = ['Engineering', 'Design', 'Product', 'Marketing', 'Sales', 'Finance', 'HR', 'Operations'];
+		const roles = ['Engineer', 'Designer', 'PM', 'Analyst', 'Manager', 'Director', 'Lead', 'Specialist'];
+		const statuses = ['Active', 'Active', 'Active', 'Pending', 'Inactive'];
+
+		return Array.from({ length: count }, (_, i) => {
+			const first = firstNames[i % firstNames.length];
+			const last = lastNames[Math.floor(i / firstNames.length) % lastNames.length];
+			const dept = departments[i % departments.length];
+			const role = roles[i % roles.length];
+			const status = statuses[i % statuses.length];
+			const year = 2019 + (i % 6);
+			const month = String((i % 12) + 1).padStart(2, '0');
+			const day = String((i % 28) + 1).padStart(2, '0');
+
+			return {
+				id: i + 1,
+				name: `${first} ${last}`,
+				email: `${first.toLowerCase()}.${last.toLowerCase()}${i > 15 ? i : ''}@example.com`,
+				department: dept,
+				role: `${role}`,
+				status,
+				salary: 60000 + (i % 20) * 5000,
+				joined: `${year}-${month}-${day}`
+			};
+		});
+	}
 }
 
 // Mount the app

@@ -1,8 +1,9 @@
 import { MelodicComponent } from '@melodicdev/core';
-import type { IElementRef, OnCreate } from '@melodicdev/core';
+import type { IElementRef, OnCreate, OnDestroy, OnRender, OnPropertyChange } from '@melodicdev/core';
 import type { TableColumn, SortDirection } from './table.types.js';
 import { tableTemplate } from './table.template.js';
 import { tableStyles } from './table.styles.js';
+import { VirtualScroller } from '../../../utils/virtual-scroll/index.js';
 
 /**
  * ml-table - Data table with sorting, selection, and custom cell rendering
@@ -23,9 +24,9 @@ import { tableStyles } from './table.styles.js';
 	selector: 'ml-table',
 	template: tableTemplate,
 	styles: tableStyles,
-	attributes: ['selectable', 'striped', 'hoverable', 'size', 'table-title', 'description', 'sticky-header']
+	attributes: ['selectable', 'striped', 'hoverable', 'size', 'table-title', 'description', 'sticky-header', 'virtual']
 })
-export class TableComponent implements IElementRef, OnCreate {
+export class TableComponent implements IElementRef, OnCreate, OnDestroy, OnRender, OnPropertyChange {
 	elementRef!: HTMLElement;
 
 	/** Whether the footer slot has content */
@@ -33,27 +34,6 @@ export class TableComponent implements IElementRef, OnCreate {
 
 	/** Whether the header-actions slot has content */
 	hasHeaderActions = false;
-
-	onCreate(): void {
-		const shadow = this.elementRef.shadowRoot;
-		if (!shadow) return;
-		shadow.querySelectorAll('slot').forEach(slot => {
-			slot.addEventListener('slotchange', () => {
-				const name = slot.getAttribute('name');
-				if (name === 'footer') {
-					this.hasFooter = slot.assignedNodes().length > 0;
-				} else if (name === 'header-actions') {
-					this.hasHeaderActions = slot.assignedNodes().length > 0;
-				}
-			});
-		});
-	}
-
-	/** Column definitions */
-	columns: TableColumn[] = [];
-
-	/** Row data */
-	rows: Record<string, unknown>[] = [];
 
 	/** Enable row selection via checkboxes */
 	selectable = false;
@@ -76,6 +56,15 @@ export class TableComponent implements IElementRef, OnCreate {
 	/** Table header description */
 	description = '';
 
+	/** Enable virtual scrolling (renders only visible rows) */
+	virtual = false;
+
+	/** Column definitions */
+	columns: TableColumn[] = [];
+
+	/** Row data */
+	rows: Record<string, unknown>[] = [];
+
 	/** Currently sorted column key */
 	sortKey = '';
 
@@ -84,6 +73,86 @@ export class TableComponent implements IElementRef, OnCreate {
 
 	/** Indices of selected rows */
 	selectedIndices: number[] = [];
+
+	// ── Virtual scroll state ─────────────────────────────────────────────────────
+
+	startIndex = 0;
+	endIndex = 50;
+
+	// ── Private ──────────────────────────────────────────────────────────────────
+
+	private _scroller = new VirtualScroller();
+	private _viewport: HTMLElement | null = null;
+
+	// ── Row height by size ────────────────────────────────────────────────────────
+
+	get rowHeight(): number {
+		return this.size === 'sm' ? 36 : 44;
+	}
+
+	// ── Lifecycle ─────────────────────────────────────────────────────────────────
+
+	onPropertyChange(name: string, _oldVal: unknown, _newVal: unknown): void {
+		if (name === 'rows' || name === 'columns') {
+			this._scroller.invalidate();
+		}
+	}
+
+	onCreate(): void {
+		const shadow = this.elementRef.shadowRoot;
+		if (!shadow) return;
+		shadow.querySelectorAll('slot').forEach(slot => {
+			slot.addEventListener('slotchange', () => {
+				const name = slot.getAttribute('name');
+				if (name === 'footer') {
+					this.hasFooter = slot.assignedNodes().length > 0;
+				} else if (name === 'header-actions') {
+					this.hasHeaderActions = slot.assignedNodes().length > 0;
+				}
+			});
+		});
+		this._attachScroller();
+	}
+
+	onRender(): void {
+		this._attachScroller();
+
+		// Compute initial end index when viewport height not yet known
+		if (this.virtual && this._viewport && this._viewport.clientHeight === 0 && this.sortedRows.length > 0) {
+			const approxEnd = Math.min(this.sortedRows.length, Math.ceil(600 / this.rowHeight) + 6);
+			if (approxEnd !== this.endIndex) {
+				this.endIndex = approxEnd;
+			}
+		}
+
+		if (!this.virtual) {
+			const total = this.sortedRows.length;
+			if (this.endIndex !== total) this.endIndex = total;
+		}
+	}
+
+	onDestroy(): void {
+		this._scroller.detach();
+		this._viewport = null;
+	}
+
+	// ── Private helpers ───────────────────────────────────────────────────────────
+
+	private _attachScroller(): void {
+		if (this._viewport) return; // already attached
+		const shadow = this.elementRef.shadowRoot;
+		if (!shadow) return;
+		this._viewport = shadow.querySelector('.ml-table__wrapper') as HTMLElement | null;
+		if (!this._viewport) return;
+		this._scroller.attach(this._viewport, {
+			rowHeight: () => this.rowHeight,
+			itemCount: () => this.sortedRows.length,
+			onUpdate: (start, end) => { this.startIndex = start; this.endIndex = end; },
+			enabled: () => this.virtual,
+		});
+	}
+
+	// ── Data ──────────────────────────────────────────────────────────────────────
 
 	/** Rows sorted by current sort key/direction */
 	get sortedRows(): Record<string, unknown>[] {
@@ -102,6 +171,24 @@ export class TableComponent implements IElementRef, OnCreate {
 		});
 	}
 
+	get visibleRows(): Record<string, unknown>[] {
+		if (!this.virtual) return this.sortedRows;
+		return this.sortedRows.slice(this.startIndex, this.endIndex);
+	}
+
+	get topSpacerHeight(): number {
+		return this.virtual ? this.startIndex * this.rowHeight : 0;
+	}
+
+	get bottomSpacerHeight(): number {
+		if (!this.virtual) return 0;
+		return Math.max(0, (this.sortedRows.length - this.endIndex) * this.rowHeight);
+	}
+
+	get colCount(): number {
+		return this.columns.length + (this.selectable ? 1 : 0);
+	}
+
 	get allSelected(): boolean {
 		return this.rows.length > 0 && this.selectedIndices.length === this.rows.length;
 	}
@@ -114,6 +201,8 @@ export class TableComponent implements IElementRef, OnCreate {
 		return this.selectedIndices.includes(index);
 	};
 
+	// ── Event handlers ────────────────────────────────────────────────────────────
+
 	handleSort = (column: TableColumn): void => {
 		if (!column.sortable) return;
 		if (this.sortKey === column.key) {
@@ -123,6 +212,7 @@ export class TableComponent implements IElementRef, OnCreate {
 			this.sortDirection = 'asc';
 		}
 		this.selectedIndices = [];
+		this._scroller.invalidate();
 		this.elementRef.dispatchEvent(
 			new CustomEvent('ml:sort', {
 				bubbles: true,
