@@ -15,11 +15,11 @@ The package ships a pre-built `melodic.css` that includes design tokens (light +
       href="https://unpkg.com/@melodicdev/components/assets/melodic.css">
 ```
 
-Pin to a specific version in production:
+Pin to a specific version and use the minified build in production:
 
 ```html
 <link melodic-styles rel="stylesheet"
-      href="https://unpkg.com/@melodicdev/components@1.0.1/assets/melodic.css">
+      href="https://unpkg.com/@melodicdev/components@1.0.1/assets/melodic.min.css">
 ```
 
 The `melodic-styles` attribute has no special browser meaning. It's a handy selector for finding the element from JS if you need to swap it out at runtime:

@@ -23,10 +23,10 @@ Add a single `<link>` tag to your HTML. It includes design tokens (light + dark 
       href="https://unpkg.com/@melodicdev/components/assets/melodic.css">
 ```
 
-> **Production tip:** Pin to a specific version to avoid unexpected changes:
+> **Production tip:** Pin to a specific version and use the minified build to avoid unexpected changes:
 > ```html
 > <link melodic-styles rel="stylesheet"
->       href="https://unpkg.com/@melodicdev/components@1.0.1/assets/melodic.css">
+>       href="https://unpkg.com/@melodicdev/components@1.0.1/assets/melodic.min.css">
 > ```
 
 The `melodic-styles` attribute has no special browser meaning — it's just a convenient selector if you ever need to find or replace the element from JavaScript:

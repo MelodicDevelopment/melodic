@@ -1,5 +1,5 @@
 // Import theme
-import { applyTheme, baseThemeCss, lightThemeCss, darkThemeCss } from '@melodicdev/components/theme';
+import { applyTheme } from '@melodicdev/components/theme';
 
 // Import components - Forms
 import '@melodicdev/components/button';
@@ -67,11 +67,6 @@ import '@melodicdev/components/dashboard-page';
 
 // Import directives
 import '@melodicdev/components/directives';
-
-// Inject base styles
-const styleSheet = document.createElement('style');
-styleSheet.textContent = baseThemeCss + '\n' + lightThemeCss + '\n' + darkThemeCss;
-document.head.appendChild(styleSheet);
 
 // Apply default theme
 applyTheme('light');

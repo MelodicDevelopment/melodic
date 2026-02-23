@@ -17,6 +17,7 @@ import { readFileSync, writeFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 
+// eslint-disable-next-line @typescript-eslint/naming-convention
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = join(__dirname, '..');
 
@@ -28,8 +29,7 @@ const { darkThemeCss } = await import(join(root, 'lib/theme/presets/dark.preset.
 // Read phosphor.css and rewrite relative font paths.
 // Original paths are relative to assets/fonts/phosphor/ (where phosphor.css lives).
 // melodic.css lives in assets/, so prefix with ./fonts/phosphor/.
-const phosphorCss = readFileSync(join(root, 'assets/fonts/phosphor/phosphor.css'), 'utf-8')
-	.replace(/url\('\.\//g, "url('./fonts/phosphor/");
+const phosphorCss = readFileSync(join(root, 'assets/fonts/phosphor/phosphor.css'), 'utf-8').replace(/url\('\.\//g, "url('./fonts/phosphor/");
 
 const banner = `/* @melodicdev/components — melodic.css
  * Includes: Phosphor icon fonts, design tokens, light theme, dark theme.
@@ -48,6 +48,24 @@ const sections = [
 	darkThemeCss.trim()
 ];
 
+const css = sections.join('\n\n');
+
 const outPath = join(root, 'assets/melodic.css');
-writeFileSync(outPath, sections.join('\n\n'));
+writeFileSync(outPath, css);
 console.log(`Generated ${outPath}`);
+
+// Minified version — strip comments and collapse whitespace.
+// Intentionally simple: no comma/colon collapsing to avoid breaking
+// multi-value font-family, src lists, and CSS variable values.
+const minified = css
+	.replace(/\/\*[\s\S]*?\*\//g, '') // remove block comments
+	.replace(/[ \t]*\n[ \t]*/g, '\n') // trim leading/trailing spaces on each line
+	.replace(/\n{2,}/g, '\n')         // collapse blank lines
+	.replace(/\{\n/g, '{')            // opening brace onto same line
+	.replace(/;\n/g, ';')             // collapse semicolon line breaks
+	.replace(/\}\n/g, '}')            // closing brace onto same line
+	.trim();
+
+const minPath = join(root, 'assets/melodic.min.css');
+writeFileSync(minPath, minified);
+console.log(`Generated ${minPath} (${(minified.length / 1024).toFixed(1)} kB)`);
