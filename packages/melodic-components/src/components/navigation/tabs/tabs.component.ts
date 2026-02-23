@@ -74,7 +74,15 @@ export class TabsComponent implements IElementRef, OnCreate, OnDestroy, OnRender
 	/** Navigation event listener for routed mode */
 	private readonly _handleNavigation = this.onNavigation.bind(this);
 
+	/** Listener for ml:tab-click from slotted ml-tab elements */
+	private readonly _handleTabClick = (event: Event): void => {
+		const { value, href } = (event as CustomEvent<{ value: string; href: string }>).detail;
+		this.handleTabClick(value, href);
+	};
+
 	onCreate(): void {
+		this.elementRef.addEventListener('ml:tab-click', this._handleTabClick);
+
 		if (this.routed) {
 			window.addEventListener('NavigationEvent', this._handleNavigation);
 			this.syncWithRoute();
@@ -87,6 +95,8 @@ export class TabsComponent implements IElementRef, OnCreate, OnDestroy, OnRender
 	}
 
 	onDestroy(): void {
+		this.elementRef.removeEventListener('ml:tab-click', this._handleTabClick);
+
 		if (this.routed) {
 			window.removeEventListener('NavigationEvent', this._handleNavigation);
 		}
