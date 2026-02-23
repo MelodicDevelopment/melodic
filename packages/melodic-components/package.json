@@ -235,7 +235,7 @@
 		}
 	},
 	"scripts": {
-		"build": "tsc -p tsconfig.build.json && node scripts/generate-css.mjs",
+		"build": "tsc -p tsconfig.build.json && node scripts/generate-css.mjs && vite build --config vite.config.bundle.ts --mode development && vite build --config vite.config.bundle.ts --mode production",
 		"build:watch": "tsc -p tsconfig.build.json --watch",
 		"prepublishOnly": "npm run build",
 		"docs": "vite --config vite.config.docs.ts",

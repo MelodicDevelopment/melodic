@@ -50,7 +50,7 @@ const sections = [
 
 const css = sections.join('\n\n');
 
-const outPath = join(root, 'assets/melodic.css');
+const outPath = join(root, 'assets/melodic-components.css');
 writeFileSync(outPath, css);
 console.log(`Generated ${outPath}`);
 
@@ -66,6 +66,6 @@ const minified = css
 	.replace(/\}\n/g, '}')            // closing brace onto same line
 	.trim();
 
-const minPath = join(root, 'assets/melodic.min.css');
+const minPath = join(root, 'assets/melodic-components.min.css');
 writeFileSync(minPath, minified);
 console.log(`Generated ${minPath} (${(minified.length / 1024).toFixed(1)} kB)`);

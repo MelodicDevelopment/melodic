@@ -11,5 +11,5 @@
 		"paths": {}
 	},
 	"include": ["src"],
-	"exclude": ["lib", "node_modules", "web"]
+	"exclude": ["lib", "node_modules", "web", "src/bundle.ts"]
 }

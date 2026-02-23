@@ -6,26 +6,26 @@ Melodic Components uses a CSS custom property (CSS variable) token system. All c
 
 ## Loading Styles
 
-The package ships a pre-built `melodic.css` that includes design tokens (light + dark themes) and the Phosphor icon fonts. It's the recommended way to get styles into any app.
+The package ships a pre-built `melodic-components.css` that includes design tokens (light + dark themes) and the Phosphor icon fonts. It's the recommended way to get styles into any app.
 
 ### Via CDN (recommended)
 
 ```html
 <link melodic-styles rel="stylesheet"
-      href="https://unpkg.com/@melodicdev/components/assets/melodic.css">
+      href="https://unpkg.com/@melodicdev/components/assets/melodic-components.css">
 ```
 
 Pin to a specific version and use the minified build in production:
 
 ```html
 <link melodic-styles rel="stylesheet"
-      href="https://unpkg.com/@melodicdev/components@1.0.1/assets/melodic.min.css">
+      href="https://unpkg.com/@melodicdev/components@1.0.1/assets/melodic-components.min.css">
 ```
 
 The `melodic-styles` attribute has no special browser meaning. It's a handy selector for finding the element from JS if you need to swap it out at runtime:
 
 ```ts
-document.querySelector('link[melodic-styles]').href = '/assets/melodic.css';
+document.querySelector('link[melodic-styles]').href = '/assets/melodic-components.css';
 ```
 
 ### Via bundler (local assets)
@@ -50,7 +50,7 @@ export default defineConfig({
 ```
 
 ```html
-<link melodic-styles rel="stylesheet" href="/assets/melodic.css">
+<link melodic-styles rel="stylesheet" href="/assets/melodic-components.css">
 ```
 
 ### Via JS (dynamic / no HTML access)
