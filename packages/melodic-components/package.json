@@ -1,6 +1,6 @@
 {
 	"name": "@melodicdev/components",
-	"version": "1.0.2",
+	"version": "1.0.3",
 	"description": "Themeable UI component library built on the Melodic Framework",
 	"license": "MIT",
 	"author": "Melodic Development",
@@ -180,6 +180,10 @@
 		"./radio-card-group": {
 			"types": "./lib/components/forms/radio-card-group/index.d.ts",
 			"default": "./lib/components/forms/radio-card-group/index.js"
+		},
+		"./select": {
+			"types": "./lib/components/forms/select/index.d.ts",
+			"default": "./lib/components/forms/select/index.js"
 		},
 		"./sidebar": {
 			"types": "./lib/components/navigation/sidebar/index.d.ts",
