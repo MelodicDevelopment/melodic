@@ -12,8 +12,10 @@ export default defineConfig(({ mode }) => {
 	const minified = mode === 'production';
 
 	return {
+		publicDir: false,
 		resolve: {
 			alias: {
+				'@melodicdev/core/forms': resolve(__dirname, '../../src/forms/index.ts'),
 				'@melodicdev/core': resolve(__dirname, '../../src')
 			}
 		},

@@ -9,12 +9,13 @@ import { resolve } from 'node:path';
  *   --mode production   →  dist/melodic-core.min.js (minified via esbuild)
  *
  * CDN usage:
- *   <script type="module" src="https://unpkg.com/@melodicdev/core@1.3.0/dist/melodic-core.min.js"></script>
+ *   <script type="module" src="https://unpkg.com/@melodicdev/core@1.3.2/dist/melodic-core.min.js"></script>
  */
 export default defineConfig(({ mode }) => {
 	const minified = mode === 'production';
 
 	return {
+		publicDir: false,
 		build: {
 			lib: {
 				entry: resolve(__dirname, 'src/index.ts'),

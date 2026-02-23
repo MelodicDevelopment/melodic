@@ -401,6 +401,7 @@ Component library docs in `packages/melodic-components/docs/`:
 ## Git Commit Preferences
 
 - **Do not add Claude as co-author** on commits (no `Co-Authored-By` line)
+- **Do not auto-commit** — never commit changes unless explicitly asked
 
 ## Testing
 

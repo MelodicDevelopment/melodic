@@ -8,6 +8,13 @@
  *   import { applyTheme, ToastService } from '.../melodic-components.js';
  */
 
+// Full Melodic core framework — ensures routing, HTTP, DI, state, signals,
+// templates, and the component system are all exported and not tree-shaken away.
+export * from '@melodicdev/core';
+
+// Forms is a subpath-only export in core — must be included explicitly.
+export * from '@melodicdev/core/forms';
+
 // Theme, utilities, functions, directives
 export * from './theme/index.js';
 export * from './utils/index.js';

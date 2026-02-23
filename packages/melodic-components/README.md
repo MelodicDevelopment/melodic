@@ -26,7 +26,7 @@ Add a single `<link>` tag to your HTML. It includes design tokens (light + dark 
 > **Production tip:** Pin to a specific version and use the minified build to avoid unexpected changes:
 > ```html
 > <link melodic-styles rel="stylesheet"
->       href="https://unpkg.com/@melodicdev/components@1.0.1/assets/melodic-components.min.css">
+>       href="https://unpkg.com/@melodicdev/components@1.0.2/assets/melodic-components.min.css">
 > ```
 
 The `melodic-styles` attribute has no special browser meaning — it's just a convenient selector if you ever need to find or replace the element from JavaScript:
@@ -80,9 +80,9 @@ If you're not using a bundler, you can load everything — styles, fonts, and al
 <html data-theme="light">
 <head>
   <link melodic-styles rel="stylesheet"
-        href="https://unpkg.com/@melodicdev/components@1.0.1/assets/melodic-components.min.css">
+        href="https://unpkg.com/@melodicdev/components@1.0.2/assets/melodic-components.min.css">
   <script type="module"
-          src="https://unpkg.com/@melodicdev/components@1.0.1/assets/melodic-components.min.js"></script>
+          src="https://unpkg.com/@melodicdev/components@1.0.2/assets/melodic-components.min.js"></script>
 </head>
 <body>
   <ml-button>Hello</ml-button>
@@ -91,13 +91,13 @@ If you're not using a bundler, you can load everything — styles, fonts, and al
 </html>
 ```
 
-The JS bundle includes `@melodicdev/core` — no separate script needed. All components register themselves automatically when the script loads.
+The JS bundle includes the full Melodic framework (core, forms, routing, HTTP, dependency injection, and state management) — no separate script needed. All components register themselves automatically when the script loads.
 
 The theme API is available as a named export from the module:
 
 ```html
 <script type="module">
-  import { applyTheme } from 'https://unpkg.com/@melodicdev/components@1.0.1/assets/melodic-components.min.js';
+  import { applyTheme } from 'https://unpkg.com/@melodicdev/components@1.0.2/assets/melodic-components.min.js';
   applyTheme('dark');
 </script>
 ```
