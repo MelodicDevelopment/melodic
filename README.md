@@ -2,6 +2,41 @@
 
 A lightweight, modern web component framework built on native browser APIs with TypeScript decorators, reactive signals, and an ultra-fast template system.
 
+## CDN / No-Build Usage
+
+Use the full Melodic framework directly in any HTML page — no npm, no bundler, no compile step:
+
+```html
+<script type="module">
+  import { MelodicComponent, html, css, signal } from 'https://unpkg.com/@melodicdev/core@1.3.0/bundle/melodic-core.min.js';
+
+  class Counter extends MelodicComponent {
+    count = signal(0);
+    increment = () => this.count.update(n => n + 1);
+  }
+
+  MelodicComponent({
+    selector: 'my-counter',
+    template: (self) => html`
+      <button @click=${self.increment}>Clicks: ${self.count()}</button>
+    `
+  })(Counter);
+</script>
+
+<my-counter></my-counter>
+```
+
+Or use `@melodicdev/components` for a full UI library (includes Melodic core):
+
+```html
+<link melodic-styles rel="stylesheet"
+      href="https://unpkg.com/@melodicdev/components@1.0.1/assets/melodic-components.min.css">
+<script type="module"
+        src="https://unpkg.com/@melodicdev/components@1.0.1/assets/melodic-components.min.js"></script>
+```
+
+---
+
 ## Install
 
 ```bash

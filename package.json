@@ -22,6 +22,7 @@
 	"type": "module",
 	"files": [
 		"lib",
+		"bundle",
 		"README.md",
 		"LICENSE"
 	],
@@ -80,6 +81,7 @@
 		"dev": "vite",
 		"build": "tsc && vite build",
 		"build:lib": "tsc -p tsconfig.build.json",
+		"build:bundle": "vite build --config vite.config.bundle.ts --mode development && vite build --config vite.config.bundle.ts --mode production",
 		"build:components": "npm --workspace @melodicdev/components run build",
 		"prepublish:components": "npm run build:components",
 		"publish:components": "npm --workspace @melodicdev/components publish --access public",
