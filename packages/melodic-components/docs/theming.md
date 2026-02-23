@@ -4,19 +4,58 @@ Melodic Components uses a CSS custom property (CSS variable) token system. All c
 
 ---
 
-## Quick Start
+## Loading Styles
 
-The fastest way to apply a built-in theme is with `applyTheme`. It sets `data-theme` on `<html>` for you — no manual `setAttribute` needed:
+The package ships a pre-built `melodic.css` that includes design tokens (light + dark themes) and the Phosphor icon fonts. It's the recommended way to get styles into any app.
 
-```ts
-import { applyTheme } from '@melodicdev/components/theme';
+### Via CDN (recommended)
 
-applyTheme('light');   // sets data-theme="light"
-applyTheme('dark');    // sets data-theme="dark"
-applyTheme('system'); // follows OS preference, auto-updates on change
+```html
+<link melodic-styles rel="stylesheet"
+      href="https://unpkg.com/@melodicdev/components/assets/melodic.css">
 ```
 
-Or load the raw CSS strings manually if you prefer full control:
+Pin to a specific version in production:
+
+```html
+<link melodic-styles rel="stylesheet"
+      href="https://unpkg.com/@melodicdev/components@1.0.1/assets/melodic.css">
+```
+
+The `melodic-styles` attribute has no special browser meaning. It's a handy selector for finding the element from JS if you need to swap it out at runtime:
+
+```ts
+document.querySelector('link[melodic-styles]').href = '/assets/melodic.css';
+```
+
+### Via bundler (local assets)
+
+Copy the `assets/` folder from the package to your public directory and reference it locally. With Vite:
+
+```bash
+npm install -D vite-plugin-static-copy
+```
+
+```ts
+// vite.config.ts
+import { viteStaticCopy } from 'vite-plugin-static-copy';
+
+export default defineConfig({
+  plugins: [
+    viteStaticCopy({
+      targets: [{ src: 'node_modules/@melodicdev/components/assets', dest: '.' }]
+    })
+  ]
+});
+```
+
+```html
+<link melodic-styles rel="stylesheet" href="/assets/melodic.css">
+```
+
+### Via JS (dynamic / no HTML access)
+
+If you can't add a `<link>` tag (e.g., a fully JS-rendered environment), import the raw CSS strings and inject them:
 
 ```ts
 import { baseThemeCss, lightThemeCss, darkThemeCss } from '@melodicdev/components/theme';
@@ -24,6 +63,28 @@ import { baseThemeCss, lightThemeCss, darkThemeCss } from '@melodicdev/component
 const style = document.createElement('style');
 style.textContent = `${baseThemeCss}\n${lightThemeCss}\n${darkThemeCss}`;
 document.head.appendChild(style);
+```
+
+> Note: The JS approach does not include Phosphor icon fonts. Import `@melodicdev/components/icon` and ensure fonts are served separately if you use `ml-icon`.
+
+---
+
+## Applying a Theme
+
+Once the stylesheet is loaded, activate a theme by setting `data-theme` on `<html>`:
+
+```html
+<html data-theme="light">
+```
+
+Or use the `applyTheme` API — it sets `data-theme` on `<html>` for you:
+
+```ts
+import { applyTheme } from '@melodicdev/components/theme';
+
+applyTheme('light');   // sets data-theme="light"
+applyTheme('dark');    // sets data-theme="dark"
+applyTheme('system');  // follows OS preference, auto-updates on change
 ```
 
 ---

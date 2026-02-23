@@ -10,15 +10,131 @@ npm install @melodicdev/components @melodicdev/core
 
 `@melodicdev/core` is a peer dependency.
 
-## Usage
+---
 
-Import a component module to register its custom element, then use it in HTML:
+## Quick Start
+
+### 1. Add the stylesheet
+
+Add a single `<link>` tag to your HTML. It includes design tokens (light + dark themes) and the Phosphor icon fonts — everything the components need to render correctly:
+
+```html
+<link melodic-styles rel="stylesheet"
+      href="https://unpkg.com/@melodicdev/components/assets/melodic.css">
+```
+
+> **Production tip:** Pin to a specific version to avoid unexpected changes:
+> ```html
+> <link melodic-styles rel="stylesheet"
+>       href="https://unpkg.com/@melodicdev/components@1.0.1/assets/melodic.css">
+> ```
+
+The `melodic-styles` attribute has no special browser meaning — it's just a convenient selector if you ever need to find or replace the element from JavaScript:
+
+```ts
+document.querySelector('link[melodic-styles]').href = '...new-url...';
+```
+
+### 2. Apply a theme
+
+Set `data-theme` on `<html>` to activate light or dark mode:
+
+```html
+<html data-theme="light">
+```
+
+Or use the JS theme API to apply and switch themes dynamically (including system/OS preference):
+
+```ts
+import { applyTheme, toggleTheme } from '@melodicdev/components/theme';
+
+applyTheme('light');   // data-theme="light"
+applyTheme('dark');    // data-theme="dark"
+applyTheme('system');  // follows OS preference, auto-updates
+toggleTheme();         // flip between light and dark
+```
+
+### 3. Import and use components
 
 ```ts
 import '@melodicdev/components/button';
-
-document.body.innerHTML = `<ml-button>Click me</ml-button>`;
+import '@melodicdev/components/input';
+// etc.
 ```
+
+```html
+<ml-button>Save</ml-button>
+<ml-input placeholder="Search..."></ml-input>
+```
+
+That's it. No additional setup needed for icons or fonts — they're bundled in `melodic.css`.
+
+---
+
+## Bundler / Framework Setup
+
+If you'd rather serve fonts locally (for offline use, CSP restrictions, etc.) instead of using the CDN, copy the assets from the package:
+
+**Vite:**
+
+```bash
+npm install -D vite-plugin-static-copy
+```
+
+```ts
+// vite.config.ts
+import { viteStaticCopy } from 'vite-plugin-static-copy';
+
+export default defineConfig({
+  plugins: [
+    viteStaticCopy({
+      targets: [
+        { src: 'node_modules/@melodicdev/components/assets', dest: '.' }
+      ]
+    })
+  ]
+});
+```
+
+Then reference the local copy in your HTML:
+
+```html
+<link melodic-styles rel="stylesheet" href="/assets/melodic.css">
+```
+
+---
+
+## Icons
+
+The `ml-icon` component uses [Phosphor Icons](https://phosphoricons.com/) via font ligatures. The fonts are included in `melodic.css` — no separate setup needed if you're using the stylesheet above.
+
+```ts
+import '@melodicdev/components/icon';
+```
+
+```html
+<ml-icon icon="house"></ml-icon>
+<ml-icon icon="gear" size="lg"></ml-icon>
+<ml-icon icon="heart" format="fill"></ml-icon>
+```
+
+| Property | Type | Default | Description |
+|----------|------|---------|-------------|
+| `icon` | `string` | `''` | Icon name (ligature). Browse at [phosphoricons.com](https://phosphoricons.com/) |
+| `format` | `'regular'` \| `'bold'` \| `'fill'` \| `'light'` \| `'thin'` | `'regular'` | Icon weight/style |
+| `size` | `'xs'` \| `'sm'` \| `'md'` \| `'lg'` \| `'xl'` | `'md'` | Icon size (12 / 16 / 24 / 32 / 48px) |
+
+Custom color:
+
+```css
+ml-icon {
+  --ml-icon-color: var(--ml-color-primary);
+}
+```
+
+> Duotone icons are not available — the Phosphor duotone font does not support ligatures.
+
+---
 
 ## Documentation
 
@@ -66,69 +182,6 @@ Listening in a Melodic template:
 
 ---
 
-## Icons
-
-The `ml-icon` component displays icons using [Phosphor Icons](https://phosphoricons.com/) via font ligatures.
-
-### Setup
-
-Copy the font assets to your public directory. With Vite, use `vite-plugin-static-copy`:
-
-```bash
-npm install -D vite-plugin-static-copy
-```
-
-```ts
-// vite.config.ts
-import { viteStaticCopy } from 'vite-plugin-static-copy';
-
-export default defineConfig({
-  plugins: [
-    viteStaticCopy({
-      targets: [
-        { src: 'node_modules/@melodicdev/components/assets/*', dest: 'public' }
-      ]
-    })
-  ]
-});
-```
-
-Add the font stylesheet to your HTML:
-
-```html
-<link rel="stylesheet" href="/public/fonts/phosphor/phosphor.css" />
-```
-
-### Usage
-
-```ts
-import '@melodicdev/components/icon';
-```
-
-```html
-<ml-icon icon="house"></ml-icon>
-<ml-icon icon="gear" size="lg"></ml-icon>
-<ml-icon icon="heart" format="fill"></ml-icon>
-```
-
-| Property | Type | Default | Description |
-|----------|------|---------|-------------|
-| `icon` | `string` | `''` | Icon name (ligature). Browse at [phosphoricons.com](https://phosphoricons.com/) |
-| `format` | `'regular'` \| `'bold'` \| `'fill'` \| `'light'` \| `'thin'` | `'regular'` | Icon weight/style |
-| `size` | `'xs'` \| `'sm'` \| `'md'` \| `'lg'` \| `'xl'` | `'md'` | Icon size (12 / 16 / 24 / 32 / 48px) |
-
-Custom color:
-
-```css
-ml-icon {
-  --ml-icon-color: var(--ml-color-primary);
-}
-```
-
-> Duotone icons are not available — the Phosphor duotone font does not support ligatures.
-
----
-
 ## Common Types
 
 ```ts
@@ -146,14 +199,6 @@ type ThemeMode = 'light' | 'dark' | 'system';
 ---
 
 ## Theme System
-
-Apply a built-in theme:
-
-```ts
-import { applyTheme } from '@melodicdev/components/theme';
-
-applyTheme('light');   // or 'dark' or 'system'
-```
 
 Override tokens globally via CSS:
 
