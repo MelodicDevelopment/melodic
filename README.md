@@ -25,9 +25,9 @@ For a complete no-build UI solution, use `@melodicdev/components` instead — it
 
 ```html
 <link melodic-styles rel="stylesheet"
-      href="https://unpkg.com/@melodicdev/components@1.0.3/assets/melodic-components.min.css">
+      href="https://unpkg.com/@melodicdev/components@1.0.4/assets/melodic-components.min.css">
 <script type="module"
-        src="https://unpkg.com/@melodicdev/components@1.0.3/assets/melodic-components.min.js"></script>
+        src="https://unpkg.com/@melodicdev/components@1.0.4/assets/melodic-components.min.js"></script>
 ```
 
 See the [`@melodicdev/components` README](./packages/melodic-components/README.md) for full CDN usage details.

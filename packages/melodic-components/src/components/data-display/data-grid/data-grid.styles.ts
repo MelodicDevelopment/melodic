@@ -5,6 +5,7 @@ export const dataGridStyles = () => css`
 		display: flex;
 		flex-direction: column;
 		height: 100%;
+		min-width: 0;
 		font-family: var(--ml-font-sans);
 	}
 
@@ -57,6 +58,7 @@ export const dataGridStyles = () => css`
 		overflow: auto;
 		position: relative;
 		min-height: 0;
+		min-width: 0;
 	}
 
 	.ml-data-grid__viewport::-webkit-scrollbar {
