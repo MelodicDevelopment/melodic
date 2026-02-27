@@ -93,7 +93,7 @@ function renderNavGroup(c: SidebarComponent, group: SidebarNavGroup) {
 function renderNavItem(c: SidebarComponent, item: SidebarNavItem, level: number): TemplateResult {
 	const isActive = c.active === item.value;
 	const hasChildren = !!item.children && item.children.length > 0;
-	const isExpanded = c._expandedItems.has(item.value);
+	const isExpanded = c.expandedItems.has(item.value);
 	const isCollapsed = c.collapsed;
 
 	const linkClasses = classMap({
@@ -109,7 +109,7 @@ function renderNavItem(c: SidebarComponent, item: SidebarNavItem, level: number)
 		if (item.disabled) return;
 		if (hasChildren) {
 			event.preventDefault();
-			c.handleConfigToggle(item, c._expandedItems);
+			c.handleConfigToggle(item);
 			return;
 		}
 		c.handleConfigItemClick(item.value, item.href);

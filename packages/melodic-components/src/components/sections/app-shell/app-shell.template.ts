@@ -5,8 +5,8 @@ export function appShellTemplate(c: AppShellComponent) {
 	const sidebarRight = c['sidebar-position'] === 'right';
 	const collapsed = c['sidebar-collapsed'];
 	const headerFixed = c['header-fixed'];
-	const mobileOpen = c._mobileOpen;
-	const isMobile = c.isMobile;
+	const mobileOpen = c.mobileOpen;
+	const isMobile = c.mobile;
 
 	return html`
 		<div

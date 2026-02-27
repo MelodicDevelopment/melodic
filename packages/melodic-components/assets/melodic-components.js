@@ -5564,7 +5564,7 @@ function inputTemplate(c) {
 		"ml-input--disabled": c.disabled,
 		"ml-input--readonly": c.readonly,
 		"ml-input--error": !!c.error,
-		"ml-input--focused": c._focused
+		"ml-input--focused": c.focused
 	})}
 		>
 			${when(!!c.label, () => html`
@@ -5743,7 +5743,7 @@ var InputComponent = class InputComponent$1 {
 		this.readonly = false;
 		this.required = false;
 		this.autocomplete = "off";
-		this._focused = false;
+		this.focused = false;
 		this.handleInput = (event) => {
 			this.value = event.target.value;
 			this.elementRef.dispatchEvent(new CustomEvent("ml:input", {
@@ -5761,14 +5761,14 @@ var InputComponent = class InputComponent$1 {
 			}));
 		};
 		this.handleFocus = () => {
-			this._focused = true;
+			this.focused = true;
 			this.elementRef.dispatchEvent(new CustomEvent("ml:focus", {
 				bubbles: true,
 				composed: true
 			}));
 		};
 		this.handleBlur = () => {
-			this._focused = false;
+			this.focused = false;
 			this.elementRef.dispatchEvent(new CustomEvent("ml:blur", {
 				bubbles: true,
 				composed: true
@@ -5806,7 +5806,7 @@ function textareaTemplate(c) {
 		"ml-textarea--disabled": c.disabled,
 		"ml-textarea--readonly": c.readonly,
 		"ml-textarea--error": !!c.error,
-		"ml-textarea--focused": c._focused,
+		"ml-textarea--focused": c.focused,
 		"ml-textarea--resize": c.resize
 	})}
 		>
@@ -5971,7 +5971,7 @@ var TextareaComponent = class TextareaComponent$1 {
 		this.readonly = false;
 		this.required = false;
 		this.resize = false;
-		this._focused = false;
+		this.focused = false;
 		this.handleInput = (event) => {
 			this.value = event.target.value;
 			this.elementRef.dispatchEvent(new CustomEvent("ml:input", {
@@ -5989,14 +5989,14 @@ var TextareaComponent = class TextareaComponent$1 {
 			}));
 		};
 		this.handleFocus = () => {
-			this._focused = true;
+			this.focused = true;
 			this.elementRef.dispatchEvent(new CustomEvent("ml:focus", {
 				bubbles: true,
 				composed: true
 			}));
 		};
 		this.handleBlur = () => {
-			this._focused = false;
+			this.focused = false;
 			this.elementRef.dispatchEvent(new CustomEvent("ml:blur", {
 				bubbles: true,
 				composed: true
@@ -15894,7 +15894,7 @@ function renderNavGroup(c, group) {
 function renderNavItem(c, item, level) {
 	const isActive = c.active === item.value;
 	const hasChildren = !!item.children && item.children.length > 0;
-	const isExpanded = c._expandedItems.has(item.value);
+	const isExpanded = c.expandedItems.has(item.value);
 	const isCollapsed = c.collapsed;
 	const linkClasses = classMap({
 		"ml-sidebar__item-link": true,
@@ -15908,7 +15908,7 @@ function renderNavItem(c, item, level) {
 		if (item.disabled) return;
 		if (hasChildren) {
 			event.preventDefault();
-			c.handleConfigToggle(item, c._expandedItems);
+			c.handleConfigToggle(item);
 			return;
 		}
 		c.handleConfigItemClick(item.value, item.href);
@@ -16273,10 +16273,11 @@ var SidebarComponent = class SidebarComponent$1 {
 		this.handleConfigItemClick = (value, href) => {
 			this.activateItem(value, href);
 		};
-		this.handleConfigToggle = (item, expandedItems) => {
-			if (expandedItems.has(item.value)) expandedItems.delete(item.value);
-			else expandedItems.add(item.value);
-			this.elementRef.dispatchEvent(new Event("ml:internal-update"));
+		this.handleConfigToggle = (item) => {
+			const next = new Set(this.expandedItems);
+			if (next.has(item.value)) next.delete(item.value);
+			else next.add(item.value);
+			this.expandedItems = next;
 		};
 		this.handleKeyDown = (event) => {
 			const sidebar = this.elementRef.shadowRoot?.querySelector(".ml-sidebar__main");
@@ -16305,7 +16306,7 @@ var SidebarComponent = class SidebarComponent$1 {
 			}
 			if (newIndex !== currentIndex && focusable[newIndex]) focusable[newIndex].focus();
 		};
-		this._expandedItems = /* @__PURE__ */ new Set();
+		this.expandedItems = /* @__PURE__ */ new Set();
 	}
 	get hasSearch() {
 		return this.elementRef?.querySelector("[slot=\"search\"]") !== null;
@@ -19697,8 +19698,8 @@ function appShellTemplate(c) {
 	const sidebarRight = c["sidebar-position"] === "right";
 	const collapsed = c["sidebar-collapsed"];
 	const headerFixed = c["header-fixed"];
-	const mobileOpen = c._mobileOpen;
-	const isMobile = c.isMobile;
+	const mobileOpen = c.mobileOpen;
+	const isMobile = c.mobile;
 	return html`
 		<div
 			class=${classMap({
@@ -19945,29 +19946,28 @@ var AppShellComponent = class AppShellComponent$1 {
 		this["sidebar-position"] = "left";
 		this["sidebar-collapsed"] = false;
 		this["header-fixed"] = false;
-		this._mobileOpen = false;
+		this.mobile = false;
+		this.mobileOpen = false;
 		this._mediaQuery = null;
 		this._handleMediaChange = this.onMediaChange.bind(this);
 		this.toggleMobileSidebar = () => {
-			this._mobileOpen = !this._mobileOpen;
+			this.mobileOpen = !this.mobileOpen;
 		};
 		this.closeMobileSidebar = () => {
-			this._mobileOpen = false;
+			this.mobileOpen = false;
 		};
-	}
-	get isMobile() {
-		return this._mediaQuery?.matches === false;
 	}
 	onCreate() {
 		this._mediaQuery = window.matchMedia("(min-width: 768px)");
 		this._mediaQuery.addEventListener("change", this._handleMediaChange);
-		if (!this.isMobile) this._mobileOpen = false;
+		this.mobile = !this._mediaQuery.matches;
 	}
 	onDestroy() {
 		this._mediaQuery?.removeEventListener("change", this._handleMediaChange);
 	}
 	onMediaChange(event) {
-		if (event.matches) this._mobileOpen = false;
+		this.mobile = !event.matches;
+		if (event.matches) this.mobileOpen = false;
 	}
 };
 AppShellComponent = __decorate([MelodicComponent({

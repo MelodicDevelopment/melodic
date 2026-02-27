@@ -41,25 +41,20 @@ export class AppShellComponent implements IElementRef, OnCreate, OnDestroy {
 	/** Whether the header is fixed/sticky */
 	'header-fixed' = false;
 
-	/** Internal: tracks if mobile drawer is open */
-	_mobileOpen = false;
+	/** Whether the viewport is mobile-sized (<768px) */
+	mobile = false;
+
+	/** Whether the mobile sidebar drawer is open */
+	mobileOpen = false;
 
 	/** Media query for responsive behavior */
 	private _mediaQuery: MediaQueryList | null = null;
 	private readonly _handleMediaChange = this.onMediaChange.bind(this);
 
-	get isMobile(): boolean {
-		return this._mediaQuery?.matches === false;
-	}
-
 	onCreate(): void {
 		this._mediaQuery = window.matchMedia('(min-width: 768px)');
 		this._mediaQuery.addEventListener('change', this._handleMediaChange);
-
-		// Close mobile drawer on initial desktop
-		if (!this.isMobile) {
-			this._mobileOpen = false;
-		}
+		this.mobile = !this._mediaQuery.matches;
 	}
 
 	onDestroy(): void {
@@ -68,18 +63,19 @@ export class AppShellComponent implements IElementRef, OnCreate, OnDestroy {
 
 	/** Toggle mobile sidebar drawer */
 	toggleMobileSidebar = (): void => {
-		this._mobileOpen = !this._mobileOpen;
+		this.mobileOpen = !this.mobileOpen;
 	};
 
 	/** Close mobile sidebar */
 	closeMobileSidebar = (): void => {
-		this._mobileOpen = false;
+		this.mobileOpen = false;
 	};
 
 	private onMediaChange(event: MediaQueryListEvent): void {
+		this.mobile = !event.matches;
 		if (event.matches) {
 			// Switched to desktop: close mobile drawer
-			this._mobileOpen = false;
+			this.mobileOpen = false;
 		}
 	}
 }

@@ -125,14 +125,14 @@ export class SidebarComponent implements IElementRef, OnCreate, OnDestroy, OnRen
 	};
 
 	/** Handle config submenu toggle */
-	handleConfigToggle = (item: SidebarNavItem, expandedItems: Set<string>): void => {
-		if (expandedItems.has(item.value)) {
-			expandedItems.delete(item.value);
+	handleConfigToggle = (item: SidebarNavItem): void => {
+		const next = new Set(this.expandedItems);
+		if (next.has(item.value)) {
+			next.delete(item.value);
 		} else {
-			expandedItems.add(item.value);
+			next.add(item.value);
 		}
-		// Trigger re-render
-		this.elementRef.dispatchEvent(new Event('ml:internal-update'));
+		this.expandedItems = next;
 	};
 
 	/** Keyboard navigation */
@@ -174,7 +174,7 @@ export class SidebarComponent implements IElementRef, OnCreate, OnDestroy, OnRen
 	};
 
 	/** Track expanded config items */
-	_expandedItems = new Set<string>();
+	expandedItems = new Set<string>();
 
 	/** Activate an item */
 	private activateItem(value: string, href?: string): void {

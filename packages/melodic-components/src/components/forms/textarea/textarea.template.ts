@@ -10,7 +10,7 @@ export function textareaTemplate(c: TextareaComponent) {
 				'ml-textarea--disabled': c.disabled,
 				'ml-textarea--readonly': c.readonly,
 				'ml-textarea--error': !!c.error,
-				'ml-textarea--focused': c._focused,
+				'ml-textarea--focused': c.focused,
 				'ml-textarea--resize': c.resize
 			})}
 		>

@@ -67,7 +67,7 @@ export class InputComponent implements IElementRef, OnInit {
 	autocomplete = 'off';
 
 	/** Internal focus state */
-	_focused = false;
+	focused = false;
 
 	onInit(): void {
 		// Set up aria-label if no label provided
@@ -103,7 +103,7 @@ export class InputComponent implements IElementRef, OnInit {
 	};
 
 	handleFocus = (): void => {
-		this._focused = true;
+		this.focused = true;
 		this.elementRef.dispatchEvent(
 			new CustomEvent('ml:focus', {
 				bubbles: true,
@@ -113,7 +113,7 @@ export class InputComponent implements IElementRef, OnInit {
 	};
 
 	handleBlur = (): void => {
-		this._focused = false;
+		this.focused = false;
 		this.elementRef.dispatchEvent(
 			new CustomEvent('ml:blur', {
 				bubbles: true,

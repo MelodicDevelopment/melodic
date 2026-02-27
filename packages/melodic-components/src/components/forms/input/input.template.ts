@@ -10,7 +10,7 @@ export function inputTemplate(c: InputComponent) {
 				'ml-input--disabled': c.disabled,
 				'ml-input--readonly': c.readonly,
 				'ml-input--error': !!c.error,
-				'ml-input--focused': c._focused
+				'ml-input--focused': c.focused
 			})}
 		>
 			${when(

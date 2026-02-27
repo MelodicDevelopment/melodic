@@ -65,7 +65,7 @@ export class TextareaComponent implements IElementRef, OnInit {
 	resize = false;
 
 	/** Internal focus state */
-	_focused = false;
+	focused = false;
 
 	onInit(): void {
 		if (!this.label && this.placeholder) {
@@ -100,7 +100,7 @@ export class TextareaComponent implements IElementRef, OnInit {
 	};
 
 	handleFocus = (): void => {
-		this._focused = true;
+		this.focused = true;
 		this.elementRef.dispatchEvent(
 			new CustomEvent('ml:focus', {
 				bubbles: true,
@@ -110,7 +110,7 @@ export class TextareaComponent implements IElementRef, OnInit {
 	};
 
 	handleBlur = (): void => {
-		this._focused = false;
+		this.focused = false;
 		this.elementRef.dispatchEvent(
 			new CustomEvent('ml:blur', {
 				bubbles: true,
