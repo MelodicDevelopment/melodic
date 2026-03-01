@@ -10,6 +10,8 @@
 		"skipLibCheck": true,
 		"baseUrl": ".",
 		"paths": {
+			"@config": ["libs/config/src/index.ts"],
+			"@config/*": ["libs/config/src/*"],
 			"@shared": ["libs/shared/src/index.ts"],
 			"@shared/*": ["libs/shared/src/*"]
 		}
@@ -18,6 +20,7 @@
 	"references": [
 		{ "path": "./tsconfig.node.json" },
 		{ "path": "apps/__APP_NAME__" },
+		{ "path": "libs/config" },
 		{ "path": "libs/shared" }
 	]
 }

@@ -11,6 +11,7 @@ const usage = (): void => {
 	console.log('  melodic init <directory> [--monorepo] [--app-name <name>]');
 	console.log('  melodic add app <name> [--dir apps]');
 	console.log('  melodic add lib <name> [--dir libs]');
+	console.log('  melodic add config [--path .]');
 	console.log('  melodic add testing [--path .]');
 	console.log('  melodic generate component <name> [--path src/components]');
 	console.log('  melodic generate directive <name> [--path src/directives]');
@@ -284,6 +285,33 @@ const addApp = async (rootPath: string, name: string, dirName: string): Promise<
 	}, ['package.json', '_gitignore', '_prettierrc']);
 	await updateTsconfigReferences(rootPath, path.join(dirName, name));
 	await updateProjectTsconfigForMonorepo(rootPath, appPath);
+
+	// If libs/config exists in the monorepo, rewrite main.ts to use @config
+	const configLibPath = path.join(rootPath, 'libs/config');
+	if (await pathExists(configLibPath)) {
+		const mainTsPath = path.join(appPath, 'src/main.ts');
+		const mainTs = [
+			"import './components/app.component';",
+			"import { bootstrap } from '@melodicdev/core/bootstrap';",
+			"import { provideConfig } from '@melodicdev/core/config';",
+			"import { appConfig } from '@config';",
+			'',
+			'await bootstrap({',
+			"\ttarget: '#app',",
+			"\trootComponent: 'app-root',",
+			'\tproviders: [provideConfig(appConfig)],',
+			'\tdevMode: true',
+			'});',
+			''
+		].join('\n');
+		await fs.writeFile(mainTsPath, mainTs);
+
+		// Remove the scaffolded src/config/ since monorepo uses libs/config
+		const appConfigDir = path.join(appPath, 'src/config');
+		if (await pathExists(appConfigDir)) {
+			await fs.rm(appConfigDir, { recursive: true });
+		}
+	}
 };
 
 const addLib = async (rootPath: string, name: string, dirName: string): Promise<void> => {
@@ -323,6 +351,54 @@ const addTesting = async (rootPath: string): Promise<void> => {
 		path.join(rootPath, 'tests/unit/example.test.ts'),
 		"import { describe, it, expect } from 'vitest';\n\n\ndescribe('example', () => {\n\tit('works', () => {\n\t\texpect(1 + 1).toBe(2);\n\t});\n});\n"
 	);
+};
+
+const addConfig = async (rootPath: string): Promise<void> => {
+	const packageJsonPath = path.join(rootPath, 'package.json');
+	if (!(await pathExists(packageJsonPath))) {
+		throw new Error('package.json not found in target path.');
+	}
+
+	const pkg = await readJson<{ workspaces?: string[] }>(packageJsonPath);
+	const isMonorepo = Array.isArray(pkg.workspaces) && pkg.workspaces.length > 0;
+
+	if (isMonorepo) {
+		const configLibPath = path.join(rootPath, 'libs/config');
+		if (await pathExists(configLibPath)) {
+			throw new Error('libs/config already exists.');
+		}
+		await copyTemplate(path.join(templatesRoot, 'monorepo-basic/libs/config'), configLibPath, {
+			'__REPO_NAME__': path.basename(rootPath)
+		});
+		await updateTsconfigReferences(rootPath, 'libs/config');
+		await updateTsconfigPaths(rootPath, 'config', 'libs');
+		await updateProjectTsconfigForMonorepo(rootPath, configLibPath);
+		console.log('Config library created at libs/config/');
+	} else {
+		const configPath = path.join(rootPath, 'src/config/app.config.ts');
+		if (await pathExists(configPath)) {
+			throw new Error('src/config/app.config.ts already exists.');
+		}
+		const appName = path.basename(rootPath);
+		await writeFileSafe(
+			configPath,
+			`import { defineConfig } from '@melodicdev/core/config';\n\nexport const appConfig = defineConfig({\n\tbase: {\n\t\tappName: '${appName}',\n\t},\n});\n\nexport type AppConfig = typeof appConfig;\n`
+		);
+		console.log('Config created at src/config/app.config.ts');
+	}
+
+	console.log('');
+	console.log('Next steps:');
+	console.log('  Add to your main.ts:');
+	if (isMonorepo) {
+		console.log("    import { provideConfig } from '@melodicdev/core/config';");
+		console.log("    import { appConfig } from '@config';");
+	} else {
+		console.log("    import { provideConfig } from '@melodicdev/core/config';");
+		console.log("    import { appConfig } from './config/app.config';");
+	}
+	console.log('');
+	console.log('  Then add provideConfig(appConfig) to your bootstrap providers array.');
 };
 
 const generateComponent = async (rootPath: string, name: string, dirName: string): Promise<void> => {
@@ -437,6 +513,11 @@ const run = async (): Promise<void> => {
 			}
 			case 'add': {
 				const type = positionals[0];
+				if (type === 'config') {
+					const targetPath = path.resolve(process.cwd(), typeof options.path === 'string' ? options.path : '.');
+					await addConfig(targetPath);
+					break;
+				}
 				if (type === 'testing') {
 					const targetPath = path.resolve(process.cwd(), typeof options.path === 'string' ? options.path : '.');
 					await addTesting(targetPath);

@@ -15,6 +15,7 @@ This file provides guidance to Claude Code when working with code in this reposi
 - HTTP client with interceptors
 - Dependency injection
 - State management
+- Environment-aware configuration
 - Themeable UI component library
 
 ## Monorepo Structure
@@ -55,6 +56,7 @@ npm run preview  # Preview production build
 import { ... } from '@melodicdev/core';           // Main exports
 import { ... } from '@melodicdev/core/bootstrap'; // App bootstrap
 import { ... } from '@melodicdev/core/components';// Component utilities
+import { ... } from '@melodicdev/core/config';    // Configuration
 import { ... } from '@melodicdev/core/forms';     // Forms system
 import { ... } from '@melodicdev/core/http';      // HTTP client
 import { ... } from '@melodicdev/core/injection'; // Dependency injection
@@ -96,6 +98,26 @@ export class MyComponent {
 - `onPropertyChange(name, oldVal, newVal)` - Before property changes
 
 **Important:** Properties prefixed with `_` are excluded from reactivity. Use `_` for private fields that should not trigger re-renders.
+
+### Configuration (`src/config/`)
+
+Environment-aware configuration with DI integration:
+
+```typescript
+import { defineConfig, provideConfig } from '@melodicdev/core/config';
+
+const appConfig = defineConfig({
+  base: { appName: 'My App', apiBaseURL: '/data' },
+  prod: { apiBaseURL: 'https://api.example.com' },
+});
+
+// Register in bootstrap
+await bootstrap({
+  providers: [provideConfig(appConfig)],
+});
+```
+
+**Key exports:** `defineConfig`, `provideConfig`, `APP_CONFIG` token, `environment`, `getEnvironment`, `Environment` type, `ConfigDefinition` interface
 
 ### Signals System (`src/signals/`)
 
@@ -356,6 +378,7 @@ melodic init <dir> [--monorepo] [--app-name]
 # Add to existing project
 melodic add app <name>
 melodic add lib <name>
+melodic add config
 
 # Generate code
 melodic generate component <name>
@@ -375,6 +398,7 @@ melodic generate directive <name>
 ## Documentation Files
 
 Core framework docs in `/docs/`:
+- `CONFIG.md` - Configuration and environment management
 - `COMPONENT_SYSTEM.md` - Component creation and lifecycle
 - `TEMPLATE_SYSTEM.md` - Template syntax and directives
 - `SIGNALS.md` - Reactive signals system

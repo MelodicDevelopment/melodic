@@ -1,7 +1,7 @@
 {
 	"name": "@melodicdev/core",
 	"private": false,
-	"version": "1.3.2",
+	"version": "1.4.0",
 	"description": "A lightweight, modern web component framework built on native browser APIs.",
 	"license": "MIT",
 	"repository": {
@@ -35,6 +35,10 @@
 		"./bootstrap": {
 			"types": "./lib/bootstrap/index.d.ts",
 			"default": "./lib/bootstrap/index.js"
+		},
+		"./config": {
+			"types": "./lib/config/index.d.ts",
+			"default": "./lib/config/index.js"
 		},
 		"./components": {
 			"types": "./lib/components/index.d.ts",

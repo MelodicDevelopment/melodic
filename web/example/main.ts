@@ -7,8 +7,10 @@ import '../../src/routing/components/router-link/router-link.component';
 // Now import app components (which may use routing directives in templates)
 import './components';
 import { bootstrap } from '../../src/bootstrap';
+import { provideConfig } from '../../src/config';
 import { provideHttp } from '../../src/http/functions/provide-http.function';
 import { provideRX } from '../../src/state';
+import { appConfig } from './config/app.config';
 import { appState, appReducers, appEffects } from './state/app.state';
 
 await bootstrap({
@@ -16,9 +18,10 @@ await bootstrap({
 	rootComponent: 'my-app',
 	devMode: true,
 	providers: [
+		provideConfig(appConfig),
 		provideRX(appState, appReducers, appEffects, true),
 		provideHttp(
-			{ baseURL: '/data' },
+			{ baseURL: appConfig.apiBaseURL },
 			{
 				request: [
 					{

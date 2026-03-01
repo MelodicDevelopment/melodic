@@ -18,6 +18,7 @@
 		"baseUrl": ".",
 		"paths": {
 			"@melodicdev/core": ["src"],
+			"@melodicdev/core/config": ["src/config/index.ts"],
 			"@melodicdev/components": ["packages/melodic-components/src/index.ts"],
 			"@melodicdev/components/theme": ["packages/melodic-components/src/theme/index.ts"],
 			"@melodicdev/components/button": ["packages/melodic-components/src/components/forms/button/index.ts"],

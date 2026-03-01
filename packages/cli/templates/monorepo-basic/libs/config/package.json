@@ -1,0 +1,4 @@
+{
+	"name": "@melodicdev/config",
+	"main": "src/index.ts"
+}
