@@ -9,6 +9,7 @@ Melodic includes a lightweight configuration module for managing environment-awa
 - [Environment Detection](#environment-detection)
 - [Providing Configuration](#providing-configuration)
 - [Consuming Configuration](#consuming-configuration)
+- [Extending Configuration](#extending-configuration)
 - [CLI Scaffolding](#cli-scaffolding)
 
 ## Overview
@@ -150,6 +151,79 @@ await bootstrap({
 	],
 });
 ```
+
+## Extending Configuration
+
+In monorepo setups you often want a shared base config in a library that individual apps can override and extend. `defineConfig` supports an optional `extends` field for this purpose.
+
+The `extends` field accepts the resolved output of another `defineConfig` call. The parent and child configs are **deep-merged** — nested objects merge recursively, while arrays and primitives are replaced by the child value.
+
+```typescript
+// libs/config/shared.config.ts
+import { defineConfig } from '@melodicdev/core/config';
+
+export const sharedConfig = defineConfig({
+	base: {
+		appName: 'Default',
+		apiBaseURL: '/api',
+		features: { analytics: true, logging: true },
+	},
+	prod: {
+		apiBaseURL: 'https://api.example.com',
+	},
+});
+```
+
+```typescript
+// apps/dashboard/config/app.config.ts
+import { defineConfig } from '@melodicdev/core/config';
+import { sharedConfig } from '@my-org/config';
+
+export const appConfig = defineConfig({
+	extends: sharedConfig,
+	base: {
+		appName: 'Dashboard',
+		dashboardRefreshMs: 30000,
+		features: { dashboard: true },
+	},
+	prod: {
+		dashboardRefreshMs: 60000,
+	},
+});
+
+// In dev → { appName: 'Dashboard', apiBaseURL: '/api', dashboardRefreshMs: 30000,
+//            features: { analytics: true, logging: true, dashboard: true } }
+```
+
+### Merge behavior
+
+| Value type | Behavior |
+|------------|----------|
+| Nested objects | Recursively merged — parent keys are preserved unless overridden |
+| Arrays | Replaced entirely by the child value |
+| Primitives | Replaced by the child value |
+
+### Chaining
+
+Configs can extend configs that themselves extend other configs:
+
+```typescript
+const orgConfig = defineConfig({ base: { orgName: 'Acme' } });
+
+const sharedConfig = defineConfig({
+	extends: orgConfig,
+	base: { appName: 'Shared', theme: { primary: 'blue' } },
+});
+
+const appConfig = defineConfig({
+	extends: sharedConfig,
+	base: { appName: 'Dashboard', theme: { primary: 'purple' } },
+});
+
+// → { orgName: 'Acme', appName: 'Dashboard', theme: { primary: 'purple' } }
+```
+
+Environment overrides (`dev`, `qa`, `prod`) are applied to the child's `base` before merging with the parent, so per-app environment tuning works as expected.
 
 ## CLI Scaffolding
 

@@ -111,9 +111,15 @@ const appConfig = defineConfig({
   prod: { apiBaseURL: 'https://api.example.com' },
 });
 
+// Monorepo: extend a shared config with app-specific overrides (deep-merged)
+const dashboardConfig = defineConfig({
+  extends: appConfig,
+  base: { appName: 'Dashboard', dashboardRefreshMs: 30000 },
+});
+
 // Register in bootstrap
 await bootstrap({
-  providers: [provideConfig(appConfig)],
+  providers: [provideConfig(dashboardConfig)],
 });
 ```
 
