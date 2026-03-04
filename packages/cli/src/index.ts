@@ -286,7 +286,7 @@ const addApp = async (rootPath: string, name: string, dirName: string): Promise<
 	await updateTsconfigReferences(rootPath, path.join(dirName, name));
 	await updateProjectTsconfigForMonorepo(rootPath, appPath);
 
-	// If libs/config exists in the monorepo, rewrite main.ts to use @config
+	// If libs/config exists in the monorepo, rewrite app config to extend the shared config
 	const configLibPath = path.join(rootPath, 'libs/config');
 	if (await pathExists(configLibPath)) {
 		const mainTsPath = path.join(appPath, 'src/main.ts');
@@ -294,7 +294,7 @@ const addApp = async (rootPath: string, name: string, dirName: string): Promise<
 			"import './components/app.component';",
 			"import { bootstrap } from '@melodicdev/core/bootstrap';",
 			"import { provideConfig } from '@melodicdev/core/config';",
-			"import { appConfig } from '@config';",
+			"import { appConfig } from './config/app.config';",
 			'',
 			'await bootstrap({',
 			"\ttarget: '#app',",
@@ -306,11 +306,23 @@ const addApp = async (rootPath: string, name: string, dirName: string): Promise<
 		].join('\n');
 		await fs.writeFile(mainTsPath, mainTs);
 
-		// Remove the scaffolded src/config/ since monorepo uses libs/config
-		const appConfigDir = path.join(appPath, 'src/config');
-		if (await pathExists(appConfigDir)) {
-			await fs.rm(appConfigDir, { recursive: true });
-		}
+		const appConfigPath = path.join(appPath, 'src/config/app.config.ts');
+		const appConfigTs = [
+			"import { defineConfig } from '@melodicdev/core/config';",
+			"import { sharedConfig } from '@config';",
+			'',
+			'export const appConfig = defineConfig({',
+			'\textends: sharedConfig,',
+			'\tbase: {',
+			`\t\tappName: '${name}',`,
+			'\t},',
+			'});',
+			'',
+			'export type AppConfig = typeof appConfig;',
+			''
+		].join('\n');
+		await fs.mkdir(path.join(appPath, 'src/config'), { recursive: true });
+		await fs.writeFile(appConfigPath, appConfigTs);
 	}
 };
 
@@ -389,11 +401,21 @@ const addConfig = async (rootPath: string): Promise<void> => {
 
 	console.log('');
 	console.log('Next steps:');
-	console.log('  Add to your main.ts:');
 	if (isMonorepo) {
+		console.log('  In each app, create src/config/app.config.ts:');
+		console.log("    import { defineConfig } from '@melodicdev/core/config';");
+		console.log("    import { sharedConfig } from '@config';");
+		console.log('');
+		console.log('    export const appConfig = defineConfig({');
+		console.log('      extends: sharedConfig,');
+		console.log("      base: { appName: 'my-app' },");
+		console.log('    });');
+		console.log('');
+		console.log('  Then in main.ts:');
 		console.log("    import { provideConfig } from '@melodicdev/core/config';");
-		console.log("    import { appConfig } from '@config';");
+		console.log("    import { appConfig } from './config/app.config';");
 	} else {
+		console.log('  Add to your main.ts:');
 		console.log("    import { provideConfig } from '@melodicdev/core/config';");
 		console.log("    import { appConfig } from './config/app.config';");
 	}
