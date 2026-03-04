@@ -38,6 +38,8 @@ export class DialogService {
 		this._dialogs.delete(dialogID);
 	}
 
+	open<TResult = unknown, TData = unknown>(dialogComponent: DialogComponentLoader, config?: IDialogConfig<TData>): DialogRef<TResult, TData>;
+	open<TResult = unknown, TData = unknown>(dialogID: UniqueID): DialogRef<TResult, TData>;
 	open<TResult = unknown, TData = unknown>(dialogComponentOrID: UniqueID | DialogComponentLoader, config?: IDialogConfig<TData>): DialogRef<TResult, TData> {
 		let dialogID: UniqueID = dialogComponentOrID as UniqueID;
 		let dialogElements: IDialogElements = this._dialogs.get(dialogID)!;
