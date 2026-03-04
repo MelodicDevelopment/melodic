@@ -38,14 +38,14 @@ export class DialogService {
 		this._dialogs.delete(dialogID);
 	}
 
-	open<TResult = unknown, TData = unknown>(dialogComponent: DialogComponentLoader, config?: IDialogConfig<TData>): DialogRef<TResult, TData>;
+	open<TResult = unknown, TData = unknown>(dialogComponent: new (...args: any[]) => any, config?: IDialogConfig<TData>): DialogRef<TResult, TData>;
 	open<TResult = unknown, TData = unknown>(dialogID: UniqueID): DialogRef<TResult, TData>;
-	open<TResult = unknown, TData = unknown>(dialogComponentOrID: UniqueID | DialogComponentLoader, config?: IDialogConfig<TData>): DialogRef<TResult, TData> {
+	open<TResult = unknown, TData = unknown>(dialogComponentOrID: UniqueID | (new (...args: any[]) => any), config?: IDialogConfig<TData>): DialogRef<TResult, TData> {
 		let dialogID: UniqueID = dialogComponentOrID as UniqueID;
 		let dialogElements: IDialogElements = this._dialogs.get(dialogID)!;
 
 		if (typeof dialogComponentOrID !== 'string') {
-			const dialogComponent: HTMLElement = this.mountDialog(dialogComponentOrID);
+			const dialogComponent: HTMLElement = this.mountDialog(dialogComponentOrID as DialogComponentLoader);
 			const mlDialogEl: HTMLElement = dialogComponent.shadowRoot?.querySelector('ml-dialog') as HTMLElement;
 			const dialogEl: HTMLDialogElement = mlDialogEl.shadowRoot?.querySelector('dialog') as HTMLDialogElement;
 
