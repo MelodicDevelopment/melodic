@@ -115,8 +115,8 @@ export class TemplateResult {
 			const s = this.strings[i];
 			const valueIndex = i - 1;
 
-			const match = /([@.:]?[\w:-]+)\s*=\s*["']?$/.exec(html);
-			const quotedAttrMatch = /([@.:]?[\w:-]+)\s*=\s*(["'])([^"']*)$/.exec(html);
+			const match = /([@.:?]?[\w:-]+)\s*=\s*["']?$/.exec(html);
+			const quotedAttrMatch = /([@.:?]?[\w:-]+)\s*=\s*(["'])([^"']*)$/.exec(html);
 			let attrKey: string = '___';
 
 			if (activeAttributeName) {
@@ -177,6 +177,7 @@ export class TemplateResult {
 		const eventPartsByIndex = new Map<number, ITemplatePart>();
 		const propertyPartsByIndex = new Map<number, ITemplatePart>();
 		const actionPartsByIndex = new Map<number, ITemplatePart>();
+		const booleanPartsByIndex = new Map<number, ITemplatePart>();
 
 		for (const part of parts) {
 			switch (part.type) {
@@ -188,6 +189,9 @@ export class TemplateResult {
 					break;
 				case 'action':
 					actionPartsByIndex.set(part.index, part);
+					break;
+				case 'boolean-attribute':
+					booleanPartsByIndex.set(part.index, part);
 					break;
 				case 'node':
 					nodeParts.push(part);
@@ -247,6 +251,17 @@ export class TemplateResult {
 							partPaths.push({
 								path: [...path],
 								type: 'action',
+								index: part.index,
+								name: part.name
+							});
+						}
+					} else if (attr.name.startsWith('__bool-')) {
+						const index = parseInt(attr.name.match(/__bool-(\d+)__/)?.[1] || '0');
+						const part = booleanPartsByIndex.get(index);
+						if (part) {
+							partPaths.push({
+								path: [...path],
+								type: 'boolean-attribute',
 								index: part.index,
 								name: part.name
 							});
@@ -331,6 +346,15 @@ export class TemplateResult {
 				});
 				return html.slice(0, -(match?.[0].length ?? 0)) + `__action-${index}__=""`;
 			},
+			'?': (index: number, html: string, attrName?: string, match?: RegExpExecArray | null) => {
+				// Boolean attribute binding
+				parts.push({
+					type: 'boolean-attribute',
+					index: index,
+					name: attrName?.slice(1)
+				});
+				return html.slice(0, -(match?.[0].length ?? 0)) + `__bool-${index}__=""`;
+			},
 			'__': (index: number, html: string, _?: string) => {
 				// Regular attribute
 				return html + createAttributeMarker(index);
@@ -404,6 +428,16 @@ export class TemplateResult {
 					name: partPath.name,
 					node: element,
 					staticValue: partPath.staticValue
+				});
+			} else if (partPath.type === 'boolean-attribute') {
+				const element = node as Element;
+				element.removeAttribute(`__bool-${partPath.index}__`);
+
+				parts.push({
+					type: 'boolean-attribute',
+					index: partPath.index,
+					name: partPath.name,
+					node: element
 				});
 			} else if (partPath.type === 'attribute') {
 				const element = node as Element;
@@ -755,6 +789,17 @@ export class TemplateResult {
 							element.setAttribute(part.name, '');
 						} else {
 							element.setAttribute(part.name, String(value));
+						}
+					}
+					break;
+
+				case 'boolean-attribute':
+					if (part.node && part.name) {
+						const element = part.node as Element;
+						if (value) {
+							element.setAttribute(part.name, '');
+						} else {
+							element.removeAttribute(part.name);
 						}
 					}
 					break;

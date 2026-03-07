@@ -8,7 +8,7 @@ export interface IPartPath {
 	/** Path of childNodes indices to reach the target node */
 	path: number[];
 	/** Type of part at this location */
-	type: 'node' | 'attribute' | 'event' | 'property' | 'action';
+	type: 'node' | 'attribute' | 'boolean-attribute' | 'event' | 'property' | 'action';
 	/** Part index in the values array */
 	index: number;
 	/** For attributes/events/properties/actions: the name */

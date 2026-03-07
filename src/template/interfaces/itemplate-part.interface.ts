@@ -1,5 +1,5 @@
 export interface ITemplatePart {
-	type: 'node' | 'attribute' | 'property' | 'event' | 'action';
+	type: 'node' | 'attribute' | 'boolean-attribute' | 'property' | 'event' | 'action';
 	index: number;
 	name?: string;
 	node?: Node;
