@@ -270,7 +270,7 @@ export class RouterService {
 		return true;
 	}
 
-	private async runGuards(matchResult: IRouteMatchResult): Promise<boolean | string> {
+	async runGuards(matchResult: IRouteMatchResult): Promise<boolean | string> {
 		for (const match of matchResult.matches) {
 			const guards = match.route.canActivate ?? [];
 

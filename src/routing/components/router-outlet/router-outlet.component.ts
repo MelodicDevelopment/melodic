@@ -230,6 +230,19 @@ export class RouterOutletComponent {
 			return;
 		}
 
+		// Run guards before rendering (for initial page load)
+		if (matchResult.matches.length > 0) {
+			const guardResult = await this._router.runGuards(matchResult);
+
+			if (guardResult !== true) {
+				if (typeof guardResult === 'string') {
+					this._router.navigate(guardResult, { replace: true, skipGuards: true });
+				}
+
+				return;
+			}
+		}
+
 		// Run resolvers before rendering (for initial page load)
 		if (matchResult.matches.length > 0) {
 			const resolverResult = await this._router.runResolvers(matchResult);
