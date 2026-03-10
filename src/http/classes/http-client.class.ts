@@ -126,6 +126,9 @@ export class HttpClient {
 				return httpResponse;
 			})
 			.catch((error) => {
+				if (error instanceof HttpError) {
+					throw error;
+				}
 				if (error instanceof Error && error.name === 'AbortError') {
 					throw new AbortError('Request aborted', config);
 				}
