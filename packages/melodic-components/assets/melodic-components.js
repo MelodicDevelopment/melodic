@@ -18635,12 +18635,23 @@ var _ref;
 var DialogComponent = class DialogComponent$1 {
 	constructor() {
 		this._dialogID = newID();
+		this._registered = false;
 	}
 	onCreate() {
-		this._dialogEl = this.elementRef.shadowRoot?.querySelector("dialog");
+		this.registerDialog();
+	}
+	onRender() {
+		this.registerDialog();
+	}
+	registerDialog() {
+		if (this._registered) return;
+		const dialogEl = this.elementRef.shadowRoot?.querySelector("dialog");
+		if (!dialogEl) return;
+		this._dialogEl = dialogEl;
 		this._dialogID = this.createDialogID();
 		this._dialogEl.id = this._dialogID;
 		this._dialogRef = this._dialogService.addDialog(this._dialogID, this._dialogEl);
+		this._registered = true;
 	}
 	onDestroy() {
 		this._dialogService.removeDialog(this._dialogID);
