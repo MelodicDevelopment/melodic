@@ -11734,6 +11734,7 @@ function tableTemplate(c) {
 		[`ml-table--${c.size}`]: true,
 		"ml-table--striped": c.striped,
 		"ml-table--hoverable": c.hoverable,
+		"ml-table--row-clickable": c._rowClickable,
 		"ml-table--sticky-header": c.stickyHeader,
 		"ml-table--virtual": c.virtual
 	})}>
@@ -11977,6 +11978,10 @@ const tableStyles = () => css`
 		background-color: var(--ml-color-surface-sunken);
 	}
 
+	.ml-table--row-clickable .ml-table__row {
+		cursor: pointer;
+	}
+
 	.ml-table__row--selected {
 		background-color: var(--ml-color-primary-subtle, rgba(99, 102, 241, 0.04));
 	}
@@ -12085,6 +12090,7 @@ const tableStyles = () => css`
 `;
 var TableComponent = class TableComponent$1 {
 	constructor() {
+		this._rowClickable = false;
 		this.hasFooter = false;
 		this.hasHeaderActions = false;
 		this.selectable = false;
@@ -12152,6 +12158,13 @@ var TableComponent = class TableComponent$1 {
 	}
 	onPropertyChange(name, _oldVal, _newVal) {
 		if (name === "rows" || name === "columns") this._scroller.invalidate();
+	}
+	onInit() {
+		const original = this.elementRef.addEventListener.bind(this.elementRef);
+		this.elementRef.addEventListener = (type, listener, options) => {
+			if (type === "ml:row-click") this._rowClickable = true;
+			return original(type, listener, options);
+		};
 	}
 	onCreate() {
 		const shadow = this.elementRef.shadowRoot;

@@ -29,6 +29,9 @@ import { VirtualScroller } from '../../../utils/virtual-scroll/index.js';
 export class TableComponent implements IElementRef, OnCreate, OnDestroy, OnRender, OnPropertyChange {
 	elementRef!: HTMLElement;
 
+	/** Whether a row-click listener is attached (auto-detected) */
+	_rowClickable = false;
+
 	/** Whether the footer slot has content */
 	hasFooter = false;
 
@@ -96,6 +99,19 @@ export class TableComponent implements IElementRef, OnCreate, OnDestroy, OnRende
 		if (name === 'rows' || name === 'columns') {
 			this._scroller.invalidate();
 		}
+	}
+
+	onInit(): void {
+		// Intercept addEventListener to detect ml:row-click listeners.
+		// Event bindings (@ml:row-click) are applied before connectedCallback,
+		// so this must happen during construction to catch them.
+		const original = this.elementRef.addEventListener.bind(this.elementRef);
+		this.elementRef.addEventListener = (type: string, listener: EventListenerOrEventListenerObject, options?: boolean | AddEventListenerOptions) => {
+			if (type === 'ml:row-click') {
+				this._rowClickable = true;
+			}
+			return original(type, listener, options);
+		};
 	}
 
 	onCreate(): void {

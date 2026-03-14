@@ -16,6 +16,7 @@ export function tableTemplate(c: TableComponent) {
 			[`ml-table--${c.size}`]: true,
 			'ml-table--striped': c.striped,
 			'ml-table--hoverable': c.hoverable,
+			'ml-table--row-clickable': c._rowClickable,
 			'ml-table--sticky-header': c.stickyHeader,
 			'ml-table--virtual': c.virtual
 		})}>

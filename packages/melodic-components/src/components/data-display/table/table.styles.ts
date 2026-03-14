@@ -133,6 +133,10 @@ export const tableStyles = () => css`
 		background-color: var(--ml-color-surface-sunken);
 	}
 
+	.ml-table--row-clickable .ml-table__row {
+		cursor: pointer;
+	}
+
 	.ml-table__row--selected {
 		background-color: var(--ml-color-primary-subtle, rgba(99, 102, 241, 0.04));
 	}
