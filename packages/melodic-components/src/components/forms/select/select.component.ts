@@ -2,6 +2,7 @@ import { MelodicComponent } from '@melodicdev/core';
 import type { IElementRef, OnCreate, OnDestroy } from '@melodicdev/core';
 import type { Size } from '../../../types/index.js';
 import type { SelectOption } from './select.types.js';
+import { computePosition, offset, flip, shift } from '../../../utils/positioning/index.js';
 import { selectTemplate } from './select.template.js';
 import { selectStyles } from './select.styles.js';
 
@@ -89,18 +90,21 @@ export class SelectComponent implements IElementRef, OnCreate, OnDestroy {
 	focusedIndex = -1;
 
 	/** Bound event handlers for cleanup */
-	private readonly _handleDocumentClick = this.onDocumentClick.bind(this);
 	private readonly _handleKeyDown = this.onKeyDown.bind(this);
+	private readonly _handlePopoverToggle = this.onPopoverToggle.bind(this);
+	private _handleScroll: ((event: Event) => void) | null = null;
+	private _lastCloseTime = 0;
 	private _syncingValues = false;
 
 	onCreate(): void {
-		document.addEventListener('click', this._handleDocumentClick);
 		this.elementRef.addEventListener('keydown', this._handleKeyDown);
+		this.getDropdownEl()?.addEventListener('toggle', this._handlePopoverToggle);
 	}
 
 	onDestroy(): void {
-		document.removeEventListener('click', this._handleDocumentClick);
 		this.elementRef.removeEventListener('keydown', this._handleKeyDown);
+		this.removeScrollListener();
+		this.getDropdownEl()?.removeEventListener('toggle', this._handlePopoverToggle);
 	}
 
 	onPropertyChange(name: string): void {
@@ -208,41 +212,21 @@ export class SelectComponent implements IElementRef, OnCreate, OnDestroy {
 
 		if (this.isOpen) {
 			this.close();
-			return;
+		} else if (Date.now() - this._lastCloseTime > 150) {
+			this.open();
 		}
-
-		this.open();
 	};
 
 	/** Open the dropdown */
 	open = (): void => {
 		if (this.disabled || this.isOpen) return;
-
-		this.isOpen = true;
-		this.focusedIndex = this.getInitialFocusIndex();
-
-		this.elementRef.dispatchEvent(
-			new CustomEvent('ml:open', {
-				bubbles: true,
-				composed: true
-			})
-		);
+		this.getDropdownEl()?.showPopover();
 	};
 
 	/** Close the dropdown */
 	close = (): void => {
 		if (!this.isOpen) return;
-
-		this.isOpen = false;
-		this.focusedIndex = -1;
-		this.search = '';
-
-		this.elementRef.dispatchEvent(
-			new CustomEvent('ml:close', {
-				bubbles: true,
-				composed: true
-			})
-		);
+		this.getDropdownEl()?.hidePopover();
 	};
 
 	/** Select an option */
@@ -317,12 +301,66 @@ export class SelectComponent implements IElementRef, OnCreate, OnDestroy {
 		}
 	};
 
-	/** Handle clicks outside to close dropdown */
-	private onDocumentClick(event: Event): void {
-		const path = event.composedPath();
-		if (!path.includes(this.elementRef)) {
-			this.close();
+	/** Handle popover toggle events (open/close via Popover API) */
+	private onPopoverToggle(event: Event): void {
+		const toggleEvent = event as ToggleEvent;
+
+		if (toggleEvent.newState === 'open') {
+			this.isOpen = true;
+			this.focusedIndex = this.getInitialFocusIndex();
+			this.positionDropdown();
+			this.addScrollListener();
+			this.elementRef.dispatchEvent(
+				new CustomEvent('ml:open', { bubbles: true, composed: true })
+			);
+		} else {
+			this.isOpen = false;
+			this.focusedIndex = -1;
+			this.search = '';
+			this._lastCloseTime = Date.now();
+			this.removeScrollListener();
+			this.elementRef.dispatchEvent(
+				new CustomEvent('ml:close', { bubbles: true, composed: true })
+			);
 		}
+	}
+
+	/** Position the dropdown relative to the trigger using fixed positioning */
+	private positionDropdown(): void {
+		const triggerEl = this.elementRef.shadowRoot?.querySelector('.ml-select__trigger') as HTMLElement | null;
+		const dropdownEl = this.getDropdownEl();
+		if (!triggerEl || !dropdownEl) return;
+
+		dropdownEl.style.width = `${triggerEl.offsetWidth}px`;
+
+		const { x, y } = computePosition(triggerEl, dropdownEl, {
+			placement: 'bottom-start',
+			middleware: [offset(4), flip(), shift({ padding: 8 })]
+		});
+
+		dropdownEl.style.left = `${x}px`;
+		dropdownEl.style.top = `${y}px`;
+	}
+
+	/** Close dropdown when any ancestor scrolls */
+	private addScrollListener(): void {
+		this._handleScroll = (event: Event) => {
+			const dropdownEl = this.getDropdownEl();
+			if (dropdownEl?.contains(event.target as Node)) return;
+			this.close();
+		};
+		window.addEventListener('scroll', this._handleScroll, true);
+	}
+
+	private removeScrollListener(): void {
+		if (this._handleScroll) {
+			window.removeEventListener('scroll', this._handleScroll, true);
+			this._handleScroll = null;
+		}
+	}
+
+	private getDropdownEl(): HTMLElement | null {
+		return this.elementRef.shadowRoot?.querySelector('.ml-select__dropdown') as HTMLElement | null;
 	}
 
 	/** Handle keyboard navigation */

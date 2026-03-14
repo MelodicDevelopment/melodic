@@ -26,10 +26,6 @@ export const selectStyles = () => css`
 		max-width: 100%;
 	}
 
-	.ml-select--open .ml-select__control {
-		z-index: 100;
-	}
-
 	.ml-select__label {
 		font-size: var(--ml-text-sm);
 		font-weight: var(--ml-font-medium);
@@ -217,12 +213,10 @@ export const selectStyles = () => css`
 	}
 
 	.ml-select__dropdown {
-		position: absolute;
-		top: 100%;
-		left: 0;
-		right: 0;
+		position: fixed;
+		inset: unset;
+		margin: 0;
 		z-index: 50;
-		margin-top: var(--ml-space-1);
 		background-color: var(--ml-color-surface);
 		border: var(--ml-border) solid var(--ml-color-border);
 		border-radius: var(--ml-radius);
@@ -230,13 +224,13 @@ export const selectStyles = () => css`
 		max-height: 280px;
 		overflow-y: auto;
 		padding: var(--ml-space-1-5);
-		display: none;
+		display: flex;
 		flex-direction: column;
 		gap: var(--ml-space-1);
 	}
 
-	.ml-select__dropdown--open {
-		display: flex;
+	.ml-select__dropdown:not(:popover-open) {
+		display: none;
 	}
 
 	.ml-select__empty {

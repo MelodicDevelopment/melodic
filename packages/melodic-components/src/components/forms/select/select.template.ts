@@ -46,11 +46,9 @@ export function selectTemplate(c: SelectComponent) {
 				</div>
 
 				<div
-					class=${classMap({
-						'ml-select__dropdown': true,
-						'ml-select__dropdown--open': c.isOpen
-					})}
+					class="ml-select__dropdown"
 					role="listbox"
+					popover="auto"
 					aria-multiselectable=${c.multiple || false}
 				>
 					${c.filteredOptions.length
