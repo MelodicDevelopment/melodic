@@ -1777,12 +1777,21 @@ var TemplateResult = class TemplateResult {
 	}
 	renderNestedTemplate(part, template) {
 		this.ensureMarkers(part);
+		if (part.nestedContainer) {
+			if (part.nestedContainer.__templateKey === getTemplateKey(template.strings)) {
+				template.renderInto(part.nestedContainer);
+				return;
+			}
+			const oldParts = part.nestedContainer.__parts;
+			if (oldParts) this.cleanupParts(oldParts);
+		}
 		this.clearRenderedNodes(part);
 		part.node.textContent = "";
-		const fragment = document.createDocumentFragment();
-		template.renderInto(fragment);
-		part.renderedNodes = Array.from(fragment.childNodes);
-		part.endMarker.parentNode.insertBefore(fragment, part.endMarker);
+		const container = document.createDocumentFragment();
+		template.renderInto(container);
+		part.nestedContainer = container;
+		part.renderedNodes = Array.from(container.childNodes);
+		part.endMarker.parentNode.insertBefore(container, part.endMarker);
 	}
 	renderNode(part, node) {
 		this.ensureMarkers(part);

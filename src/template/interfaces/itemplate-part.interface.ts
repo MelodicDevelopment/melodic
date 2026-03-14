@@ -18,4 +18,7 @@ export interface ITemplatePart {
 		items: Map<unknown, { key: unknown; value: unknown; container: DocumentFragment; nodes: Node[] }>;
 		keys: unknown[];
 	};
+	// Persistent container for nested TemplateResults — enables in-place updates
+	// instead of destroying and recreating DOM on every parent re-render
+	nestedContainer?: DocumentFragment;
 }

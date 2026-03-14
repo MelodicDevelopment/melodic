@@ -529,23 +529,48 @@ export class TemplateResult {
 	}
 
 	/**
-	 * Renders a nested TemplateResult into a node part
+	 * Renders a nested TemplateResult into a node part.
+	 *
+	 * Uses a persistent DocumentFragment container to enable in-place updates
+	 * when the template structure hasn't changed (same tagged template literal).
+	 * This follows the same pattern as the `when` directive — the fragment holds
+	 * __parts/__templateKey after its children move to the real DOM, so subsequent
+	 * renderInto() calls diff and update existing nodes instead of recreating them.
 	 */
 	private renderNestedTemplate(part: ITemplatePart, template: TemplateResult): void {
 		this.ensureMarkers(part);
-		this.clearRenderedNodes(part);
 
-		// Hide the original text node
+		// Reuse existing container for same template structure (avoids destroying/recreating DOM)
+		if (part.nestedContainer) {
+			const existingKey = (part.nestedContainer as any).__templateKey as string | undefined;
+			const newKey = getTemplateKey(template.strings);
+
+			if (existingKey === newKey) {
+				// Same structure — update existing DOM nodes in place
+				template.renderInto(part.nestedContainer);
+				return;
+			}
+
+			// Template structure changed — clean up old parts
+			const oldParts = (part.nestedContainer as any).__parts as ITemplatePart[] | undefined;
+			if (oldParts) {
+				this.cleanupParts(oldParts);
+			}
+		}
+
+		// First render or template structure changed
+		this.clearRenderedNodes(part);
 		part.node!.textContent = '';
 
-		const fragment = document.createDocumentFragment();
-		template.renderInto(fragment);
+		const container = document.createDocumentFragment();
+		template.renderInto(container);
+		part.nestedContainer = container;
 
-		const nodes = Array.from(fragment.childNodes);
+		const nodes = Array.from(container.childNodes);
 		part.renderedNodes = nodes;
 
 		const parent = part.endMarker!.parentNode!;
-		parent.insertBefore(fragment, part.endMarker!);
+		parent.insertBefore(container, part.endMarker!);
 	}
 
 	/**
