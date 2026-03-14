@@ -18661,6 +18661,9 @@ var DialogComponent = class DialogComponent$1 {
 		this._dialogID = newID();
 		this._registered = false;
 	}
+	onCreate() {
+		this.registerDialog();
+	}
 	registerDialog() {
 		if (this._registered) return;
 		const dialogEl = this.elementRef.shadowRoot?.querySelector("dialog");

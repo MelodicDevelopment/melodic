@@ -1,7 +1,7 @@
 import { MelodicComponent, Service } from '@melodicdev/core';
 import { dialogTemplate } from './dialog.template';
 import { dialogStyles } from './dialog.styles';
-import type { OnDestroy, IElementRef } from '@melodicdev/core';
+import type { OnCreate, OnDestroy, IElementRef } from '@melodicdev/core';
 import { newID, type UniqueID } from '../../../functions/new-id.function';
 import { DialogService } from './dialog.service';
 import type { DialogRef } from './dialog-ref.class';
@@ -12,7 +12,7 @@ import type { DialogRef } from './dialog-ref.class';
 	styles: dialogStyles,
 	attributes: []
 })
-export class DialogComponent implements IElementRef, OnDestroy {
+export class DialogComponent implements IElementRef, OnCreate, OnDestroy {
 	public elementRef!: HTMLElement;
 
 	@Service(DialogService)
@@ -22,6 +22,10 @@ export class DialogComponent implements IElementRef, OnDestroy {
 	private _dialogEl!: HTMLDialogElement;
 	private _dialogRef!: DialogRef;
 	private _registered = false;
+
+	onCreate(): void {
+		this.registerDialog();
+	}
 
 	private registerDialog(): void {
 		if (this._registered) return;
