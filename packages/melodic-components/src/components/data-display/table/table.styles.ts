@@ -131,6 +131,7 @@ export const tableStyles = () => css`
 
 	.ml-table--hoverable .ml-table__row:hover {
 		background-color: var(--ml-color-surface-sunken);
+		cursor: pointer;
 	}
 
 	.ml-table__row--selected {
