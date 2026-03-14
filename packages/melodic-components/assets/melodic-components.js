@@ -716,6 +716,7 @@ var HttpClient = class {
 			if (!response.ok) throw new HttpError(`HTTP Error: ${response.status} ${response.statusText}`, httpResponse, config);
 			return httpResponse;
 		}).catch((error) => {
+			if (error instanceof HttpError) throw error;
 			if (error instanceof Error && error.name === "AbortError") throw new AbortError("Request aborted", config);
 			throw new NetworkError((error instanceof Error ? error.message : "Network error") || "Network error", config);
 		});
@@ -1456,8 +1457,8 @@ var TemplateResult = class TemplateResult {
 		for (let i = 1; i < this.strings.length; i++) {
 			const s = this.strings[i];
 			const valueIndex = i - 1;
-			const match = /([@.:]?[\w:-]+)\s*=\s*["']?$/.exec(html$1);
-			const quotedAttrMatch = /([@.:]?[\w:-]+)\s*=\s*(["'])([^"']*)$/.exec(html$1);
+			const match = /([@.:?]?[\w:-]+)\s*=\s*["']?$/.exec(html$1);
+			const quotedAttrMatch = /([@.:?]?[\w:-]+)\s*=\s*(["'])([^"']*)$/.exec(html$1);
 			let attrKey = "___";
 			if (activeAttributeName) html$1 += createAttributeMarker(valueIndex);
 			else {
@@ -1502,6 +1503,7 @@ var TemplateResult = class TemplateResult {
 		const eventPartsByIndex = /* @__PURE__ */ new Map();
 		const propertyPartsByIndex = /* @__PURE__ */ new Map();
 		const actionPartsByIndex = /* @__PURE__ */ new Map();
+		const booleanPartsByIndex = /* @__PURE__ */ new Map();
 		for (const part of parts) switch (part.type) {
 			case "event":
 				eventPartsByIndex.set(part.index, part);
@@ -1511,6 +1513,9 @@ var TemplateResult = class TemplateResult {
 				break;
 			case "action":
 				actionPartsByIndex.set(part.index, part);
+				break;
+			case "boolean-attribute":
+				booleanPartsByIndex.set(part.index, part);
 				break;
 			case "node":
 				nodeParts.push(part);
@@ -1555,6 +1560,15 @@ var TemplateResult = class TemplateResult {
 						if (part) partPaths.push({
 							path: [...path],
 							type: "action",
+							index: part.index,
+							name: part.name
+						});
+					} else if (attr.name.startsWith("__bool-")) {
+						const index = parseInt(attr.name.match(/__bool-(\d+)__/)?.[1] || "0");
+						const part = booleanPartsByIndex.get(index);
+						if (part) partPaths.push({
+							path: [...path],
+							type: "boolean-attribute",
 							index: part.index,
 							name: part.name
 						});
@@ -1627,6 +1641,14 @@ var TemplateResult = class TemplateResult {
 				});
 				return html$1.slice(0, -(match?.[0].length ?? 0)) + `__action-${index}__=""`;
 			},
+			"?": (index, html$1, attrName, match) => {
+				parts.push({
+					type: "boolean-attribute",
+					index,
+					name: attrName?.slice(1)
+				});
+				return html$1.slice(0, -(match?.[0].length ?? 0)) + `__bool-${index}__=""`;
+			},
 			"__": (index, html$1, _) => {
 				return html$1 + createAttributeMarker(index);
 			},
@@ -1681,6 +1703,15 @@ var TemplateResult = class TemplateResult {
 					name: partPath.name,
 					node: element,
 					staticValue: partPath.staticValue
+				});
+			} else if (partPath.type === "boolean-attribute") {
+				const element = node;
+				element.removeAttribute(`__bool-${partPath.index}__`);
+				parts.push({
+					type: "boolean-attribute",
+					index: partPath.index,
+					name: partPath.name,
+					node: element
 				});
 			} else if (partPath.type === "attribute") {
 				const element = node;
@@ -1903,6 +1934,13 @@ var TemplateResult = class TemplateResult {
 						else element.setAttribute(part.name, String(value));
 					}
 					break;
+				case "boolean-attribute":
+					if (part.node && part.name) {
+						const element = part.node;
+						if (value) element.setAttribute(part.name, "");
+						else element.removeAttribute(part.name);
+					}
+					break;
 				case "property":
 					if (part.node && part.name) if (isDirective(value)) part.directiveState = value.render(part.node, part.directiveState);
 					else part.node[part.name] = value;
@@ -2071,6 +2109,16 @@ var RouterOutletComponent = class RouterOutletComponent$1 {
 		if (matchResult.redirectTo) {
 			if (window.location.pathname !== matchResult.redirectTo) this._router.navigate(matchResult.redirectTo, { replace: true });
 			return;
+		}
+		if (matchResult.matches.length > 0) {
+			const guardResult = await this._router.runGuards(matchResult);
+			if (guardResult !== true) {
+				if (typeof guardResult === "string") this._router.navigate(guardResult, {
+					replace: true,
+					skipGuards: true
+				});
+				return;
+			}
 		}
 		if (matchResult.matches.length > 0) {
 			const resolverResult = await this._router.runResolvers(matchResult);
@@ -7169,11 +7217,9 @@ function selectTemplate(c) {
 				</div>
 
 				<div
-					class=${classMap({
-		"ml-select__dropdown": true,
-		"ml-select__dropdown--open": c.isOpen
-	})}
+					class="ml-select__dropdown"
 					role="listbox"
+					popover="auto"
 					aria-multiselectable=${c.multiple || false}
 				>
 					${c.filteredOptions.length ? repeat(c.filteredOptions, (option) => `${option.value}-${c.multiple ? c.values.includes(option.value) : c.value === option.value}`, (option, index) => renderOption(c, option, index)) : html`<div class="ml-select__empty">No results found</div>`}
@@ -7262,10 +7308,6 @@ const selectStyles = () => css`
 	.ml-select__control {
 		position: relative;
 		max-width: 100%;
-	}
-
-	.ml-select--open .ml-select__control {
-		z-index: 100;
 	}
 
 	.ml-select__label {
@@ -7455,12 +7497,10 @@ const selectStyles = () => css`
 	}
 
 	.ml-select__dropdown {
-		position: absolute;
-		top: 100%;
-		left: 0;
-		right: 0;
+		position: fixed;
+		inset: unset;
+		margin: 0;
 		z-index: 50;
-		margin-top: var(--ml-space-1);
 		background-color: var(--ml-color-surface);
 		border: var(--ml-border) solid var(--ml-color-border);
 		border-radius: var(--ml-radius);
@@ -7468,13 +7508,13 @@ const selectStyles = () => css`
 		max-height: 280px;
 		overflow-y: auto;
 		padding: var(--ml-space-1-5);
-		display: none;
+		display: flex;
 		flex-direction: column;
 		gap: var(--ml-space-1);
 	}
 
-	.ml-select__dropdown--open {
-		display: flex;
+	.ml-select__dropdown:not(:popover-open) {
+		display: none;
 	}
 
 	.ml-select__empty {
@@ -7607,8 +7647,10 @@ var SelectComponent = class SelectComponent$1 {
 		this.search = "";
 		this.isOpen = false;
 		this.focusedIndex = -1;
-		this._handleDocumentClick = this.onDocumentClick.bind(this);
 		this._handleKeyDown = this.onKeyDown.bind(this);
+		this._handlePopoverToggle = this.onPopoverToggle.bind(this);
+		this._handleScroll = null;
+		this._lastCloseTime = 0;
 		this._syncingValues = false;
 		this.toggle = () => {
 			if (this.disabled) return;
@@ -7616,30 +7658,16 @@ var SelectComponent = class SelectComponent$1 {
 				if (!this.isOpen) this.open();
 				return;
 			}
-			if (this.isOpen) {
-				this.close();
-				return;
-			}
-			this.open();
+			if (this.isOpen) this.close();
+			else if (Date.now() - this._lastCloseTime > 150) this.open();
 		};
 		this.open = () => {
 			if (this.disabled || this.isOpen) return;
-			this.isOpen = true;
-			this.focusedIndex = this.getInitialFocusIndex();
-			this.elementRef.dispatchEvent(new CustomEvent("ml:open", {
-				bubbles: true,
-				composed: true
-			}));
+			this.getDropdownEl()?.showPopover();
 		};
 		this.close = () => {
 			if (!this.isOpen) return;
-			this.isOpen = false;
-			this.focusedIndex = -1;
-			this.search = "";
-			this.elementRef.dispatchEvent(new CustomEvent("ml:close", {
-				bubbles: true,
-				composed: true
-			}));
+			this.getDropdownEl()?.hidePopover();
 		};
 		this.selectOption = (option) => {
 			if (option.disabled) return;
@@ -7687,12 +7715,13 @@ var SelectComponent = class SelectComponent$1 {
 		};
 	}
 	onCreate() {
-		document.addEventListener("click", this._handleDocumentClick);
 		this.elementRef.addEventListener("keydown", this._handleKeyDown);
+		this.getDropdownEl()?.addEventListener("toggle", this._handlePopoverToggle);
 	}
 	onDestroy() {
-		document.removeEventListener("click", this._handleDocumentClick);
 		this.elementRef.removeEventListener("keydown", this._handleKeyDown);
+		this.removeScrollListener();
+		this.getDropdownEl()?.removeEventListener("toggle", this._handlePopoverToggle);
 	}
 	onPropertyChange(name) {
 		if (this._syncingValues) return;
@@ -7761,8 +7790,59 @@ var SelectComponent = class SelectComponent$1 {
 			}
 		}));
 	}
-	onDocumentClick(event) {
-		if (!event.composedPath().includes(this.elementRef)) this.close();
+	onPopoverToggle(event) {
+		if (event.newState === "open") {
+			this.isOpen = true;
+			this.focusedIndex = this.getInitialFocusIndex();
+			this.positionDropdown();
+			this.addScrollListener();
+			this.elementRef.dispatchEvent(new CustomEvent("ml:open", {
+				bubbles: true,
+				composed: true
+			}));
+		} else {
+			this.isOpen = false;
+			this.focusedIndex = -1;
+			this.search = "";
+			this._lastCloseTime = Date.now();
+			this.removeScrollListener();
+			this.elementRef.dispatchEvent(new CustomEvent("ml:close", {
+				bubbles: true,
+				composed: true
+			}));
+		}
+	}
+	positionDropdown() {
+		const triggerEl = this.elementRef.shadowRoot?.querySelector(".ml-select__trigger");
+		const dropdownEl = this.getDropdownEl();
+		if (!triggerEl || !dropdownEl) return;
+		dropdownEl.style.width = `${triggerEl.offsetWidth}px`;
+		const { x, y } = computePosition(triggerEl, dropdownEl, {
+			placement: "bottom-start",
+			middleware: [
+				offset(4),
+				flip(),
+				shift({ padding: 8 })
+			]
+		});
+		dropdownEl.style.left = `${x}px`;
+		dropdownEl.style.top = `${y}px`;
+	}
+	addScrollListener() {
+		this._handleScroll = (event) => {
+			if (this.getDropdownEl()?.contains(event.target)) return;
+			this.close();
+		};
+		window.addEventListener("scroll", this._handleScroll, true);
+	}
+	removeScrollListener() {
+		if (this._handleScroll) {
+			window.removeEventListener("scroll", this._handleScroll, true);
+			this._handleScroll = null;
+		}
+	}
+	getDropdownEl() {
+		return this.elementRef.shadowRoot?.querySelector(".ml-select__dropdown");
 	}
 	onKeyDown(event) {
 		if (this.disabled) return;
