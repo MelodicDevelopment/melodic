@@ -18637,12 +18637,6 @@ var DialogComponent = class DialogComponent$1 {
 		this._dialogID = newID();
 		this._registered = false;
 	}
-	onCreate() {
-		this.registerDialog();
-	}
-	onRender() {
-		this.registerDialog();
-	}
 	registerDialog() {
 		if (this._registered) return;
 		const dialogEl = this.elementRef.shadowRoot?.querySelector("dialog");
@@ -18657,6 +18651,7 @@ var DialogComponent = class DialogComponent$1 {
 		this._dialogService.removeDialog(this._dialogID);
 	}
 	open() {
+		this.registerDialog();
 		this._dialogRef.open();
 	}
 	close(result) {
