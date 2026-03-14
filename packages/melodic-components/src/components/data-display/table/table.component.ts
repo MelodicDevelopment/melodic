@@ -5,6 +5,18 @@ import { tableTemplate } from './table.template.js';
 import { tableStyles } from './table.styles.js';
 import { VirtualScroller } from '../../../utils/virtual-scroll/index.js';
 
+// Track elements that receive ml:row-click listeners before custom element upgrade.
+// The template engine adds event listeners via addEventListener on un-upgraded elements
+// (before the constructor runs), so we intercept at the prototype level to catch them.
+const _rowClickTargets = new WeakSet<EventTarget>();
+const _origAddEventListener = EventTarget.prototype.addEventListener;
+EventTarget.prototype.addEventListener = function (type: string, listener: EventListenerOrEventListenerObject | null, options?: boolean | AddEventListenerOptions): void {
+	if (type === 'ml:row-click') {
+		_rowClickTargets.add(this);
+	}
+	_origAddEventListener.call(this, type, listener, options);
+};
+
 /**
  * ml-table - Data table with sorting, selection, and custom cell rendering
  *
@@ -102,16 +114,7 @@ export class TableComponent implements IElementRef, OnCreate, OnDestroy, OnRende
 	}
 
 	onInit(): void {
-		// Intercept addEventListener to detect ml:row-click listeners.
-		// Event bindings (@ml:row-click) are applied before connectedCallback,
-		// so this must happen during construction to catch them.
-		const original = this.elementRef.addEventListener.bind(this.elementRef);
-		this.elementRef.addEventListener = (type: string, listener: EventListenerOrEventListenerObject, options?: boolean | AddEventListenerOptions) => {
-			if (type === 'ml:row-click') {
-				this._rowClickable = true;
-			}
-			return original(type, listener, options);
-		};
+		this._rowClickable = _rowClickTargets.has(this.elementRef);
 	}
 
 	onCreate(): void {

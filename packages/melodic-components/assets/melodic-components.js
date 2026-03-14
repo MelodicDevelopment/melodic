@@ -12088,6 +12088,12 @@ const tableStyles = () => css`
 		padding: var(--ml-space-2) var(--ml-space-4);
 	}
 `;
+var _rowClickTargets = /* @__PURE__ */ new WeakSet();
+var _origAddEventListener = EventTarget.prototype.addEventListener;
+EventTarget.prototype.addEventListener = function(type, listener, options) {
+	if (type === "ml:row-click") _rowClickTargets.add(this);
+	_origAddEventListener.call(this, type, listener, options);
+};
 var TableComponent = class TableComponent$1 {
 	constructor() {
 		this._rowClickable = false;
@@ -12160,11 +12166,7 @@ var TableComponent = class TableComponent$1 {
 		if (name === "rows" || name === "columns") this._scroller.invalidate();
 	}
 	onInit() {
-		const original = this.elementRef.addEventListener.bind(this.elementRef);
-		this.elementRef.addEventListener = (type, listener, options) => {
-			if (type === "ml:row-click") this._rowClickable = true;
-			return original(type, listener, options);
-		};
+		this._rowClickable = _rowClickTargets.has(this.elementRef);
 	}
 	onCreate() {
 		const shadow = this.elementRef.shadowRoot;
