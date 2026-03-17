@@ -116,6 +116,21 @@ export class DemoApp implements IElementRef {
 		this.datePickerError = event.detail.value ? '' : 'Date is required';
 	};
 
+	/** Time picker error demo state */
+	timePickerError = 'Time is required';
+
+	handleTimePickerChange = (event: CustomEvent): void => {
+		this.timePickerError = event.detail.value ? '' : 'Time is required';
+	};
+
+	/** Date time picker error demo state */
+	dateTimePickerError = 'Date and time required';
+
+	handleDateTimePickerChange = (event: CustomEvent): void => {
+		const { date, time } = event.detail;
+		this.dateTimePickerError = (date && time) ? '' : 'Date and time required';
+	};
+
 	/** Table demo data */
 	teamColumns: TableColumn[] = [
 		{

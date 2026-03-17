@@ -508,6 +508,7 @@ export class TemplateResult {
 		}
 		part.renderedNodes = [];
 		part.arrayState = undefined;
+		part.nestedContainer = undefined;
 	}
 
 	private cleanupParts(parts: ITemplatePart[]): void {

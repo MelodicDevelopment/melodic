@@ -44,12 +44,12 @@ export const datePickerStyles = () => css`
 
 	.ml-date-picker__trigger:focus-visible {
 		outline: none;
-		border-color: var(--ml-color-primary);
+		border-color: var(--ml-trigger-focus-border, var(--ml-color-primary));
 		box-shadow: var(--ml-shadow-focus-ring);
 	}
 
 	.ml-date-picker--open .ml-date-picker__trigger {
-		border-color: var(--ml-color-primary);
+		border-color: var(--ml-trigger-focus-border, var(--ml-color-primary));
 		box-shadow: var(--ml-shadow-focus-ring);
 	}
 

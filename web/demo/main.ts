@@ -12,6 +12,8 @@ import '@melodicdev/components/toggle';
 import '@melodicdev/components/form-field';
 import '@melodicdev/components/slider';
 import '@melodicdev/components/date-picker';
+import '@melodicdev/components/time-picker';
+import '@melodicdev/components/date-time-picker';
 import '@melodicdev/components/button-group';
 import '@melodicdev/components/radio-card-group';
 

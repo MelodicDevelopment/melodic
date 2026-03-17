@@ -51,6 +51,8 @@ export default defineConfig({
 			'@melodicdev/components/steps': resolve(__dirname, 'packages/melodic-components/src/components/navigation/steps/index.ts'),
 			'@melodicdev/components/sidebar': resolve(__dirname, 'packages/melodic-components/src/components/navigation/sidebar/index.ts'),
 			'@melodicdev/components/date-picker': resolve(__dirname, 'packages/melodic-components/src/components/forms/date-picker/index.ts'),
+			'@melodicdev/components/time-picker': resolve(__dirname, 'packages/melodic-components/src/components/forms/time-picker/index.ts'),
+			'@melodicdev/components/date-time-picker': resolve(__dirname, 'packages/melodic-components/src/components/forms/date-time-picker/index.ts'),
 			'@melodicdev/components/table': resolve(__dirname, 'packages/melodic-components/src/components/data-display/table/index.ts'),
 			'@melodicdev/components/calendar-view': resolve(__dirname, 'packages/melodic-components/src/components/data-display/calendar-view/index.ts'),
 			'@melodicdev/components/activity-feed': resolve(__dirname, 'packages/melodic-components/src/components/data-display/activity-feed/index.ts'),

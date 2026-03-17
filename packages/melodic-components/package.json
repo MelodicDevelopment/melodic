@@ -1,6 +1,6 @@
 {
 	"name": "@melodicdev/components",
-	"version": "1.0.22",
+	"version": "1.1.0",
 	"description": "Themeable UI component library built on the Melodic Framework",
 	"license": "MIT",
 	"author": "Melodic Development",
@@ -116,6 +116,14 @@
 		"./date-picker": {
 			"types": "./lib/components/forms/date-picker/index.d.ts",
 			"default": "./lib/components/forms/date-picker/index.js"
+		},
+		"./time-picker": {
+			"types": "./lib/components/forms/time-picker/index.d.ts",
+			"default": "./lib/components/forms/time-picker/index.js"
+		},
+		"./date-time-picker": {
+			"types": "./lib/components/forms/date-time-picker/index.d.ts",
+			"default": "./lib/components/forms/date-time-picker/index.js"
 		},
 		"./dialog": {
 			"types": "./lib/components/overlays/dialog/index.d.ts",

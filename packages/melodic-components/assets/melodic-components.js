@@ -1762,6 +1762,7 @@ var TemplateResult = class TemplateResult {
 		for (const node of part.renderedNodes) node.parentNode?.removeChild(node);
 		part.renderedNodes = [];
 		part.arrayState = void 0;
+		part.nestedContainer = void 0;
 	}
 	cleanupParts(parts) {
 		for (const part of parts) {
@@ -9012,12 +9013,12 @@ const datePickerStyles = () => css`
 
 	.ml-date-picker__trigger:focus-visible {
 		outline: none;
-		border-color: var(--ml-color-primary);
+		border-color: var(--ml-trigger-focus-border, var(--ml-color-primary));
 		box-shadow: var(--ml-shadow-focus-ring);
 	}
 
 	.ml-date-picker--open .ml-date-picker__trigger {
-		border-color: var(--ml-color-primary);
+		border-color: var(--ml-trigger-focus-border, var(--ml-color-primary));
 		box-shadow: var(--ml-shadow-focus-ring);
 	}
 
@@ -10265,6 +10266,7 @@ const cardStyles = () => css`
 		background-color: var(--ml-color-surface);
 		border-radius: var(--ml-radius-lg);
 		overflow: hidden;
+		height: 100%;
 	}
 
 	.ml-card--default {

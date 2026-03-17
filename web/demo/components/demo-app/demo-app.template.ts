@@ -54,6 +54,12 @@ export const demoAppTemplate = (c: DemoApp) => {
 					<a href="#date-pickers" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'date-pickers')}>
 						<ml-icon icon="calendar-blank" size="sm"></ml-icon>Date Pickers
 					</a>
+					<a href="#time-pickers" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'time-pickers')}>
+						<ml-icon icon="clock" size="sm"></ml-icon>Time Pickers
+					</a>
+					<a href="#date-time-pickers" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'date-time-pickers')}>
+						<ml-icon icon="calendar-blank" size="sm"></ml-icon>Date Time Pickers
+					</a>
 					<a href="#form-fields" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'form-fields')}>
 						<ml-icon icon="textbox" size="sm"></ml-icon>Form Fields
 					</a>
@@ -709,6 +715,113 @@ export const demoAppTemplate = (c: DemoApp) => {
 							</div>
 							<div class="demo-row">
 								<ml-calendar value="2026-02-08"></ml-calendar>
+							</div>
+						</div>
+					</section>
+
+					<!-- Time Pickers Section -->
+					<section id="time-pickers" class="demo-section">
+						<div class="demo-section__header">
+							<h2>Time Pickers</h2>
+							<p>Time selection with spinner-based dropdown.</p>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>Time Picker</h3>
+							</div>
+							<div class="demo-grid">
+								<ml-time-picker label="Start time" value="09:30" hint="Select a start time"></ml-time-picker>
+								<ml-time-picker label="End time" placeholder="Pick a time"></ml-time-picker>
+							</div>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>24-Hour Format</h3>
+							</div>
+							<div class="demo-grid">
+								<ml-time-picker label="Morning" value="09:30" twelve-hour="false"></ml-time-picker>
+								<ml-time-picker label="Afternoon" value="14:00" twelve-hour="false"></ml-time-picker>
+							</div>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>With Seconds</h3>
+							</div>
+							<div class="demo-grid">
+								<ml-time-picker label="Precise time" value="09:30:45" step="1"></ml-time-picker>
+								<ml-time-picker label="24-hour with seconds" value="14:30:15" step="1" twelve-hour="false"></ml-time-picker>
+							</div>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>Sizes</h3>
+								<span class="demo-card__badge">3 sizes</span>
+							</div>
+							<div class="demo-grid">
+								<ml-time-picker label="Small" size="sm" placeholder="Select time"></ml-time-picker>
+								<ml-time-picker label="Medium" size="md" placeholder="Select time"></ml-time-picker>
+								<ml-time-picker label="Large" size="lg" placeholder="Select time"></ml-time-picker>
+							</div>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>States</h3>
+							</div>
+							<div class="demo-grid">
+								<ml-time-picker label="With error" .error=${c.timePickerError} required @ml:change=${c.handleTimePickerChange}></ml-time-picker>
+								<ml-time-picker label="Disabled" value="09:30" disabled></ml-time-picker>
+							</div>
+						</div>
+					</section>
+
+					<!-- Date Time Pickers Section -->
+					<section id="date-time-pickers" class="demo-section">
+						<div class="demo-section__header">
+							<h2>Date Time Pickers</h2>
+							<p>Combined date and time selection in a single component.</p>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>Date Time Picker</h3>
+							</div>
+							<div class="demo-grid">
+								<ml-date-time-picker label="Event start" value="2026-02-08T09:30" hint="When does it begin?"></ml-date-time-picker>
+								<ml-date-time-picker label="Event end" placeholder="Select date and time"></ml-date-time-picker>
+							</div>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>24-Hour Format</h3>
+							</div>
+							<ml-date-time-picker label="Appointment" value="2026-02-08T14:30" twelve-hour="false"></ml-date-time-picker>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>Sizes</h3>
+								<span class="demo-card__badge">3 sizes</span>
+							</div>
+							<ml-stack gap="4">
+								<ml-date-time-picker label="Small" size="sm"></ml-date-time-picker>
+								<ml-date-time-picker label="Medium" size="md"></ml-date-time-picker>
+								<ml-date-time-picker label="Large" size="lg"></ml-date-time-picker>
+							</ml-stack>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>States</h3>
+							</div>
+							<div class="demo-grid">
+								<ml-date-time-picker label="With error" .error=${c.dateTimePickerError} required @ml:change=${c.handleDateTimePickerChange}></ml-date-time-picker>
+								<ml-date-time-picker label="Disabled" value="2026-02-08T09:30" disabled></ml-date-time-picker>
 							</div>
 						</div>
 					</section>
