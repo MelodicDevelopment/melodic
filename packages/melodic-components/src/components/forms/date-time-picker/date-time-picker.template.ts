@@ -18,7 +18,7 @@ export function dateTimePickerTemplate(c: DateTimePickerComponent) {
 
 			<div class="ml-date-time-picker__row">
 				<ml-date-picker
-					value=${c.dateValue}
+					.value=${c.dateValue}
 					size=${c.size}
 					?disabled=${c.disabled}
 					?required=${c.required}
@@ -30,7 +30,7 @@ export function dateTimePickerTemplate(c: DateTimePickerComponent) {
 				<span class="ml-date-time-picker__divider"></span>
 
 				<ml-time-picker
-					value=${c.timeValue}
+					.value=${c.timeValue}
 					size=${c.size}
 					?disabled=${c.disabled}
 					min=${c.minTime}
