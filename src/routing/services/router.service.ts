@@ -192,6 +192,8 @@ export class RouterService {
 			this._resolversExecutedForPath = fullPath;
 		}
 
+		this.setCurrentMatches(matchResult);
+
 		if (replace) {
 			history.replaceState(data, '', fullPath);
 		} else {
@@ -361,6 +363,9 @@ export class RouterService {
 		}
 
 		this._currentPath = targetPath;
+		const matchResult = this.matchPath(window.location.pathname);
+		this.setCurrentMatches(matchResult);
+
 		const navigationEvent = new CustomEvent('NavigationEvent', {
 			detail: routerStateEvent('push', event.state, '', window.location.pathname)
 		});

@@ -52,6 +52,28 @@ describe('router service', () => {
 		expect(redirectMatch.redirectTo).toBe('/new');
 	});
 
+	it('getParam returns updated params during NavigationEvent', async () => {
+		const router = new RouterService();
+		router.setRoutes([{ path: 'events/:id' }]);
+
+		// Navigate to the first route to establish initial params
+		await router.navigate('/events/15');
+		expect(router.getParam('id')).toBe('15');
+
+		// Listen for NavigationEvent and capture params at the moment it fires
+		let paramDuringEvent: string | undefined;
+		const listener = () => {
+			paramDuringEvent = router.getParam('id');
+		};
+		window.addEventListener('NavigationEvent', listener);
+
+		await router.navigate('/events/3');
+
+		window.removeEventListener('NavigationEvent', listener);
+		expect(paramDuringEvent).toBe('3');
+		expect(router.getParam('id')).toBe('3');
+	});
+
 	it('blocks navigation when canDeactivate guard returns false', async () => {
 		const guard: IRouteGuard = {
 			canDeactivate: () => false
