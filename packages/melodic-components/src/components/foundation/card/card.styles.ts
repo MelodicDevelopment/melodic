@@ -9,6 +9,7 @@ export const cardStyles = () => css`
 		background-color: var(--ml-color-surface);
 		border-radius: var(--ml-radius-lg);
 		overflow: hidden;
+		height: 100%;
 	}
 
 	.ml-card--default {
