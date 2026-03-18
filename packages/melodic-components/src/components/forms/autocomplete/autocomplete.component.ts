@@ -96,10 +96,10 @@ export class AutocompleteComponent implements IElementRef, OnCreate, OnDestroy {
 	focusedIndex = -1;
 
 	/** Loading state for async search */
-	_loading = false;
+	loading = false;
 
 	/** Resolved async results */
-	_asyncOptions: AutocompleteOption[] = [];
+	asyncOptions: AutocompleteOption[] = [];
 
 	private readonly _handleKeyDown = this.onKeyDown.bind(this);
 	private readonly _handleDocumentClick = this.onDocumentClick.bind(this);
@@ -189,13 +189,13 @@ export class AutocompleteComponent implements IElementRef, OnCreate, OnDestroy {
 
 	/** All available options (static or async) */
 	get allOptions(): AutocompleteOption[] {
-		return this.searchFn ? this._asyncOptions : this.options;
+		return this.searchFn ? this.asyncOptions : this.options;
 	}
 
 	/** Filtered options for display */
 	get filteredOptions(): AutocompleteOption[] {
 		if (this.searchFn) {
-			return this._asyncOptions;
+			return this.asyncOptions;
 		}
 
 		const query = this.search.trim().toLowerCase();
@@ -329,7 +329,7 @@ export class AutocompleteComponent implements IElementRef, OnCreate, OnDestroy {
 		if (this.disabled) return;
 
 		if (this.minChars === 0) {
-			if (this.searchFn && this._asyncOptions.length === 0) {
+			if (this.searchFn && this.asyncOptions.length === 0) {
 				this.debouncedSearch('');
 			}
 			if (!this.isOpen) {
@@ -342,7 +342,7 @@ export class AutocompleteComponent implements IElementRef, OnCreate, OnDestroy {
 	handleInputClick = (event: Event): void => {
 		event.stopPropagation();
 		if (!this.isOpen && this.minChars === 0) {
-			if (this.searchFn && this._asyncOptions.length === 0) {
+			if (this.searchFn && this.asyncOptions.length === 0) {
 				this.debouncedSearch('');
 			}
 			this.open();
@@ -414,12 +414,12 @@ export class AutocompleteComponent implements IElementRef, OnCreate, OnDestroy {
 	private async executeSearch(query: string): Promise<void> {
 		if (!this.searchFn) return;
 
-		this._loading = true;
+		this.loading = true;
 		try {
-			this._asyncOptions = await this.searchFn(query);
+			this.asyncOptions = await this.searchFn(query);
 			this.focusedIndex = this.findFirstEnabledIndex();
 		} finally {
-			this._loading = false;
+			this.loading = false;
 		}
 	}
 

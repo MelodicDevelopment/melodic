@@ -42,7 +42,7 @@ export function autocompleteTemplate(c: AutocompleteComponent) {
 					role="listbox"
 					popover="manual"
 				>
-					${c._loading
+					${c.loading
 						? html`<div class="ml-autocomplete__loading">
 							<ml-spinner size="sm"></ml-spinner>
 							<span>Searching...</span>
