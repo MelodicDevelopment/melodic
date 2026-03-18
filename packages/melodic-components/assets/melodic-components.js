@@ -1767,6 +1767,25 @@ var TemplateResult = class TemplateResult {
 		part.arrayState = void 0;
 		part.nestedContainer = void 0;
 	}
+	clearDirectiveDOM(part) {
+		const state = part.directiveState;
+		if (!state) return;
+		const startMarker = state.startMarker;
+		const endMarker = state.endMarker;
+		if (startMarker && endMarker && startMarker.parentNode) {
+			const parent = startMarker.parentNode;
+			let node = startMarker.nextSibling;
+			while (node && node !== endMarker) {
+				const next = node.nextSibling;
+				parent.removeChild(node);
+				node = next;
+			}
+			if (part.node) parent.insertBefore(part.node, endMarker);
+			parent.removeChild(startMarker);
+			parent.removeChild(endMarker);
+		}
+		part.directiveState = void 0;
+	}
 	cleanupParts(parts) {
 		for (const part of parts) {
 			if (part.actionCleanup) try {
@@ -1916,13 +1935,19 @@ var TemplateResult = class TemplateResult {
 			if (!isCompositeAttribute && !isDirective(value) && part.type !== "action" && part.previousValue === value) continue;
 			switch (part.type) {
 				case "node":
-					if (part.node) if (isDirective(value)) part.directiveState = value.render(part.node, part.directiveState);
-					else if (value instanceof TemplateResult) this.renderNestedTemplate(part, value);
-					else if (value instanceof Node) this.renderNode(part, value);
-					else if (Array.isArray(value)) this.renderArray(part, value);
-					else {
-						this.clearRenderedNodes(part);
-						part.node.textContent = String(value ?? "");
+					if (part.node) {
+						const wasDirective = isDirective(part.previousValue);
+						const nowDirective = isDirective(value);
+						if (wasDirective && !nowDirective && part.directiveState) this.clearDirectiveDOM(part);
+						if (!wasDirective && nowDirective) this.clearRenderedNodes(part);
+						if (nowDirective) part.directiveState = value.render(part.node, part.directiveState);
+						else if (value instanceof TemplateResult) this.renderNestedTemplate(part, value);
+						else if (value instanceof Node) this.renderNode(part, value);
+						else if (Array.isArray(value)) this.renderArray(part, value);
+						else {
+							this.clearRenderedNodes(part);
+							part.node.textContent = String(value ?? "");
+						}
 					}
 					break;
 				case "attribute":
