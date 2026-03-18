@@ -1,4 +1,4 @@
-import { html } from '@melodicdev/core';
+import { html, repeat } from '@melodicdev/core';
 import type { DemoApp } from './demo-app.component';
 
 export const demoAppTemplate = (c: DemoApp) => {
@@ -62,6 +62,9 @@ export const demoAppTemplate = (c: DemoApp) => {
 					</a>
 					<a href="#date-time-pickers" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'date-time-pickers')}>
 						<ml-icon icon="calendar-blank" size="sm"></ml-icon>Date Time Pickers
+					</a>
+					<a href="#file-upload" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'file-upload')}>
+						<ml-icon icon="cloud-arrow-up" size="sm"></ml-icon>File Upload
 					</a>
 					<a href="#form-fields" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'form-fields')}>
 						<ml-icon icon="textbox" size="sm"></ml-icon>Form Fields
@@ -856,6 +859,106 @@ export const demoAppTemplate = (c: DemoApp) => {
 							<div class="demo-grid">
 								<ml-date-time-picker label="With error" .error=${c.dateTimePickerError} required @ml:change=${c.handleDateTimePickerChange}></ml-date-time-picker>
 								<ml-date-time-picker label="Disabled" value="2026-02-08T09:30" disabled></ml-date-time-picker>
+							</div>
+						</div>
+					</section>
+
+					<!-- File Upload Section -->
+					<section id="file-upload" class="demo-section">
+						<div class="demo-section__header">
+							<h2>File Upload</h2>
+							<p>Drag-and-drop file upload with progress tracking and file type icons.</p>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>Dropzone</h3>
+							</div>
+							<ml-stack gap="6">
+								<ml-file-upload
+									label="Click to upload"
+									sublabel="or drag and drop"
+									hint="Any file type accepted"
+									multiple
+									@ml:change=${c.handleFileChange}
+								></ml-file-upload>
+
+								${c.uploadedFiles.length > 0 ? html`
+									<ml-stack gap="3">
+										${repeat(
+											c.uploadedFiles,
+											(f) => f.name,
+											(f) => html`
+												<ml-file-upload-item
+													name=${f.name}
+													size=${f.size}
+													status=${f.status}
+													progress=${f.progress}
+													error=${f.error}
+													@ml:remove=${c.handleFileRemove}
+													@ml:retry=${c.handleFileRetry}
+												></ml-file-upload-item>
+											`
+										)}
+									</ml-stack>
+								` : ''}
+
+								<ml-file-upload
+									label="Click to upload"
+									sublabel="or drag and drop"
+									disabled
+								></ml-file-upload>
+							</ml-stack>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>File Items</h3>
+								<span class="demo-card__badge">4 states</span>
+							</div>
+							<ml-stack gap="3">
+								<ml-file-upload-item
+									name="design-mockup.pdf"
+									size="2.4 MB"
+									status="idle"
+								></ml-file-upload-item>
+
+								<ml-file-upload-item
+									name="dashboard-screenshot.png"
+									size="4.1 MB"
+									status="uploading"
+									progress="50"
+								></ml-file-upload-item>
+
+								<ml-file-upload-item
+									name="brand-guidelines.pdf"
+									size="1.8 MB"
+									status="complete"
+									progress="100"
+								></ml-file-upload-item>
+
+								<ml-file-upload-item
+									name="video-intro.mp4"
+									size="16.2 MB"
+									status="error"
+									error="File size exceeds limit"
+								></ml-file-upload-item>
+							</ml-stack>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>File Icons</h3>
+							</div>
+							<div class="demo-row" style="gap: var(--ml-space-4); flex-wrap: wrap;">
+								<ml-file-icon extension="pdf" size="lg"></ml-file-icon>
+								<ml-file-icon extension="png" size="lg"></ml-file-icon>
+								<ml-file-icon extension="mp4" size="lg"></ml-file-icon>
+								<ml-file-icon extension="mp3" size="lg"></ml-file-icon>
+								<ml-file-icon extension="zip" size="lg"></ml-file-icon>
+								<ml-file-icon extension="doc" size="lg"></ml-file-icon>
+								<ml-file-icon extension="xls" size="lg"></ml-file-icon>
+								<ml-file-icon extension="txt" size="lg"></ml-file-icon>
 							</div>
 						</div>
 					</section>

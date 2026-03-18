@@ -151,6 +151,55 @@ export class DemoApp implements IElementRef {
 		this.sliderError = event.detail.value < 20 ? 'Value must be at least 20' : '';
 	};
 
+	/** File upload demo state */
+	uploadedFiles: { name: string; size: string; status: string; progress: number; error: string }[] = [];
+
+	handleFileChange = (event: CustomEvent): void => {
+		const files = event.detail.files as File[];
+		for (const file of files) {
+			const entry = {
+				name: file.name,
+				size: file.size < 1024 * 1024 ? `${(file.size / 1024).toFixed(1)} KB` : `${(file.size / (1024 * 1024)).toFixed(1)} MB`,
+				status: 'uploading',
+				progress: 0,
+				error: ''
+			};
+			this.uploadedFiles = [...this.uploadedFiles, entry];
+			this._simulateUpload(this.uploadedFiles.length - 1);
+		}
+	};
+
+	handleFileRemove = (event: CustomEvent): void => {
+		this.uploadedFiles = this.uploadedFiles.filter(f => f.name !== event.detail.name);
+	};
+
+	handleFileRetry = (event: CustomEvent): void => {
+		const idx = this.uploadedFiles.findIndex(f => f.name === event.detail.name);
+		if (idx >= 0) {
+			this.uploadedFiles = this.uploadedFiles.map((f, i) =>
+				i === idx ? { ...f, status: 'uploading', progress: 0, error: '' } : f
+			);
+			this._simulateUpload(idx);
+		}
+	};
+
+	_simulateUpload(index: number): void {
+		let progress = 0;
+		const interval = setInterval(() => {
+			progress += Math.random() * 15 + 5;
+			if (progress >= 100) {
+				clearInterval(interval);
+				this.uploadedFiles = this.uploadedFiles.map((f, i) =>
+					i === index ? { ...f, progress: 100, status: 'complete' } : f
+				);
+			} else {
+				this.uploadedFiles = this.uploadedFiles.map((f, i) =>
+					i === index ? { ...f, progress: Math.round(progress) } : f
+				);
+			}
+		}, 300);
+	}
+
 	/** Date picker error demo state */
 	datePickerError = 'Date is required';
 

@@ -30,6 +30,7 @@
 			"@melodicdev/components/toggle": ["packages/melodic-components/src/components/forms/toggle/index.ts"],
 			"@melodicdev/components/select": ["packages/melodic-components/src/components/forms/select/index.ts"],
 			"@melodicdev/components/autocomplete": ["packages/melodic-components/src/components/forms/autocomplete/index.ts"],
+			"@melodicdev/components/file-upload": ["packages/melodic-components/src/components/forms/file-upload/index.ts"],
 			"@melodicdev/components/form-field": ["packages/melodic-components/src/components/forms/form-field/index.ts"],
 			"@melodicdev/components/card": ["packages/melodic-components/src/components/foundation/card/index.ts"],
 			"@melodicdev/components/stack": ["packages/melodic-components/src/components/foundation/stack/index.ts"],

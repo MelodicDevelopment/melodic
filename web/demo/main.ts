@@ -9,6 +9,7 @@ import '@melodicdev/components/textarea';
 import '@melodicdev/components/checkbox';
 import '@melodicdev/components/radio';
 import '@melodicdev/components/toggle';
+import '@melodicdev/components/file-upload';
 import '@melodicdev/components/form-field';
 import '@melodicdev/components/slider';
 import '@melodicdev/components/autocomplete';

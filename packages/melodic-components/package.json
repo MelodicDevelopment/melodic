@@ -1,6 +1,6 @@
 {
 	"name": "@melodicdev/components",
-	"version": "1.2.4",
+	"version": "1.3.0",
 	"description": "Themeable UI component library built on the Melodic Framework",
 	"license": "MIT",
 	"author": "Melodic Development",
@@ -140,6 +140,10 @@
 		"./dropdown": {
 			"types": "./lib/components/overlays/dropdown/index.d.ts",
 			"default": "./lib/components/overlays/dropdown/index.js"
+		},
+		"./file-upload": {
+			"types": "./lib/components/forms/file-upload/index.d.ts",
+			"default": "./lib/components/forms/file-upload/index.js"
 		},
 		"./form-field": {
 			"types": "./lib/components/forms/form-field/index.d.ts",

@@ -10,12 +10,14 @@ import { html, css } from '../../../../src/template/functions/html.function';
 					Features
 				</button>
 				<button class=${component.activeTab === 'forms' ? 'active' : ''} @click=${() => component.setTab('forms')}>Forms</button>
+				<button class=${component.activeTab === 'file-upload' ? 'active' : ''} @click=${() => component.setTab('file-upload')}>File Upload</button>
 				<button class=${component.activeTab === 'portal' ? 'active' : ''} @click=${() => component.setTab('portal')}>Portal</button>
 			</nav>
 
 			<div class="demo-content">
 				${component.activeTab === 'features' ? html`<feature-demo></feature-demo>` : ''}
 				${component.activeTab === 'forms' ? html`<forms-demo></forms-demo>` : ''}
+				${component.activeTab === 'file-upload' ? html`<file-upload-demo></file-upload-demo>` : ''}
 				${component.activeTab === 'portal' ? html`<portal-demo></portal-demo>` : ''}
 			</div>
 		</div>
@@ -61,9 +63,9 @@ import { html, css } from '../../../../src/template/functions/html.function';
 	`
 })
 export class DemosPageComponent {
-	activeTab: 'features' | 'forms' | 'portal' = 'features';
+	activeTab: 'features' | 'forms' | 'file-upload' | 'portal' = 'features';
 
-	setTab = (tab: 'features' | 'forms' | 'portal') => {
+	setTab = (tab: 'features' | 'forms' | 'file-upload' | 'portal') => {
 		this.activeTab = tab;
 	};
 }
