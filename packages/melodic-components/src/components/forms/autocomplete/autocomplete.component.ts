@@ -172,7 +172,8 @@ export class AutocompleteComponent implements IElementRef, OnCreate, OnDestroy {
 
 	/** Get the selected option (single mode) */
 	get selectedOption(): AutocompleteOption | undefined {
-		return this.allOptions.find((opt) => opt.value === this.value);
+		return this.allOptions.find((opt) => opt.value === this.value)
+			?? this.options.find((opt) => opt.value === this.value);
 	}
 
 	/** Get selected options (multi mode) */
@@ -180,7 +181,10 @@ export class AutocompleteComponent implements IElementRef, OnCreate, OnDestroy {
 		if (!this.multiple) {
 			return this.selectedOption ? [this.selectedOption] : [];
 		}
-		return this.allOptions.filter((opt) => this.values.includes(opt.value));
+		const found = this.allOptions.filter((opt) => this.values.includes(opt.value));
+		const foundValues = new Set(found.map((opt) => opt.value));
+		const fallback = this.options.filter((opt) => this.values.includes(opt.value) && !foundValues.has(opt.value));
+		return [...found, ...fallback];
 	}
 
 	/** All available options (static or async) */
