@@ -9,6 +9,7 @@
 - [ml-radio-card-group / ml-radio-card](#ml-radio-card-group--ml-radio-card)
 - [ml-toggle](#ml-toggle)
 - [ml-select](#ml-select)
+- [ml-autocomplete](#ml-autocomplete)
 - [ml-slider](#ml-slider)
 - [ml-date-picker](#ml-date-picker)
 - [ml-form-field](#ml-form-field)
@@ -385,6 +386,85 @@ interface SelectOption {
 - `ml:open`, `ml:close`
 
 Supports full keyboard navigation. Multi-select shows selected items as inline tags with search filtering.
+
+---
+
+## ml-autocomplete
+
+Typeahead/autocomplete input with dropdown suggestions. Supports static option lists or async search via a promise-returning function. Single and multi-select modes.
+
+```ts
+import '@melodicdev/components/autocomplete';
+```
+
+```html
+<!-- Static options -->
+<ml-autocomplete
+  label="Country"
+  placeholder="Search countries..."
+  .options=${countryOptions}
+  @ml:change=${this.handleChange}
+></ml-autocomplete>
+
+<!-- Async search -->
+<ml-autocomplete
+  label="Search users"
+  placeholder="Type to search..."
+  .searchFn=${async (query) => fetch(`/api/users?q=${query}`).then(r => r.json())}
+  .debounce=${300}
+></ml-autocomplete>
+
+<!-- Multi-select -->
+<ml-autocomplete
+  label="Assign users"
+  multiple
+  .options=${userOptions}
+  .values=${selectedUsers}
+  @ml:change=${this.handleMultiChange}
+></ml-autocomplete>
+```
+
+| Property | Type | Default | Description |
+|----------|------|---------|-------------|
+| `label` | `string` | `''` | Label text |
+| `placeholder` | `string` | `'Search'` | Placeholder text |
+| `hint` | `string` | `''` | Hint text below input |
+| `error` | `string` | `''` | Error message (shows error state) |
+| `size` | `Size` | `'md'` | Component size |
+| `disabled` | `boolean` | `false` | Disable the component |
+| `required` | `boolean` | `false` | Required indicator |
+| `multiple` | `boolean` | `false` | Enable multi-select mode |
+| `value` | `string` | `''` | Selected value (single mode) |
+| `values` | `string[]` | `[]` | Selected values (multi mode) |
+| `options` | `AutocompleteOption[]` | `[]` | Static options list |
+| `searchFn` | `AutocompleteSearchFn` | `null` | Async search function |
+| `debounce` | `number` | `300` | Debounce ms for async search |
+| `minChars` | `number` | `0` | Min characters before searching (0 = show on focus) |
+| `showIcon` | `boolean` | `true` | Show search icon |
+
+**AutocompleteOption interface:**
+
+```ts
+interface AutocompleteOption {
+  value: string;
+  label: string;
+  subtitle?: string;
+  avatarUrl?: string;
+  avatarAlt?: string;
+  icon?: string;       // Phosphor icon name
+  disabled?: boolean;
+}
+
+type AutocompleteSearchFn = (query: string) => Promise<AutocompleteOption[]>;
+```
+
+**Events:**
+- Single: `ml:change` `{ value, option }`
+- Multi: `ml:change` `{ values, options, option }`
+- `ml:search` `{ query }` — emitted on input change
+- `ml:open`, `ml:close`
+
+Supports full keyboard navigation (`ArrowDown`/`ArrowUp` to navigate, `Enter` to select, `Escape` to close, `Backspace` removes last tag in multi mode).
 
 ---
 

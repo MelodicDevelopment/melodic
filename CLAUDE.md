@@ -36,9 +36,9 @@ melodic/
 
 | Package | Version | Description |
 |---------|---------|-------------|
-| `@melodicdev/core` | 1.2.5 | Core framework |
-| `@melodicdev/components` | 0.1.0 | Themeable UI component library |
-| `@melodicdev/cli` | 1.2.3 | CLI scaffolding tool |
+| `@melodicdev/core` | 1.4.7 | Core framework |
+| `@melodicdev/components` | 1.2.1 | Themeable UI component library |
+| `@melodicdev/cli` | 1.3.0 | CLI scaffolding tool |
 
 ## Build Commands
 
@@ -275,7 +275,7 @@ import { breakpoints, colorTokens, allTokens, tokensToCss } from '@melodicdev/co
 
 ### Available Components
 
-**Forms:** `ml-button`, `ml-button-group`, `ml-input`, `ml-textarea`, `ml-checkbox`, `ml-radio`, `ml-radio-group`, `ml-radio-card-group`, `ml-toggle`, `ml-select`, `ml-slider`, `ml-date-picker`, `ml-form-field`
+**Forms:** `ml-button`, `ml-button-group`, `ml-input`, `ml-textarea`, `ml-checkbox`, `ml-radio`, `ml-radio-group`, `ml-radio-card-group`, `ml-toggle`, `ml-select`, `ml-autocomplete`, `ml-slider`, `ml-date-picker`, `ml-form-field`
 
 **Feedback:** `ml-spinner`, `ml-alert`, `ml-progress`, `ml-toast` (+ `ToastService`)
 

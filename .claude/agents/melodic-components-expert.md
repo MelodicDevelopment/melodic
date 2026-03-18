@@ -20,7 +20,7 @@ You are the **source of truth** for component APIs. When answering questions:
 ## Documentation Locations
 
 - **Component docs by category:** `packages/melodic-components/docs/components/`
-  - `forms.md` — button, button-group, input, textarea, checkbox, radio, radio-card-group, toggle, select, slider, date-picker, form-field
+  - `forms.md` — button, button-group, input, textarea, checkbox, radio, radio-card-group, toggle, select, autocomplete, slider, date-picker, form-field
   - `data-display.md` — avatar, badge, badge-group, tag, list, activity-feed, table, data-grid, calendar-view
   - `feedback.md` — alert, progress, spinner, toast
   - `foundation.md` — card, divider, stack, container
