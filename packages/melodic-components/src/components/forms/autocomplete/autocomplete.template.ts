@@ -42,17 +42,17 @@ export function autocompleteTemplate(c: AutocompleteComponent) {
 					role="listbox"
 					popover="manual"
 				>
-					${c.loading
-						? html`<div class="ml-autocomplete__loading">
-							<ml-spinner size="sm"></ml-spinner>
-							<span>Searching...</span>
-						</div>`
-						: c.filteredOptions.length
-							? repeat(
-									c.filteredOptions,
-									(option) => `${option.value}-${c.multiple ? c.values.includes(option.value) : c.value === option.value}`,
-									(option, index) => renderOption(c, option, index)
-								)
+					${c.filteredOptions.length
+						? repeat(
+								c.filteredOptions,
+								(option) => `${option.value}-${c.multiple ? c.values.includes(option.value) : c.value === option.value}`,
+								(option, index) => renderOption(c, option, index)
+							)
+						: c.loading
+							? html`<div class="ml-autocomplete__loading">
+								<ml-spinner size="sm"></ml-spinner>
+								<span>Searching...</span>
+							</div>`
 							: html`<div class="ml-autocomplete__empty">No results found</div>`}
 				</div>
 			</div>
