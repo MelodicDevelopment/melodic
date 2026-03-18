@@ -511,6 +511,45 @@ export class TemplateResult {
 		part.nestedContainer = undefined;
 	}
 
+	/**
+	 * Clears DOM nodes created by a directive (e.g. repeat, when) when
+	 * switching away from a directive to a different renderable type.
+	 * Removes all nodes between the directive's markers and restores
+	 * part.node into the DOM so non-directive rendering can proceed.
+	 */
+	private clearDirectiveDOM(part: ITemplatePart): void {
+		const state = part.directiveState;
+		if (!state) return;
+
+		// Directive markers (repeat/when both use startMarker/endMarker)
+		const startMarker: Comment | undefined = state.startMarker;
+		const endMarker: Comment | undefined = state.endMarker;
+
+		if (startMarker && endMarker && startMarker.parentNode) {
+			const parent = startMarker.parentNode;
+
+			// Remove all nodes between markers (exclusive)
+			let node = startMarker.nextSibling;
+			while (node && node !== endMarker) {
+				const next = node.nextSibling;
+				parent.removeChild(node);
+				node = next;
+			}
+
+			// Restore part.node before the end marker so non-directive
+			// rendering has a valid text node to work with
+			if (part.node) {
+				parent.insertBefore(part.node, endMarker);
+			}
+
+			// Remove the directive markers themselves
+			parent.removeChild(startMarker);
+			parent.removeChild(endMarker);
+		}
+
+		part.directiveState = undefined;
+	}
+
 	private cleanupParts(parts: ITemplatePart[]): void {
 		for (const part of parts) {
 			if (part.actionCleanup) {
@@ -759,8 +798,21 @@ export class TemplateResult {
 			switch (part.type) {
 				case 'node':
 					if (part.node) {
+						const wasDirective = isDirective(part.previousValue);
+						const nowDirective = isDirective(value);
+
+						// Transition from directive → non-directive: clean up directive DOM
+						if (wasDirective && !nowDirective && part.directiveState) {
+							this.clearDirectiveDOM(part);
+						}
+
+						// Transition from non-directive → directive: clean up rendered nodes
+						if (!wasDirective && nowDirective) {
+							this.clearRenderedNodes(part);
+						}
+
 						// Handle directives
-						if (isDirective(value)) {
+						if (nowDirective) {
 							part.directiveState = value.render(part.node, part.directiveState);
 						} else if (value instanceof TemplateResult) {
 							// Handle nested TemplateResult
