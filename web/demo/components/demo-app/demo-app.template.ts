@@ -36,6 +36,9 @@ export const demoAppTemplate = (c: DemoApp) => {
 					<a href="#selects" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'selects')}>
 						<ml-icon icon="caret-circle-down" size="sm"></ml-icon>Selects
 					</a>
+					<a href="#autocomplete" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'autocomplete')}>
+						<ml-icon icon="magnifying-glass" size="sm"></ml-icon>Autocomplete
+					</a>
 					<a href="#checkboxes" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'checkboxes')}>
 						<ml-icon icon="check-square" size="sm"></ml-icon>Checkboxes
 					</a>
@@ -506,6 +509,37 @@ export const demoAppTemplate = (c: DemoApp) => {
 								@ml-change=${c.handleMultiSelectChange}
 							></ml-select>
 							<ml-select label="Disabled" placeholder="Cannot select" .options=${c.statusOptions} disabled></ml-select>
+						</div>
+					</section>
+
+					<!-- Autocomplete Section -->
+					<section id="autocomplete" class="demo-section">
+						<div class="demo-section__header">
+							<h2>Autocomplete</h2>
+							<p>Typeahead search input with dropdown suggestions. Supports static options and async search.</p>
+						</div>
+
+						<div class="demo-grid">
+							<ml-autocomplete label="Country" placeholder="Search countries..." .options=${c.countryOptions}></ml-autocomplete>
+							<ml-autocomplete label="With Subtitles" placeholder="Search users..." .options=${c.autocompleteUserOptions}></ml-autocomplete>
+							<ml-autocomplete label="With Error" placeholder="Search..." .options=${c.countryOptions} .error=${c.autocompleteError} @ml:change=${c.handleAutocompleteErrorChange}></ml-autocomplete>
+							<ml-autocomplete
+								label="Multi-select"
+								placeholder="Search countries..."
+								.options=${c.countryOptions}
+								.values=${c.multiAutocompleteValues}
+								multiple
+								hint="Pick multiple options"
+								@ml:change=${c.handleMultiAutocompleteChange}
+							></ml-autocomplete>
+							<ml-autocomplete
+								label="Async Search"
+								placeholder="Type to search..."
+								.searchFn=${c.autocompleteSearchFn}
+								.debounce=${300}
+								hint="Simulated async search with 500ms delay"
+							></ml-autocomplete>
+							<ml-autocomplete label="Disabled" placeholder="Cannot search" .options=${c.countryOptions} disabled></ml-autocomplete>
 						</div>
 					</section>
 

@@ -1,6 +1,6 @@
 {
 	"name": "@melodicdev/components",
-	"version": "1.1.1",
+	"version": "1.2.0",
 	"description": "Themeable UI component library built on the Melodic Framework",
 	"license": "MIT",
 	"author": "Melodic Development",
@@ -192,6 +192,10 @@
 		"./select": {
 			"types": "./lib/components/forms/select/index.d.ts",
 			"default": "./lib/components/forms/select/index.js"
+		},
+		"./autocomplete": {
+			"types": "./lib/components/forms/autocomplete/index.d.ts",
+			"default": "./lib/components/forms/autocomplete/index.js"
 		},
 		"./sidebar": {
 			"types": "./lib/components/navigation/sidebar/index.d.ts",

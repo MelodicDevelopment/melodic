@@ -1,6 +1,6 @@
 import { MelodicComponent, Service, html } from '@melodicdev/core';
 import type { IElementRef } from '@melodicdev/core';
-import { DialogService, ToastService, type UniqueID, type ThemeMode, type SelectOption } from '@melodicdev/components';
+import { DialogService, ToastService, type UniqueID, type ThemeMode, type SelectOption, type AutocompleteOption, type AutocompleteSearchFn } from '@melodicdev/components';
 import type { TableColumn } from '@melodicdev/components/table';
 import type { DataGridColumn } from '@melodicdev/components/data-grid';
 import type { StepConfig } from '@melodicdev/components/steps';
@@ -74,6 +74,48 @@ export class DemoApp implements IElementRef {
 		if (Array.isArray(values)) {
 			this.multiSelectValues = values;
 		}
+	};
+
+	/** Autocomplete demo data */
+	autocompleteUserOptions: AutocompleteOption[] = [
+		{ value: 'olivia', label: 'Olivia Rhye', subtitle: '@olivia', avatarUrl: 'https://i.pravatar.cc/48?img=5' },
+		{ value: 'phoenix', label: 'Phoenix Baker', subtitle: '@phoenix', avatarUrl: 'https://i.pravatar.cc/48?img=12' },
+		{ value: 'lana', label: 'Lana Steiner', subtitle: '@lana', avatarUrl: 'https://i.pravatar.cc/48?img=32' },
+		{ value: 'demi', label: 'Demi Wilkinson', subtitle: '@demi', avatarUrl: 'https://i.pravatar.cc/48?img=26' },
+		{ value: 'candice', label: 'Candice Wu', subtitle: '@candice', avatarUrl: 'https://i.pravatar.cc/48?img=44' },
+		{ value: 'natali', label: 'Natali Craig', subtitle: '@natali', avatarUrl: 'https://i.pravatar.cc/48?img=47' }
+	];
+
+	multiAutocompleteValues = ['us', 'ca'];
+
+	handleMultiAutocompleteChange = (event: CustomEvent): void => {
+		const { values } = event.detail ?? {};
+		if (Array.isArray(values)) {
+			this.multiAutocompleteValues = values;
+		}
+	};
+
+	autocompleteError = 'Selection is required';
+
+	handleAutocompleteErrorChange = (event: CustomEvent): void => {
+		this.autocompleteError = event.detail.value ? '' : 'Selection is required';
+	};
+
+	autocompleteSearchFn: AutocompleteSearchFn = async (query: string) => {
+		await new Promise((resolve) => setTimeout(resolve, 500));
+		const allOptions: AutocompleteOption[] = [
+			{ value: 'react', label: 'React', subtitle: 'A JavaScript library for building user interfaces', icon: 'code' },
+			{ value: 'angular', label: 'Angular', subtitle: 'Platform for building mobile and desktop web apps', icon: 'code' },
+			{ value: 'vue', label: 'Vue', subtitle: 'The progressive JavaScript framework', icon: 'code' },
+			{ value: 'svelte', label: 'Svelte', subtitle: 'Cybernetically enhanced web apps', icon: 'code' },
+			{ value: 'melodic', label: 'Melodic', subtitle: 'Lightweight web component framework', icon: 'music-notes' },
+			{ value: 'solid', label: 'SolidJS', subtitle: 'Simple and performant reactivity', icon: 'code' },
+			{ value: 'lit', label: 'Lit', subtitle: 'Simple. Fast. Web Components.', icon: 'code' },
+			{ value: 'preact', label: 'Preact', subtitle: 'Fast 3kB alternative to React', icon: 'code' }
+		];
+		if (!query) return allOptions;
+		const q = query.toLowerCase();
+		return allOptions.filter((o) => o.label.toLowerCase().includes(q) || (o.subtitle?.toLowerCase().includes(q) ?? false));
 	};
 
 	openDialog(dialogID: UniqueID | string): void {

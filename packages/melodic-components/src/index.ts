@@ -14,6 +14,7 @@ export * from './components/forms/checkbox/index.js';
 export * from './components/forms/radio/index.js';
 export * from './components/forms/toggle/index.js';
 export * from './components/forms/select/index.js';
+export * from './components/forms/autocomplete/index.js';
 export * from './components/forms/slider/index.js';
 export * from './components/forms/form-field/index.js';
 
