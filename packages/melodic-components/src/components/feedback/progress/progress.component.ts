@@ -26,82 +26,82 @@ type ProgressLabelPosition = 'top' | 'right' | 'bottom' | 'floating-top' | 'floa
 	attributes: ['value', 'max', 'variant', 'size', 'label', 'show-value', 'shape', 'label-position']
 })
 export class ProgressComponent implements IElementRef {
-	elementRef!: HTMLElement;
+	public elementRef!: HTMLElement;
 
 	/** Current value (0-max) */
-	value = 0;
+	public value = 0;
 
 	/** Maximum value */
-	max = 100;
+	public max = 100;
 
 	/** Color variant */
-	variant: ProgressVariant = 'primary';
+	public variant: ProgressVariant = 'primary';
 
 	/** Bar height / circle size */
-	size: ProgressSize = 'md';
+	public size: ProgressSize = 'md';
 
 	/** Optional label */
-	label = '';
+	public label = '';
 
 	/** Show percentage text */
-	showValue = false;
+	public showValue = false;
 
 	/** Shape: linear bar, full circle, or half circle */
-	shape: ProgressShape = 'linear';
+	public shape: ProgressShape = 'linear';
 
 	/** Label position for linear bars */
-	labelPosition: ProgressLabelPosition = 'top';
+	public labelPosition: ProgressLabelPosition = 'top';
 
-	get percentage(): number {
+	public get percentage(): number {
 		const max = Math.max(this.max, 1);
 		return Math.min(Math.max((this.value / max) * 100, 0), 100);
 	}
 
-	get displayValue(): string {
+	public get displayValue(): string {
 		return `${Math.round(this.percentage)}%`;
 	}
 
 	/** SVG circle radius based on size */
-	get circleRadius(): number {
+	public get circleRadius(): number {
 		if (this.size === 'sm') return 28;
 		if (this.size === 'lg') return 52;
 		return 40;
 	}
 
 	/** SVG stroke width based on size */
-	get circleStroke(): number {
+	public get circleStroke(): number {
 		if (this.size === 'sm') return 4;
 		if (this.size === 'lg') return 8;
 		return 6;
 	}
 
 	/** Full circumference for stroke-dasharray */
-	get circumference(): number {
+	public get circumference(): number {
 		return 2 * Math.PI * this.circleRadius;
 	}
 
 	/** Half circumference for half-circle */
-	get halfCircumference(): number {
+	public get halfCircumference(): number {
 		return Math.PI * this.circleRadius;
 	}
 
 	/** Dash offset for full circle */
-	get circleDashOffset(): number {
+	public get circleDashOffset(): number {
 		return this.circumference - (this.percentage / 100) * this.circumference;
 	}
 
 	/** Dash offset for half circle */
-	get halfCircleDashOffset(): number {
+	public get halfCircleDashOffset(): number {
 		return this.halfCircumference - (this.percentage / 100) * this.halfCircumference;
 	}
 
 	/** SVG viewBox size */
-	get svgSize(): number {
+	public get svgSize(): number {
 		return (this.circleRadius + this.circleStroke) * 2;
 	}
 
 	/** SVG center point */
-	get svgCenter(): number {
+	public get svgCenter(): number {
 		return this.circleRadius + this.circleStroke;
 	}
 }

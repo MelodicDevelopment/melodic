@@ -26,23 +26,23 @@ type BadgePosition = 'leading' | 'trailing';
 	attributes: ['label', 'variant', 'theme', 'size', 'badge-position', 'icon']
 })
 export class BadgeGroupComponent implements IElementRef {
-	elementRef!: HTMLElement;
+	public elementRef!: HTMLElement;
 
 	/** Inner badge label text */
-	label = '';
+	public label = '';
 
 	/** Color variant */
-	variant: BadgeVariant = 'default';
+	public variant: BadgeVariant = 'default';
 
 	/** Visual theme */
-	theme: BadgeGroupTheme = 'pill';
+	public theme: BadgeGroupTheme = 'pill';
 
 	/** Size */
-	size: 'sm' | 'md' | 'lg' = 'md';
+	public size: 'sm' | 'md' | 'lg' = 'md';
 
 	/** Position of the inner badge */
-	badgePosition: BadgePosition = 'leading';
+	public badgePosition: BadgePosition = 'leading';
 
 	/** Optional trailing icon name */
-	icon = '';
+	public icon = '';
 }

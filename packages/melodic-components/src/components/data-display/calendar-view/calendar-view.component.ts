@@ -55,48 +55,48 @@ import { calendarViewStyles } from './calendar-view.styles.js';
 	]
 })
 export class CalendarViewComponent implements IElementRef, OnCreate, OnDestroy, OnRender {
-	elementRef!: HTMLElement;
+	public elementRef!: HTMLElement;
 
 	/** Current view mode */
-	view: CalendarViewMode = 'month';
+	public view: CalendarViewMode = 'month';
 
 	/** Navigated date (ISO date string) */
-	date = '';
+	public date = '';
 
 	/** Day the week starts on (0=Sunday, 1=Monday) */
-	weekStartsOn = 0;
+	public weekStartsOn = 0;
 
 	/** Maximum visible events per day cell in month view */
-	maxVisibleEvents = 3;
+	public maxVisibleEvents = 3;
 
 	/** Label for the add event button */
-	addButtonText = 'Add event';
+	public addButtonText = 'Add event';
 
 	/** Hide prev/next navigation arrows */
-	hideNav = false;
+	public hideNav = false;
 
 	/** Hide the "Today" button */
-	hideTodayButton = false;
+	public hideTodayButton = false;
 
 	/** Hide the view dropdown */
-	hideViewSelector = false;
+	public hideViewSelector = false;
 
 	/** Hide the add event button */
-	hideAddButton = false;
+	public hideAddButton = false;
 
 	/** Calendar events (property-only) */
-	events: CalendarEvent[] = [];
+	public events: CalendarEvent[] = [];
 
 	/** Whether the view dropdown is open */
-	isViewDropdownOpen = false;
+	public isViewDropdownOpen = false;
 
 	/** Check if header-left slot has consumer content */
-	get hasHeaderLeftSlot(): boolean {
+	public get hasHeaderLeftSlot(): boolean {
 		return this.elementRef?.querySelector('[slot="header-left"]') !== null;
 	}
 
 	/** Check if header-actions slot has consumer content */
-	get hasHeaderActionsSlot(): boolean {
+	public get hasHeaderActionsSlot(): boolean {
 		return this.elementRef?.querySelector('[slot="header-actions"]') !== null;
 	}
 
@@ -113,7 +113,7 @@ export class CalendarViewComponent implements IElementRef, OnCreate, OnDestroy, 
 		return new Date();
 	}
 
-	onCreate(): void {
+	public onCreate(): void {
 		// Initialize date if not set
 		if (!this.date) {
 			const now = new Date();
@@ -138,13 +138,13 @@ export class CalendarViewComponent implements IElementRef, OnCreate, OnDestroy, 
 		document.addEventListener('click', this._boundCloseDropdown, true);
 	}
 
-	onDestroy(): void {
+	public onDestroy(): void {
 		if (this._boundCloseDropdown) {
 			document.removeEventListener('click', this._boundCloseDropdown, true);
 		}
 	}
 
-	onRender(): void {
+	public onRender(): void {
 		// Auto-scroll time grid to ~6 AM on initial load
 		if ((this.view === 'week' || this.view === 'day') && !this._hasScrolledToTime) {
 			const shadow = this.elementRef.shadowRoot;
@@ -160,23 +160,23 @@ export class CalendarViewComponent implements IElementRef, OnCreate, OnDestroy, 
 
 	/* ── Header computed getters ── */
 
-	get todayMonthAbbrev(): string {
+	public get todayMonthAbbrev(): string {
 		return getMonthAbbrev(new Date());
 	}
 
-	get todayDayNumber(): number {
+	public get todayDayNumber(): number {
 		return new Date().getDate();
 	}
 
-	get headerTitle(): string {
+	public get headerTitle(): string {
 		return formatMonthYear(this._currentDate);
 	}
 
-	get weekNumber(): number {
+	public get weekNumber(): number {
 		return getISOWeekNumber(this._currentDate);
 	}
 
-	get headerSubtitle(): string {
+	public get headerSubtitle(): string {
 		if (this.view === 'month') {
 			return `Week ${this.weekNumber}`;
 		}
@@ -189,18 +189,18 @@ export class CalendarViewComponent implements IElementRef, OnCreate, OnDestroy, 
 		return getDayName(this._currentDate);
 	}
 
-	get currentIsoDate(): string {
+	public get currentIsoDate(): string {
 		const d = this._currentDate;
 		return toIsoDate(d.getFullYear(), d.getMonth(), d.getDate());
 	}
 
 	/* ── Month view getters ── */
 
-	get weekdayHeaders(): { short: string; full: string }[] {
+	public get weekdayHeaders(): { short: string; full: string }[] {
 		return getWeekdayHeaders(this.weekStartsOn);
 	}
 
-	get monthGrid(): CalendarDayCell[] {
+	public get monthGrid(): CalendarDayCell[] {
 		const d = this._currentDate;
 		const grid = getMonthGrid(d.getFullYear(), d.getMonth(), this.weekStartsOn);
 		// Populate events for each day cell
@@ -212,50 +212,50 @@ export class CalendarViewComponent implements IElementRef, OnCreate, OnDestroy, 
 
 	/* ── Week view getters ── */
 
-	get weekColumns(): CalendarTimeColumn[] {
+	public get weekColumns(): CalendarTimeColumn[] {
 		return getWeekColumns(this._currentDate, this.weekStartsOn, this.events);
 	}
 
-	get timeSlots(): { label: string; hour: number; minute: number }[] {
+	public get timeSlots(): { label: string; hour: number; minute: number }[] {
 		return getTimeSlots();
 	}
 
 	/* ── Day view getters ── */
 
-	get dayColumn(): CalendarTimeColumn {
+	public get dayColumn(): CalendarTimeColumn {
 		return getDayColumn(this._currentDate, this.events);
 	}
 
-	get dayEvents(): CalendarEvent[] {
+	public get dayEvents(): CalendarEvent[] {
 		return getEventsForDate(this.events, this.currentIsoDate);
 	}
 
-	get dayViewDateLabel(): string {
+	public get dayViewDateLabel(): string {
 		const d = this._currentDate;
 		return d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
 	}
 
 	/* ── Mini calendar getters (day view sidebar) ── */
 
-	get miniCalendarTitle(): string {
+	public get miniCalendarTitle(): string {
 		return formatMonthYear(new Date(this._miniCalYear, this._miniCalMonth, 1));
 	}
 
-	get miniCalendarWeekdays(): string[] {
+	public get miniCalendarWeekdays(): string[] {
 		return getWeekdayHeaders(this.weekStartsOn).map((h) => h.short.charAt(0));
 	}
 
-	get miniCalendarGrid(): CalendarDayCell[] {
+	public get miniCalendarGrid(): CalendarDayCell[] {
 		return getMiniGrid(this._miniCalYear, this._miniCalMonth, this.weekStartsOn);
 	}
 
-	get miniCalendarDots(): Set<string> {
+	public get miniCalendarDots(): Set<string> {
 		return getMiniCalendarDots(this._miniCalYear, this._miniCalMonth, this.events);
 	}
 
 	/* ── Navigation handlers ── */
 
-	navigatePrev = (): void => {
+	public navigatePrev = (): void => {
 		const d = this._currentDate;
 		let next: Date;
 		if (this.view === 'month') {
@@ -268,7 +268,7 @@ export class CalendarViewComponent implements IElementRef, OnCreate, OnDestroy, 
 		this.setDate(next);
 	};
 
-	navigateNext = (): void => {
+	public navigateNext = (): void => {
 		const d = this._currentDate;
 		let next: Date;
 		if (this.view === 'month') {
@@ -281,17 +281,17 @@ export class CalendarViewComponent implements IElementRef, OnCreate, OnDestroy, 
 		this.setDate(next);
 	};
 
-	goToToday = (): void => {
+	public goToToday = (): void => {
 		this.setDate(new Date());
 	};
 
 	/* ── View dropdown ── */
 
-	toggleViewDropdown = (): void => {
+	public toggleViewDropdown = (): void => {
 		this.isViewDropdownOpen = !this.isViewDropdownOpen;
 	};
 
-	setView = (view: CalendarViewMode): void => {
+	public setView = (view: CalendarViewMode): void => {
 		this.view = view;
 		this.isViewDropdownOpen = false;
 		this._hasScrolledToTime = false;
@@ -306,7 +306,7 @@ export class CalendarViewComponent implements IElementRef, OnCreate, OnDestroy, 
 
 	/* ── Event handlers ── */
 
-	handleEventClick = (event: CalendarEvent): void => {
+	public handleEventClick = (event: CalendarEvent): void => {
 		this.elementRef.dispatchEvent(
 			new CustomEvent('ml:event-click', {
 				bubbles: true,
@@ -316,7 +316,7 @@ export class CalendarViewComponent implements IElementRef, OnCreate, OnDestroy, 
 		);
 	};
 
-	handleDateClick = (iso: string): void => {
+	public handleDateClick = (iso: string): void => {
 		this.elementRef.dispatchEvent(
 			new CustomEvent('ml:date-click', {
 				bubbles: true,
@@ -326,7 +326,7 @@ export class CalendarViewComponent implements IElementRef, OnCreate, OnDestroy, 
 		);
 	};
 
-	handleAddEvent = (): void => {
+	public handleAddEvent = (): void => {
 		this.elementRef.dispatchEvent(
 			new CustomEvent('ml:add-event', {
 				bubbles: true,
@@ -336,7 +336,7 @@ export class CalendarViewComponent implements IElementRef, OnCreate, OnDestroy, 
 		);
 	};
 
-	handleAddEventOnDate = (iso: string): void => {
+	public handleAddEventOnDate = (iso: string): void => {
 		this.elementRef.dispatchEvent(
 			new CustomEvent('ml:add-event', {
 				bubbles: true,
@@ -346,7 +346,7 @@ export class CalendarViewComponent implements IElementRef, OnCreate, OnDestroy, 
 		);
 	};
 
-	showMoreEvents = (iso: string): void => {
+	public showMoreEvents = (iso: string): void => {
 		// Switch to day view for the date
 		this.date = iso;
 		this.setView('day');
@@ -354,7 +354,7 @@ export class CalendarViewComponent implements IElementRef, OnCreate, OnDestroy, 
 
 	/* ── Mini calendar handlers ── */
 
-	miniCalPrevMonth = (): void => {
+	public miniCalPrevMonth = (): void => {
 		if (this._miniCalMonth === 0) {
 			this._miniCalMonth = 11;
 			this._miniCalYear--;
@@ -363,7 +363,7 @@ export class CalendarViewComponent implements IElementRef, OnCreate, OnDestroy, 
 		}
 	};
 
-	miniCalNextMonth = (): void => {
+	public miniCalNextMonth = (): void => {
 		if (this._miniCalMonth === 11) {
 			this._miniCalMonth = 0;
 			this._miniCalYear++;
@@ -372,7 +372,7 @@ export class CalendarViewComponent implements IElementRef, OnCreate, OnDestroy, 
 		}
 	};
 
-	handleMiniCalSelect = (iso: string): void => {
+	public handleMiniCalSelect = (iso: string): void => {
 		this.setDate(parseDate(iso));
 	};
 

@@ -22,8 +22,8 @@ import { iconStyles } from './icon.styles.js';
 })
 export class IconComponent {
 	/** phosphor icon ligature */
-	icon: string = '';
+	public icon: string = '';
 
 	/** phosphor icon format */
-	format: 'bold' | 'fill' | 'light' | 'regular' | 'thin' = 'regular';
+	public format: 'bold' | 'fill' | 'light' | 'regular' | 'thin' = 'regular';
 }

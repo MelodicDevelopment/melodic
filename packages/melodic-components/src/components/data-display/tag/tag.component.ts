@@ -28,40 +28,40 @@ import { tagStyles } from './tag.styles.js';
 	attributes: ['size', 'dot', 'dot-color', 'closable', 'avatar-src', 'icon', 'count', 'checkable', 'checked', 'disabled']
 })
 export class TagComponent implements IElementRef {
-	elementRef!: HTMLElement;
+	public elementRef!: HTMLElement;
 
 	/** Tag size */
-	size: Size = 'md';
+	public size: Size = 'md';
 
 	/** Show dot indicator */
-	dot = false;
+	public dot = false;
 
 	/** Dot color */
-	'dot-color': TagDotColor = 'success';
+	public 'dot-color': TagDotColor = 'success';
 
 	/** Show close button */
-	closable = false;
+	public closable = false;
 
 	/** Avatar image source */
-	'avatar-src' = '';
+	public 'avatar-src' = '';
 
 	/** Icon name (Phosphor icon) */
-	icon = '';
+	public icon = '';
 
 	/** Count value displayed on the right */
-	count = '';
+	public count = '';
 
 	/** Show checkbox */
-	checkable = false;
+	public checkable = false;
 
 	/** Checkbox checked state */
-	checked = false;
+	public checked = false;
 
 	/** Disabled state */
-	disabled = false;
+	public disabled = false;
 
 	/** Handle close button click */
-	handleClose = (event: Event): void => {
+	public handleClose = (event: Event): void => {
 		event.stopPropagation();
 		if (this.disabled) return;
 
@@ -74,7 +74,7 @@ export class TagComponent implements IElementRef {
 	};
 
 	/** Handle checkbox change */
-	handleCheck = (event: Event): void => {
+	public handleCheck = (event: Event): void => {
 		event.stopPropagation();
 		if (this.disabled) return;
 

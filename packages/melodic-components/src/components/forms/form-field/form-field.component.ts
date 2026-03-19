@@ -32,55 +32,55 @@ import { formFieldStyles } from './form-field.styles.js';
 	attributes: ['label', 'hint', 'error', 'size', 'orientation', 'disabled', 'required']
 })
 export class FormFieldComponent implements IElementRef, OnCreate {
-	elementRef!: HTMLElement;
+	public elementRef!: HTMLElement;
 
 	/** Label text */
-	label = '';
+	public label = '';
 
 	/** Hint text shown below the control */
-	hint = '';
+	public hint = '';
 
 	/** Error message (shows error state when set) */
-	error = '';
+	public error = '';
 
 	/** Field size */
-	size: Size = 'md';
+	public size: Size = 'md';
 
 	/** Layout orientation */
-	orientation: FormFieldOrientation = 'vertical';
+	public orientation: FormFieldOrientation = 'vertical';
 
 	/** Disabled state */
-	disabled = false;
+	public disabled = false;
 
 	/** Required field indicator */
-	required = false;
+	public required = false;
 
 	/** Unique ID for connecting label to control */
 	private readonly _fieldId = `ml-form-field-${Math.random().toString(36).slice(2, 9)}`;
 
-	get fieldId(): string {
+	public get fieldId(): string {
 		return this._fieldId;
 	}
 
-	get hintId(): string {
+	public get hintId(): string {
 		return `${this._fieldId}-hint`;
 	}
 
-	get errorId(): string {
+	public get errorId(): string {
 		return `${this._fieldId}-error`;
 	}
 
-	get describedBy(): string {
+	public get describedBy(): string {
 		if (this.error) return this.errorId;
 		if (this.hint) return this.hintId;
 		return '';
 	}
 
-	onCreate(): void {
+	public onCreate(): void {
 		this.connectSlottedControl();
 	}
 
-	handleSlotChange = (): void => {
+	public handleSlotChange = (): void => {
 		this.connectSlottedControl();
 	};
 

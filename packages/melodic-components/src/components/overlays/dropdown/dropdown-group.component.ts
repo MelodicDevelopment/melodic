@@ -23,5 +23,5 @@ import { dropdownGroupStyles } from './dropdown-group.styles.js';
 })
 export class DropdownGroupComponent {
 	/** Optional uppercase muted header label */
-	label = '';
+	public label = '';
 }

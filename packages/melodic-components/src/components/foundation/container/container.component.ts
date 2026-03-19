@@ -28,18 +28,18 @@ type ContainerSize = 'sm' | 'md' | 'lg' | 'xl' | 'full';
 	attributes: ['size', 'padding', 'centered']
 })
 export class ContainerComponent implements IElementRef {
-	elementRef!: HTMLElement;
+	public elementRef!: HTMLElement;
 
 	/** Max-width preset */
-	size: ContainerSize = 'lg';
+	public size: ContainerSize = 'lg';
 
 	/** Horizontal padding (spacing scale: 1-12) */
-	padding: string = '4';
+	public padding: string = '4';
 
 	/** Center the container with auto margins */
-	centered = true;
+	public centered = true;
 
-	getStyles(): Record<string, string> {
+	public getStyles(): Record<string, string> {
 		const maxWidthMap: Record<ContainerSize, string> = {
 			sm: '640px',
 			md: '768px',

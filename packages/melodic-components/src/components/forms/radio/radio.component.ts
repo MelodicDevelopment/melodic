@@ -22,30 +22,30 @@ import { radioStyles } from './radio.styles.js';
 	attributes: ['name', 'value', 'label', 'hint', 'size', 'checked', 'disabled']
 })
 export class RadioComponent implements IElementRef {
-	elementRef!: HTMLElement;
+	public elementRef!: HTMLElement;
 
 	/** Radio group name */
-	name = '';
+	public name = '';
 
 	/** Radio value */
-	value = '';
+	public value = '';
 
 	/** Radio label */
-	label = '';
+	public label = '';
 
 	/** Hint text */
-	hint = '';
+	public hint = '';
 
 	/** Radio size */
-	size: Size = 'md';
+	public size: Size = 'md';
 
 	/** Checked state */
-	checked = false;
+	public checked = false;
 
 	/** Disabled state */
-	disabled = false;
+	public disabled = false;
 
-	handleChange = (): void => {
+	public handleChange = (): void => {
 		this.checked = true;
 
 		this.elementRef.dispatchEvent(

@@ -56,6 +56,10 @@ export default [
 				{ selector: 'classProperty', modifiers: ['private'], format: ['camelCase'], leadingUnderscore: 'require' },
 				{ selector: 'classProperty', modifiers: ['protected', 'public'], format: ['camelCase'], leadingUnderscore: 'forbid' }
 			],
+			'@typescript-eslint/explicit-member-accessibility': ['error', {
+				accessibility: 'explicit',
+				overrides: { constructors: 'off' }
+			}],
 			'@typescript-eslint/no-explicit-any': 'warn',
 			'@typescript-eslint/no-unused-vars': [
 				'error',

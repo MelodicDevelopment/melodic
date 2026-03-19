@@ -30,44 +30,44 @@ export type SidebarPosition = 'left' | 'right';
 	attributes: ['sidebar-position', 'sidebar-collapsed', 'header-fixed']
 })
 export class AppShellComponent implements IElementRef, OnCreate, OnDestroy {
-	elementRef!: HTMLElement;
+	public elementRef!: HTMLElement;
 
 	/** Position of the sidebar: 'left' or 'right' */
-	'sidebar-position': SidebarPosition = 'left';
+	public 'sidebar-position': SidebarPosition = 'left';
 
 	/** Whether the sidebar is collapsed */
-	'sidebar-collapsed' = false;
+	public 'sidebar-collapsed' = false;
 
 	/** Whether the header is fixed/sticky */
-	'header-fixed' = false;
+	public 'header-fixed' = false;
 
 	/** Whether the viewport is mobile-sized (<768px) */
-	mobile = false;
+	public mobile = false;
 
 	/** Whether the mobile sidebar drawer is open */
-	mobileOpen = false;
+	public mobileOpen = false;
 
 	/** Media query for responsive behavior */
 	private _mediaQuery: MediaQueryList | null = null;
 	private readonly _handleMediaChange = this.onMediaChange.bind(this);
 
-	onCreate(): void {
+	public onCreate(): void {
 		this._mediaQuery = window.matchMedia('(min-width: 768px)');
 		this._mediaQuery.addEventListener('change', this._handleMediaChange);
 		this.mobile = !this._mediaQuery.matches;
 	}
 
-	onDestroy(): void {
+	public onDestroy(): void {
 		this._mediaQuery?.removeEventListener('change', this._handleMediaChange);
 	}
 
 	/** Toggle mobile sidebar drawer */
-	toggleMobileSidebar = (): void => {
+	public toggleMobileSidebar = (): void => {
 		this.mobileOpen = !this.mobileOpen;
 	};
 
 	/** Close mobile sidebar */
-	closeMobileSidebar = (): void => {
+	public closeMobileSidebar = (): void => {
 		this.mobileOpen = false;
 	};
 

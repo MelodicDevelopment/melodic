@@ -23,39 +23,39 @@ import { radioCardGroupStyles } from './radio-card-group.styles.js';
 	attributes: ['value', 'label', 'hint', 'error', 'orientation', 'disabled', 'required']
 })
 export class RadioCardGroupComponent implements IElementRef, OnCreate, OnDestroy {
-	elementRef!: HTMLElement;
+	public elementRef!: HTMLElement;
 
 	/** Currently selected value */
-	value = '';
+	public value = '';
 
 	/** Group label */
-	label = '';
+	public label = '';
 
 	/** Hint text */
-	hint = '';
+	public hint = '';
 
 	/** Error message */
-	error = '';
+	public error = '';
 
 	/** Layout orientation */
-	orientation: 'vertical' | 'horizontal' = 'vertical';
+	public orientation: 'vertical' | 'horizontal' = 'vertical';
 
 	/** Disabled state */
-	disabled = false;
+	public disabled = false;
 
 	/** Required state */
-	required = false;
+	public required = false;
 
-	onCreate(): void {
+	public onCreate(): void {
 		this.elementRef.addEventListener('ml:card-select', this._handleCardSelect as EventListener);
 		this.syncCards();
 	}
 
-	onDestroy(): void {
+	public onDestroy(): void {
 		this.elementRef.removeEventListener('ml:card-select', this._handleCardSelect as EventListener);
 	}
 
-	handleSlotChange = (): void => {
+	public handleSlotChange = (): void => {
 		this.syncCards();
 	};
 

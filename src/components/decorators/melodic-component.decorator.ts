@@ -26,7 +26,7 @@ export function MelodicComponent<C extends Component>(meta: TypedComponentMeta<C
 					super(meta, Reflect.construct(component, dependencies));
 				}
 
-				static readonly observedAttributes: string[] = meta.attributes ?? [];
+				public static readonly observedAttributes: string[] = meta.attributes ?? [];
 			};
 
 			const componentWithSelector: INewable<C> & { selector?: string } = component as INewable<C> & { selector?: string };

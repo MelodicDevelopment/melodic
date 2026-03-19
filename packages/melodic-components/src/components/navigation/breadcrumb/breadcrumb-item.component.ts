@@ -21,21 +21,21 @@ import { breadcrumbItemStyles } from './breadcrumb-item.styles.js';
 	attributes: ['href', 'icon', 'current', 'separator']
 })
 export class BreadcrumbItemComponent implements IElementRef, OnCreate {
-	elementRef!: HTMLElement;
+	public elementRef!: HTMLElement;
 
 	/** Link URL (omit for current/non-clickable page) */
-	href = '';
+	public href = '';
 
 	/** Optional left icon */
-	icon = '';
+	public icon = '';
 
 	/** Marks as the current/active page */
-	current = false;
+	public current = false;
 
 	/** Separator type inherited from parent (set via CSS/attribute) */
-	separator: 'slash' | 'chevron' = 'chevron';
+	public separator: 'slash' | 'chevron' = 'chevron';
 
-	onCreate(): void {
+	public onCreate(): void {
 		const parent = this.elementRef.closest('ml-breadcrumb');
 		if (parent) {
 			const sep = parent.getAttribute('separator');

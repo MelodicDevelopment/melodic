@@ -32,27 +32,27 @@ import { buttonStyles } from './button.styles.js';
 	attributes: ['variant', 'size', 'type', 'disabled', 'loading', 'full-width']
 })
 export class ButtonComponent implements IElementRef, OnInit {
-	elementRef!: HTMLElement;
+	public elementRef!: HTMLElement;
 
 	/** Button variant style */
-	variant: ButtonVariant = 'primary';
+	public variant: ButtonVariant = 'primary';
 
 	/** Button size */
-	size: Size = 'md';
+	public size: Size = 'md';
 
 	/** HTML button type */
-	type: ButtonType = 'button';
+	public type: ButtonType = 'button';
 
 	/** Disable the button */
-	disabled = false;
+	public disabled = false;
 
 	/** Show loading state */
-	loading = false;
+	public loading = false;
 
 	/** Make button full width */
-	fullWidth = false;
+	public fullWidth = false;
 
-	onInit(): void {
+	public onInit(): void {
 		// Ensure proper ARIA role
 		if (!this.elementRef.hasAttribute('role')) {
 			this.elementRef.setAttribute('role', 'button');
@@ -60,12 +60,12 @@ export class ButtonComponent implements IElementRef, OnInit {
 	}
 
 	/** Whether the button is effectively disabled */
-	get isDisabled(): boolean {
+	public get isDisabled(): boolean {
 		return this.disabled || this.loading;
 	}
 
 	/** Handle click events */
-	handleClick = (event: MouseEvent): void => {
+	public handleClick = (event: MouseEvent): void => {
 		if (this.isDisabled) {
 			event.preventDefault();
 			event.stopPropagation();

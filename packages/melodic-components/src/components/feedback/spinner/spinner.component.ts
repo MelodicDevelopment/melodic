@@ -21,11 +21,11 @@ import { spinnerStyles } from './spinner.styles.js';
 	attributes: ['size', 'label']
 })
 export class SpinnerComponent implements IElementRef {
-	elementRef!: HTMLElement;
+	public elementRef!: HTMLElement;
 
 	/** Size of the spinner */
-	size: Size = 'md';
+	public size: Size = 'md';
 
 	/** Accessible label for screen readers */
-	label = 'Loading';
+	public label = 'Loading';
 }

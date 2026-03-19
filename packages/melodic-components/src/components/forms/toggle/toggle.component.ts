@@ -23,24 +23,24 @@ import { toggleStyles } from './toggle.styles.js';
 	attributes: ['label', 'hint', 'size', 'checked', 'disabled']
 })
 export class ToggleComponent implements IElementRef {
-	elementRef!: HTMLElement;
+	public elementRef!: HTMLElement;
 
 	/** Toggle label */
-	label = '';
+	public label = '';
 
 	/** Hint text */
-	hint = '';
+	public hint = '';
 
 	/** Toggle size */
-	size: Size = 'md';
+	public size: Size = 'md';
 
 	/** Checked state */
-	checked = false;
+	public checked = false;
 
 	/** Disabled state */
-	disabled = false;
+	public disabled = false;
 
-	handleChange = (event: Event): void => {
+	public handleChange = (event: Event): void => {
 		if (this.disabled) {
 			event.preventDefault();
 			return;

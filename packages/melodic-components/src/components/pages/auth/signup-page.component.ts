@@ -39,24 +39,24 @@ import { signupPageStyles } from './signup-page.styles.js';
 	attributes: ['variant', 'title', 'description']
 })
 export class SignupPageComponent implements IElementRef {
-	elementRef!: HTMLElement;
+	public elementRef!: HTMLElement;
 
 	/** Layout variant */
-	variant: 'centered' | 'split' = 'centered';
+	public variant: 'centered' | 'split' = 'centered';
 
 	/** Page title */
-	title = 'Create an account';
+	public title = 'Create an account';
 
 	/** Page description */
-	description = 'Start your journey today.';
+	public description = 'Start your journey today.';
 
 	/** Check if header slot has content */
-	get hasHeaderSlot(): boolean {
+	public get hasHeaderSlot(): boolean {
 		return this.elementRef?.querySelector('[slot="header"]') !== null;
 	}
 
 	/** Check if brand slot has content */
-	get hasBrandSlot(): boolean {
+	public get hasBrandSlot(): boolean {
 		return this.elementRef?.querySelector('[slot="brand"]') !== null;
 	}
 }

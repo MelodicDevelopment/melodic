@@ -26,8 +26,8 @@ type BreadcrumbSeparator = 'slash' | 'chevron';
 	attributes: ['separator']
 })
 export class BreadcrumbComponent implements IElementRef {
-	elementRef!: HTMLElement;
+	public elementRef!: HTMLElement;
 
 	/** Separator style between items */
-	separator: BreadcrumbSeparator = 'chevron';
+	public separator: BreadcrumbSeparator = 'chevron';
 }

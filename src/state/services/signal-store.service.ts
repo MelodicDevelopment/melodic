@@ -20,19 +20,19 @@ export class SignalStoreService<S> {
 		}
 	}
 
-	select<T, K extends keyof S>(key: K, selectFn: (state: S[K]) => T): Signal<T> {
+	public select<T, K extends keyof S>(key: K, selectFn: (state: S[K]) => T): Signal<T> {
 		return computed(() => {
 			return selectFn(this._state[key]());
 		});
 	}
 
-	logState(): void {
+	public logState(): void {
 		console.log(this.getCurrentState());
 	}
 
-	dispatch<T extends ActionIdentifier, P extends ActionPayload>(action: TypedAction<T, P>): void;
-	dispatch<K extends keyof S, T extends ActionIdentifier, P extends ActionPayload>(key: K, action: TypedAction<T, P>): void;
-	dispatch<K extends keyof S, T extends ActionIdentifier, P extends ActionPayload>(x: K | TypedAction<T, P>, y?: TypedAction<T, P>): void {
+	public dispatch<T extends ActionIdentifier, P extends ActionPayload>(action: TypedAction<T, P>): void;
+	public dispatch<K extends keyof S, T extends ActionIdentifier, P extends ActionPayload>(key: K, action: TypedAction<T, P>): void;
+	public dispatch<K extends keyof S, T extends ActionIdentifier, P extends ActionPayload>(x: K | TypedAction<T, P>, y?: TypedAction<T, P>): void {
 		const key = typeof x === 'string' ? x : undefined;
 		const action: TypedAction<T, P> = (typeof x === 'string' ? y : x) as TypedAction<T, P>;
 

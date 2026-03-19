@@ -23,7 +23,7 @@ export class DialogComponent implements IElementRef, OnCreate, OnDestroy {
 	private _dialogRef!: DialogRef;
 	private _registered = false;
 
-	onCreate(): void {
+	public onCreate(): void {
 		this.registerDialog();
 	}
 
@@ -40,16 +40,16 @@ export class DialogComponent implements IElementRef, OnCreate, OnDestroy {
 		this._registered = true;
 	}
 
-	onDestroy(): void {
+	public onDestroy(): void {
 		this._dialogService.removeDialog(this._dialogID);
 	}
 
-	open(): void {
+	public open(): void {
 		this.registerDialog();
 		this._dialogRef.open();
 	}
 
-	close<T = unknown>(result?: T): void {
+	public close<T = unknown>(result?: T): void {
 		this._dialogRef.close(result);
 	}
 

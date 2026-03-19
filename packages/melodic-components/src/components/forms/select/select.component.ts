@@ -45,49 +45,49 @@ import { selectStyles } from './select.styles.js';
 	attributes: ['label', 'placeholder', 'hint', 'error', 'size', 'disabled', 'required', 'value', 'multiple']
 })
 export class SelectComponent implements IElementRef, OnCreate, OnDestroy {
-	elementRef!: HTMLElement;
+	public elementRef!: HTMLElement;
 
 	/** Label text */
-	label = '';
+	public label = '';
 
 	/** Placeholder text when no selection */
-	placeholder = 'Select an option';
+	public placeholder = 'Select an option';
 
 	/** Hint text shown below select */
-	hint = '';
+	public hint = '';
 
 	/** Error message (shows error state when set) */
-	error = '';
+	public error = '';
 
 	/** Select size */
-	size: Size = 'md';
+	public size: Size = 'md';
 
 	/** Disable the select */
-	disabled = false;
+	public disabled = false;
 
 	/** Mark as required */
-	required = false;
+	public required = false;
 
 	/** Enable multi-select mode */
-	multiple = false;
+	public multiple = false;
 
 	/** Currently selected value */
-	value = '';
+	public value = '';
 
 	/** Currently selected values (multi-select) */
-	values: string[] = [];
+	public values: string[] = [];
 
 	/** Available options */
-	options: SelectOption[] = [];
+	public options: SelectOption[] = [];
 
 	/** Search query for inline filtering */
-	search = '';
+	public search = '';
 
 	/** Whether dropdown is open */
-	isOpen = false;
+	public isOpen = false;
 
 	/** Currently focused option index for keyboard navigation */
-	focusedIndex = -1;
+	public focusedIndex = -1;
 
 	/** Bound event handlers for cleanup */
 	private readonly _handleKeyDown = this.onKeyDown.bind(this);
@@ -96,18 +96,18 @@ export class SelectComponent implements IElementRef, OnCreate, OnDestroy {
 	private _lastCloseTime = 0;
 	private _syncingValues = false;
 
-	onCreate(): void {
+	public onCreate(): void {
 		this.elementRef.addEventListener('keydown', this._handleKeyDown);
 		this.getDropdownEl()?.addEventListener('toggle', this._handlePopoverToggle);
 	}
 
-	onDestroy(): void {
+	public onDestroy(): void {
 		this.elementRef.removeEventListener('keydown', this._handleKeyDown);
 		this.removeScrollListener();
 		this.getDropdownEl()?.removeEventListener('toggle', this._handlePopoverToggle);
 	}
 
-	onPropertyChange(name: string): void {
+	public onPropertyChange(name: string): void {
 		if (this._syncingValues) {
 			return;
 		}
@@ -162,12 +162,12 @@ export class SelectComponent implements IElementRef, OnCreate, OnDestroy {
 	}
 
 	/** Get the currently selected option */
-	get selectedOption(): SelectOption | undefined {
+	public get selectedOption(): SelectOption | undefined {
 		return this.options.find((opt) => opt.value === this.value);
 	}
 
 	/** Get the currently selected options (multi-select) */
-	get selectedOptions(): SelectOption[] {
+	public get selectedOptions(): SelectOption[] {
 		if (!this.multiple) {
 			return this.selectedOption ? [this.selectedOption] : [];
 		}
@@ -176,7 +176,7 @@ export class SelectComponent implements IElementRef, OnCreate, OnDestroy {
 	}
 
 	/** Get display text for trigger */
-	get displayText(): string {
+	public get displayText(): string {
 		if (this.multiple) {
 			return this.selectedOptions.map((option) => option.label).join(', ');
 		}
@@ -184,7 +184,7 @@ export class SelectComponent implements IElementRef, OnCreate, OnDestroy {
 		return this.selectedOption?.label || '';
 	}
 
-	get filteredOptions(): SelectOption[] {
+	public get filteredOptions(): SelectOption[] {
 		const query = this.search.trim().toLowerCase();
 		if (!query) return this.options;
 
@@ -195,12 +195,12 @@ export class SelectComponent implements IElementRef, OnCreate, OnDestroy {
 		});
 	}
 
-	get hasValue(): boolean {
+	public get hasValue(): boolean {
 		return this.multiple ? this.values.length > 0 : !!this.value;
 	}
 
 	/** Toggle dropdown open/close */
-	toggle = (): void => {
+	public toggle = (): void => {
 		if (this.disabled) return;
 
 		if (this.multiple) {
@@ -218,19 +218,19 @@ export class SelectComponent implements IElementRef, OnCreate, OnDestroy {
 	};
 
 	/** Open the dropdown */
-	open = (): void => {
+	public open = (): void => {
 		if (this.disabled || this.isOpen) return;
 		this.getDropdownEl()?.showPopover();
 	};
 
 	/** Close the dropdown */
-	close = (): void => {
+	public close = (): void => {
 		if (!this.isOpen) return;
 		this.getDropdownEl()?.hidePopover();
 	};
 
 	/** Select an option */
-	selectOption = (option: SelectOption): void => {
+	public selectOption = (option: SelectOption): void => {
 		if (option.disabled) return;
 
 		if (this.multiple) {
@@ -265,12 +265,12 @@ export class SelectComponent implements IElementRef, OnCreate, OnDestroy {
 	}
 
 	/** Handle click on option */
-	handleOptionClick = (event: Event, option: SelectOption): void => {
+	public handleOptionClick = (event: Event, option: SelectOption): void => {
 		event.stopPropagation();
 		this.selectOption(option);
 	};
 
-	handleTagRemove = (event: Event, value: string): void => {
+	public handleTagRemove = (event: Event, value: string): void => {
 		event.stopPropagation();
 		if (this.disabled) return;
 
@@ -284,7 +284,7 @@ export class SelectComponent implements IElementRef, OnCreate, OnDestroy {
 		);
 	};
 
-	handleSearchInput = (event: Event): void => {
+	public handleSearchInput = (event: Event): void => {
 		if (this.disabled) return;
 		const target = event.target as HTMLInputElement;
 		this.search = target.value;
@@ -294,7 +294,7 @@ export class SelectComponent implements IElementRef, OnCreate, OnDestroy {
 		}
 	};
 
-	handleSearchClick = (event: Event): void => {
+	public handleSearchClick = (event: Event): void => {
 		event.stopPropagation();
 		if (!this.isOpen) {
 			this.open();

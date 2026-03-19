@@ -24,33 +24,33 @@ import { radioGroupStyles } from './radio-group.styles.js';
 	attributes: ['label', 'name', 'value', 'hint', 'error', 'orientation', 'disabled', 'required']
 })
 export class RadioGroupComponent implements IElementRef, OnInit {
-	elementRef!: HTMLElement;
+	public elementRef!: HTMLElement;
 
 	/** Group label */
-	label = '';
+	public label = '';
 
 	/** Form field name */
-	name = '';
+	public name = '';
 
 	/** Current selected value */
-	value = '';
+	public value = '';
 
 	/** Hint text */
-	hint = '';
+	public hint = '';
 
 	/** Error message */
-	error = '';
+	public error = '';
 
 	/** Layout orientation */
-	orientation: Orientation = 'vertical';
+	public orientation: Orientation = 'vertical';
 
 	/** Disabled state */
-	disabled = false;
+	public disabled = false;
 
 	/** Required state */
-	required = false;
+	public required = false;
 
-	onInit(): void {
+	public onInit(): void {
 		// Listen for changes from child radios
 		this.elementRef.addEventListener('ml:change', this.handleChildChange as EventListener);
 

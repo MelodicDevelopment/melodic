@@ -45,28 +45,28 @@ function todayIso(): string {
 	attributes: ['value', 'min', 'max']
 })
 export class CalendarComponent implements IElementRef, OnInit, OnAttributeChange {
-	elementRef!: HTMLElement;
+	public elementRef!: HTMLElement;
 
 	/** Selected date in ISO format (YYYY-MM-DD) */
-	value = '';
+	public value = '';
 
 	/** Minimum selectable date (YYYY-MM-DD) */
-	min = '';
+	public min = '';
 
 	/** Maximum selectable date (YYYY-MM-DD) */
-	max = '';
+	public max = '';
 
 	/** Currently viewed month (0-11) */
-	viewMonth = new Date().getMonth();
+	public viewMonth = new Date().getMonth();
 
 	/** Currently viewed year */
-	viewYear = new Date().getFullYear();
+	public viewYear = new Date().getFullYear();
 
-	onInit(): void {
+	public onInit(): void {
 		this.navigateToValue();
 	}
 
-	onAttributeChange(name: string, _: unknown, newVal: unknown): void {
+	public onAttributeChange(name: string, _: unknown, newVal: unknown): void {
 		if (name === 'value' && newVal) {
 			this.navigateToValue();
 		}
@@ -81,15 +81,15 @@ export class CalendarComponent implements IElementRef, OnInit, OnAttributeChange
 		}
 	}
 
-	get monthLabel(): string {
+	public get monthLabel(): string {
 		return `${MONTH_NAMES[this.viewMonth]} ${this.viewYear}`;
 	}
 
-	get weekdays(): string[] {
+	public get weekdays(): string[] {
 		return WEEKDAYS;
 	}
 
-	get days(): CalendarDay[] {
+	public get days(): CalendarDay[] {
 		const year = this.viewYear;
 		const month = this.viewMonth;
 		const firstDayOfWeek = new Date(year, month, 1).getDay();
@@ -156,15 +156,15 @@ export class CalendarComponent implements IElementRef, OnInit, OnAttributeChange
 		return result;
 	}
 
-	prevYear = (): void => {
+	public prevYear = (): void => {
 		this.viewYear--;
 	};
 
-	nextYear = (): void => {
+	public nextYear = (): void => {
 		this.viewYear++;
 	};
 
-	prevMonth = (): void => {
+	public prevMonth = (): void => {
 		if (this.viewMonth === 0) {
 			this.viewMonth = 11;
 			this.viewYear--;
@@ -173,7 +173,7 @@ export class CalendarComponent implements IElementRef, OnInit, OnAttributeChange
 		}
 	};
 
-	nextMonth = (): void => {
+	public nextMonth = (): void => {
 		if (this.viewMonth === 11) {
 			this.viewMonth = 0;
 			this.viewYear++;
@@ -182,7 +182,7 @@ export class CalendarComponent implements IElementRef, OnInit, OnAttributeChange
 		}
 	};
 
-	selectDay = (day: CalendarDay): void => {
+	public selectDay = (day: CalendarDay): void => {
 		if (day.isDisabled) return;
 		this.value = day.iso;
 		// Navigate to the selected day's month if it's not the current view
@@ -197,7 +197,7 @@ export class CalendarComponent implements IElementRef, OnInit, OnAttributeChange
 		);
 	};
 
-	goToToday = (): void => {
+	public goToToday = (): void => {
 		const now = new Date();
 		this.viewMonth = now.getMonth();
 		this.viewYear = now.getFullYear();

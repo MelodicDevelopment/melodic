@@ -21,8 +21,8 @@ import { stepPanelStyles } from './step-panel.styles.js';
 	attributes: ['value']
 })
 export class StepPanelComponent implements IElementRef {
-	elementRef!: HTMLElement;
+	public elementRef!: HTMLElement;
 
 	/** Panel identifier (must match ml-step value) */
-	value = '';
+	public value = '';
 }

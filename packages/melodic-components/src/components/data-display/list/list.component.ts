@@ -27,11 +27,11 @@ type ListSize = 'sm' | 'md' | 'lg';
 	attributes: ['variant', 'size']
 })
 export class ListComponent implements IElementRef {
-	elementRef!: HTMLElement;
+	public elementRef!: HTMLElement;
 
 	/** List display variant */
-	variant: ListVariant = 'default';
+	public variant: ListVariant = 'default';
 
 	/** List size (controls item padding) */
-	size: ListSize = 'md';
+	public size: ListSize = 'md';
 }

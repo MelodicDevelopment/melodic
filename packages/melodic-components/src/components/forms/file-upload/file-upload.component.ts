@@ -11,36 +11,36 @@ import { fileUploadStyles } from './file-upload.styles.js';
 	attributes: ['accept', 'multiple', 'max-size', 'max-files', 'disabled', 'label', 'sublabel', 'hint', 'error', 'icon']
 })
 export class FileUploadComponent implements IElementRef {
-	elementRef!: HTMLElement;
+	public elementRef!: HTMLElement;
 
-	accept = '';
-	multiple = false;
-	maxSize = 0;
-	maxFiles = 0;
-	disabled = false;
-	label = 'Click to upload';
-	sublabel = 'or drag and drop';
-	hint = '';
-	error = '';
-	icon = 'cloud-arrow-up';
+	public accept = '';
+	public multiple = false;
+	public maxSize = 0;
+	public maxFiles = 0;
+	public disabled = false;
+	public label = 'Click to upload';
+	public sublabel = 'or drag and drop';
+	public hint = '';
+	public error = '';
+	public icon = 'cloud-arrow-up';
 
-	dragOver = false;
-	_dragCounter = 0;
+	public dragOver = false;
+	private _dragCounter = 0;
 
-	handleClick = (): void => {
+	public handleClick = (): void => {
 		if (this.disabled) return;
 		const input = this.elementRef.shadowRoot?.querySelector('input[type="file"]') as HTMLInputElement;
 		input?.click();
 	};
 
-	handleFileInput = (event: Event): void => {
+	public handleFileInput = (event: Event): void => {
 		const input = event.target as HTMLInputElement;
 		if (!input.files?.length) return;
 		this.processFiles(Array.from(input.files));
 		input.value = '';
 	};
 
-	handleDragEnter = (event: DragEvent): void => {
+	public handleDragEnter = (event: DragEvent): void => {
 		event.preventDefault();
 		event.stopPropagation();
 		if (this.disabled) return;
@@ -50,12 +50,12 @@ export class FileUploadComponent implements IElementRef {
 		}
 	};
 
-	handleDragOver = (event: DragEvent): void => {
+	public handleDragOver = (event: DragEvent): void => {
 		event.preventDefault();
 		event.stopPropagation();
 	};
 
-	handleDragLeave = (event: DragEvent): void => {
+	public handleDragLeave = (event: DragEvent): void => {
 		event.preventDefault();
 		event.stopPropagation();
 		this._dragCounter--;
@@ -64,7 +64,7 @@ export class FileUploadComponent implements IElementRef {
 		}
 	};
 
-	handleDrop = (event: DragEvent): void => {
+	public handleDrop = (event: DragEvent): void => {
 		event.preventDefault();
 		event.stopPropagation();
 		this._dragCounter = 0;
@@ -75,7 +75,7 @@ export class FileUploadComponent implements IElementRef {
 		this.processFiles(Array.from(files));
 	};
 
-	processFiles(files: File[]): void {
+	public processFiles(files: File[]): void {
 		const errors: FileValidationError[] = [];
 		let validFiles = files;
 

@@ -20,37 +20,37 @@ import { radioCardStyles } from './radio-card.styles.js';
 	attributes: ['value', 'label', 'description', 'detail', 'icon', 'selected', 'disabled', 'group-disabled']
 })
 export class RadioCardComponent implements IElementRef {
-	elementRef!: HTMLElement;
+	public elementRef!: HTMLElement;
 
 	/** Card value identifier */
-	value = '';
+	public value = '';
 
 	/** Primary label */
-	label = '';
+	public label = '';
 
 	/** Description text below label */
-	description = '';
+	public description = '';
 
 	/** Secondary detail text (e.g. price), shown on the right */
-	detail = '';
+	public detail = '';
 
 	/** Optional icon name */
-	icon = '';
+	public icon = '';
 
 	/** Selected state (managed by parent via attribute) */
-	selected = false;
+	public selected = false;
 
 	/** Disabled state on this card */
-	disabled = false;
+	public disabled = false;
 
 	/** Disabled state from parent group */
-	groupDisabled = false;
+	public groupDisabled = false;
 
-	get isDisabled(): boolean {
+	public get isDisabled(): boolean {
 		return this.disabled || this.groupDisabled;
 	}
 
-	handleClick = (): void => {
+	public handleClick = (): void => {
 		if (this.isDisabled) return;
 		this.elementRef.dispatchEvent(
 			new CustomEvent('ml:card-select', {

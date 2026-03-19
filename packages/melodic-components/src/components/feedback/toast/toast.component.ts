@@ -21,32 +21,32 @@ import { toastStyles } from './toast.styles.js';
 	attributes: ['variant', 'title', 'message', 'duration', 'dismissible']
 })
 export class ToastComponent implements IElementRef, OnCreate {
-	elementRef!: HTMLElement;
+	public elementRef!: HTMLElement;
 
 	/** Toast variant */
-	variant: ToastVariant = 'info';
+	public variant: ToastVariant = 'info';
 
 	/** Toast title */
-	title = '';
+	public title = '';
 
 	/** Toast message */
-	message = '';
+	public message = '';
 
 	/** Auto-dismiss duration in ms (0 = no auto-dismiss) */
-	duration = 5000;
+	public duration = 5000;
 
 	/** Show dismiss button */
-	dismissible = true;
+	public dismissible = true;
 
 	private _timer: ReturnType<typeof setTimeout> | null = null;
 
-	onCreate(): void {
+	public onCreate(): void {
 		if (this.duration > 0) {
 			this._timer = setTimeout(() => this.dismiss(), this.duration);
 		}
 	}
 
-	dismiss = (): void => {
+	public dismiss = (): void => {
 		if (this._timer) {
 			clearTimeout(this._timer);
 			this._timer = null;
@@ -62,7 +62,7 @@ export class ToastComponent implements IElementRef, OnCreate {
 		this.elementRef.remove();
 	};
 
-	renderIcon = () => {
+	public renderIcon = () => {
 		const icons: Record<ToastVariant, string> = {
 			info: 'info',
 			success: 'check-circle',

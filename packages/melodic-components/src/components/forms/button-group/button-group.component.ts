@@ -33,37 +33,37 @@ import { buttonGroupStyles } from './button-group.styles.js';
 	attributes: ['value', 'variant', 'size', 'disabled', 'multiple']
 })
 export class ButtonGroupComponent implements IElementRef, OnCreate, OnDestroy {
-	elementRef!: HTMLElement;
+	public elementRef!: HTMLElement;
 
 	/** Currently selected value (single selection mode) */
-	value = '';
+	public value = '';
 
 	/** Active state style: 'outline' (gray) or 'solid' (primary color) */
-	variant: 'outline' | 'solid' = 'outline';
+	public variant: 'outline' | 'solid' = 'outline';
 
 	/** Size variant */
-	size: Size = 'md';
+	public size: Size = 'md';
 
 	/** Disable the entire group */
-	disabled = false;
+	public disabled = false;
 
 	/** Allow multiple selections */
-	multiple = false;
+	public multiple = false;
 
 	/** Selected values (multiple mode) */
-	values: string[] = [];
+	public values: string[] = [];
 
-	onCreate(): void {
+	public onCreate(): void {
 		this.elementRef.addEventListener('ml:item-click', this._handleItemClick as EventListener);
 		this.syncItems();
 	}
 
-	onDestroy(): void {
+	public onDestroy(): void {
 		this.elementRef.removeEventListener('ml:item-click', this._handleItemClick as EventListener);
 	}
 
 	/** Handle slot changes to sync initial state */
-	handleSlotChange = (): void => {
+	public handleSlotChange = (): void => {
 		this.syncItems();
 	};
 

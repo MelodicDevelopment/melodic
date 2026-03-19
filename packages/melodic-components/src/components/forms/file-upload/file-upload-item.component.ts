@@ -11,29 +11,29 @@ import { fileUploadItemStyles } from './file-upload-item.styles.js';
 	attributes: ['name', 'size', 'status', 'progress', 'error']
 })
 export class FileUploadItemComponent implements IElementRef {
-	elementRef!: HTMLElement;
+	public elementRef!: HTMLElement;
 
-	name = '';
-	size = '';
-	status: FileUploadStatus = 'idle';
-	progress = 0;
-	error = '';
-	file: File | null = null;
+	public name = '';
+	public size = '';
+	public status: FileUploadStatus = 'idle';
+	public progress = 0;
+	public error = '';
+	public file: File | null = null;
 
-	get extension(): string {
+	public get extension(): string {
 		const parts = this.name.split('.');
 		return parts.length > 1 ? parts.pop()! : '';
 	}
 
-	get displayProgress(): string {
+	public get displayProgress(): string {
 		return `${Math.round(Math.min(Math.max(this.progress, 0), 100))}%`;
 	}
 
-	get progressWidth(): number {
+	public get progressWidth(): number {
 		return Math.min(Math.max(this.progress, 0), 100);
 	}
 
-	handleRemove = (): void => {
+	public handleRemove = (): void => {
 		this.elementRef.dispatchEvent(
 			new CustomEvent('ml:remove', {
 				bubbles: true,
@@ -43,7 +43,7 @@ export class FileUploadItemComponent implements IElementRef {
 		);
 	};
 
-	handleRetry = (): void => {
+	public handleRetry = (): void => {
 		this.elementRef.dispatchEvent(
 			new CustomEvent('ml:retry', {
 				bubbles: true,

@@ -23,13 +23,13 @@ import { dividerStyles } from './divider.styles.js';
 	attributes: ['orientation']
 })
 export class DividerComponent implements IElementRef {
-	elementRef!: HTMLElement;
+	public elementRef!: HTMLElement;
 
 	/** Divider orientation */
-	orientation: Orientation = 'horizontal';
+	public orientation: Orientation = 'horizontal';
 
 	/** Check if there's label content */
-	get hasLabel(): boolean {
+	public get hasLabel(): boolean {
 		return this.elementRef?.textContent?.trim() !== '';
 	}
 }

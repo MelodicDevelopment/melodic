@@ -28,33 +28,33 @@ import { tooltipStyles } from './tooltip.styles.js';
 	attributes: ['content', 'placement', 'delay']
 })
 export class TooltipComponent implements IElementRef, OnInit, OnDestroy {
-	elementRef!: HTMLElement;
+	public elementRef!: HTMLElement;
 
 	/** Tooltip content text */
-	content = '';
+	public content = '';
 
 	/** Tooltip placement */
-	placement: Placement = 'top';
+	public placement: Placement = 'top';
 
 	/** Delay before showing (ms) */
-	delay = 200;
+	public delay = 200;
 
 	/** Internal: visibility state */
-	isVisible = false;
+	public isVisible = false;
 
 	private _showTimeout: number | null = null;
 	private _hideTimeout: number | null = null;
 
-	onInit(): void {
+	public onInit(): void {
 		// Initial setup if needed
 	}
 
-	onDestroy(): void {
+	public onDestroy(): void {
 		if (this._showTimeout) clearTimeout(this._showTimeout);
 		if (this._hideTimeout) clearTimeout(this._hideTimeout);
 	}
 
-	show = (): void => {
+	public show = (): void => {
 		if (this._hideTimeout) {
 			clearTimeout(this._hideTimeout);
 			this._hideTimeout = null;
@@ -66,7 +66,7 @@ export class TooltipComponent implements IElementRef, OnInit, OnDestroy {
 		}, this.delay);
 	};
 
-	hide = (): void => {
+	public hide = (): void => {
 		if (this._showTimeout) {
 			clearTimeout(this._showTimeout);
 			this._showTimeout = null;

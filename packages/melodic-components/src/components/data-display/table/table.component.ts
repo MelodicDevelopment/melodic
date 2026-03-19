@@ -39,60 +39,60 @@ EventTarget.prototype.addEventListener = function (type: string, listener: Event
 	attributes: ['selectable', 'striped', 'hoverable', 'size', 'table-title', 'description', 'sticky-header', 'virtual']
 })
 export class TableComponent implements IElementRef, OnCreate, OnDestroy, OnRender, OnPropertyChange {
-	elementRef!: HTMLElement;
+	public elementRef!: HTMLElement;
 
 	/** Whether a row-click listener is attached (auto-detected) */
-	_rowClickable = false;
+	public _rowClickable = false;
 
 	/** Whether the footer slot has content */
-	hasFooter = false;
+	public hasFooter = false;
 
 	/** Whether the header-actions slot has content */
-	hasHeaderActions = false;
+	public hasHeaderActions = false;
 
 	/** Enable row selection via checkboxes */
-	selectable = false;
+	public selectable = false;
 
 	/** Alternating row backgrounds */
-	striped = false;
+	public striped = false;
 
 	/** Highlight rows on hover */
-	hoverable = true;
+	public hoverable = true;
 
 	/** Sticky table header */
-	stickyHeader = false;
+	public stickyHeader = false;
 
 	/** Table size */
-	size: 'sm' | 'md' = 'md';
+	public size: 'sm' | 'md' = 'md';
 
 	/** Table header title */
-	tableTitle = '';
+	public tableTitle = '';
 
 	/** Table header description */
-	description = '';
+	public description = '';
 
 	/** Enable virtual scrolling (renders only visible rows) */
-	virtual = false;
+	public virtual = false;
 
 	/** Column definitions */
-	columns: TableColumn[] = [];
+	public columns: TableColumn[] = [];
 
 	/** Row data */
-	rows: Record<string, unknown>[] = [];
+	public rows: Record<string, unknown>[] = [];
 
 	/** Currently sorted column key */
-	sortKey = '';
+	public sortKey = '';
 
 	/** Current sort direction */
-	sortDirection: SortDirection = 'asc';
+	public sortDirection: SortDirection = 'asc';
 
 	/** Indices of selected rows */
-	selectedIndices: number[] = [];
+	public selectedIndices: number[] = [];
 
 	// ── Virtual scroll state ─────────────────────────────────────────────────────
 
-	startIndex = 0;
-	endIndex = 50;
+	public startIndex = 0;
+	public endIndex = 50;
 
 	// ── Private ──────────────────────────────────────────────────────────────────
 
@@ -101,23 +101,23 @@ export class TableComponent implements IElementRef, OnCreate, OnDestroy, OnRende
 
 	// ── Row height by size ────────────────────────────────────────────────────────
 
-	get rowHeight(): number {
+	public get rowHeight(): number {
 		return this.size === 'sm' ? 36 : 44;
 	}
 
 	// ── Lifecycle ─────────────────────────────────────────────────────────────────
 
-	onPropertyChange(name: string, _oldVal: unknown, _newVal: unknown): void {
+	public onPropertyChange(name: string, _oldVal: unknown, _newVal: unknown): void {
 		if (name === 'rows' || name === 'columns') {
 			this._scroller.invalidate();
 		}
 	}
 
-	onInit(): void {
+	public onInit(): void {
 		this._rowClickable = _rowClickTargets.has(this.elementRef);
 	}
 
-	onCreate(): void {
+	public onCreate(): void {
 		const shadow = this.elementRef.shadowRoot;
 		if (!shadow) return;
 		shadow.querySelectorAll('slot').forEach(slot => {
@@ -133,7 +133,7 @@ export class TableComponent implements IElementRef, OnCreate, OnDestroy, OnRende
 		this._attachScroller();
 	}
 
-	onRender(): void {
+	public onRender(): void {
 		this._attachScroller();
 
 		// Compute initial end index when viewport height not yet known
@@ -150,7 +150,7 @@ export class TableComponent implements IElementRef, OnCreate, OnDestroy, OnRende
 		}
 	}
 
-	onDestroy(): void {
+	public onDestroy(): void {
 		this._scroller.detach();
 		this._viewport = null;
 	}
@@ -174,7 +174,7 @@ export class TableComponent implements IElementRef, OnCreate, OnDestroy, OnRende
 	// ── Data ──────────────────────────────────────────────────────────────────────
 
 	/** Rows sorted by current sort key/direction */
-	get sortedRows(): Record<string, unknown>[] {
+	public get sortedRows(): Record<string, unknown>[] {
 		if (!this.sortKey) return this.rows;
 		const key = this.sortKey;
 		const dir = this.sortDirection === 'asc' ? 1 : -1;
@@ -190,39 +190,39 @@ export class TableComponent implements IElementRef, OnCreate, OnDestroy, OnRende
 		});
 	}
 
-	get visibleRows(): Record<string, unknown>[] {
+	public get visibleRows(): Record<string, unknown>[] {
 		if (!this.virtual) return this.sortedRows;
 		return this.sortedRows.slice(this.startIndex, this.endIndex);
 	}
 
-	get topSpacerHeight(): number {
+	public get topSpacerHeight(): number {
 		return this.virtual ? this.startIndex * this.rowHeight : 0;
 	}
 
-	get bottomSpacerHeight(): number {
+	public get bottomSpacerHeight(): number {
 		if (!this.virtual) return 0;
 		return Math.max(0, (this.sortedRows.length - this.endIndex) * this.rowHeight);
 	}
 
-	get colCount(): number {
+	public get colCount(): number {
 		return this.columns.length + (this.selectable ? 1 : 0);
 	}
 
-	get allSelected(): boolean {
+	public get allSelected(): boolean {
 		return this.rows.length > 0 && this.selectedIndices.length === this.rows.length;
 	}
 
-	get someSelected(): boolean {
+	public get someSelected(): boolean {
 		return this.selectedIndices.length > 0 && !this.allSelected;
 	}
 
-	isRowSelected = (index: number): boolean => {
+	public isRowSelected = (index: number): boolean => {
 		return this.selectedIndices.includes(index);
 	};
 
 	// ── Event handlers ────────────────────────────────────────────────────────────
 
-	handleSort = (column: TableColumn): void => {
+	public handleSort = (column: TableColumn): void => {
 		if (!column.sortable) return;
 		if (this.sortKey === column.key) {
 			this.sortDirection = this.sortDirection === 'asc' ? 'desc' : 'asc';
@@ -241,7 +241,7 @@ export class TableComponent implements IElementRef, OnCreate, OnDestroy, OnRende
 		);
 	};
 
-	handleSelectAll = (): void => {
+	public handleSelectAll = (): void => {
 		if (this.allSelected) {
 			this.selectedIndices = [];
 		} else {
@@ -250,7 +250,7 @@ export class TableComponent implements IElementRef, OnCreate, OnDestroy, OnRende
 		this.emitSelect();
 	};
 
-	handleSelectRow = (index: number, event: Event): void => {
+	public handleSelectRow = (index: number, event: Event): void => {
 		event.stopPropagation();
 		if (this.selectedIndices.includes(index)) {
 			this.selectedIndices = this.selectedIndices.filter(i => i !== index);
@@ -260,7 +260,7 @@ export class TableComponent implements IElementRef, OnCreate, OnDestroy, OnRende
 		this.emitSelect();
 	};
 
-	handleRowClick = (row: Record<string, unknown>, index: number): void => {
+	public handleRowClick = (row: Record<string, unknown>, index: number): void => {
 		this.elementRef.dispatchEvent(
 			new CustomEvent('ml:row-click', {
 				bubbles: true,

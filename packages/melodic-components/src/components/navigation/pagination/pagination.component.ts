@@ -23,18 +23,18 @@ export type PaginationPage = { type: 'page'; value: number } | { type: 'ellipsis
 	attributes: ['page', 'total-pages', 'siblings']
 })
 export class PaginationComponent implements IElementRef {
-	elementRef!: HTMLElement;
+	public elementRef!: HTMLElement;
 
 	/** Current active page (1-based) */
-	page = 1;
+	public page = 1;
 
 	/** Total number of pages */
-	totalPages = 1;
+	public totalPages = 1;
 
 	/** Number of sibling pages to show around current */
-	siblings = 1;
+	public siblings = 1;
 
-	get pages(): PaginationPage[] {
+	public get pages(): PaginationPage[] {
 		const total = Math.max(1, Number(this.totalPages));
 		const current = Math.min(Math.max(1, Number(this.page)), total);
 		const siblings = Math.max(0, Number(this.siblings));
@@ -71,15 +71,15 @@ export class PaginationComponent implements IElementRef {
 		];
 	}
 
-	get hasPrevious(): boolean {
+	public get hasPrevious(): boolean {
 		return Number(this.page) > 1;
 	}
 
-	get hasNext(): boolean {
+	public get hasNext(): boolean {
 		return Number(this.page) < Number(this.totalPages);
 	}
 
-	goToPage = (page: number): void => {
+	public goToPage = (page: number): void => {
 		const currentPage = Number(this.page);
 		const total = Number(this.totalPages);
 		if (page < 1 || page > total || page === currentPage) return;
@@ -94,11 +94,11 @@ export class PaginationComponent implements IElementRef {
 		);
 	};
 
-	previous = (): void => {
+	public previous = (): void => {
 		this.goToPage(Number(this.page) - 1);
 	};
 
-	next = (): void => {
+	public next = (): void => {
 		this.goToPage(Number(this.page) + 1);
 	};
 }

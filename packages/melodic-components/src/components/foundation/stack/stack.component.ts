@@ -30,24 +30,24 @@ type Justify = 'start' | 'center' | 'end' | 'between' | 'around' | 'evenly';
 	attributes: ['direction', 'gap', 'align', 'justify', 'wrap']
 })
 export class StackComponent implements IElementRef {
-	elementRef!: HTMLElement;
+	public elementRef!: HTMLElement;
 
 	/** Stack direction */
-	direction: Orientation = 'vertical';
+	public direction: Orientation = 'vertical';
 
 	/** Gap between items (uses spacing scale: 1-12) */
-	gap: string = '4';
+	public gap: string = '4';
 
 	/** Cross-axis alignment */
-	align: Alignment = 'stretch';
+	public align: Alignment = 'stretch';
 
 	/** Main-axis justification */
-	justify: Justify = 'start';
+	public justify: Justify = 'start';
 
 	/** Allow items to wrap */
-	wrap = false;
+	public wrap = false;
 
-	getStyles(): Record<string, string> {
+	public getStyles(): Record<string, string> {
 		const alignMap: Record<Alignment, string> = {
 			start: 'flex-start',
 			center: 'center',

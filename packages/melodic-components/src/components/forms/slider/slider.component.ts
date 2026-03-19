@@ -23,52 +23,52 @@ import { sliderStyles } from './slider.styles.js';
 	attributes: ['label', 'value', 'min', 'max', 'step', 'size', 'disabled', 'show-value', 'hint', 'error']
 })
 export class SliderComponent implements IElementRef {
-	elementRef!: HTMLElement;
+	public elementRef!: HTMLElement;
 
 	/** Label text */
-	label = '';
+	public label = '';
 
 	/** Current value */
-	value = 50;
+	public value = 50;
 
 	/** Minimum value */
-	min = 0;
+	public min = 0;
 
 	/** Maximum value */
-	max = 100;
+	public max = 100;
 
 	/** Step increment */
-	step = 1;
+	public step = 1;
 
 	/** Slider size */
-	size: Size = 'md';
+	public size: Size = 'md';
 
 	/** Disable the slider */
-	disabled = false;
+	public disabled = false;
 
 	/** Show current value */
-	showValue = false;
+	public showValue = false;
 
 	/** Hint text */
-	hint = '';
+	public hint = '';
 
 	/** Error message */
-	error = '';
+	public error = '';
 
 	/** Ratio 0–1 for fill track */
-	get ratio(): number {
+	public get ratio(): number {
 		const range = this.max - this.min;
 		if (range <= 0) return 0;
 		return (this.value - this.min) / range;
 	}
 
 	/** CSS width for fill that matches native thumb position */
-	get fillWidth(): string {
+	public get fillWidth(): string {
 		const p = this.ratio;
 		return `calc(${p * 100}% + ${10 - p * 20}px)`;
 	}
 
-	handleInput = (event: Event): void => {
+	public handleInput = (event: Event): void => {
 		const target = event.target as HTMLInputElement;
 		this.value = Number(target.value);
 
@@ -81,7 +81,7 @@ export class SliderComponent implements IElementRef {
 		);
 	};
 
-	handleChange = (event: Event): void => {
+	public handleChange = (event: Event): void => {
 		const target = event.target as HTMLInputElement;
 		this.value = Number(target.value);
 

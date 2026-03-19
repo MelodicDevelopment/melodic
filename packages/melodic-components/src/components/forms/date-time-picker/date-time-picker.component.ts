@@ -59,72 +59,72 @@ function formatDateTimeDisplay(value: string, use12Hour: boolean): string {
 	attributes: ['value', 'placeholder', 'label', 'hint', 'error', 'size', 'disabled', 'required', 'min-date', 'max-date', 'min-time', 'max-time', 'step', 'twelve-hour']
 })
 export class DateTimePickerComponent implements IElementRef, OnCreate, OnDestroy {
-	elementRef!: HTMLElement;
+	public elementRef!: HTMLElement;
 
 	/** Selected datetime in ISO format (YYYY-MM-DDTHH:mm) */
-	value = '';
+	public value = '';
 
 	/** Placeholder text */
-	placeholder = 'Select date and time';
+	public placeholder = 'Select date and time';
 
 	/** Field label */
-	label = '';
+	public label = '';
 
 	/** Hint text */
-	hint = '';
+	public hint = '';
 
 	/** Error message */
-	error = '';
+	public error = '';
 
 	/** Input size */
-	size: 'sm' | 'md' | 'lg' = 'md';
+	public size: 'sm' | 'md' | 'lg' = 'md';
 
 	/** Disabled state */
-	disabled = false;
+	public disabled = false;
 
 	/** Required state */
-	required = false;
+	public required = false;
 
 	/** Minimum selectable date (YYYY-MM-DD) */
-	minDate = '';
+	public minDate = '';
 
 	/** Maximum selectable date (YYYY-MM-DD) */
-	maxDate = '';
+	public maxDate = '';
 
 	/** Minimum selectable time (HH:mm) */
-	minTime = '';
+	public minTime = '';
 
 	/** Maximum selectable time (HH:mm) */
-	maxTime = '';
+	public maxTime = '';
 
 	/** Time step in minutes */
-	step = 15;
+	public step = 15;
 
 	/** Use 12-hour format (default: true) */
-	twelveHour = true;
+	public twelveHour = true;
 
 	/** Internal date portion */
-	dateValue = '';
+	public dateValue = '';
 
 	/** Internal time portion */
-	timeValue = '';
+	public timeValue = '';
 
 	private _listeners: Array<() => void> = [];
 
-	get use12Hour(): boolean {
+	public get use12Hour(): boolean {
 		return this.twelveHour;
 	}
 
-	get displayValue(): string {
+	public get displayValue(): string {
 		return formatDateTimeDisplay(this.value, this.use12Hour);
 	}
 
-	onCreate(): void {
+	public onCreate(): void {
 		this.syncFromValue();
 		this.attachChildListeners();
 	}
 
-	onDestroy(): void {
+	public onDestroy(): void {
 		for (const cleanup of this._listeners) cleanup();
 		this._listeners = [];
 	}

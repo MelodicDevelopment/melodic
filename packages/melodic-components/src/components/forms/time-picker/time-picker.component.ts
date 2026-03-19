@@ -48,74 +48,74 @@ function clamp(val: number, min: number, max: number): number {
 	attributes: ['value', 'placeholder', 'label', 'hint', 'error', 'size', 'disabled', 'required', 'min', 'max', 'step', 'twelve-hour']
 })
 export class TimePickerComponent implements IElementRef, OnCreate, OnDestroy {
-	elementRef!: HTMLElement;
+	public elementRef!: HTMLElement;
 
 	/** Selected time in HH:mm or HH:mm:ss format */
-	value = '';
+	public value = '';
 
 	/** Placeholder text */
-	placeholder = 'Select time';
+	public placeholder = 'Select time';
 
 	/** Field label */
-	label = '';
+	public label = '';
 
 	/** Hint text */
-	hint = '';
+	public hint = '';
 
 	/** Error message */
-	error = '';
+	public error = '';
 
 	/** Input size */
-	size: 'sm' | 'md' | 'lg' = 'md';
+	public size: 'sm' | 'md' | 'lg' = 'md';
 
 	/** Disabled state */
-	disabled = false;
+	public disabled = false;
 
 	/** Required state */
-	required = false;
+	public required = false;
 
 	/** Minimum selectable time (HH:mm) */
-	min = '';
+	public min = '';
 
 	/** Maximum selectable time (HH:mm) */
-	max = '';
+	public max = '';
 
 	/** Step in minutes (default 15) for the preset list. Use 1 to show seconds spinner. */
-	step = 15;
+	public step = 15;
 
 	/** Use 12-hour format with AM/PM (default: true) */
-	twelveHour = true;
+	public twelveHour = true;
 
 	/** Whether the popover is open */
-	isOpen = false;
+	public isOpen = false;
 
 	/** Current editing hour */
-	editHour = 0;
+	public editHour = 0;
 
 	/** Current editing minute */
-	editMinute = 0;
+	public editMinute = 0;
 
 	/** Current editing second */
-	editSecond = 0;
+	public editSecond = 0;
 
 	/** AM or PM when in 12-hour mode */
-	editPeriod: 'AM' | 'PM' = 'AM';
+	public editPeriod: 'AM' | 'PM' = 'AM';
 
 	private _cleanupAutoUpdate: (() => void) | null = null;
 
-	get use12Hour(): boolean {
+	public get use12Hour(): boolean {
 		return this.twelveHour;
 	}
 
-	get showSeconds(): boolean {
+	public get showSeconds(): boolean {
 		return Number(this.step) === 1;
 	}
 
-	get displayValue(): string {
+	public get displayValue(): string {
 		return formatDisplay(this.value, this.use12Hour);
 	}
 
-	get displayHour(): string {
+	public get displayHour(): string {
 		if (this.use12Hour) {
 			let h = this.editHour;
 			if (h === 0) h = 12;
@@ -125,22 +125,22 @@ export class TimePickerComponent implements IElementRef, OnCreate, OnDestroy {
 		return pad(this.editHour);
 	}
 
-	get displayMinute(): string {
+	public get displayMinute(): string {
 		return pad(this.editMinute);
 	}
 
-	get displaySecond(): string {
+	public get displaySecond(): string {
 		return pad(this.editSecond);
 	}
 
-	onCreate(): void {
+	public onCreate(): void {
 		const popoverEl = this.getPopoverEl();
 		if (popoverEl) {
 			popoverEl.addEventListener('toggle', this._handleToggle);
 		}
 	}
 
-	onDestroy(): void {
+	public onDestroy(): void {
 		this._cleanupAutoUpdate?.();
 		const popoverEl = this.getPopoverEl();
 		if (popoverEl) {
@@ -148,7 +148,7 @@ export class TimePickerComponent implements IElementRef, OnCreate, OnDestroy {
 		}
 	}
 
-	togglePopover = (): void => {
+	public togglePopover = (): void => {
 		if (this.disabled) return;
 		const popoverEl = this.getPopoverEl();
 		if (popoverEl) {
@@ -156,7 +156,7 @@ export class TimePickerComponent implements IElementRef, OnCreate, OnDestroy {
 		}
 	};
 
-	incrementHour = (): void => {
+	public incrementHour = (): void => {
 		if (this.use12Hour) {
 			// Cycle within the current 12-hour half (AM: 0–11, PM: 12–23)
 			const base = this.editPeriod === 'AM' ? 0 : 12;
@@ -167,7 +167,7 @@ export class TimePickerComponent implements IElementRef, OnCreate, OnDestroy {
 		}
 	};
 
-	decrementHour = (): void => {
+	public decrementHour = (): void => {
 		if (this.use12Hour) {
 			const base = this.editPeriod === 'AM' ? 0 : 12;
 			const offset = (this.editHour - base - 1 + 12) % 12;
@@ -177,29 +177,29 @@ export class TimePickerComponent implements IElementRef, OnCreate, OnDestroy {
 		}
 	};
 
-	incrementMinute = (): void => {
+	public incrementMinute = (): void => {
 		this.editMinute = clamp(this.editMinute + 1, 0, 59);
 	};
 
-	decrementMinute = (): void => {
+	public decrementMinute = (): void => {
 		this.editMinute = clamp(this.editMinute - 1, 0, 59);
 	};
 
-	incrementSecond = (): void => {
+	public incrementSecond = (): void => {
 		this.editSecond = clamp(this.editSecond + 1, 0, 59);
 	};
 
-	decrementSecond = (): void => {
+	public decrementSecond = (): void => {
 		this.editSecond = clamp(this.editSecond - 1, 0, 59);
 	};
 
-	togglePeriod = (): void => {
+	public togglePeriod = (): void => {
 		this.editPeriod = this.editPeriod === 'AM' ? 'PM' : 'AM';
 		const h12 = this.editHour % 12 || 12;
 		this.editHour = this.to24Hour(h12, this.editPeriod);
 	};
 
-	confirmSelection = (): void => {
+	public confirmSelection = (): void => {
 		let timeStr = `${pad(this.editHour)}:${pad(this.editMinute)}`;
 		if (this.showSeconds) {
 			timeStr += `:${pad(this.editSecond)}`;
@@ -208,7 +208,7 @@ export class TimePickerComponent implements IElementRef, OnCreate, OnDestroy {
 		this.closePopover();
 	};
 
-	handleNowClick = (): void => {
+	public handleNowClick = (): void => {
 		const now = new Date();
 		this.editHour = now.getHours();
 		this.editMinute = now.getMinutes();
@@ -216,7 +216,7 @@ export class TimePickerComponent implements IElementRef, OnCreate, OnDestroy {
 		this.editPeriod = this.editHour >= 12 ? 'PM' : 'AM';
 	};
 
-	handleKeyDown = (event: KeyboardEvent): void => {
+	public handleKeyDown = (event: KeyboardEvent): void => {
 		if (event.key === 'Escape' && this.isOpen) {
 			event.preventDefault();
 			this.closePopover();
@@ -226,7 +226,7 @@ export class TimePickerComponent implements IElementRef, OnCreate, OnDestroy {
 		}
 	};
 
-	handleHourInput = (event: Event): void => {
+	public handleHourInput = (event: Event): void => {
 		const input = event.target as HTMLInputElement;
 		const digits = input.value.replace(/\D/g, '').slice(0, 2);
 		if (digits === '') { input.value = ''; return; }
@@ -241,7 +241,7 @@ export class TimePickerComponent implements IElementRef, OnCreate, OnDestroy {
 		}
 	};
 
-	handleMinuteInput = (event: Event): void => {
+	public handleMinuteInput = (event: Event): void => {
 		const input = event.target as HTMLInputElement;
 		const digits = input.value.replace(/\D/g, '').slice(0, 2);
 		if (digits === '') { input.value = ''; return; }
@@ -250,7 +250,7 @@ export class TimePickerComponent implements IElementRef, OnCreate, OnDestroy {
 		this.editMinute = n;
 	};
 
-	handleSecondInput = (event: Event): void => {
+	public handleSecondInput = (event: Event): void => {
 		const input = event.target as HTMLInputElement;
 		const digits = input.value.replace(/\D/g, '').slice(0, 2);
 		if (digits === '') { input.value = ''; return; }
@@ -259,26 +259,26 @@ export class TimePickerComponent implements IElementRef, OnCreate, OnDestroy {
 		this.editSecond = n;
 	};
 
-	handleHourBlur = (): void => {
+	public handleHourBlur = (): void => {
 		if (this.use12Hour) {
 			const h12 = this.editHour % 12 || 12;
 			this.editHour = this.to24Hour(h12, this.editPeriod);
 		}
 	};
 
-	handleMinuteBlur = (): void => {
+	public handleMinuteBlur = (): void => {
 		// Re-render to reformat with padding
 	};
 
-	handleSecondBlur = (): void => {
+	public handleSecondBlur = (): void => {
 		// Re-render to reformat with padding
 	};
 
-	handleInputFocus = (event: Event): void => {
+	public handleInputFocus = (event: Event): void => {
 		(event.target as HTMLInputElement).select();
 	};
 
-	handleSpinnerKeyDown = (event: KeyboardEvent): void => {
+	public handleSpinnerKeyDown = (event: KeyboardEvent): void => {
 		const target = event.target as HTMLInputElement;
 		if (event.key === 'ArrowUp') {
 			event.preventDefault();

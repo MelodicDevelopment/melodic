@@ -6,7 +6,7 @@ export class SignalEffect {
 	private _isRunning = false;
 	private _needsRerun = false;
 
-	readonly run: () => void;
+	public readonly run: () => void;
 
 	constructor(public execute: () => void) {
 		this.run = () => {
@@ -38,11 +38,11 @@ export class SignalEffect {
 		};
 	}
 
-	addDependency<T>(signal: Signal<T>): void {
+	public addDependency<T>(signal: Signal<T>): void {
 		this._dependencies.add(signal);
 	}
 
-	destroy(): void {
+	public destroy(): void {
 		this._dependencies.forEach((signal) => {
 			signal.unsubscribe(this.run);
 		});

@@ -33,16 +33,16 @@ type DrawerSize = 'sm' | 'md' | 'lg' | 'xl';
 	attributes: ['side', 'size', 'show-close']
 })
 export class DrawerComponent implements IElementRef, OnCreate, OnDestroy {
-	elementRef!: HTMLElement;
+	public elementRef!: HTMLElement;
 
 	/** Which side the drawer slides from */
-	side: DrawerSide = 'right';
+	public side: DrawerSide = 'right';
 
 	/** Width preset */
-	size: DrawerSize = 'md';
+	public size: DrawerSize = 'md';
 
 	/** Show close button in header */
-	showClose = true;
+	public showClose = true;
 
 	private _dialogEl!: HTMLDialogElement;
 	private _panelEl!: HTMLElement;
@@ -57,20 +57,20 @@ export class DrawerComponent implements IElementRef, OnCreate, OnDestroy {
 		}
 	}
 
-	onCreate(): void {
+	public onCreate(): void {
 		this._dialogEl = this.elementRef.shadowRoot?.querySelector('dialog') as HTMLDialogElement;
 		this._panelEl = this._dialogEl?.querySelector('.ml-drawer__panel') as HTMLElement;
 		this._dialogEl?.addEventListener('click', this.handleBackdropClick);
 		this._dialogEl?.addEventListener('cancel', this.handleDialogCancel);
 	}
 
-	onDestroy(): void {
+	public onDestroy(): void {
 		this._dialogEl?.removeEventListener('click', this.handleBackdropClick);
 		this._dialogEl?.removeEventListener('cancel', this.handleDialogCancel);
 	}
 
 	/** Open the drawer */
-	open(): void {
+	public open(): void {
 		if (this._dialogEl?.open) return;
 		this.cancelAnimations();
 		this._dialogEl.showModal();
@@ -92,7 +92,7 @@ export class DrawerComponent implements IElementRef, OnCreate, OnDestroy {
 	}
 
 	/** Close the drawer */
-	close = (): void => {
+	public close = (): void => {
 		if (!this._dialogEl?.open) return;
 		this.cancelAnimations();
 		const prop = this._positionProp;

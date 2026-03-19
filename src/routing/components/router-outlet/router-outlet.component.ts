@@ -41,7 +41,7 @@ export class RouterOutletComponent {
 	public name: string = 'primary';
 	public elementRef!: HTMLElement;
 
-	onInit(): void {
+	public onInit(): void {
 		const handler = () => this.onNavigate();
 		window.addEventListener('NavigationEvent', handler);
 		this._navigationCleanup = () => window.removeEventListener('NavigationEvent', handler);
@@ -56,7 +56,7 @@ export class RouterOutletComponent {
 		}) as EventListener);
 	}
 
-	onCreate(): void {
+	public onCreate(): void {
 		this.findParentOutlet();
 
 		// Defer initial render to allow property binding to complete
@@ -78,7 +78,7 @@ export class RouterOutletComponent {
 		});
 	}
 
-	onDestroy(): void {
+	public onDestroy(): void {
 		this._navigationCleanup?.();
 
 		if (this._parentOutlet) {
@@ -86,7 +86,7 @@ export class RouterOutletComponent {
 		}
 	}
 
-	onPropertyChange(name: string): void {
+	public onPropertyChange(name: string): void {
 		if (name === 'routes' && this._initialized) {
 			// Routes changed - update router if root and re-render
 			if (this._depth === 0) {
@@ -97,11 +97,11 @@ export class RouterOutletComponent {
 		}
 	}
 
-	getDepth(): number {
+	public getDepth(): number {
 		return this._depth;
 	}
 
-	getContext(): IRouteContext | null {
+	public getContext(): IRouteContext | null {
 		return this._context;
 	}
 

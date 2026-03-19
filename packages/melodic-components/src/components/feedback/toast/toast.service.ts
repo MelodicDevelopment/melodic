@@ -20,7 +20,7 @@ export class ToastService {
 	private _position: ToastPosition = 'top-right';
 
 	/** Set the default position for all toasts */
-	setPosition(position: ToastPosition): void {
+	public setPosition(position: ToastPosition): void {
 		this._position = position;
 
 		if (this._containerEl) {
@@ -29,7 +29,7 @@ export class ToastService {
 	}
 
 	/** Show a toast with full configuration */
-	show(config: IToastConfig): void {
+	public show(config: IToastConfig): void {
 		const container = this.ensureContainer();
 		const toast = document.createElement('ml-toast');
 
@@ -43,22 +43,22 @@ export class ToastService {
 	}
 
 	/** Show an info toast */
-	info(title: string, message?: string): void {
+	public info(title: string, message?: string): void {
 		this.show({ variant: 'info', title, message });
 	}
 
 	/** Show a success toast */
-	success(title: string, message?: string): void {
+	public success(title: string, message?: string): void {
 		this.show({ variant: 'success', title, message });
 	}
 
 	/** Show a warning toast */
-	warning(title: string, message?: string): void {
+	public warning(title: string, message?: string): void {
 		this.show({ variant: 'warning', title, message });
 	}
 
 	/** Show an error toast */
-	error(title: string, message?: string): void {
+	public error(title: string, message?: string): void {
 		this.show({ variant: 'error', title, message });
 	}
 

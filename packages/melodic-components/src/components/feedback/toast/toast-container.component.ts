@@ -17,8 +17,8 @@ import { toastContainerStyles } from './toast-container.styles.js';
 	attributes: ['position']
 })
 export class ToastContainerComponent implements IElementRef {
-	elementRef!: HTMLElement;
+	public elementRef!: HTMLElement;
 
 	/** Fixed position on screen */
-	position: ToastPosition = 'top-right';
+	public position: ToastPosition = 'top-right';
 }

@@ -27,39 +27,39 @@ type IndicatorColor = 'success' | 'warning' | 'error' | 'primary' | 'gray';
 	attributes: ['name', 'timestamp', 'avatar-src', 'avatar-initials', 'avatar-size', 'subtitle', 'indicator', 'indicator-color']
 })
 export class ActivityFeedItemComponent implements IElementRef {
-	elementRef!: HTMLElement;
+	public elementRef!: HTMLElement;
 
 	/** User display name */
-	name = '';
+	public name = '';
 
 	/** Timestamp text */
-	timestamp = '';
+	public timestamp = '';
 
 	/** Avatar image source */
-	'avatar-src' = '';
+	public 'avatar-src' = '';
 
 	/** Avatar initials fallback */
-	'avatar-initials' = '';
+	public 'avatar-initials' = '';
 
 	/** Avatar size */
-	'avatar-size': Size = 'sm';
+	public 'avatar-size': Size = 'sm';
 
 	/** Subtitle text (e.g. @handle) */
-	subtitle = '';
+	public subtitle = '';
 
 	/** Show indicator dot */
-	indicator = false;
+	public indicator = false;
 
 	/** Indicator dot color */
-	'indicator-color': IndicatorColor = 'gray';
+	public 'indicator-color': IndicatorColor = 'gray';
 
 	/** Check if avatar slot has content */
-	get hasAvatarSlot(): boolean {
+	public get hasAvatarSlot(): boolean {
 		return this.elementRef?.querySelector('[slot="avatar"]') !== null;
 	}
 
 	/** Check if content slot has content */
-	get hasContentSlot(): boolean {
+	public get hasContentSlot(): boolean {
 		return this.elementRef?.querySelector('[slot="content"]') !== null;
 	}
 }

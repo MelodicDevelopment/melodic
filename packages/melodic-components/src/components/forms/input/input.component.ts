@@ -31,52 +31,52 @@ import { inputStyles } from './input.styles.js';
 	attributes: ['type', 'value', 'placeholder', 'label', 'hint', 'error', 'size', 'disabled', 'readonly', 'required', 'autocomplete']
 })
 export class InputComponent implements IElementRef, OnInit {
-	elementRef!: HTMLElement;
+	public elementRef!: HTMLElement;
 
 	/** Input type */
-	type: InputType = 'text';
+	public type: InputType = 'text';
 
 	/** Current value */
-	value = '';
+	public value = '';
 
 	/** Placeholder text */
-	placeholder = '';
+	public placeholder = '';
 
 	/** Label text */
-	label = '';
+	public label = '';
 
 	/** Hint text shown below input */
-	hint = '';
+	public hint = '';
 
 	/** Error message (shows error state when set) */
-	error = '';
+	public error = '';
 
 	/** Input size */
-	size: Size = 'md';
+	public size: Size = 'md';
 
 	/** Disable the input */
-	disabled = false;
+	public disabled = false;
 
 	/** Make input readonly */
-	readonly = false;
+	public readonly = false;
 
 	/** Mark as required */
-	required = false;
+	public required = false;
 
 	/** Autocomplete attribute */
-	autocomplete = 'off';
+	public autocomplete = 'off';
 
 	/** Internal focus state */
-	focused = false;
+	public focused = false;
 
-	onInit(): void {
+	public onInit(): void {
 		// Set up aria-label if no label provided
 		if (!this.label && this.placeholder) {
 			this.elementRef.setAttribute('aria-label', this.placeholder);
 		}
 	}
 
-	handleInput = (event: Event): void => {
+	public handleInput = (event: Event): void => {
 		const target = event.target as HTMLInputElement;
 		this.value = target.value;
 
@@ -89,7 +89,7 @@ export class InputComponent implements IElementRef, OnInit {
 		);
 	};
 
-	handleChange = (event: Event): void => {
+	public handleChange = (event: Event): void => {
 		const target = event.target as HTMLInputElement;
 		this.value = target.value;
 
@@ -102,7 +102,7 @@ export class InputComponent implements IElementRef, OnInit {
 		);
 	};
 
-	handleFocus = (): void => {
+	public handleFocus = (): void => {
 		this.focused = true;
 		this.elementRef.dispatchEvent(
 			new CustomEvent('ml:focus', {
@@ -112,7 +112,7 @@ export class InputComponent implements IElementRef, OnInit {
 		);
 	};
 
-	handleBlur = (): void => {
+	public handleBlur = (): void => {
 		this.focused = false;
 		this.elementRef.dispatchEvent(
 			new CustomEvent('ml:blur', {
