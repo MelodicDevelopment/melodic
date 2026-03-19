@@ -19,7 +19,7 @@ interface IDialogElements<T = unknown> {
 export class DialogService {
 	private readonly _dialogs = new Map<UniqueID, IDialogElements>();
 
-	addDialog(dialogID: UniqueID, dialogEl: HTMLDialogElement): DialogRef {
+	public addDialog(dialogID: UniqueID, dialogEl: HTMLDialogElement): DialogRef {
 		const dialogRef = new DialogRef(dialogID, dialogEl);
 		this._dialogs.set(dialogID, {
 			dialogRef,
@@ -34,13 +34,13 @@ export class DialogService {
 		return dialogRef;
 	}
 
-	removeDialog(dialogID: UniqueID): void {
+	public removeDialog(dialogID: UniqueID): void {
 		this._dialogs.delete(dialogID);
 	}
 
-	open<TResult = unknown, TData = unknown>(dialogComponent: new (...args: any[]) => any, config?: IDialogConfig<TData>): DialogRef<TResult, TData>;
-	open<TResult = unknown, TData = unknown>(dialogID: UniqueID): DialogRef<TResult, TData>;
-	open<TResult = unknown, TData = unknown>(dialogComponentOrID: UniqueID | (new (...args: any[]) => any), config?: IDialogConfig<TData>): DialogRef<TResult, TData> {
+	public open<TResult = unknown, TData = unknown>(dialogComponent: new (...args: any[]) => any, config?: IDialogConfig<TData>): DialogRef<TResult, TData>;
+	public open<TResult = unknown, TData = unknown>(dialogID: UniqueID): DialogRef<TResult, TData>;
+	public open<TResult = unknown, TData = unknown>(dialogComponentOrID: UniqueID | (new (...args: any[]) => any), config?: IDialogConfig<TData>): DialogRef<TResult, TData> {
 		let dialogID: UniqueID = dialogComponentOrID as UniqueID;
 		let dialogElements: IDialogElements = this._dialogs.get(dialogID)!;
 
@@ -66,7 +66,7 @@ export class DialogService {
 		return dialogElements.dialogRef as DialogRef<TResult, TData>;
 	}
 
-	close<T = unknown>(dialogID: UniqueID, result?: T): void {
+	public close<T = unknown>(dialogID: UniqueID, result?: T): void {
 		if (this._dialogs.has(dialogID)) {
 			const dialogElements: IDialogElements = this._dialogs.get(dialogID)!;
 			dialogElements.dialogRef.close(result);

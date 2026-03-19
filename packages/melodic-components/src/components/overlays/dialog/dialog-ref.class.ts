@@ -17,19 +17,19 @@ export class DialogRef<TResult = unknown, TData = unknown> {
 		this._dialogEl.addEventListener('click', this._handleBackdropClick);
 	}
 
-	get dialogID(): UniqueID {
+	public get dialogID(): UniqueID {
 		return this._dialogID;
 	}
 
-	get data(): TData | undefined {
+	public get data(): TData | undefined {
 		return this._data;
 	}
 
-	get disableClose(): boolean {
+	public get disableClose(): boolean {
 		return this._disableClose;
 	}
 
-	applyConfig(config: IDialogConfig<TData>): this {
+	public applyConfig(config: IDialogConfig<TData>): this {
 		if (config.data !== undefined) {
 			this._data = config.data;
 		}
@@ -54,21 +54,21 @@ export class DialogRef<TResult = unknown, TData = unknown> {
 		return this;
 	}
 
-	open(): void {
+	public open(): void {
 		this._dialogEl.showModal();
 		this._afterOpenedCallback?.();
 	}
 
-	close(result?: TResult): void {
+	public close(result?: TResult): void {
 		this._dialogEl.close();
 		this._afterClosedCallback?.(result);
 	}
 
-	afterOpened(callback: () => void): void {
+	public afterOpened(callback: () => void): void {
 		this._afterOpenedCallback = callback;
 	}
 
-	afterClosed(callback: (result: TResult | undefined) => void): void {
+	public afterClosed(callback: (result: TResult | undefined) => void): void {
 		this._afterClosedCallback = callback;
 	}
 

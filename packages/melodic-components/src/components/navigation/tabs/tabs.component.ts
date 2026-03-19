@@ -48,28 +48,28 @@ import { tabsStyles } from './tabs.styles.js';
 	attributes: ['value', 'variant', 'size', 'orientation', 'routed']
 })
 export class TabsComponent implements IElementRef, OnCreate, OnDestroy, OnRender {
-	elementRef!: HTMLElement;
+	public elementRef!: HTMLElement;
 
 	/** Currently active tab value */
-	value = '';
+	public value = '';
 
 	/** Visual variant */
-	variant: TabsVariant = 'line';
+	public variant: TabsVariant = 'line';
 
 	/** Size variant */
-	size: Size = 'md';
+	public size: Size = 'md';
 
 	/** Tab orientation */
-	orientation: TabsOrientation = 'horizontal';
+	public orientation: TabsOrientation = 'horizontal';
 
 	/** Enable router integration */
-	routed = false;
+	public routed = false;
 
 	/** Tab configurations (alternative to slotted ml-tab elements) */
-	tabs: TabConfig[] = [];
+	public tabs: TabConfig[] = [];
 
 	/** Internal tracking of slotted tabs */
-	_slottedTabs: HTMLElement[] = [];
+	private _slottedTabs: HTMLElement[] = [];
 
 	/** Navigation event listener for routed mode */
 	private readonly _handleNavigation = this.onNavigation.bind(this);
@@ -80,7 +80,7 @@ export class TabsComponent implements IElementRef, OnCreate, OnDestroy, OnRender
 		this.handleTabClick(value, href);
 	};
 
-	onCreate(): void {
+	public onCreate(): void {
 		this.elementRef.addEventListener('ml:tab-click', this._handleTabClick);
 
 		if (this.routed) {
@@ -89,12 +89,12 @@ export class TabsComponent implements IElementRef, OnCreate, OnDestroy, OnRender
 		}
 	}
 
-	onRender(): void {
+	public onRender(): void {
 		// Ensure panels are correctly shown/hidden after each render
 		this.updatePanelVisibility();
 	}
 
-	onDestroy(): void {
+	public onDestroy(): void {
 		this.elementRef.removeEventListener('ml:tab-click', this._handleTabClick);
 
 		if (this.routed) {
@@ -103,7 +103,7 @@ export class TabsComponent implements IElementRef, OnCreate, OnDestroy, OnRender
 	}
 
 	/** Handle tab slot changes */
-	handleTabSlotChange = (event: Event): void => {
+	public handleTabSlotChange = (event: Event): void => {
 		const slot = event.target as HTMLSlotElement;
 		this._slottedTabs = slot.assignedElements({ flatten: true }) as HTMLElement[];
 
@@ -120,7 +120,7 @@ export class TabsComponent implements IElementRef, OnCreate, OnDestroy, OnRender
 	};
 
 	/** Handle tab click */
-	handleTabClick = (tabValue: string, href?: string): void => {
+	public handleTabClick = (tabValue: string, href?: string): void => {
 		const tab = this.getTabByValue(tabValue);
 		if (tab?.disabled) return;
 
@@ -143,7 +143,7 @@ export class TabsComponent implements IElementRef, OnCreate, OnDestroy, OnRender
 	};
 
 	/** Handle keyboard navigation */
-	handleKeyDown = (event: KeyboardEvent): void => {
+	public handleKeyDown = (event: KeyboardEvent): void => {
 		const allTabs = this.getAllTabs();
 		const enabledTabs = allTabs.filter((t) => !t.disabled);
 		const currentIndex = enabledTabs.findIndex((t) => t.value === this.value);
@@ -181,7 +181,7 @@ export class TabsComponent implements IElementRef, OnCreate, OnDestroy, OnRender
 	};
 
 	/** Get all tabs (from config or slotted) */
-	getAllTabs(): TabConfig[] {
+	public getAllTabs(): TabConfig[] {
 		if (this.tabs.length > 0) {
 			return this.tabs;
 		}

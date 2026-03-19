@@ -13,18 +13,18 @@ import { fileIconStyles } from './file-icon.styles.js';
 	attributes: ['extension', 'color', 'size']
 })
 export class FileIconComponent implements IElementRef {
-	elementRef!: HTMLElement;
+	public elementRef!: HTMLElement;
 
-	extension = '';
-	color: FileIconColor | '' = '';
-	size: Size = 'md';
+	public extension = '';
+	public color: FileIconColor | '' = '';
+	public size: Size = 'md';
 
-	get resolvedColor(): FileIconColor {
+	public get resolvedColor(): FileIconColor {
 		if (this.color) return this.color;
 		return this.extension ? getColorForExtension(this.extension) : 'gray';
 	}
 
-	get displayExtension(): string {
+	public get displayExtension(): string {
 		return this.extension.toUpperCase();
 	}
 }

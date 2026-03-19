@@ -36,20 +36,20 @@ export type HeroBackground = 'none' | 'subtle' | 'gradient';
 	attributes: ['variant', 'size', 'background', 'title', 'description']
 })
 export class HeroSectionComponent implements IElementRef {
-	elementRef!: HTMLElement;
+	public elementRef!: HTMLElement;
 
 	/** Layout variant */
-	variant: HeroVariant = 'centered';
+	public variant: HeroVariant = 'centered';
 
 	/** Size controls padding and font sizes */
-	size: HeroSize = 'lg';
+	public size: HeroSize = 'lg';
 
 	/** Background style */
-	background: HeroBackground = 'none';
+	public background: HeroBackground = 'none';
 
 	/** Headline text (alternative to title slot) */
-	title = '';
+	public title = '';
 
 	/** Supporting text (alternative to description slot) */
-	description = '';
+	public description = '';
 }

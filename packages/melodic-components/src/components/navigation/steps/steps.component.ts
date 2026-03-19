@@ -37,39 +37,39 @@ import { stepsStyles } from './steps.styles.js';
 	attributes: ['active', 'variant', 'orientation', 'connector', 'color', 'compact', 'routed']
 })
 export class StepsComponent implements IElementRef, OnCreate, OnDestroy, OnRender {
-	elementRef!: HTMLElement;
+	public elementRef!: HTMLElement;
 
 	/** Currently active step value */
-	active = '';
+	public active = '';
 
 	/** Visual variant */
-	variant: StepsVariant = 'numbered';
+	public variant: StepsVariant = 'numbered';
 
 	/** Layout orientation */
-	orientation: StepsOrientation = 'horizontal';
+	public orientation: StepsOrientation = 'horizontal';
 
 	/** Connector line style */
-	connector: StepsConnector = 'solid';
+	public connector: StepsConnector = 'solid';
 
 	/** Accent color */
-	color: StepsColor = 'primary';
+	public color: StepsColor = 'primary';
 
 	/** Compact dots mode */
-	compact = false;
+	public compact = false;
 
 	/** Enable router integration */
-	routed = false;
+	public routed = false;
 
 	/** Step configurations (alternative to slotted ml-step elements) */
-	steps: StepConfig[] = [];
+	public steps: StepConfig[] = [];
 
 	/** Internal tracking of slotted steps */
-	_slottedSteps: HTMLElement[] = [];
+	private _slottedSteps: HTMLElement[] = [];
 
 	/** Navigation event listener for routed mode */
 	private readonly _handleNavigation = this.onNavigation.bind(this);
 
-	onCreate(): void {
+	public onCreate(): void {
 		// Listen for step click events from slotted ml-step elements
 		this.elementRef.addEventListener('ml:step-click', this.handleSlottedStepClick as EventListener);
 
@@ -79,11 +79,11 @@ export class StepsComponent implements IElementRef, OnCreate, OnDestroy, OnRende
 		}
 	}
 
-	onRender(): void {
+	public onRender(): void {
 		this.updatePanelVisibility();
 	}
 
-	onDestroy(): void {
+	public onDestroy(): void {
 		this.elementRef.removeEventListener('ml:step-click', this.handleSlottedStepClick as EventListener);
 
 		if (this.routed) {
@@ -92,7 +92,7 @@ export class StepsComponent implements IElementRef, OnCreate, OnDestroy, OnRende
 	}
 
 	/** Handle step slot changes */
-	handleStepSlotChange = (event: Event): void => {
+	public handleStepSlotChange = (event: Event): void => {
 		const slot = event.target as HTMLSlotElement;
 		this._slottedSteps = slot.assignedElements({ flatten: true }) as HTMLElement[];
 
@@ -109,7 +109,7 @@ export class StepsComponent implements IElementRef, OnCreate, OnDestroy, OnRende
 	};
 
 	/** Handle step click (config mode) */
-	handleStepClick = (stepValue: string, href?: string): void => {
+	public handleStepClick = (stepValue: string, href?: string): void => {
 		const step = this.getStepByValue(stepValue);
 		if (step?.disabled) return;
 
@@ -138,7 +138,7 @@ export class StepsComponent implements IElementRef, OnCreate, OnDestroy, OnRende
 	};
 
 	/** Handle keyboard navigation */
-	handleKeyDown = (event: KeyboardEvent): void => {
+	public handleKeyDown = (event: KeyboardEvent): void => {
 		const allSteps = this.getAllSteps();
 		const enabledSteps = allSteps.filter((s) => !s.disabled);
 		const currentIndex = enabledSteps.findIndex((s) => s.value === this.active);
@@ -187,7 +187,7 @@ export class StepsComponent implements IElementRef, OnCreate, OnDestroy, OnRende
 	};
 
 	/** Get status for a step based on its position relative to active */
-	getStepStatus(stepValue: string): StepStatus {
+	public getStepStatus(stepValue: string): StepStatus {
 		const allSteps = this.getAllSteps();
 		const activeIndex = allSteps.findIndex((s) => s.value === this.active);
 		const stepIndex = allSteps.findIndex((s) => s.value === stepValue);
@@ -198,19 +198,19 @@ export class StepsComponent implements IElementRef, OnCreate, OnDestroy, OnRende
 	}
 
 	/** Get current step index (1-based, for compact label) */
-	getCurrentStepNumber(): number {
+	public getCurrentStepNumber(): number {
 		const allSteps = this.getAllSteps();
 		const index = allSteps.findIndex((s) => s.value === this.active);
 		return index + 1;
 	}
 
 	/** Get total step count */
-	getTotalSteps(): number {
+	public getTotalSteps(): number {
 		return this.getAllSteps().length;
 	}
 
 	/** Get all steps (from config or slotted) */
-	getAllSteps(): StepConfig[] {
+	public getAllSteps(): StepConfig[] {
 		if (this.steps.length > 0) {
 			return this.steps;
 		}

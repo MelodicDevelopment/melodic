@@ -29,70 +29,70 @@ import { sidebarItemStyles } from './sidebar-item.styles.js';
 	attributes: ['icon', 'label', 'value', 'href', 'active', 'disabled', 'badge', 'badge-color', 'external', 'expanded', 'collapsed', 'level']
 })
 export class SidebarItemComponent implements IElementRef, OnCreate, OnDestroy {
-	elementRef!: HTMLElement;
+	public elementRef!: HTMLElement;
 
 	/** Icon name */
-	icon = '';
+	public icon = '';
 
 	/** Display label */
-	label = '';
+	public label = '';
 
 	/** Unique value identifier */
-	value = '';
+	public value = '';
 
 	/** Navigation URL */
-	href = '';
+	public href = '';
 
 	/** Active state (managed by parent sidebar) */
-	active = false;
+	public active = false;
 
 	/** Disabled state */
-	disabled = false;
+	public disabled = false;
 
 	/** Badge text */
-	badge = '';
+	public badge = '';
 
 	/** Badge color variant */
-	'badge-color': BadgeColor = 'default';
+	public 'badge-color': BadgeColor = 'default';
 
 	/** External link */
-	external = false;
+	public external = false;
 
 	/** Submenu expanded state */
-	expanded = false;
+	public expanded = false;
 
 	/** Collapsed state (set by parent sidebar in slim mode) */
-	collapsed = false;
+	public collapsed = false;
 
 	/** Indentation level for nested items */
-	level = '0';
+	public level = '0';
 
 	/** Track slotted children */
-	_hasChildren = false;
+	private _hasChildren = false;
 
 	/** Check if default slot has children */
-	get hasChildren(): boolean {
+	public get hasChildren(): boolean {
 		return this._hasChildren;
 	}
 
-	onCreate(): void {
+	public onCreate(): void {
 		// Check for slotted children
 		this._hasChildren = this.elementRef.querySelector('ml-sidebar-item') !== null;
 	}
 
-	onDestroy(): void {
+	public onDestroy(): void {
 		// cleanup if needed
 	}
 
 	/** Handle default slot change to detect children */
-	handleSlotChange = (event: Event): void => {
+	public handleSlotChange = (event: Event): void => {
 		const slot = event.target as HTMLSlotElement;
 		const assigned = slot.assignedElements({ flatten: true });
 		this._hasChildren = assigned.some((el) => el.tagName === 'ML-SIDEBAR-ITEM');
 	};
 
 	/** Handle click on item */
-	handleClick = (event: Event): void => {
+	public handleClick = (event: Event): void => {
 		if (this.disabled) return;
 
 		if (this.hasChildren) {

@@ -23,8 +23,8 @@ import { tabPanelStyles } from './tab-panel.styles.js';
 	attributes: ['value']
 })
 export class TabPanelComponent implements IElementRef {
-	elementRef!: HTMLElement;
+	public elementRef!: HTMLElement;
 
 	/** Panel identifier (must match ml-tab value) */
-	value = '';
+	public value = '';
 }

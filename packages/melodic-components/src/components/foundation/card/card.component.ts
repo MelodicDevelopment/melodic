@@ -28,28 +28,28 @@ type CardVariant = 'default' | 'outlined' | 'elevated' | 'filled';
 	attributes: ['variant', 'hoverable', 'clickable']
 })
 export class CardComponent implements IElementRef {
-	elementRef!: HTMLElement;
+	public elementRef!: HTMLElement;
 
 	/** Card visual style */
-	variant: CardVariant = 'default';
+	public variant: CardVariant = 'default';
 
 	/** Add hover effect */
-	hoverable = false;
+	public hoverable = false;
 
 	/** Make card clickable */
-	clickable = false;
+	public clickable = false;
 
 	/** Internal: check if header slot has content */
-	get hasHeader(): boolean {
+	public get hasHeader(): boolean {
 		return this.elementRef?.querySelector('[slot="header"]') !== null;
 	}
 
 	/** Internal: check if footer slot has content */
-	get hasFooter(): boolean {
+	public get hasFooter(): boolean {
 		return this.elementRef?.querySelector('[slot="footer"]') !== null;
 	}
 
-	handleClick = (event: MouseEvent): void => {
+	public handleClick = (event: MouseEvent): void => {
 		if (this.clickable) {
 			this.elementRef.dispatchEvent(
 				new CustomEvent('ml:click', {

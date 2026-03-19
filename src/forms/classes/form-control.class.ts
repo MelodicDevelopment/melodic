@@ -6,12 +6,12 @@ import type { ValidatorFn, AsyncValidatorFn, ValidationErrors, ValidationError }
 export const FORM_CONTROL_MARKER = Symbol('melodic.formControl');
 
 export class FormControl<T = unknown> implements IFormControl<T> {
-	readonly [FORM_CONTROL_MARKER] = true;
+	public readonly [FORM_CONTROL_MARKER] = true;
 
-	readonly value: Signal<T>;
-	readonly initialValue: T;
-	readonly errors: Signal<ValidationErrors | null>;
-	readonly updateOn: 'input' | 'blur' | 'submit';
+	public readonly value: Signal<T>;
+	public readonly initialValue: T;
+	public readonly errors: Signal<ValidationErrors | null>;
+	public readonly updateOn: 'input' | 'blur' | 'submit';
 
 	private _validators: ValidatorFn<T>[] = [];
 	private _asyncValidators: AsyncValidatorFn<T>[] = [];
@@ -21,14 +21,14 @@ export class FormControl<T = unknown> implements IFormControl<T> {
 	private readonly _disabled = signal<boolean>(false);
 	private _asyncValidationId = 0;
 
-	readonly dirty: Signal<boolean>;
-	readonly touched: Signal<boolean>;
-	readonly pristine: Signal<boolean>;
-	readonly valid: Signal<boolean>;
-	readonly invalid: Signal<boolean>;
-	readonly pending: Signal<boolean>;
-	readonly disabled: Signal<boolean>;
-	readonly state: Signal<FormControlState>;
+	public readonly dirty: Signal<boolean>;
+	public readonly touched: Signal<boolean>;
+	public readonly pristine: Signal<boolean>;
+	public readonly valid: Signal<boolean>;
+	public readonly invalid: Signal<boolean>;
+	public readonly pending: Signal<boolean>;
+	public readonly disabled: Signal<boolean>;
+	public readonly state: Signal<FormControlState>;
 
 	constructor(initialValue: T, options: FormControlOptions<T> = {}) {
 		this.initialValue = initialValue;
@@ -66,7 +66,7 @@ export class FormControl<T = unknown> implements IFormControl<T> {
 		this.runValidation();
 	}
 
-	setValue(value: T): void {
+	public setValue(value: T): void {
 		if (this._disabled()) return;
 
 		this.value.set(value);
@@ -77,7 +77,7 @@ export class FormControl<T = unknown> implements IFormControl<T> {
 		}
 	}
 
-	patchValue(value: Partial<T>): void {
+	public patchValue(value: Partial<T>): void {
 		if (typeof this.value() === 'object' && this.value() !== null) {
 			this.setValue({ ...this.value(), ...value });
 		} else {
@@ -85,7 +85,7 @@ export class FormControl<T = unknown> implements IFormControl<T> {
 		}
 	}
 
-	reset(value?: T): void {
+	public reset(value?: T): void {
 		this.value.set(value ?? this.initialValue);
 		this._dirty.set(false);
 		this._touched.set(false);
@@ -93,7 +93,7 @@ export class FormControl<T = unknown> implements IFormControl<T> {
 		this.runValidation();
 	}
 
-	markAsTouched(): void {
+	public markAsTouched(): void {
 		this._touched.set(true);
 
 		if (this.updateOn === 'blur') {
@@ -101,59 +101,59 @@ export class FormControl<T = unknown> implements IFormControl<T> {
 		}
 	}
 
-	markAsUntouched(): void {
+	public markAsUntouched(): void {
 		this._touched.set(false);
 	}
 
-	markAsDirty(): void {
+	public markAsDirty(): void {
 		this._dirty.set(true);
 	}
 
-	markAsPristine(): void {
+	public markAsPristine(): void {
 		this._dirty.set(false);
 	}
 
-	disable(): void {
+	public disable(): void {
 		this._disabled.set(true);
 	}
 
-	enable(): void {
+	public enable(): void {
 		this._disabled.set(false);
 	}
 
-	setValidators(validators: ValidatorFn<T>[]): void {
+	public setValidators(validators: ValidatorFn<T>[]): void {
 		this._validators = validators;
 		this.runValidation();
 	}
 
-	setAsyncValidators(validators: AsyncValidatorFn<T>[]): void {
+	public setAsyncValidators(validators: AsyncValidatorFn<T>[]): void {
 		this._asyncValidators = validators;
 		this.runValidation();
 	}
 
-	addValidators(validators: ValidatorFn<T>[]): void {
+	public addValidators(validators: ValidatorFn<T>[]): void {
 		this._validators = [...this._validators, ...validators];
 		this.runValidation();
 	}
 
-	removeValidators(validators: ValidatorFn<T>[]): void {
+	public removeValidators(validators: ValidatorFn<T>[]): void {
 		this._validators = this._validators.filter((v) => !validators.includes(v));
 		this.runValidation();
 	}
 
-	async validate(): Promise<void> {
+	public async validate(): Promise<void> {
 		await this.runValidation();
 	}
 
-	getError(code: string): ValidationError | null {
+	public getError(code: string): ValidationError | null {
 		return this.errors()?.[code] ?? null;
 	}
 
-	hasError(code: string): boolean {
+	public hasError(code: string): boolean {
 		return this.errors()?.[code] !== undefined;
 	}
 
-	destroy(): void {
+	public destroy(): void {
 		this.value.destroy();
 		this.errors.destroy();
 		this._touched.destroy();

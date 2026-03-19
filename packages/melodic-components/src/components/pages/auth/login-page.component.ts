@@ -40,24 +40,24 @@ import { loginPageStyles } from './login-page.styles.js';
 	attributes: ['variant', 'title', 'description']
 })
 export class LoginPageComponent implements IElementRef {
-	elementRef!: HTMLElement;
+	public elementRef!: HTMLElement;
 
 	/** Layout variant */
-	variant: 'centered' | 'split' = 'centered';
+	public variant: 'centered' | 'split' = 'centered';
 
 	/** Page title */
-	title = 'Log in to your account';
+	public title = 'Log in to your account';
 
 	/** Page description */
-	description = 'Welcome back! Please enter your details.';
+	public description = 'Welcome back! Please enter your details.';
 
 	/** Check if header slot has content */
-	get hasHeaderSlot(): boolean {
+	public get hasHeaderSlot(): boolean {
 		return this.elementRef?.querySelector('[slot="header"]') !== null;
 	}
 
 	/** Check if brand slot has content */
-	get hasBrandSlot(): boolean {
+	public get hasBrandSlot(): boolean {
 		return this.elementRef?.querySelector('[slot="brand"]') !== null;
 	}
 }

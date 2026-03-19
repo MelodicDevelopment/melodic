@@ -16,9 +16,9 @@ export class InjectionEngine {
 	 * @overload bind(token, cls) - Use custom token with class
 	 * @overload bind(token, cls, options) - Use custom token with class and options
 	 */
-	bind<T>(cls: INewable<T>, options?: IClassBindingOptions): Binding<T>;
-	bind<T>(token: Token<T>, cls: INewable<T>, options?: IClassBindingOptions): Binding<T>;
-	bind<T>(tokenOrClass: Token<T> | INewable<T>, clsOrOptions?: INewable<T> | IClassBindingOptions, maybeOptions?: IClassBindingOptions): Binding<T> {
+	public bind<T>(cls: INewable<T>, options?: IClassBindingOptions): Binding<T>;
+	public bind<T>(token: Token<T>, cls: INewable<T>, options?: IClassBindingOptions): Binding<T>;
+	public bind<T>(tokenOrClass: Token<T> | INewable<T>, clsOrOptions?: INewable<T> | IClassBindingOptions, maybeOptions?: IClassBindingOptions): Binding<T> {
 		let token: Token<T>;
 		let cls: INewable<T>;
 		let options: IClassBindingOptions | undefined;
@@ -53,9 +53,9 @@ export class InjectionEngine {
 		return binding;
 	}
 
-	bindValue<T>(token: Token<T>, value: T): Binding<T>;
-	bindValue<T, V>(token: Token<T>, value: V): Binding<T>;
-	bindValue<T>(token: Token<T>, value: unknown): Binding<T> {
+	public bindValue<T>(token: Token<T>, value: T): Binding<T>;
+	public bindValue<T, V>(token: Token<T>, value: V): Binding<T>;
+	public bindValue<T>(token: Token<T>, value: unknown): Binding<T> {
 		const key = getTokenKey(token);
 		const binding = new Binding<T>(key, token, 'value');
 
@@ -67,7 +67,7 @@ export class InjectionEngine {
 		return binding;
 	}
 
-	bindFactory<T>(token: Token<T>, factory: () => T, options?: IFactoryBindingOptions): Binding<T> {
+	public bindFactory<T>(token: Token<T>, factory: () => T, options?: IFactoryBindingOptions): Binding<T> {
 		const key = getTokenKey(token);
 		const binding = new Binding<T>(key, token, 'factory');
 		binding.setFactory(factory);
@@ -81,7 +81,7 @@ export class InjectionEngine {
 		return binding;
 	}
 
-	get<T>(token: Token<T>): T {
+	public get<T>(token: Token<T>): T {
 		const key = getTokenKey(token);
 		const binding = this._bindings.get(key) as Binding<T> | undefined;
 
@@ -92,22 +92,22 @@ export class InjectionEngine {
 		return this.resolve(binding, key);
 	}
 
-	has<T>(token: Token<T>): boolean {
+	public has<T>(token: Token<T>): boolean {
 		const key = getTokenKey(token);
 		return this._bindings.has(key);
 	}
 
-	getBinding<T>(token: Token<T>): Binding<T> | undefined {
+	public getBinding<T>(token: Token<T>): Binding<T> | undefined {
 		const key = getTokenKey(token);
 		return this._bindings.get(key) as Binding<T> | undefined;
 	}
 
-	unbind<T>(token: Token<T>): boolean {
+	public unbind<T>(token: Token<T>): boolean {
 		const key = getTokenKey(token);
 		return this._bindings.delete(key);
 	}
 
-	clear(): void {
+	public clear(): void {
 		this._bindings.clear();
 	}
 

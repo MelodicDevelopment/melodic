@@ -23,11 +23,11 @@ import { sidebarGroupStyles } from './sidebar-group.styles.js';
 	attributes: ['label', 'collapsed']
 })
 export class SidebarGroupComponent implements IElementRef {
-	elementRef!: HTMLElement;
+	public elementRef!: HTMLElement;
 
 	/** Group heading label */
-	label = '';
+	public label = '';
 
 	/** Collapsed state (set by parent sidebar) */
-	collapsed = false;
+	public collapsed = false;
 }

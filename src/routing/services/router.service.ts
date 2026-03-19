@@ -75,56 +75,56 @@ export class RouterService {
 		});
 	}
 
-	setRoutes(routes: IRoute[]): void {
+	public setRoutes(routes: IRoute[]): void {
 		this._routes = routes;
 	}
 
-	getRoutes(): IRoute[] {
+	public getRoutes(): IRoute[] {
 		return this._routes;
 	}
 
-	getContextService(): RouteContextService {
+	public getContextService(): RouteContextService {
 		return this._contextService;
 	}
 
-	getRoute(): IRouterEventState | undefined {
+	public getRoute(): IRouterEventState | undefined {
 		return this._route;
 	}
 
-	getParams(): Record<string, string> {
+	public getParams(): Record<string, string> {
 		return this._contextService.getCurrentParams();
 	}
 
-	getParam(name: string): string | undefined {
+	public getParam(name: string): string | undefined {
 		return this._contextService.getCurrentParams()[name];
 	}
 
-	getQueryParams(): URLSearchParams {
+	public getQueryParams(): URLSearchParams {
 		return new URLSearchParams(window.location.search);
 	}
 
-	getCurrentMatches(): IRouteMatch[] {
+	public getCurrentMatches(): IRouteMatch[] {
 		return [...this._currentMatches];
 	}
 
-	getRouteData(depth?: number): Record<string, unknown> {
+	public getRouteData(depth?: number): Record<string, unknown> {
 		return this._contextService.getMergedRouteData(depth);
 	}
 
-	getResolvedData(depth?: number): Record<string, unknown> {
+	public getResolvedData(depth?: number): Record<string, unknown> {
 		return this._contextService.getMergedResolvedData(depth);
 	}
 
-	matchPath(path: string): IRouteMatchResult {
+	public matchPath(path: string): IRouteMatchResult {
 		return matchRouteTree(this._routes, path);
 	}
 
-	setCurrentMatches(result: IRouteMatchResult): void {
+	public setCurrentMatches(result: IRouteMatchResult): void {
 		this._currentMatches = result.matches;
 		this._contextService.setMatchResult(result);
 	}
 
-	async runResolvers(matchResult: IRouteMatchResult): Promise<{ success: boolean; error?: string }> {
+	public async runResolvers(matchResult: IRouteMatchResult): Promise<{ success: boolean; error?: string }> {
 		const currentPath = `${window.location.pathname}${window.location.search}`;
 
 		if (this._resolversExecutedForPath === currentPath) {
@@ -137,7 +137,7 @@ export class RouterService {
 		return result;
 	}
 
-	async navigate(path: string, options: INavigationOptions = {}): Promise<INavigationResult> {
+	public async navigate(path: string, options: INavigationOptions = {}): Promise<INavigationResult> {
 		const { data, replace = false, queryParams, skipGuards = false, skipResolvers = false, scrollToTop = true } = options;
 
 		let fullPath = path;
@@ -219,7 +219,7 @@ export class RouterService {
 		};
 	}
 
-	async navigateByName(name: string, params: Record<string, string> = {}, options: INavigationOptions = {}): Promise<INavigationResult> {
+	public async navigateByName(name: string, params: Record<string, string> = {}, options: INavigationOptions = {}): Promise<INavigationResult> {
 		const path = buildPathFromRoute(this._routes, name, params);
 
 		if (!path) {
@@ -232,24 +232,24 @@ export class RouterService {
 		return this.navigate(path, options);
 	}
 
-	replace(path: string, data?: unknown): void {
+	public replace(path: string, data?: unknown): void {
 		history.replaceState(data, '', path);
 		this._currentPath = `${window.location.pathname}${window.location.search}`;
 	}
 
-	back(): void {
+	public back(): void {
 		history.back();
 	}
 
-	forward(): void {
+	public forward(): void {
 		history.forward();
 	}
 
-	go(delta: number): void {
+	public go(delta: number): void {
 		history.go(delta);
 	}
 
-	async runDeactivationGuards(targetPath: string): Promise<boolean | string> {
+	public async runDeactivationGuards(targetPath: string): Promise<boolean | string> {
 		for (const match of this._currentMatches) {
 			const guards = match.route.canDeactivate ?? [];
 
@@ -272,7 +272,7 @@ export class RouterService {
 		return true;
 	}
 
-	async runGuards(matchResult: IRouteMatchResult): Promise<boolean | string> {
+	public async runGuards(matchResult: IRouteMatchResult): Promise<boolean | string> {
 		for (const match of matchResult.matches) {
 			const guards = match.route.canActivate ?? [];
 

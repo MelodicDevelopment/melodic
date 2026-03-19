@@ -35,7 +35,7 @@ export class RouterLinkComponent {
 	public replace: boolean = false;
 	public elementRef!: HTMLElement;
 
-	onCreate(): void {
+	public onCreate(): void {
 		this._anchorElement = this.elementRef.shadowRoot?.querySelector('a') ?? null;
 
 		const initialHref = this.elementRef.getAttribute('href');
@@ -73,11 +73,11 @@ export class RouterLinkComponent {
 		this.updateActiveState();
 	}
 
-	onDestroy(): void {
+	public onDestroy(): void {
 		this._navigationCleanup?.();
 	}
 
-	onAttributeChange(attribute: string, _: unknown, newVal: unknown): void {
+	public onAttributeChange(attribute: string, _: unknown, newVal: unknown): void {
 		if (attribute === 'href') {
 			this.href = newVal as string;
 			this.updateAnchorHref();
@@ -88,14 +88,14 @@ export class RouterLinkComponent {
 		}
 	}
 
-	onPropertyChange(name: string): void {
+	public onPropertyChange(name: string): void {
 		if (name === 'href' || name === 'queryParams') {
 			this.updateAnchorHref();
 			this.updateActiveState();
 		}
 	}
 
-	isActive(): boolean {
+	public isActive(): boolean {
 		const currentPath = window.location.pathname;
 		const linkPath = this.href.startsWith('/') ? this.href : `/${this.href}`;
 

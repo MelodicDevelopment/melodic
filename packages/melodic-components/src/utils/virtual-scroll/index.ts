@@ -17,7 +17,7 @@ export class VirtualScroller {
 	private _options: VirtualScrollOptions | null = null;
 
 	/** Attach to a scrollable viewport element and begin observing */
-	attach(viewport: HTMLElement, options: VirtualScrollOptions): void {
+	public attach(viewport: HTMLElement, options: VirtualScrollOptions): void {
 		this._viewport = viewport;
 		this._options = options;
 
@@ -31,7 +31,7 @@ export class VirtualScroller {
 	}
 
 	/** Tear down observers and event listeners */
-	detach(): void {
+	public detach(): void {
 		this._resizeObserver?.disconnect();
 		this._resizeObserver = null;
 		if (this._viewport) {
@@ -42,7 +42,7 @@ export class VirtualScroller {
 	}
 
 	/** Call after item count or row height changes (e.g. after sort/filter/page change) */
-	invalidate(): void {
+	public invalidate(): void {
 		if (!this._viewport) return;
 		this._compute(this._viewport.clientHeight);
 	}

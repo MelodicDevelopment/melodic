@@ -24,7 +24,7 @@ export class CompiledTemplate {
 		this.analyzeAndCompile(strings);
 	}
 
-	static compile(strings: TemplateStringsArray): CompiledTemplate {
+	public static compile(strings: TemplateStringsArray): CompiledTemplate {
 		let compiled = compiledCache.get(strings);
 		if (!compiled) {
 			compiled = new CompiledTemplate(strings);
@@ -36,14 +36,14 @@ export class CompiledTemplate {
 	/**
 	 * Check if this template can use the fast path
 	 */
-	canUseFastPath(): boolean {
+	public canUseFastPath(): boolean {
 		return this._canCompile && !this._hasEvents;
 	}
 
 	/**
 	 * Create DOM nodes using the compiled factory
 	 */
-	create(values: unknown[]): CompiledResult {
+	public create(values: unknown[]): CompiledResult {
 		if (this._factory) {
 			return { nodes: [this._factory(values)], eventTargets: [] };
 		}
@@ -53,7 +53,7 @@ export class CompiledTemplate {
 	/**
 	 * Directly create a single node - faster than create() for single-element templates
 	 */
-	createDirect(values: unknown[]): Node | null {
+	public createDirect(values: unknown[]): Node | null {
 		return this._factory ? this._factory(values) : null;
 	}
 

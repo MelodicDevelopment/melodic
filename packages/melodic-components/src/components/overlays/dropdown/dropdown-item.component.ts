@@ -22,27 +22,27 @@ import { dropdownItemStyles } from './dropdown-item.styles.js';
 	attributes: ['value', 'icon', 'addon', 'disabled', 'destructive']
 })
 export class DropdownItemComponent implements IElementRef {
-	elementRef!: HTMLElement;
+	public elementRef!: HTMLElement;
 
 	/** Selection value emitted on click */
-	value = '';
+	public value = '';
 
 	/** Left icon name (Phosphor) */
-	icon = '';
+	public icon = '';
 
 	/** Right addon text (e.g. keyboard shortcut) */
-	addon = '';
+	public addon = '';
 
 	/** Non-interactive state */
-	disabled = false;
+	public disabled = false;
 
 	/** Red/danger styling */
-	destructive = false;
+	public destructive = false;
 
 	/** Set by parent dropdown for keyboard navigation highlight */
-	focused = false;
+	public focused = false;
 
-	handleClick = (): void => {
+	public handleClick = (): void => {
 		if (this.disabled) return;
 
 		this.elementRef.dispatchEvent(

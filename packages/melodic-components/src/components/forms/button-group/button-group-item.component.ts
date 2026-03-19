@@ -21,31 +21,31 @@ import { buttonGroupItemStyles } from './button-group-item.styles.js';
 	attributes: ['value', 'icon', 'disabled', 'active', 'group-disabled', 'group-size']
 })
 export class ButtonGroupItemComponent implements IElementRef {
-	elementRef!: HTMLElement;
+	public elementRef!: HTMLElement;
 
 	/** Item value identifier */
-	value = '';
+	public value = '';
 
 	/** Optional icon name */
-	icon = '';
+	public icon = '';
 
 	/** Disable this item */
-	disabled = false;
+	public disabled = false;
 
 	/** Active state (managed by parent via attribute) */
-	active = false;
+	public active = false;
 
 	/** Disabled state from parent group */
-	groupDisabled = false;
+	public groupDisabled = false;
 
 	/** Size from parent group */
-	groupSize: Size = 'md';
+	public groupSize: Size = 'md';
 
-	get isDisabled(): boolean {
+	public get isDisabled(): boolean {
 		return this.disabled || this.groupDisabled;
 	}
 
-	handleClick = (): void => {
+	public handleClick = (): void => {
 		if (this.isDisabled) return;
 		this.elementRef.dispatchEvent(
 			new CustomEvent('ml:item-click', {

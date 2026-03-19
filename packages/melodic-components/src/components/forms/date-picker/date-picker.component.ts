@@ -34,55 +34,55 @@ function formatDisplay(iso: string): string {
 	attributes: ['value', 'placeholder', 'label', 'hint', 'error', 'size', 'disabled', 'required', 'min', 'max']
 })
 export class DatePickerComponent implements IElementRef, OnCreate, OnDestroy {
-	elementRef!: HTMLElement;
+	public elementRef!: HTMLElement;
 
 	/** Selected date in ISO format (YYYY-MM-DD) */
-	value = '';
+	public value = '';
 
 	/** Placeholder text */
-	placeholder = 'Select date';
+	public placeholder = 'Select date';
 
 	/** Field label */
-	label = '';
+	public label = '';
 
 	/** Hint text */
-	hint = '';
+	public hint = '';
 
 	/** Error message */
-	error = '';
+	public error = '';
 
 	/** Input size */
-	size: 'sm' | 'md' | 'lg' = 'md';
+	public size: 'sm' | 'md' | 'lg' = 'md';
 
 	/** Disabled state */
-	disabled = false;
+	public disabled = false;
 
 	/** Required state */
-	required = false;
+	public required = false;
 
 	/** Minimum selectable date (YYYY-MM-DD) */
-	min = '';
+	public min = '';
 
 	/** Maximum selectable date (YYYY-MM-DD) */
-	max = '';
+	public max = '';
 
 	/** Whether the calendar popover is open */
-	isOpen = false;
+	public isOpen = false;
 
 	private _cleanupAutoUpdate: (() => void) | null = null;
 
-	get displayValue(): string {
+	public get displayValue(): string {
 		return formatDisplay(this.value);
 	}
 
-	onCreate(): void {
+	public onCreate(): void {
 		const popoverEl = this.getPopoverEl();
 		if (popoverEl) {
 			popoverEl.addEventListener('toggle', this._handleToggle);
 		}
 	}
 
-	onDestroy(): void {
+	public onDestroy(): void {
 		this._cleanupAutoUpdate?.();
 		const popoverEl = this.getPopoverEl();
 		if (popoverEl) {
@@ -90,7 +90,7 @@ export class DatePickerComponent implements IElementRef, OnCreate, OnDestroy {
 		}
 	}
 
-	toggleCalendar = (): void => {
+	public toggleCalendar = (): void => {
 		if (this.disabled) return;
 		const popoverEl = this.getPopoverEl();
 		if (popoverEl) {
@@ -99,14 +99,14 @@ export class DatePickerComponent implements IElementRef, OnCreate, OnDestroy {
 	};
 
 	/** Called when a day is clicked - selects immediately and closes */
-	handleDateSelect = (event: Event): void => {
+	public handleDateSelect = (event: Event): void => {
 		event.stopPropagation();
 		const detail = (event as CustomEvent).detail as { value: string };
 		this.commitValue(detail.value);
 		this.closePopover();
 	};
 
-	handleKeyDown = (event: KeyboardEvent): void => {
+	public handleKeyDown = (event: KeyboardEvent): void => {
 		if (event.key === 'Escape' && this.isOpen) {
 			event.preventDefault();
 			this.closePopover();

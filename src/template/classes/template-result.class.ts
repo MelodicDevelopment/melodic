@@ -30,8 +30,8 @@ function getTemplateKey(strings: TemplateStringsArray): string {
 }
 
 export class TemplateResult {
-	strings: TemplateStringsArray;
-	values: unknown[];
+	public strings: TemplateStringsArray;
+	public values: unknown[];
 
 	constructor(strings: TemplateStringsArray, values: unknown[]) {
 		this.strings = strings;
@@ -42,7 +42,7 @@ export class TemplateResult {
 	 * Optimized render for single-use containers (like repeat items).
 	 * Returns the rendered nodes directly.
 	 */
-	renderOnce(container: DocumentFragment): Node[] {
+	public renderOnce(container: DocumentFragment): Node[] {
 		const templateKey = getTemplateKey(this.strings);
 		const cache = this.getTemplate(templateKey);
 		const clone = cache.element.content.cloneNode(true);
@@ -57,7 +57,7 @@ export class TemplateResult {
 		return Array.from(container.childNodes);
 	}
 
-	renderInto(container: Element | DocumentFragment): void {
+	public renderInto(container: Element | DocumentFragment): void {
 		const templateKey = getTemplateKey(this.strings);
 
 		// Get or create template

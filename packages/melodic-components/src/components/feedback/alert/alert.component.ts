@@ -29,18 +29,18 @@ import { alertStyles } from './alert.styles.js';
 	attributes: ['variant', 'title', 'dismissible']
 })
 export class AlertComponent implements IElementRef {
-	elementRef!: HTMLElement;
+	public elementRef!: HTMLElement;
 
 	/** Alert variant/type */
-	variant: AlertVariant = 'info';
+	public variant: AlertVariant = 'info';
 
 	/** Optional title */
-	title = '';
+	public title = '';
 
 	/** Show dismiss button */
-	dismissible = false;
+	public dismissible = false;
 
-	handleDismiss = (): void => {
+	public handleDismiss = (): void => {
 		this.elementRef.dispatchEvent(
 			new CustomEvent('ml:dismiss', {
 				bubbles: true,
@@ -51,7 +51,7 @@ export class AlertComponent implements IElementRef {
 		this.elementRef.setAttribute('hidden', '');
 	};
 
-	renderDefaultIcon = () => {
+	public renderDefaultIcon = () => {
 		const icons: Record<AlertVariant, string> = {
 			info: 'info',
 			success: 'check-circle',

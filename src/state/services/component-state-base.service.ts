@@ -18,15 +18,15 @@ export abstract class ComponentStateBaseService<S extends object> extends Effect
 		return this._state();
 	}
 
-	resetState(): void {
+	public resetState(): void {
 		this._state.set(this._initState);
 	}
 
-	select<T>(selectFn: (state: S) => T): Signal<T> {
+	public select<T>(selectFn: (state: S) => T): Signal<T> {
 		return computed(() => selectFn(this._state()));
 	}
 
-	dispatch<T extends ActionIdentifier, P extends ActionPayload>(action: TypedAction<T, P>): void {
+	public dispatch<T extends ActionIdentifier, P extends ActionPayload>(action: TypedAction<T, P>): void {
 		if (this._debug) {
 			console.log(`[ComponentState] Action: ${action.type}`);
 			console.log(`[ComponentState] Payload:`, action.payload);

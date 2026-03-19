@@ -22,28 +22,28 @@ import { tabStyles } from './tab.styles.js';
 	attributes: ['value', 'label', 'icon', 'disabled', 'active', 'href']
 })
 export class TabComponent implements IElementRef {
-	elementRef!: HTMLElement;
+	public elementRef!: HTMLElement;
 
 	/** Tab identifier (must match ml-tab-panel value) */
-	value = '';
+	public value = '';
 
 	/** Tab label text */
-	label = '';
+	public label = '';
 
 	/** Optional icon name */
-	icon = '';
+	public icon = '';
 
 	/** Disable this tab */
-	disabled = false;
+	public disabled = false;
 
 	/** Active state (managed by parent ml-tabs) */
-	active = false;
+	public active = false;
 
 	/** URL for routed tabs */
-	href = '';
+	public href = '';
 
 	/** Handle click on tab */
-	handleClick = (): void => {
+	public handleClick = (): void => {
 		if (this.disabled) return;
 
 		// Dispatch event for parent ml-tabs to handle

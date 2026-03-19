@@ -39,67 +39,67 @@ import { autocompleteStyles } from './autocomplete.styles.js';
 	attributes: ['label', 'placeholder', 'hint', 'error', 'size', 'disabled', 'required', 'value', 'multiple']
 })
 export class AutocompleteComponent implements IElementRef, OnCreate, OnDestroy {
-	elementRef!: HTMLElement;
+	public elementRef!: HTMLElement;
 
 	/** Label text */
-	label = '';
+	public label = '';
 
 	/** Placeholder text */
-	placeholder = 'Search';
+	public placeholder = 'Search';
 
 	/** Hint text shown below input */
-	hint = '';
+	public hint = '';
 
 	/** Error message (shows error state when set) */
-	error = '';
+	public error = '';
 
 	/** Component size */
-	size: Size = 'md';
+	public size: Size = 'md';
 
 	/** Disable the component */
-	disabled = false;
+	public disabled = false;
 
 	/** Mark as required */
-	required = false;
+	public required = false;
 
 	/** Enable multi-select mode */
-	multiple = false;
+	public multiple = false;
 
 	/** Currently selected value (single mode) */
-	value = '';
+	public value = '';
 
 	/** Currently selected values (multi mode) */
-	values: string[] = [];
+	public values: string[] = [];
 
 	/** Static options list */
-	options: AutocompleteOption[] = [];
+	public options: AutocompleteOption[] = [];
 
 	/** Async search function */
-	searchFn: AutocompleteSearchFn | null = null;
+	public searchFn: AutocompleteSearchFn | null = null;
 
 	/** Debounce ms for async search */
-	debounce = 300;
+	public debounce = 300;
 
 	/** Min chars before searching (0 = show on focus) */
-	minChars = 0;
+	public minChars = 0;
 
 	/** Show search icon */
-	showIcon = true;
+	public showIcon = true;
 
 	/** Current search query */
-	search = '';
+	public search = '';
 
 	/** Whether dropdown is open */
-	isOpen = false;
+	public isOpen = false;
 
 	/** Currently focused option index */
-	focusedIndex = -1;
+	public focusedIndex = -1;
 
 	/** Loading state for async search */
-	loading = false;
+	public loading = false;
 
 	/** Resolved async results */
-	asyncOptions: AutocompleteOption[] = [];
+	public asyncOptions: AutocompleteOption[] = [];
 
 	private readonly _handleKeyDown = this.onKeyDown.bind(this);
 	private readonly _handleDocumentClick = this.onDocumentClick.bind(this);
@@ -107,11 +107,11 @@ export class AutocompleteComponent implements IElementRef, OnCreate, OnDestroy {
 	private _debounceTimer: ReturnType<typeof setTimeout> | null = null;
 	private _syncingValues = false;
 
-	onCreate(): void {
+	public onCreate(): void {
 		this.elementRef.addEventListener('keydown', this._handleKeyDown);
 	}
 
-	onDestroy(): void {
+	public onDestroy(): void {
 		this.elementRef.removeEventListener('keydown', this._handleKeyDown);
 		this.removeScrollListener();
 		this.removeDocumentClickListener();
@@ -120,7 +120,7 @@ export class AutocompleteComponent implements IElementRef, OnCreate, OnDestroy {
 		}
 	}
 
-	onPropertyChange(name: string): void {
+	public onPropertyChange(name: string): void {
 		if (this._syncingValues) return;
 
 		if (name === 'multiple') {
@@ -171,13 +171,13 @@ export class AutocompleteComponent implements IElementRef, OnCreate, OnDestroy {
 	}
 
 	/** Get the selected option (single mode) */
-	get selectedOption(): AutocompleteOption | undefined {
+	public get selectedOption(): AutocompleteOption | undefined {
 		return this.allOptions.find((opt) => opt.value === this.value)
 			?? this.options.find((opt) => opt.value === this.value);
 	}
 
 	/** Get selected options (multi mode) */
-	get selectedOptions(): AutocompleteOption[] {
+	public get selectedOptions(): AutocompleteOption[] {
 		if (!this.multiple) {
 			return this.selectedOption ? [this.selectedOption] : [];
 		}
@@ -188,12 +188,12 @@ export class AutocompleteComponent implements IElementRef, OnCreate, OnDestroy {
 	}
 
 	/** All available options (static or async) */
-	get allOptions(): AutocompleteOption[] {
+	public get allOptions(): AutocompleteOption[] {
 		return this.searchFn ? this.asyncOptions : this.options;
 	}
 
 	/** Filtered options for display */
-	get filteredOptions(): AutocompleteOption[] {
+	public get filteredOptions(): AutocompleteOption[] {
 		if (this.searchFn) {
 			return this.asyncOptions;
 		}
@@ -209,18 +209,18 @@ export class AutocompleteComponent implements IElementRef, OnCreate, OnDestroy {
 		});
 	}
 
-	get hasValue(): boolean {
+	public get hasValue(): boolean {
 		return this.multiple ? this.values.length > 0 : !!this.value;
 	}
 
 	/** Display text for the input in single mode */
-	get displayText(): string {
+	public get displayText(): string {
 		if (this.multiple) return '';
 		return this.selectedOption?.label || '';
 	}
 
 	/** Open the dropdown */
-	open = (): void => {
+	public open = (): void => {
 		if (this.disabled || this.isOpen) return;
 		if (this.minChars > 0 && this.search.length < this.minChars) return;
 
@@ -240,7 +240,7 @@ export class AutocompleteComponent implements IElementRef, OnCreate, OnDestroy {
 	};
 
 	/** Close the dropdown */
-	close = (): void => {
+	public close = (): void => {
 		if (!this.isOpen) return;
 
 		this.getDropdownEl()?.hidePopover();
@@ -255,7 +255,7 @@ export class AutocompleteComponent implements IElementRef, OnCreate, OnDestroy {
 	};
 
 	/** Select an option */
-	selectOption = (option: AutocompleteOption): void => {
+	public selectOption = (option: AutocompleteOption): void => {
 		if (option.disabled) return;
 
 		if (this.multiple) {
@@ -277,13 +277,13 @@ export class AutocompleteComponent implements IElementRef, OnCreate, OnDestroy {
 	};
 
 	/** Handle click on option */
-	handleOptionClick = (event: Event, option: AutocompleteOption): void => {
+	public handleOptionClick = (event: Event, option: AutocompleteOption): void => {
 		event.stopPropagation();
 		this.selectOption(option);
 	};
 
 	/** Handle input changes */
-	handleInput = (event: Event): void => {
+	public handleInput = (event: Event): void => {
 		if (this.disabled) return;
 		const target = event.target as HTMLInputElement;
 		this.search = target.value;
@@ -325,7 +325,7 @@ export class AutocompleteComponent implements IElementRef, OnCreate, OnDestroy {
 	};
 
 	/** Handle input focus */
-	handleFocus = (): void => {
+	public handleFocus = (): void => {
 		if (this.disabled) return;
 
 		if (this.minChars === 0) {
@@ -339,7 +339,7 @@ export class AutocompleteComponent implements IElementRef, OnCreate, OnDestroy {
 	};
 
 	/** Handle input click */
-	handleInputClick = (event: Event): void => {
+	public handleInputClick = (event: Event): void => {
 		event.stopPropagation();
 		if (!this.isOpen && this.minChars === 0) {
 			if (this.searchFn && this.asyncOptions.length === 0) {
@@ -350,7 +350,7 @@ export class AutocompleteComponent implements IElementRef, OnCreate, OnDestroy {
 	};
 
 	/** Handle tag remove in multi mode */
-	handleTagRemove = (event: Event, value: string): void => {
+	public handleTagRemove = (event: Event, value: string): void => {
 		event.stopPropagation();
 		if (this.disabled) return;
 
@@ -365,7 +365,7 @@ export class AutocompleteComponent implements IElementRef, OnCreate, OnDestroy {
 	};
 
 	/** Clear the current value (single mode) */
-	handleClear = (event: Event): void => {
+	public handleClear = (event: Event): void => {
 		event.stopPropagation();
 		if (this.disabled) return;
 

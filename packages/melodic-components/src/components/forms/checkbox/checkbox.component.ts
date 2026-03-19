@@ -23,27 +23,27 @@ import { checkboxStyles } from './checkbox.styles.js';
 	attributes: ['label', 'hint', 'size', 'checked', 'indeterminate', 'disabled']
 })
 export class CheckboxComponent implements IElementRef {
-	elementRef!: HTMLElement;
+	public elementRef!: HTMLElement;
 
 	/** Checkbox label */
-	label = '';
+	public label = '';
 
 	/** Hint text below the checkbox */
-	hint = '';
+	public hint = '';
 
 	/** Checkbox size */
-	size: Size = 'md';
+	public size: Size = 'md';
 
 	/** Checked state */
-	checked = false;
+	public checked = false;
 
 	/** Indeterminate state */
-	indeterminate = false;
+	public indeterminate = false;
 
 	/** Disabled state */
-	disabled = false;
+	public disabled = false;
 
-	handleChange = (event: Event): void => {
+	public handleChange = (event: Event): void => {
 		if (this.disabled) {
 			event.preventDefault();
 			return;

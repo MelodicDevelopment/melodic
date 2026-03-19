@@ -34,33 +34,33 @@ import { popoverStyles } from './popover.styles.js';
 	attributes: ['placement', 'offset', 'manual', 'arrow']
 })
 export class PopoverComponent implements IElementRef, OnCreate, OnDestroy {
-	elementRef!: HTMLElement;
+	public elementRef!: HTMLElement;
 
 	/** Popover placement relative to trigger */
-	placement: Placement = 'bottom';
+	public placement: Placement = 'bottom';
 
 	/** Gap between trigger and popover in px */
-	offset = 8;
+	public offset = 8;
 
 	/** When true, uses popover="manual" (no light-dismiss) */
-	manual = false;
+	public manual = false;
 
 	/** When true, shows an arrow pointing to the trigger */
-	arrow = false;
+	public arrow = false;
 
 	/** Current open state */
-	isOpen = false;
+	public isOpen = false;
 
 	private _cleanupAutoUpdate: (() => void) | null = null;
 
-	onCreate(): void {
+	public onCreate(): void {
 		const popoverEl = this.getPopoverEl();
 		if (popoverEl) {
 			popoverEl.addEventListener('toggle', this.handleToggle);
 		}
 	}
 
-	onDestroy(): void {
+	public onDestroy(): void {
 		this._cleanupAutoUpdate?.();
 		const popoverEl = this.getPopoverEl();
 		if (popoverEl) {
@@ -69,7 +69,7 @@ export class PopoverComponent implements IElementRef, OnCreate, OnDestroy {
 	}
 
 	/** Open the popover */
-	open(): void {
+	public open(): void {
 		const popoverEl = this.getPopoverEl();
 		if (popoverEl && !this.isOpen) {
 			popoverEl.showPopover();
@@ -77,7 +77,7 @@ export class PopoverComponent implements IElementRef, OnCreate, OnDestroy {
 	}
 
 	/** Close the popover */
-	close(): void {
+	public close(): void {
 		const popoverEl = this.getPopoverEl();
 		if (popoverEl && this.isOpen) {
 			popoverEl.hidePopover();
@@ -85,7 +85,7 @@ export class PopoverComponent implements IElementRef, OnCreate, OnDestroy {
 	}
 
 	/** Toggle the popover */
-	toggle = (): void => {
+	public toggle = (): void => {
 		const popoverEl = this.getPopoverEl();
 		if (popoverEl) {
 			popoverEl.togglePopover();

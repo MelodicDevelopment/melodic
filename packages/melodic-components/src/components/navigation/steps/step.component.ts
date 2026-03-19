@@ -22,55 +22,55 @@ import { stepStyles } from './step.styles.js';
 	attributes: ['value', 'label', 'description', 'icon', 'disabled', 'status', 'variant', 'connector', 'color', 'orientation', 'step-number', 'first', 'last', 'compact']
 })
 export class StepComponent implements IElementRef {
-	elementRef!: HTMLElement;
+	public elementRef!: HTMLElement;
 
 	/** Step identifier */
-	value = '';
+	public value = '';
 
 	/** Step title */
-	label = '';
+	public label = '';
 
 	/** Secondary description text */
-	description = '';
+	public description = '';
 
 	/** Icon name (for icons variant) */
-	icon = '';
+	public icon = '';
 
 	/** URL for routed mode */
-	href = '';
+	public href = '';
 
 	/** Disable this step */
-	disabled = false;
+	public disabled = false;
 
 	/** Step status (managed by parent) */
-	status: StepStatus = 'upcoming';
+	public status: StepStatus = 'upcoming';
 
 	/** Visual variant (managed by parent) */
-	variant: StepsVariant = 'numbered';
+	public variant: StepsVariant = 'numbered';
 
 	/** Connector style (managed by parent) */
-	connector: StepsConnector = 'solid';
+	public connector: StepsConnector = 'solid';
 
 	/** Accent color (managed by parent) */
-	color: StepsColor = 'primary';
+	public color: StepsColor = 'primary';
 
 	/** Layout orientation (managed by parent) */
-	orientation: StepsOrientation = 'horizontal';
+	public orientation: StepsOrientation = 'horizontal';
 
 	/** Step number (managed by parent) */
-	'step-number' = '1';
+	public 'step-number' = '1';
 
 	/** First step flag (managed by parent) */
-	first = false;
+	public first = false;
 
 	/** Last step flag (managed by parent) */
-	last = false;
+	public last = false;
 
 	/** Compact/dots mode (managed by parent) */
-	compact = false;
+	public compact = false;
 
 	/** Handle click on step */
-	handleClick = (): void => {
+	public handleClick = (): void => {
 		if (this.disabled) return;
 
 		this.elementRef.dispatchEvent(

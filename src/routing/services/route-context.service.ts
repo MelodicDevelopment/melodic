@@ -11,7 +11,7 @@ export class RouteContextService {
 	private _currentMatchResult: IRouteMatchResult | null = null;
 	private _resolvedData: Map<number, Record<string, unknown>> = new Map();
 
-	setMatchResult(result: IRouteMatchResult): void {
+	public setMatchResult(result: IRouteMatchResult): void {
 		this._currentMatchResult = result;
 		this._matchStack = result.matches;
 
@@ -42,19 +42,19 @@ export class RouteContextService {
 		}
 	}
 
-	setResolvedData(depth: number, data: Record<string, unknown>): void {
+	public setResolvedData(depth: number, data: Record<string, unknown>): void {
 		this._resolvedData.set(depth, data);
 	}
 
-	clearResolvedData(): void {
+	public clearResolvedData(): void {
 		this._resolvedData.clear();
 	}
 
-	getContextForDepth(depth: number): IRouteContext | undefined {
+	public getContextForDepth(depth: number): IRouteContext | undefined {
 		return this._contexts.get(depth);
 	}
 
-	getChildRoutesForDepth(depth: number): IRoute[] {
+	public getChildRoutesForDepth(depth: number): IRoute[] {
 		const parentContext = this._contexts.get(depth - 1);
 
 		if (depth === 0) {
@@ -64,7 +64,7 @@ export class RouteContextService {
 		return parentContext?.currentMatch?.children ?? [];
 	}
 
-	getRemainingPathForDepth(depth: number): string {
+	public getRemainingPathForDepth(depth: number): string {
 		if (depth === 0) {
 			return window.location.pathname;
 		}
@@ -74,24 +74,24 @@ export class RouteContextService {
 		return parentContext?.remainingPath ?? '';
 	}
 
-	getParamsForDepth(depth: number): Record<string, string> {
+	public getParamsForDepth(depth: number): Record<string, string> {
 		const context = this._contexts.get(depth);
 		return context?.params ?? {};
 	}
 
-	getCurrentParams(): Record<string, string> {
+	public getCurrentParams(): Record<string, string> {
 		return this._currentMatchResult?.params ?? {};
 	}
 
-	getMatchStack(): IRouteMatch[] {
+	public getMatchStack(): IRouteMatch[] {
 		return [...this._matchStack];
 	}
 
-	getCurrentMatchResult(): IRouteMatchResult | null {
+	public getCurrentMatchResult(): IRouteMatchResult | null {
 		return this._currentMatchResult;
 	}
 
-	getMergedRouteData(depth?: number): Record<string, unknown> {
+	public getMergedRouteData(depth?: number): Record<string, unknown> {
 		const maxDepth = depth ?? this._matchStack.length - 1;
 		const merged: Record<string, unknown> = {};
 
@@ -105,7 +105,7 @@ export class RouteContextService {
 		return merged;
 	}
 
-	getMergedResolvedData(depth?: number): Record<string, unknown> {
+	public getMergedResolvedData(depth?: number): Record<string, unknown> {
 		const maxDepth = depth ?? this._matchStack.length - 1;
 		const merged: Record<string, unknown> = {};
 
@@ -119,7 +119,7 @@ export class RouteContextService {
 		return merged;
 	}
 
-	getResolvedDataForDepth(depth: number): Record<string, unknown> | undefined {
+	public getResolvedDataForDepth(depth: number): Record<string, unknown> | undefined {
 		return this._resolvedData.get(depth);
 	}
 }

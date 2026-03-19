@@ -10,7 +10,7 @@ interface IPendingRequest<T = any> {
 export class RequestManager {
 	private _pendingRequests = new Map<string, IPendingRequest>();
 
-	generateRequestKey(method: string, url: string, body?: HttpRequestBody): string {
+	public generateRequestKey(method: string, url: string, body?: HttpRequestBody): string {
 		let key = `${method}:${url}`;
 
 		if (body) {
@@ -20,11 +20,11 @@ export class RequestManager {
 		return key;
 	}
 
-	hasPendingRequest(key: string): boolean {
+	public hasPendingRequest(key: string): boolean {
 		return this._pendingRequests.has(key);
 	}
 
-	getPendingRequest<T = any>(key: string): Promise<IHttpResponse<T>> | null {
+	public getPendingRequest<T = any>(key: string): Promise<IHttpResponse<T>> | null {
 		const pending = this._pendingRequests.get(key);
 
 		if (!pending) {
@@ -34,7 +34,7 @@ export class RequestManager {
 		return pending.promise;
 	}
 
-	addPendingRequest<T = any>(requestConfig: IRequestConfig, promise: Promise<IHttpResponse<T>>): void {
+	public addPendingRequest<T = any>(requestConfig: IRequestConfig, promise: Promise<IHttpResponse<T>>): void {
 		const key = this.generateRequestKey(requestConfig.method || 'GET', requestConfig.url || '', requestConfig.body as BodyInit | null);
 
 		this._pendingRequests.set(key, {
@@ -47,7 +47,7 @@ export class RequestManager {
 		});
 	}
 
-	cancelPendingRequest(key: string, reason?: string): void {
+	public cancelPendingRequest(key: string, reason?: string): void {
 		const pending = this._pendingRequests.get(key);
 
 		if (pending) {
@@ -56,7 +56,7 @@ export class RequestManager {
 		}
 	}
 
-	cancelAllRequests(reason?: string): void {
+	public cancelAllRequests(reason?: string): void {
 		this._pendingRequests.forEach((pending) => {
 			pending.abortController.abort(reason);
 		});

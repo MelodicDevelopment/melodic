@@ -26,8 +26,8 @@ type ActivityFeedVariant = 'list' | 'timeline';
 	attributes: ['variant']
 })
 export class ActivityFeedComponent implements IElementRef {
-	elementRef!: HTMLElement;
+	public elementRef!: HTMLElement;
 
 	/** Feed display variant */
-	variant: ActivityFeedVariant = 'list';
+	public variant: ActivityFeedVariant = 'list';
 }

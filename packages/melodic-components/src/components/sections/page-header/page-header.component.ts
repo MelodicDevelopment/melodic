@@ -33,47 +33,47 @@ export type PageHeaderVariant = 'default' | 'compact' | 'centered';
 	attributes: ['variant', 'divider', 'title', 'description']
 })
 export class PageHeaderComponent implements IElementRef {
-	elementRef!: HTMLElement;
+	public elementRef!: HTMLElement;
 
 	/** Page title text */
-	title = '';
+	public title = '';
 
 	/** Page description text */
-	description = '';
+	public description = '';
 
 	/** Visual variant */
-	variant: PageHeaderVariant = 'default';
+	public variant: PageHeaderVariant = 'default';
 
 	/** Show bottom border */
-	divider = true;
+	public divider = true;
 
 	/** Check if breadcrumb slot has content */
-	get hasBreadcrumb(): boolean {
+	public get hasBreadcrumb(): boolean {
 		return this.elementRef?.querySelector('[slot="breadcrumb"]') !== null;
 	}
 
 	/** Check if title slot has content */
-	get hasTitleSlot(): boolean {
+	public get hasTitleSlot(): boolean {
 		return this.elementRef?.querySelector('[slot="title"]') !== null;
 	}
 
 	/** Check if description slot has content */
-	get hasDescriptionSlot(): boolean {
+	public get hasDescriptionSlot(): boolean {
 		return this.elementRef?.querySelector('[slot="description"]') !== null;
 	}
 
 	/** Check if actions slot has content */
-	get hasActions(): boolean {
+	public get hasActions(): boolean {
 		return this.elementRef?.querySelector('[slot="actions"]') !== null;
 	}
 
 	/** Check if tabs slot has content */
-	get hasTabs(): boolean {
+	public get hasTabs(): boolean {
 		return this.elementRef?.querySelector('[slot="tabs"]') !== null;
 	}
 
 	/** Check if meta slot has content */
-	get hasMeta(): boolean {
+	public get hasMeta(): boolean {
 		return this.elementRef?.querySelector('[slot="meta"]') !== null;
 	}
 }

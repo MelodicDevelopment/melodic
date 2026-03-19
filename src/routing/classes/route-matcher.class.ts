@@ -28,7 +28,7 @@ export class RouteMatcher {
 		this._prefixRegex = new RegExp('^' + escapedRoute + '(?:/|$)');
 	}
 
-	parse(url: string): RouteMatchParams {
+	public parse(url: string): RouteMatchParams {
 		let i: number = 0;
 		let param: Rule;
 		let value: string;
@@ -53,7 +53,7 @@ export class RouteMatcher {
 		return params;
 	}
 
-	parsePrefix(url: string): { params: RouteMatchParams; matchedPath: string; remainingPath: string } | null {
+	public parsePrefix(url: string): { params: RouteMatchParams; matchedPath: string; remainingPath: string } | null {
 		if (this._route === '') {
 			return {
 				params: {},
@@ -85,7 +85,7 @@ export class RouteMatcher {
 		return { params, matchedPath, remainingPath };
 	}
 
-	stringify(params: Record<string, string>): string {
+	public stringify(params: Record<string, string>): string {
 		let re: RegExp;
 		let result: string = this._route;
 

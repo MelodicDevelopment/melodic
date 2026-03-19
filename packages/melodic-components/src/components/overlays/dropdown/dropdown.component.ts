@@ -31,24 +31,24 @@ import { dropdownStyles } from './dropdown.styles.js';
 	attributes: ['placement', 'offset', 'arrow']
 })
 export class DropdownComponent implements IElementRef, OnCreate, OnDestroy {
-	elementRef!: HTMLElement;
+	public elementRef!: HTMLElement;
 
 	/** Menu placement relative to trigger */
-	placement: Placement = 'bottom-start';
+	public placement: Placement = 'bottom-start';
 
 	/** Gap between trigger and menu in px */
-	offset = 4;
+	public offset = 4;
 
 	/** Show arrow pointing to trigger */
-	arrow = false;
+	public arrow = false;
 
 	/** Current open state */
-	isOpen = false;
+	public isOpen = false;
 
 	private _focusedIndex = -1;
 	private _cleanupAutoUpdate: (() => void) | null = null;
 
-	onCreate(): void {
+	public onCreate(): void {
 		const menuEl = this.getMenuEl();
 		if (menuEl) {
 			menuEl.addEventListener('toggle', this.handleToggle);
@@ -58,7 +58,7 @@ export class DropdownComponent implements IElementRef, OnCreate, OnDestroy {
 		this.elementRef.addEventListener('keydown', this.handleKeyDown);
 	}
 
-	onDestroy(): void {
+	public onDestroy(): void {
 		this._cleanupAutoUpdate?.();
 		const menuEl = this.getMenuEl();
 		if (menuEl) {
@@ -69,7 +69,7 @@ export class DropdownComponent implements IElementRef, OnCreate, OnDestroy {
 	}
 
 	/** Open the menu */
-	open(): void {
+	public open(): void {
 		const menuEl = this.getMenuEl();
 		if (menuEl && !this.isOpen) {
 			menuEl.showPopover();
@@ -77,7 +77,7 @@ export class DropdownComponent implements IElementRef, OnCreate, OnDestroy {
 	}
 
 	/** Close the menu */
-	close(): void {
+	public close(): void {
 		const menuEl = this.getMenuEl();
 		if (menuEl && this.isOpen) {
 			menuEl.hidePopover();
@@ -85,7 +85,7 @@ export class DropdownComponent implements IElementRef, OnCreate, OnDestroy {
 	}
 
 	/** Toggle the menu */
-	toggle = (): void => {
+	public toggle = (): void => {
 		const menuEl = this.getMenuEl();
 		if (menuEl) {
 			menuEl.togglePopover();

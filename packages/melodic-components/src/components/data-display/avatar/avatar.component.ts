@@ -23,31 +23,31 @@ import { avatarStyles } from './avatar.styles.js';
 	attributes: ['src', 'alt', 'initials', 'size', 'rounded']
 })
 export class AvatarComponent implements IElementRef {
-	elementRef!: HTMLElement;
+	public elementRef!: HTMLElement;
 
 	/** Image source URL */
-	src = '';
+	public src = '';
 
 	/** Alt text for image */
-	alt = '';
+	public alt = '';
 
 	/** Initials to display (fallback if no image) */
-	initials = '';
+	public initials = '';
 
 	/** Avatar size */
-	size: Size = 'md';
+	public size: Size = 'md';
 
 	/** Use rounded square instead of circle */
-	rounded = false;
+	public rounded = false;
 
 	/** Internal: track image load errors */
-	_imageError = false;
+	public _imageError = false;
 
-	handleImageError = (): void => {
+	public handleImageError = (): void => {
 		this._imageError = true;
 	};
 
-	getInitials(): string {
+	public getInitials(): string {
 		// Return at most 2 characters
 		return this.initials.slice(0, 2).toUpperCase();
 	}

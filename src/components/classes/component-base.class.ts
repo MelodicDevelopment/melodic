@@ -33,11 +33,11 @@ export abstract class ComponentBase extends HTMLElement {
 		}
 	}
 
-	get component(): Component {
+	public get component(): Component {
 		return this._component;
 	}
 
-	async connectedCallback(): Promise<void> {
+	public async connectedCallback(): Promise<void> {
 		this.render();
 
 		if (this._component.onCreate !== undefined) {
@@ -45,7 +45,7 @@ export abstract class ComponentBase extends HTMLElement {
 		}
 	}
 
-	disconnectedCallback(): void {
+	public disconnectedCallback(): void {
 		this._unsubscribers.forEach((unsubscribe) => unsubscribe());
 		this._unsubscribers = [];
 
@@ -69,7 +69,7 @@ export abstract class ComponentBase extends HTMLElement {
 		}
 	}
 
-	attributeChangedCallback(attribute: string, oldVal: unknown, newVal: unknown): void {
+	public attributeChangedCallback(attribute: string, oldVal: unknown, newVal: unknown): void {
 		const prop = attribute.replace(/-([a-z])/g, (_, ch: string) => ch.toUpperCase());
 
 		if ((this._component as any)[prop] !== undefined) {

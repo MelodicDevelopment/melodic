@@ -39,25 +39,22 @@ import { sidebarStyles } from './sidebar.styles.js';
 	attributes: ['variant', 'active']
 })
 export class SidebarComponent implements IElementRef, OnCreate, OnDestroy, OnRender {
-	elementRef!: HTMLElement;
+	public elementRef!: HTMLElement;
 
 	/** Visual variant */
-	variant: SidebarVariant = 'default';
+	public variant: SidebarVariant = 'default';
 
 	/** Currently active item value */
-	active = '';
+	public active = '';
 
 	/** Collapsed state (controlled by slim variant hover) */
-	collapsed = false;
+	public collapsed = false;
 
 	/** Navigation config (alternative to slotted content) */
-	navigation: SidebarNavGroup[] = [];
+	public navigation: SidebarNavGroup[] = [];
 
 	/** Footer navigation config */
-	footerNavigation: SidebarNavItem[] = [];
-
-	/** Internal tracking of slotted items */
-	_slottedItems: HTMLElement[] = [];
+	public footerNavigation: SidebarNavItem[] = [];
 
 	/** Debounce timer for hover */
 	private _hoverTimer: ReturnType<typeof setTimeout> | null = null;
@@ -68,21 +65,21 @@ export class SidebarComponent implements IElementRef, OnCreate, OnDestroy, OnRen
 	private readonly _handleMouseLeave = this.onMouseLeave.bind(this);
 
 	/** Check if search slot has content */
-	get hasSearch(): boolean {
+	public get hasSearch(): boolean {
 		return this.elementRef?.querySelector('[slot="search"]') !== null;
 	}
 
 	/** Check if feature slot has content */
-	get hasFeature(): boolean {
+	public get hasFeature(): boolean {
 		return this.elementRef?.querySelector('[slot="feature"]') !== null;
 	}
 
 	/** Check if user slot has content */
-	get hasUser(): boolean {
+	public get hasUser(): boolean {
 		return this.elementRef?.querySelector('[slot="user"]') !== null;
 	}
 
-	onCreate(): void {
+	public onCreate(): void {
 		// Set initial collapsed state based on variant
 		if (this.variant === 'slim') {
 			this.collapsed = true;
@@ -98,11 +95,11 @@ export class SidebarComponent implements IElementRef, OnCreate, OnDestroy, OnRen
 		}
 	}
 
-	onRender(): void {
+	public onRender(): void {
 		this.updateItemStates();
 	}
 
-	onDestroy(): void {
+	public onDestroy(): void {
 		this.elementRef.removeEventListener('ml:sidebar-item-click', this._handleItemClick as EventListener);
 		this.elementRef.removeEventListener('mouseenter', this._handleMouseEnter);
 		this.elementRef.removeEventListener('mouseleave', this._handleMouseLeave);
@@ -113,19 +110,17 @@ export class SidebarComponent implements IElementRef, OnCreate, OnDestroy, OnRen
 	}
 
 	/** Handle slotted items change */
-	handleDefaultSlotChange = (event: Event): void => {
-		const slot = event.target as HTMLSlotElement;
-		this._slottedItems = slot.assignedElements({ flatten: true }) as HTMLElement[];
+	public handleDefaultSlotChange = (): void => {
 		this.updateItemStates();
 	};
 
 	/** Handle config item click */
-	handleConfigItemClick = (value: string, href?: string): void => {
+	public handleConfigItemClick = (value: string, href?: string): void => {
 		this.activateItem(value, href);
 	};
 
 	/** Handle config submenu toggle */
-	handleConfigToggle = (item: SidebarNavItem): void => {
+	public handleConfigToggle = (item: SidebarNavItem): void => {
 		const next = new Set(this.expandedItems);
 		if (next.has(item.value)) {
 			next.delete(item.value);
@@ -136,7 +131,7 @@ export class SidebarComponent implements IElementRef, OnCreate, OnDestroy, OnRen
 	};
 
 	/** Keyboard navigation */
-	handleKeyDown = (event: KeyboardEvent): void => {
+	public handleKeyDown = (event: KeyboardEvent): void => {
 		const sidebar = this.elementRef.shadowRoot?.querySelector('.ml-sidebar__main');
 		if (!sidebar) return;
 
@@ -174,7 +169,7 @@ export class SidebarComponent implements IElementRef, OnCreate, OnDestroy, OnRen
 	};
 
 	/** Track expanded config items */
-	expandedItems = new Set<string>();
+	public expandedItems = new Set<string>();
 
 	/** Activate an item */
 	private activateItem(value: string, href?: string): void {

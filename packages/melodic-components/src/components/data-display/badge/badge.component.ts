@@ -24,17 +24,17 @@ import { badgeStyles } from './badge.styles.js';
 	attributes: ['variant', 'size', 'dot', 'pill']
 })
 export class BadgeComponent implements IElementRef {
-	elementRef!: HTMLElement;
+	public elementRef!: HTMLElement;
 
 	/** Badge variant */
-	variant: BadgeVariant = 'default';
+	public variant: BadgeVariant = 'default';
 
 	/** Badge size */
-	size: Size = 'md';
+	public size: Size = 'md';
 
 	/** Show dot indicator */
-	dot = false;
+	public dot = false;
 
 	/** Use pill (rounded) shape */
-	pill = false;
+	public pill = false;
 }

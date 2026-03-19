@@ -25,27 +25,27 @@ import { listItemStyles } from './list-item.styles.js';
 	attributes: ['primary', 'secondary', 'disabled', 'interactive']
 })
 export class ListItemComponent implements IElementRef {
-	elementRef!: HTMLElement;
+	public elementRef!: HTMLElement;
 
 	/** Primary text */
-	primary = '';
+	public primary = '';
 
 	/** Secondary text */
-	secondary = '';
+	public secondary = '';
 
 	/** Disable the item */
-	disabled = false;
+	public disabled = false;
 
 	/** Enable hover/focus states for clickable items */
-	interactive = false;
+	public interactive = false;
 
 	/** Check if leading slot has content */
-	get hasLeadingSlot(): boolean {
+	public get hasLeadingSlot(): boolean {
 		return this.elementRef?.querySelector('[slot="leading"]') !== null;
 	}
 
 	/** Check if trailing slot has content */
-	get hasTrailingSlot(): boolean {
+	public get hasTrailingSlot(): boolean {
 		return this.elementRef?.querySelector('[slot="trailing"]') !== null;
 	}
 

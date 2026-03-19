@@ -36,29 +36,29 @@ export type DashboardLayout = 'default' | 'wide' | 'full';
 	attributes: ['title', 'description', 'layout']
 })
 export class DashboardPageComponent implements IElementRef {
-	elementRef!: HTMLElement;
+	public elementRef!: HTMLElement;
 
 	/** Page title */
-	title = '';
+	public title = '';
 
 	/** Page description */
-	description = '';
+	public description = '';
 
 	/** Content layout variant */
-	layout: DashboardLayout = 'default';
+	public layout: DashboardLayout = 'default';
 
 	/** Check if metrics slot has content */
-	get hasMetrics(): boolean {
+	public get hasMetrics(): boolean {
 		return this.elementRef?.querySelector('[slot="metrics"]') !== null;
 	}
 
 	/** Check if aside slot has content */
-	get hasAside(): boolean {
+	public get hasAside(): boolean {
 		return this.elementRef?.querySelector('[slot="aside"]') !== null;
 	}
 
 	/** Check if header-actions slot has content */
-	get hasHeaderActions(): boolean {
+	public get hasHeaderActions(): boolean {
 		return this.elementRef?.querySelector('[slot="header-actions"]') !== null;
 	}
 }
