@@ -36,7 +36,7 @@ export class FileUploadComponent implements IElementRef {
 	handleFileInput = (event: Event): void => {
 		const input = event.target as HTMLInputElement;
 		if (!input.files?.length) return;
-		this._processFiles(Array.from(input.files));
+		this.processFiles(Array.from(input.files));
 		input.value = '';
 	};
 
@@ -72,10 +72,10 @@ export class FileUploadComponent implements IElementRef {
 		if (this.disabled) return;
 		const files = event.dataTransfer?.files;
 		if (!files?.length) return;
-		this._processFiles(Array.from(files));
+		this.processFiles(Array.from(files));
 	};
 
-	_processFiles(files: File[]): void {
+	processFiles(files: File[]): void {
 		const errors: FileValidationError[] = [];
 		let validFiles = files;
 
