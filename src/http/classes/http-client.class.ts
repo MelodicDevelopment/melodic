@@ -80,6 +80,13 @@ export class HttpClient {
 			return Promise.resolve(cancelledResponse);
 		}
 
+		if (requestConfig.body instanceof FormData) {
+			const headers = { ...requestConfig.headers } as Record<string, string>;
+			delete headers['Content-Type'];
+			delete headers['content-type'];
+			requestConfig.headers = headers;
+		}
+
 		if (requestConfig.abortController === undefined) {
 			const abortController = new AbortController();
 			requestConfig.abortController = abortController;
