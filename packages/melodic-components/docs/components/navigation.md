@@ -245,7 +245,7 @@ const navGroups: SidebarNavGroup[] = [
 
 Items with slotted `ml-sidebar-item` children become expandable submenus automatically.
 
-**Key CSS Custom Properties (sidebar & sidebar-item):**
+**Key CSS Custom Properties (sidebar, sidebar-item & sidebar-group):**
 
 | Property | Default | Description |
 |----------|---------|-------------|
@@ -263,7 +263,15 @@ Items with slotted `ml-sidebar-item` children become expandable submenus automat
 | `--ml-sidebar-item-hover-icon-color` | `inherit` | Icon color on hover |
 | `--ml-sidebar-item-active-badge-bg` | `var(--ml-sidebar-item-badge-bg)` | Badge background when item is active |
 | `--ml-sidebar-item-active-badge-color` | `var(--ml-sidebar-item-badge-color)` | Badge text color when item is active |
+| `--ml-sidebar-group-padding-y` | `var(--ml-space-1)` | Vertical padding around the group |
+| `--ml-sidebar-group-label-padding-y` | `var(--ml-space-2)` | Vertical padding on the group label |
+| `--ml-sidebar-group-label-padding-x` | `var(--ml-space-4)` | Horizontal padding on the group label |
+| `--ml-sidebar-group-label-font-size` | `var(--ml-text-xs)` | Group label font size |
+| `--ml-sidebar-group-label-font-weight` | `var(--ml-font-semibold)` | Group label font weight |
 | `--ml-sidebar-group-label-color` | `var(--ml-color-text-muted)` | Group label text color |
+| `--ml-sidebar-group-label-letter-spacing` | `0.05em` | Group label letter spacing |
+| `--ml-sidebar-group-items-gap` | `var(--ml-space-0-5)` | Gap between items in the group |
+| `--ml-sidebar-group-items-padding-x` | `var(--ml-space-2)` | Horizontal padding around group items |
 
 **Bookmark-style active indicator example:**
 
