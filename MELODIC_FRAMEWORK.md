@@ -25,6 +25,13 @@
   - [Signal Effects](#signal-effects)
   - [Component Property Reactivity](#component-property-reactivity)
   - [Render Batching](#render-batching)
+- [Props & Data Flow](#props--data-flow)
+  - [Passing Props into Components](#passing-props-into-components)
+  - [Parent-Child Communication](#parent-child-communication)
+  - [Sibling & Cross-Component Communication](#sibling--cross-component-communication)
+- [Events](#events)
+  - [DOM Event Handling](#dom-event-handling)
+  - [Custom Events](#custom-events)
 - [State Management](#state-management)
   - [Global Store (SignalStoreService)](#global-store-signalstoreservice)
   - [Component-Local State (ComponentStateBaseService)](#component-local-state-componentstatebaseservice)
@@ -550,6 +557,123 @@ Multiple synchronous property changes or signal updates produce a **single rende
 
 ---
 
+## Props & Data Flow
+
+### Passing Props into Components
+
+Components receive data through two mechanisms:
+
+**1. Property bindings** (`.property=${value}` in templates):
+
+```typescript
+html`<user-card .user=${currentUser} .showAvatar=${true}></user-card>`
+```
+
+Property bindings set values directly on the custom element. Because `observe()` mirrors getter/setter pairs on both the component instance and the HTMLElement wrapper, `.property` bindings on the host element trigger the same reactivity pipeline (change detection → `onPropertyChange` → `scheduleRender`).
+
+**2. HTML attributes** (`attribute=${value}` in templates):
+
+```typescript
+html`<user-card name=${userName} role="admin"></user-card>`
+```
+
+Observed attributes (listed in `@MelodicComponent({ attributes: [...] })`) are automatically synced to camelCase properties on the component via `attributeChangedCallback`. Kebab-case attributes map to camelCase properties (e.g., `my-attr` → `myAttr`). Boolean attribute conversion: any value except `null` and `'false'` becomes `true`.
+
+**Key difference:** Property bindings pass JavaScript values (objects, arrays, functions). Attribute bindings pass strings only. Use `.property` for complex data, `attribute` for simple strings/numbers.
+
+### Parent-Child Communication
+
+**Parent → Child:** Property bindings (`.property=${value}`) and attribute bindings as described above.
+
+**Child → Parent:** Custom DOM events dispatched from the child, handled with `@event` bindings on the parent:
+
+```typescript
+// Child component
+this.elementRef.dispatchEvent(new CustomEvent('user-selected', {
+  detail: { userId: this.selectedId },
+  bubbles: true,
+  composed: true   // crosses Shadow DOM boundaries
+}));
+
+// Parent template
+html`<user-list @user-selected=${(e) => this.handleSelection(e.detail)}></user-list>`
+```
+
+**`composed: true`** is critical — without it, events stop at the Shadow DOM boundary and the parent never sees them.
+
+### Sibling & Cross-Component Communication
+
+**Via shared services (recommended):** Use DI to inject the same `@Injectable()` service into both components. Services with signal-based state allow reactive communication:
+
+```typescript
+@Injectable()
+class SelectionService {
+  selectedId = signal<string | null>(null);
+}
+
+// Component A
+@Service(SelectionService) private _selection!: SelectionService;
+selectItem(id: string) { this._selection.selectedId.set(id); }
+
+// Component B — auto-re-renders when selectedId changes
+@Service(SelectionService) private _selection!: SelectionService;
+```
+
+**Via global state store:** Use `SignalStoreService` for application-wide state (see [State Management](#state-management)).
+
+**Via DOM events:** Dispatch bubbling events from one component and listen in a common ancestor, then pass data down via properties. Less coupled than direct service injection, but more verbose.
+
+---
+
+## Events
+
+### DOM Event Handling
+
+Events are bound in templates using the `@event` syntax:
+
+```typescript
+html`
+  <button @click=${this.handleClick}>Click</button>
+  <input @input=${(e) => this.onInput(e.target.value)} />
+  <form @submit=${(e) => { e.preventDefault(); this.onSubmit(); }}>
+`
+```
+
+**How it works internally:** The template engine stores event bindings as `'event'` parts. On commit:
+- If the handler function reference changed, the old listener is removed and the new one added
+- If the handler reference is identical, no work is done (identity-based optimization)
+- Event listeners are added directly to the DOM element via `addEventListener`
+
+**All standard DOM events** are supported — `click`, `input`, `change`, `submit`, `keydown`, `mouseenter`, `focus`, `blur`, custom events, etc.
+
+### Custom Events
+
+Components emit custom events using the standard `CustomEvent` API:
+
+```typescript
+// In a component method
+this.elementRef.dispatchEvent(new CustomEvent('value-change', {
+  detail: { value: this.currentValue },
+  bubbles: true,       // propagates up the DOM tree
+  composed: true       // crosses Shadow DOM boundaries
+}));
+```
+
+**Listening in templates:**
+
+```typescript
+html`<my-slider @value-change=${(e) => this.onSliderChange(e.detail.value)}></my-slider>`
+```
+
+**Important:** Always set `composed: true` for events that need to cross Shadow DOM boundaries (which is nearly always the case when communicating between components).
+
+There is **no built-in event bus or pub/sub system**. Cross-component communication is handled through:
+1. Parent-child event propagation (bubbling custom events)
+2. Shared services via DI (signal-based state)
+3. Global state store (`SignalStoreService`)
+
+---
+
 ## State Management
 
 Source: `src/state/`
@@ -741,6 +865,7 @@ const MY_TOKEN = createToken<MyService>('MY_TOKEN');
 | `bindFactory` | `(token, factory, options?)` | Register factory function |
 | `get` | `(token) → T` | Resolve (throws if not found) |
 | `has` | `(token) → boolean` | Check existence |
+| `getBinding` | `(token) → Binding<T> \| undefined` | Get raw binding |
 | `unbind` | `(token) → boolean` | Remove binding |
 | `clear` | `()` | Remove all bindings |
 
@@ -808,7 +933,9 @@ interface IRoute {
 
 - `path: ''` matches root
 - `path: '**'` is wildcard/not-found
-- `:param` captures a single segment, `*param` captures everything
+- `:param` captures a single segment (matched via `([^/]*)` regex)
+- `*param` captures everything (matched via `(.*)` regex)
+- `RouteMatcher` supports optional validation rules per param: `RegExp | ((value: string) => boolean) | string`
 
 ### RouterService
 
@@ -867,6 +994,14 @@ await router.navigateByName('user-detail', { id: '123' });
 6. Update current matches
 7. `history.pushState` or `replaceState`
 8. Scroll to top or hash target
+
+#### Browser Back/Forward (popstate)
+
+On `popstate` events (browser back/forward buttons):
+1. Deactivation guards are run against current matches
+2. If blocked, the URL is restored via `replaceState` (prevents URL from changing)
+3. If allowed, the new path is matched and a synthetic `NavigationEvent` is dispatched
+4. RouterOutlet re-renders based on the new match
 
 ### Guards & Resolvers
 
@@ -985,6 +1120,8 @@ All return `Promise<IHttpResponse<T>>`.
 | `deduplicate` | `boolean` | Deduplicate identical in-flight requests |
 | `onProgress` | `(progress) => void` | Download progress callback |
 | `abortController` | `AbortController` | Custom abort controller |
+| `credentials` | `RequestCredentials` | Credential mode (e.g., `'include'`, `'same-origin'`) |
+| `mode` | `RequestMode` | Request mode (e.g., `'cors'`, `'no-cors'`) |
 | `cancel` | `IRequestCancellation` | Pre-flight cancellation (set by interceptors) |
 
 #### `IHttpResponse<T>`
@@ -998,6 +1135,21 @@ interface IHttpResponse<T> {
   config: IRequestConfig;
 }
 ```
+
+#### Body Handling
+
+Request bodies are processed based on type:
+- `FormData`, `Blob`, `ArrayBuffer`, `URLSearchParams`, `ReadableStream`, `string` → passed through as `BodyInit`
+- Plain objects → `JSON.stringify()`
+- **FormData special case:** `Content-Type` header is explicitly deleted (both casing variants) to let the browser set the correct multipart boundary
+
+#### Response Parsing
+
+Responses are parsed automatically based on `Content-Type`:
+- `application/json` → `response.json()`
+- `text/*` → `response.text()`
+- `application/octet-stream` or `image/*` → `response.blob()`
+- Anything else → `response.text()`
 
 #### Progress Tracking
 
@@ -1121,8 +1273,9 @@ email.dirty();   // true (Signal)
 | `markAsTouched()` / `markAsUntouched()` | Touch state |
 | `markAsDirty()` / `markAsPristine()` | Dirty state |
 | `disable()` / `enable()` | Disabled state |
-| `setValidators(validators)` | Replace validators |
-| `addValidators(validators)` | Append validators |
+| `setValidators(validators)` | Replace sync validators |
+| `setAsyncValidators(validators)` | Replace async validators |
+| `addValidators(validators)` | Append sync validators |
 | `removeValidators(validators)` | Remove by reference |
 | `validate()` | Manual validation trigger |
 | `hasError(code)` / `getError(code)` | Check/get specific error |
@@ -1147,12 +1300,28 @@ import { createFormGroup, createFormControl, Validators } from '@melodicdev/core
 const form = createFormGroup({
   email: createFormControl('', { validators: [Validators.required, Validators.email] }),
   password: createFormControl('', { validators: [Validators.required, Validators.minLength(8)] })
+}, {
+  validators: [matchPasswordsValidator],       // Group-level validators
+  asyncValidators: [serverValidateForm],       // Group-level async validators
+  disabled: false
 });
 
 form.value();    // { email: '', password: '' }
-form.valid();    // false
+form.valid();    // false (includes group-level validation)
 form.get('email').setValue('user@example.com');
 ```
+
+#### `FormGroupOptions`
+
+```typescript
+type FormGroupOptions<T> = {
+  validators?: ValidatorFn<FormGroupValue<T>>[];       // Group-level sync validators
+  asyncValidators?: AsyncValidatorFn<FormGroupValue<T>>[];  // Group-level async validators
+  disabled?: boolean;
+};
+```
+
+Group-level validators receive the entire group value object and can validate cross-field constraints (e.g., password confirmation matching). Group `valid` state requires both all children valid AND group-level errors null.
 
 #### Methods
 
@@ -1186,6 +1355,14 @@ All return `ValidationErrors | null`. `null` = valid.
 | `Validators.range(min, max)` | `(min, max) → ValidatorFn<number>` | `range` |
 | `Validators.compose(...fns)` | Merge errors from all validators | varies |
 | `Validators.composeAsync(...fns)` | Parallel async, merge errors | varies |
+
+#### Validator Edge Cases
+
+- `required` checks for `null`, `undefined`, `''`, and empty arrays
+- `minLength` / `maxLength` return `null` for empty strings (only validate non-empty values)
+- `min` / `max` / `range` return `null` for `null`/`undefined` values
+- Validation flow: sync validators run first; if any fail, async validators are skipped entirely
+- Async validators run in parallel via `Promise.all` with stale-result protection
 
 #### Custom Validators
 
@@ -1252,7 +1429,11 @@ Request interceptors can modify config or cancel requests. Response interceptors
 <style melodic-styles>
   /* Adopted into every component's Shadow DOM via adoptedStyleSheets */
 </style>
+
+<link rel="stylesheet" melodic-styles href="global.css" />
 ```
+
+The `applyGlobalStyles` function looks for `<style melodic-styles>` and `<link rel="stylesheet" melodic-styles>` elements in the document. It reads their CSS text, creates `CSSStyleSheet` objects, and applies them via `adoptedStyleSheets` on each component's shadow root. Stylesheets are cached at the module level — subsequent components reuse cached sheets instantly.
 
 ### Registering Components
 
@@ -1274,7 +1455,8 @@ Source: `docs/CODING_PRACTICES.md`
 
 ### Class Conventions
 
-- `private _camelCase`, `protected camelCase`, `public camelCase`
+- `private _camelCase` for properties, `private camelCase` for methods (no underscore prefix on methods)
+- `protected camelCase`, `public camelCase`
 - Properties before constructor, ordered private → protected → public
 - Explicit return types on functions and methods
 - Avoid `any`
