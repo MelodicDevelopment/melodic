@@ -233,6 +233,7 @@ const navGroups: SidebarNavGroup[] = [
 | `value` | `string` | `''` | Unique identifier |
 | `label` | `string` | `''` | Display label |
 | `icon` | `string` | `''` | Phosphor icon |
+| `icon-format` | `'regular'` \| `'fill'` \| `'bold'` \| `'duotone'` | `'regular'` | Phosphor icon weight/format |
 | `href` | `string` | `''` | Navigation URL |
 | `badge` | `string` | `''` | Badge text (counts, labels) |
 | `badge-color` | `'default'` \| `'primary'` \| `'success'` \| `'warning'` \| `'error'` | `'default'` | Badge color |

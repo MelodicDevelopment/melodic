@@ -281,13 +281,13 @@ import { breakpoints, colorTokens, allTokens, tokensToCss } from '@melodicdev/co
 
 **Foundation:** `ml-card`, `ml-divider`, `ml-stack`, `ml-container`
 
-**Data Display:** `ml-avatar`, `ml-badge`, `ml-badge-group`, `ml-tag`, `ml-list`, `ml-list-item`, `ml-activity-feed`, `ml-activity-item`, `ml-table`, `ml-data-grid`, `ml-calendar-view`
+**Data Display:** `ml-avatar`, `ml-badge`, `ml-badge-group`, `ml-tag`, `ml-list`, `ml-list-item`, `ml-activity-feed`, `ml-activity-item`, `ml-table`, `ml-data-grid`, `ml-calendar-view`, `ml-stat-card`, `ml-profile-card`
 
 **Navigation:** `ml-tabs`, `ml-tab`, `ml-tab-panel`, `ml-breadcrumb`, `ml-breadcrumb-item`, `ml-pagination`, `ml-sidebar`, `ml-sidebar-group`, `ml-sidebar-item`, `ml-steps`, `ml-step`, `ml-step-panel`
 
 **Overlays:** `ml-dialog` (+ `DialogService`), `ml-drawer`, `ml-popover`, `ml-dropdown`, `ml-dropdown-item`, `ml-dropdown-group`, `ml-dropdown-separator`, `ml-tooltip`
 
-**Sections:** `ml-app-shell`, `ml-page-header`, `ml-hero-section`
+**Sections:** `ml-app-shell`, `ml-page-header`, `ml-hero-section`, `ml-page-section`
 
 **General:** `ml-icon` (Phosphor Icons via font ligatures)
 

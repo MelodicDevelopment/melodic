@@ -6,6 +6,8 @@
 - [ml-tag](#ml-tag)
 - [ml-list / ml-list-item](#ml-list--ml-list-item)
 - [ml-activity-feed / ml-activity-feed-item](#ml-activity-feed--ml-activity-feed-item)
+- [ml-stat-card](#ml-stat-card)
+- [ml-profile-card](#ml-profile-card)
 - [ml-table](#ml-table)
 - [ml-data-grid](#ml-data-grid)
 - [ml-calendar-view](#ml-calendar-view)
@@ -43,6 +45,8 @@ import '@melodicdev/components/avatar';
 
 Fallback order: image → initials → slot content → generic user icon.
 
+**CSS custom properties:** `--ml-avatar-border-color` controls the border/ring color around the avatar.
+
 ---
 
 ## ml-badge
@@ -63,6 +67,7 @@ import '@melodicdev/components/badge';
 | `size` | `'xs'` \| `'sm'` \| `'md'` \| `'lg'` | `'md'` | Badge size |
 | `dot` | `boolean` | `false` | Show a colored dot to the left of the label |
 | `pill` | `boolean` | `false` | Fully rounded shape |
+| `color` | `string` | `''` | Custom background color (overrides variant color) |
 
 **Slots:** `default` (label text)
 
@@ -257,9 +262,124 @@ import '@melodicdev/components/activity-feed';
 | `avatar-size` | `Size` | `'sm'` | Avatar size |
 | `subtitle` | `string` | `''` | Secondary text below name (e.g. @handle) |
 | `indicator` | `boolean` | `false` | Show a colored dot indicator |
-| `indicator-color` | `'success'` \| `'warning'` \| `'error'` \| `'primary'` \| `'gray'` | `'gray'` | Indicator dot color |
+| `indicator-color` | `string` | `'gray'` | Indicator dot color — accepts semantic presets (`'success'`, `'warning'`, `'error'`, `'primary'`, `'gray'`) or any CSS color string |
 
 **Slots:** `default` (activity description), `avatar` (custom avatar override), `content` (extra content below description)
+
+---
+
+## ml-stat-card
+
+Dashboard metric card for displaying KPIs and summary statistics.
+
+```ts
+import '@melodicdev/components/stat-card';
+```
+
+```html
+<!-- Basic -->
+<ml-stat-card label="Revenue" value="$45,231" trend="+12.5%" trend-direction="up"></ml-stat-card>
+
+<!-- With icon -->
+<ml-stat-card
+  label="Active Users"
+  value="2,340"
+  trend="-3.1%"
+  trend-direction="down"
+  icon="users"
+  icon-color="primary"
+></ml-stat-card>
+
+<!-- Neutral trend, serif value font -->
+<ml-stat-card label="Avg. Session" value="4m 32s" trend="0%" trend-direction="neutral" value-font="serif"></ml-stat-card>
+```
+
+| Property | Type | Default | Description |
+|----------|------|---------|-------------|
+| `label` | `string` | `''` | Metric label text |
+| `value` | `string` | `''` | Metric value text |
+| `trend` | `string` | `''` | Trend text (e.g. "+12.5%") |
+| `trend-direction` | `'up'` \| `'down'` \| `'neutral'` | `'neutral'` | Direction of the trend (controls color and arrow) |
+| `icon` | `string` | `''` | Optional Phosphor icon |
+| `icon-color` | `string` | `''` | Icon background color (semantic or CSS color) |
+| `value-font` | `'sans'` \| `'serif'` | `'sans'` | Font family for the value text |
+
+**CSS custom properties:**
+
+| Property | Description |
+|----------|-------------|
+| `--ml-stat-card-bg` | Card background color |
+| `--ml-stat-card-icon-bg` | Icon container background |
+| `--ml-stat-card-icon-color` | Icon color |
+| `--ml-stat-card-value-font` | Value font family |
+| `--ml-stat-card-value-size` | Value font size |
+| `--ml-stat-card-trend-up-color` | Color for upward trends |
+| `--ml-stat-card-trend-down-color` | Color for downward trends |
+
+---
+
+## ml-profile-card
+
+Person identity card for displaying user profiles with avatar, contact details, and actions.
+
+```ts
+import '@melodicdev/components/profile-card';
+```
+
+```html
+<!-- Basic -->
+<ml-profile-card name="Jane Doe" subtitle="Product Designer" avatar="jane.jpg">
+  <ml-button slot="actions" variant="primary" size="sm">Message</ml-button>
+  <ml-button slot="actions" variant="outline" size="sm">Follow</ml-button>
+</ml-profile-card>
+
+<!-- With details, tags, and meta -->
+<ml-profile-card name="Alex Chen" subtitle="Engineering Lead" avatar="alex.jpg" avatar-size="lg">
+  <div slot="details">
+    <div>alex@example.com</div>
+    <div>+1 (555) 123-4567</div>
+  </div>
+
+  <div slot="tags">
+    <ml-badge variant="primary">React</ml-badge>
+    <ml-badge variant="success">TypeScript</ml-badge>
+  </div>
+
+  <div slot="meta">
+    <span>San Francisco, CA</span>
+    <span>Joined Mar 2024</span>
+  </div>
+
+  <ml-button slot="actions" variant="primary" size="sm">Message</ml-button>
+</ml-profile-card>
+```
+
+| Property | Type | Default | Description |
+|----------|------|---------|-------------|
+| `name` | `string` | `''` | Person's display name |
+| `subtitle` | `string` | `''` | Role, title, or secondary text |
+| `avatar` | `string` | `''` | Avatar image URL |
+| `avatar-size` | `'xs'` \| `'sm'` \| `'md'` \| `'lg'` \| `'xl'` | `'lg'` | Avatar size |
+
+**Slots:**
+
+| Slot | Description |
+|------|-------------|
+| `actions` | Action buttons displayed below the name/subtitle |
+| `details` | Contact rows (email, phone, etc.) |
+| `tags` | Badges or tags for skills, roles, etc. |
+| `meta` | Additional detail fields (location, join date, etc.) |
+
+**CSS custom properties:**
+
+| Property | Description |
+|----------|-------------|
+| `--ml-profile-card-bg` | Card background color |
+| `--ml-profile-card-banner-from` | Banner gradient start color |
+| `--ml-profile-card-banner-to` | Banner gradient end color |
+| `--ml-profile-card-banner-height` | Banner height |
+| `--ml-profile-card-name-font` | Name font family |
+| `--ml-profile-card-avatar-ring-color` | Avatar ring/border color |
 
 ---
 

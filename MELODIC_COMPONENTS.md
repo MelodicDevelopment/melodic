@@ -60,6 +60,8 @@
   - [ml-table](#ml-table)
   - [ml-data-grid](#ml-data-grid)
   - [ml-calendar-view](#ml-calendar-view)
+  - [ml-stat-card](#ml-stat-card)
+  - [ml-profile-card](#ml-profile-card)
 - [Navigation Components](#navigation-components)
   - [ml-tabs / ml-tab / ml-tab-panel](#ml-tabs)
   - [ml-breadcrumb / ml-breadcrumb-item](#ml-breadcrumb)
@@ -76,6 +78,7 @@
   - [ml-app-shell](#ml-app-shell)
   - [ml-page-header](#ml-page-header)
   - [ml-hero-section](#ml-hero-section)
+  - [ml-page-section](#ml-page-section)
 - [General Components](#general-components)
   - [ml-icon](#ml-icon)
 - [Page Components](#page-components)
@@ -130,8 +133,10 @@ import '@melodicdev/components/dialog';     // registers <ml-dialog>
 | `@melodicdev/components/list` | `ml-list`, `ml-list-item` |
 | `@melodicdev/components/login-page` | `ml-login-page` |
 | `@melodicdev/components/page-header` | `ml-page-header` |
+| `@melodicdev/components/page-section` | `ml-page-section` |
 | `@melodicdev/components/pagination` | `ml-pagination` |
 | `@melodicdev/components/popover` | `ml-popover` |
+| `@melodicdev/components/profile-card` | `ml-profile-card` |
 | `@melodicdev/components/progress` | `ml-progress` |
 | `@melodicdev/components/radio` | `ml-radio`, `ml-radio-group` |
 | `@melodicdev/components/radio-card-group` | `ml-radio-card-group` |
@@ -141,6 +146,7 @@ import '@melodicdev/components/dialog';     // registers <ml-dialog>
 | `@melodicdev/components/slider` | `ml-slider` |
 | `@melodicdev/components/spinner` | `ml-spinner` |
 | `@melodicdev/components/stack` | `ml-stack` |
+| `@melodicdev/components/stat-card` | `ml-stat-card` |
 | `@melodicdev/components/steps` | `ml-steps`, `ml-step`, `ml-step-panel` |
 | `@melodicdev/components/table` | `ml-table` |
 | `@melodicdev/components/tabs` | `ml-tabs`, `ml-tab`, `ml-tab-panel` |
@@ -715,6 +721,47 @@ All exported from `@melodicdev/components/theme`.
 
 ---
 
+## Component-Scoped CSS Custom Properties
+
+Every component defines scoped CSS custom properties on `:host` that default to global design tokens. This allows per-instance customization without affecting other components.
+
+### Naming Convention
+
+`--ml-{component}-{state?}-{property}`
+
+- **States:** `hover`, `active`, `focus`, `disabled`, `checked`, `expanded`, `open`
+- **Properties:** `bg`, `color`, `border-color`, `border-width`, `radius`, `padding-x`, `padding-y`, `gap`, `font-size`, `font-weight`, `shadow`, `opacity`, `transition-duration`, `transition-easing`
+
+### Usage Example
+
+```css
+/* Override a single button's colors without changing the global palette */
+ml-button.cta {
+    --ml-button-bg: #c9a84c;
+    --ml-button-hover-bg: #d4b96a;
+    --ml-button-radius: 0;
+}
+
+/* Customize the sidebar for a specific theme */
+ml-sidebar {
+    --ml-sidebar-bg: #1a4a3a;
+    --ml-sidebar-item-active-bg: transparent;
+    --ml-sidebar-item-active-color: #c9a84c;
+    --ml-sidebar-group-label-color: rgba(201, 168, 76, 0.5);
+}
+
+/* Style a card as a warm parchment surface */
+ml-card.parchment {
+    --ml-card-bg: #fdf9f0;
+    --ml-card-border-color: #efe8d6;
+    --ml-card-shadow: none;
+}
+```
+
+Each component's available custom properties are documented in its `:host` block in the styles source file. See the individual component sections below for key properties.
+
+---
+
 ## Style Utilities
 
 Exported from `@melodicdev/components/utils`.
@@ -786,6 +833,19 @@ type Breakpoint = 'xs' | 'sm' | 'md' | 'lg' | 'xl' | '2xl';
   Add Item
 </ml-button>
 ```
+
+#### Key CSS Custom Properties
+
+| Property | Default | Description |
+|----------|---------|-------------|
+| `--ml-button-bg` | `var(--ml-color-primary)` | Background color |
+| `--ml-button-color` | `var(--ml-color-text-inverse)` | Text color |
+| `--ml-button-border-color` | `var(--ml-color-primary)` | Border color |
+| `--ml-button-hover-bg` | `var(--ml-color-primary-hover)` | Hover background |
+| `--ml-button-hover-color` | `var(--ml-color-text-inverse)` | Hover text color |
+| `--ml-button-border-radius` | `var(--ml-radius)` | Border radius |
+| `--ml-button-font-size` | `var(--ml-text-sm)` | Font size |
+| `--ml-button-shadow` | `var(--ml-shadow-xs)` | Box shadow |
 
 ---
 
@@ -865,6 +925,19 @@ Props: `value`, `icon`, `disabled`, `active` (managed), `groupDisabled`, `groupS
   <ml-icon slot="prefix" icon="magnifying-glass"></ml-icon>
 </ml-input>
 ```
+
+#### Key CSS Custom Properties
+
+| Property | Default | Description |
+|----------|---------|-------------|
+| `--ml-input-bg` | `var(--ml-color-input-bg)` | Input background |
+| `--ml-input-color` | `var(--ml-color-text)` | Text color |
+| `--ml-input-border-color` | `var(--ml-color-border-strong)` | Border color |
+| `--ml-input-border-radius` | `var(--ml-radius)` | Border radius |
+| `--ml-input-focus-border-color` | `var(--ml-color-primary)` | Focus border color |
+| `--ml-input-focus-shadow` | `var(--ml-shadow-focus-ring)` | Focus ring shadow |
+| `--ml-input-label-color` | `var(--ml-color-text-secondary)` | Label text color |
+| `--ml-input-placeholder-color` | `var(--ml-color-text-muted)` | Placeholder color |
 
 ---
 
@@ -1381,6 +1454,18 @@ Auto-color mapping: `pdf/html/xml` → red, `doc/docx/css/ts/mp4` → blue, `xls
 |-------|--------|-----------|
 | `ml:click` | `{ originalEvent: MouseEvent }` | Only when `clickable` |
 
+#### Key CSS Custom Properties
+
+| Property | Default | Description |
+|----------|---------|-------------|
+| `--ml-card-bg` | `var(--ml-color-surface)` | Card background |
+| `--ml-card-border-color` | `var(--ml-color-border)` | Border color |
+| `--ml-card-border-radius` | `var(--ml-radius-lg)` | Border radius |
+| `--ml-card-shadow` | `none` | Box shadow |
+| `--ml-card-body-padding` | `var(--ml-space-5)` | Body padding |
+| `--ml-card-hover-shadow` | `var(--ml-shadow-md)` | Hover shadow (when hoverable) |
+| `--ml-card-footer-bg` | `transparent` | Footer background |
+
 ---
 
 ### ml-divider
@@ -1544,6 +1629,17 @@ Uses `currentColor` for stroke. ARIA: `role="status"`, `aria-label`.
 
 **Slots:** (default) — Custom fallback (defaults to user icon)
 
+#### Key CSS Custom Properties
+
+| Property | Default | Description |
+|----------|---------|-------------|
+| `--ml-avatar-bg` | `var(--ml-color-surface-raised)` | Avatar background |
+| `--ml-avatar-color` | `var(--ml-color-text-muted)` | Initials text color |
+| `--ml-avatar-border-color` | `var(--ml-color-surface)` | Avatar ring border color |
+| `--ml-avatar-shadow` | `var(--ml-shadow-xs)` | Avatar shadow |
+| `--ml-avatar-radius` | `var(--ml-radius-full)` | Border radius |
+| `--ml-avatar-font-weight` | `var(--ml-font-semibold)` | Initials font weight |
+
 ---
 
 ### ml-badge
@@ -1552,7 +1648,14 @@ Uses `currentColor` for stroke. ARIA: `role="status"`, `aria-label`.
 
 #### Props
 
-`variant` (`'default'`|`'primary'`|`'secondary'`|`'success'`|`'warning'`|`'error'`), `size` (`'sm'`|`'md'`|`'lg'`), `dot`, `pill`
+`variant` (`'default'`|`'primary'`|`'secondary'`|`'success'`|`'warning'`|`'error'`), `size` (`'sm'`|`'md'`|`'lg'`), `dot`, `pill`, `color` (`string`, `''` — custom background color, any CSS color; overrides variant)
+
+#### Key CSS Custom Properties
+
+| Property | Default | Description |
+|----------|---------|-------------|
+| `--ml-badge-bg` | — | Custom background (set via `color` prop) |
+| `--ml-badge-color` | `#fff` | Custom text color (used with `color` prop) |
 
 ---
 
@@ -1606,7 +1709,7 @@ Uses `currentColor` for stroke. ARIA: `role="status"`, `aria-label`.
 
 ### ml-activity-feed-item
 
-**Props:** `name`, `timestamp`, `avatar-src`, `avatar-initials`, `avatar-size`, `subtitle`, `indicator`, `indicator-color` (`'success'`|`'warning'`|`'error'`|`'primary'`|`'gray'`)
+**Props:** `name`, `timestamp`, `avatar-src`, `avatar-initials`, `avatar-size`, `subtitle`, `indicator`, `indicator-color` (`string` — preset name or any CSS color value)
 
 **Slots:** (default), `avatar`, `content`
 
@@ -1653,6 +1756,19 @@ interface TableColumn {
 | `ml:row-click` | `{ row, index }` |
 
 **Virtual scroll row heights:** sm=36px, md=44px. Parent must have defined height.
+
+#### Key CSS Custom Properties
+
+| Property | Default | Description |
+|----------|---------|-------------|
+| `--ml-table-bg` | `var(--ml-color-surface)` | Table background |
+| `--ml-table-border-color` | `var(--ml-color-border)` | Border color |
+| `--ml-table-radius` | `var(--ml-radius-lg)` | Border radius |
+| `--ml-table-header-bg` | `var(--ml-color-surface-sunken)` | Column header background |
+| `--ml-table-header-color` | `var(--ml-color-text-muted)` | Column header text color |
+| `--ml-table-row-hover-bg` | `var(--ml-color-surface-sunken)` | Row hover background |
+| `--ml-table-cell-color` | `var(--ml-color-text)` | Cell text color |
+| `--ml-table-sort-active-color` | `var(--ml-color-primary)` | Active sort icon color |
 
 ---
 
@@ -1753,6 +1869,110 @@ interface CalendarEvent {
 
 ---
 
+### ml-stat-card
+
+Dashboard metric card with label, value, optional trend indicator, and icon.
+
+```typescript
+import '@melodicdev/components/stat-card';
+```
+
+**Attributes:**
+
+| Attribute | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `label` | `string` | `''` | Metric label (displayed uppercase) |
+| `value` | `string \| number` | `''` | Display value |
+| `trend` | `string` | `''` | Trend text (e.g. "+6 this month") |
+| `trend-direction` | `'up' \| 'down' \| 'neutral'` | `'neutral'` | Trend direction for color styling |
+| `icon` | `string` | `''` | Phosphor icon name |
+| `icon-color` | `string` | `''` | CSS color for the icon container |
+| `value-font` | `'serif' \| 'sans'` | `'serif'` | Value font family |
+
+**Key CSS Custom Properties:**
+
+| Property | Default | Description |
+|----------|---------|-------------|
+| `--ml-stat-card-bg` | `var(--ml-color-surface)` | Card background |
+| `--ml-stat-card-border-color` | `var(--ml-color-border)` | Border color |
+| `--ml-stat-card-radius` | `var(--ml-radius-lg)` | Border radius |
+| `--ml-stat-card-icon-bg` | `var(--ml-color-surface-raised)` | Icon container background |
+| `--ml-stat-card-icon-color` | `var(--ml-color-text-tertiary)` | Icon color |
+| `--ml-stat-card-value-font` | `'Cormorant Garamond', serif` | Value font family |
+| `--ml-stat-card-value-size` | `2.5rem` | Value font size |
+| `--ml-stat-card-value-weight` | `300` | Value font weight |
+| `--ml-stat-card-trend-up-color` | `var(--ml-color-success)` | Upward trend color |
+| `--ml-stat-card-trend-down-color` | `var(--ml-color-error)` | Downward trend color |
+
+**Example:**
+
+```html
+<ml-stat-card
+  label="Total Members"
+  value="1,247"
+  trend="+6 this month"
+  trend-direction="up"
+  icon="users"
+></ml-stat-card>
+```
+
+---
+
+### ml-profile-card
+
+Identity card for person/entity detail pages with banner, avatar, and slotted sections.
+
+```typescript
+import '@melodicdev/components/profile-card';
+```
+
+**Attributes:**
+
+| Attribute | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `name` | `string` | `''` | Person name |
+| `subtitle` | `string` | `''` | Subtitle text (e.g. "Member · Choir") |
+| `avatar` | `string` | `''` | Avatar image URL (falls back to initials) |
+| `avatar-size` | `Size` | `'lg'` | Avatar size |
+
+**Slots:**
+
+| Slot | Description |
+|------|-------------|
+| `actions` | Action buttons (slotted directly, centered with gap) |
+| `details` | Contact info rows (each slotted element gets flex + gap) |
+| `tags` | Tags/badges (flex-wrap layout) |
+| `meta` | Detail fields (vertical stack) |
+
+**Key CSS Custom Properties:**
+
+| Property | Default | Description |
+|----------|---------|-------------|
+| `--ml-profile-card-bg` | `var(--ml-color-surface)` | Card background |
+| `--ml-profile-card-banner-from` | `var(--ml-color-primary)` | Banner gradient start |
+| `--ml-profile-card-banner-to` | `var(--ml-color-primary-hover)` | Banner gradient end |
+| `--ml-profile-card-banner-height` | `80px` | Banner height |
+| `--ml-profile-card-banner-opacity` | `0.85` | Banner opacity |
+| `--ml-profile-card-name-font` | `'Cormorant Garamond', serif` | Name font family |
+| `--ml-profile-card-avatar-ring-color` | `var(--ml-color-border)` | Avatar ring border |
+
+**Example:**
+
+```html
+<ml-profile-card name="Sarah Mitchell" subtitle="Member · Women's Ministry">
+  <ml-button slot="actions" variant="primary" size="sm">Message</ml-button>
+  <ml-button slot="actions" variant="outline" size="sm">Edit</ml-button>
+  <div slot="details"><ml-icon icon="envelope" size="sm"></ml-icon> sarah@example.com</div>
+  <div slot="details"><ml-icon icon="phone" size="sm"></ml-icon> (555) 123-4567</div>
+  <ml-badge slot="tags" variant="primary" pill>Women's Ministry</ml-badge>
+  <ml-badge slot="tags" pill>Choir</ml-badge>
+  <div slot="meta">Member since: January 2019</div>
+  <div slot="meta">Birthday: March 15</div>
+</ml-profile-card>
+```
+
+---
+
 ## Navigation Components
 
 ### ml-tabs
@@ -1779,6 +1999,19 @@ interface CalendarEvent {
 | `ml:change` | `{ value: string }` |
 
 **Keyboard:** ArrowLeft/Right/Up/Down, Home, End
+
+#### Key CSS Custom Properties
+
+| Property | Default | Description |
+|----------|---------|-------------|
+| `--ml-tabs-tab-color` | `var(--ml-color-text-secondary)` | Inactive tab text color |
+| `--ml-tabs-tab-active-color` | `var(--ml-color-primary)` | Active tab text color |
+| `--ml-tabs-tab-hover-color` | `var(--ml-color-text)` | Hover tab text color |
+| `--ml-tabs-line-indicator-color` | `var(--ml-color-primary)` | Line variant indicator color |
+| `--ml-tabs-pills-active-bg` | `var(--ml-color-primary-subtle)` | Pills variant active background |
+| `--ml-tabs-pills-active-color` | `var(--ml-color-primary)` | Pills variant active text color |
+| `--ml-tabs-enclosed-active-bg` | `var(--ml-color-surface)` | Enclosed variant active background |
+| `--ml-tabs-list-border-color` | `var(--ml-color-border)` | Tab list border color |
 
 ### ml-tab
 
@@ -1875,13 +2108,26 @@ interface SidebarNavItem {
 
 **Slim variant:** 64px collapsed → 280px on hover with shadow.
 
+#### Key CSS Custom Properties
+
+| Property | Default | Description |
+|----------|---------|-------------|
+| `--ml-sidebar-width` | `280px` | Sidebar width |
+| `--ml-sidebar-bg` | `var(--ml-color-surface)` | Sidebar background |
+| `--ml-sidebar-border-color` | `var(--ml-color-border)` | Border color |
+| `--ml-sidebar-item-color` | `var(--ml-color-text-secondary)` | Item text color |
+| `--ml-sidebar-item-hover-bg` | `var(--ml-gray-100)` | Item hover background |
+| `--ml-sidebar-item-active-bg` | `var(--ml-color-primary)` | Active item background |
+| `--ml-sidebar-item-active-color` | `var(--ml-color-text-inverse)` | Active item text color |
+| `--ml-sidebar-group-label-color` | `var(--ml-color-text-muted)` | Group label text color |
+
 ### ml-sidebar-group
 
 Props: `label`, `collapsed` (managed)
 
 ### ml-sidebar-item
 
-Props: `icon`, `label`, `value`, `href`, `active` (managed), `disabled`, `badge`, `badge-color`, `external`, `expanded`, `collapsed` (managed), `level`
+Props: `icon`, `label`, `value`, `href`, `active` (managed), `disabled`, `badge`, `badge-color`, `external`, `expanded`, `collapsed` (managed), `level`, `icon-format` (`'fill'`|`'thin'`|`'light'`|`'regular'`|`'bold'`, default `''` — icon format passed through to ml-icon)
 
 **Slots:** `leading`, `trailing`, (default) — sub-items for expandable menus
 
@@ -1953,6 +2199,19 @@ ref.afterClosed((result) => { /* ... */ });
 // Open by ID
 dialogService.open('#confirmDialog');
 ```
+
+#### Key CSS Custom Properties
+
+| Property | Default | Description |
+|----------|---------|-------------|
+| `--ml-dialog-bg` | `var(--ml-color-surface)` | Dialog background |
+| `--ml-dialog-radius` | `var(--ml-radius-xl)` | Border radius |
+| `--ml-dialog-shadow` | `var(--ml-shadow-xl)` | Box shadow |
+| `--ml-dialog-backdrop-color` | `rgba(0, 0, 0, 0.5)` | Backdrop overlay color |
+| `--ml-dialog-max-width` | `500px` | Default max width |
+| `--ml-dialog-header-padding` | `var(--ml-space-6)` | Header padding |
+| `--ml-dialog-body-padding` | `var(--ml-space-6)` | Body padding |
+| `--ml-dialog-footer-border-color` | `var(--ml-color-border)` | Footer top border color |
 
 ---
 
@@ -2091,6 +2350,51 @@ Shows on hover + focus. `max-width: 320px`, `z-index: 9999`.
 **Slots:** `eyebrow`, `title`, `description`, `actions`, `media`, `social-proof`
 
 **Title sizes:** sm=`text-3xl`, md=`text-4xl`, lg=`text-5xl`
+
+---
+
+### ml-page-section
+
+Titled content section with consistent heading typography and optional action link.
+
+```typescript
+import '@melodicdev/components/page-section';
+```
+
+**Attributes:**
+
+| Attribute | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `title` | `string` | `''` | Section title (rendered in serif font) |
+| `subtitle` | `string` | `''` | Subtitle text |
+| `action-label` | `string` | `''` | Action link text |
+| `action-href` | `string` | `''` | Action link URL |
+| `padding` | `'none' \| 'sm' \| 'md' \| 'lg'` | `'md'` | Content area padding |
+
+**Slots:**
+
+| Slot | Description |
+|------|-------------|
+| `default` | Section content |
+| `action` | Override for complex action content (replaces action-label link) |
+
+**Key CSS Custom Properties:**
+
+| Property | Default | Description |
+|----------|---------|-------------|
+| `--ml-page-section-title-font` | `'Cormorant Garamond', serif` | Title font family |
+| `--ml-page-section-title-size` | `var(--ml-text-2xl)` | Title font size |
+| `--ml-page-section-title-color` | `var(--ml-color-text)` | Title color |
+| `--ml-page-section-action-color` | `var(--ml-color-primary)` | Action link color |
+| `--ml-page-section-gap` | `var(--ml-space-4)` | Gap between header and content |
+
+**Example:**
+
+```html
+<ml-page-section title="Recent Activity" subtitle="Last 7 days" action-label="View All" action-href="/activity">
+  <ml-activity-feed>...</ml-activity-feed>
+</ml-page-section>
+```
 
 ---
 

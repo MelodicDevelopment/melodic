@@ -4,6 +4,7 @@ High-level layout components for composing full app shells and page structures.
 
 - [ml-app-shell](#ml-app-shell)
 - [ml-page-header](#ml-page-header)
+- [ml-page-section](#ml-page-section)
 - [ml-hero-section](#ml-hero-section)
 
 ---
@@ -142,6 +143,58 @@ import '@melodicdev/components/page-header';
 | `meta` | Badges, status indicators, etc. (placed next to the title) |
 | `actions` | Action buttons (right-aligned) |
 | `tabs` | `ml-tabs` placed at the bottom of the header |
+
+---
+
+## ml-page-section
+
+Titled content section for grouping related content within a page.
+
+```ts
+import '@melodicdev/components/page-section';
+```
+
+```html
+<!-- Basic -->
+<ml-page-section title="Recent Activity" subtitle="What your team has been up to">
+  <ml-activity-feed>...</ml-activity-feed>
+</ml-page-section>
+
+<!-- With action button -->
+<ml-page-section title="Team Members" action-label="View all" action-href="/team">
+  <ml-list>...</ml-list>
+</ml-page-section>
+
+<!-- With custom action slot -->
+<ml-page-section title="Analytics" padding="lg">
+  <ml-button slot="action" variant="outline" size="sm">Export</ml-button>
+  <div>Chart content here</div>
+</ml-page-section>
+```
+
+| Property | Type | Default | Description |
+|----------|------|---------|-------------|
+| `title` | `string` | `''` | Section heading text |
+| `subtitle` | `string` | `''` | Supporting text below the title |
+| `action-label` | `string` | `''` | Text for the default action link |
+| `action-href` | `string` | `''` | URL for the default action link |
+| `padding` | `'none'` \| `'sm'` \| `'md'` \| `'lg'` | `'md'` | Content padding |
+
+**Slots:**
+
+| Slot | Description |
+|------|-------------|
+| `default` | Section content |
+| `action` | Custom action element (overrides `action-label`/`action-href`) |
+
+**CSS custom properties:**
+
+| Property | Description |
+|----------|-------------|
+| `--ml-page-section-title-font` | Title font family |
+| `--ml-page-section-title-size` | Title font size |
+| `--ml-page-section-action-color` | Action link color |
+| `--ml-page-section-gap` | Gap between title area and content |
 
 ---
 
