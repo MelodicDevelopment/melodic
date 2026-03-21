@@ -4,14 +4,36 @@ export const dashboardPageStyles = () => css`
 	:host {
 		display: block;
 		height: 100%;
+
+		/* Font */
+		--ml-dashboard-font-family: var(--ml-font-sans);
+
+		/* Padding */
+		--ml-dashboard-padding: var(--ml-space-6);
+		--ml-dashboard-mobile-padding: var(--ml-space-4);
+
+		/* Metrics grid */
+		--ml-dashboard-metrics-min-width: 200px;
+		--ml-dashboard-metrics-gap: var(--ml-space-4);
+		--ml-dashboard-metrics-margin: var(--ml-space-6);
+		--ml-dashboard-metrics-mobile-gap: var(--ml-space-3);
+		--ml-dashboard-metrics-mobile-margin: var(--ml-space-4);
+
+		/* Body grid */
+		--ml-dashboard-body-gap: var(--ml-space-6);
+		--ml-dashboard-body-mobile-gap: var(--ml-space-4);
+
+		/* Main & aside */
+		--ml-dashboard-main-gap: var(--ml-space-6);
+		--ml-dashboard-aside-gap: var(--ml-space-6);
 	}
 
 	/* ============================================
 	   DASHBOARD CONTENT AREA
 	   ============================================ */
 	.ml-dashboard {
-		padding: var(--ml-space-6);
-		font-family: var(--ml-font-sans);
+		padding: var(--ml-dashboard-padding);
+		font-family: var(--ml-dashboard-font-family);
 	}
 
 	/* ============================================
@@ -19,9 +41,9 @@ export const dashboardPageStyles = () => css`
 	   ============================================ */
 	.ml-dashboard__metrics {
 		display: grid;
-		grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-		gap: var(--ml-space-4);
-		margin-bottom: var(--ml-space-6);
+		grid-template-columns: repeat(auto-fit, minmax(var(--ml-dashboard-metrics-min-width), 1fr));
+		gap: var(--ml-dashboard-metrics-gap);
+		margin-bottom: var(--ml-dashboard-metrics-margin);
 	}
 
 	/* ============================================
@@ -30,7 +52,7 @@ export const dashboardPageStyles = () => css`
 	.ml-dashboard__body {
 		display: grid;
 		grid-template-columns: 1fr;
-		gap: var(--ml-space-6);
+		gap: var(--ml-dashboard-body-gap);
 	}
 
 	/* Default layout: 2/3 main + 1/3 aside */
@@ -55,7 +77,7 @@ export const dashboardPageStyles = () => css`
 		min-width: 0;
 		display: flex;
 		flex-direction: column;
-		gap: var(--ml-space-6);
+		gap: var(--ml-dashboard-main-gap);
 	}
 
 	/* ============================================
@@ -65,7 +87,7 @@ export const dashboardPageStyles = () => css`
 		min-width: 0;
 		display: flex;
 		flex-direction: column;
-		gap: var(--ml-space-6);
+		gap: var(--ml-dashboard-aside-gap);
 	}
 
 	/* ============================================
@@ -79,17 +101,17 @@ export const dashboardPageStyles = () => css`
 
 	@media (max-width: 640px) {
 		.ml-dashboard {
-			padding: var(--ml-space-4);
+			padding: var(--ml-dashboard-mobile-padding);
 		}
 
 		.ml-dashboard__metrics {
 			grid-template-columns: 1fr;
-			gap: var(--ml-space-3);
-			margin-bottom: var(--ml-space-4);
+			gap: var(--ml-dashboard-metrics-mobile-gap);
+			margin-bottom: var(--ml-dashboard-metrics-mobile-margin);
 		}
 
 		.ml-dashboard__body {
-			gap: var(--ml-space-4);
+			gap: var(--ml-dashboard-body-mobile-gap);
 		}
 	}
 `;

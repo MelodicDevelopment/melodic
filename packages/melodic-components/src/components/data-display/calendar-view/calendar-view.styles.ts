@@ -4,12 +4,78 @@ export const calendarViewStyles = () => css`
 	:host {
 		display: block;
 		font-family: var(--ml-font-sans);
+
+		/* ── Calendar View: surface ── */
+		--ml-calendar-view-bg: var(--ml-color-surface);
+		--ml-calendar-view-border-width: var(--ml-border);
+		--ml-calendar-view-border-color: var(--ml-color-border);
+		--ml-calendar-view-radius: var(--ml-radius-lg);
+
+		/* ── Calendar View: header ── */
+		--ml-calendar-view-header-padding: var(--ml-space-4) var(--ml-space-5);
+		--ml-calendar-view-title-size: var(--ml-text-lg);
+		--ml-calendar-view-title-weight: var(--ml-font-semibold);
+		--ml-calendar-view-title-color: var(--ml-color-text);
+		--ml-calendar-view-subtitle-color: var(--ml-color-text-muted);
+
+		/* ── Calendar View: today badge ── */
+		--ml-calendar-view-today-badge-bg: var(--ml-color-primary);
+		--ml-calendar-view-today-badge-color: var(--ml-color-text-inverse);
+
+		/* ── Calendar View: navigation buttons ── */
+		--ml-calendar-view-nav-color: var(--ml-color-text-muted);
+		--ml-calendar-view-nav-hover-bg: var(--ml-color-surface-raised);
+		--ml-calendar-view-nav-hover-color: var(--ml-color-text);
+
+		/* ── Calendar View: day cells ── */
+		--ml-calendar-view-cell-min-height: 120px;
+		--ml-calendar-view-cell-hover-bg: var(--ml-color-surface-sunken);
+		--ml-calendar-view-cell-other-bg: var(--ml-color-surface-sunken);
+		--ml-calendar-view-cell-other-color: var(--ml-color-text-disabled);
+
+		/* ── Calendar View: today indicator ── */
+		--ml-calendar-view-today-bg: var(--ml-color-primary);
+		--ml-calendar-view-today-color: var(--ml-color-text-inverse);
+
+		/* ── Calendar View: weekday header ── */
+		--ml-calendar-view-weekday-color: var(--ml-color-text-muted);
+		--ml-calendar-view-weekday-today-color: var(--ml-color-primary);
+
+		/* ── Calendar View: event pill ── */
+		--ml-calendar-view-event-radius: var(--ml-radius-sm);
+		--ml-calendar-view-event-border-width: 3px;
+
+		/* ── Calendar View: week badge ── */
+		--ml-calendar-view-week-badge-color: var(--ml-color-primary);
+		--ml-calendar-view-week-badge-bg: var(--ml-purple-50);
+
+		/* ── Calendar View: add button ── */
+		--ml-calendar-view-add-bg: var(--ml-color-primary);
+		--ml-calendar-view-add-hover-bg: var(--ml-color-primary-hover);
+		--ml-calendar-view-add-color: var(--ml-color-text-inverse);
+
+		/* ── Calendar View: view menu ── */
+		--ml-calendar-view-menu-bg: var(--ml-color-surface);
+		--ml-calendar-view-menu-shadow: var(--ml-shadow-lg);
+		--ml-calendar-view-menu-active-color: var(--ml-color-primary);
+
+		/* ── Calendar View: sidebar ── */
+		--ml-calendar-view-sidebar-event-hover-bg: var(--ml-color-surface-raised);
+
+		/* ── Calendar View: mini calendar ── */
+		--ml-calendar-view-mini-selected-bg: var(--ml-color-primary);
+		--ml-calendar-view-mini-selected-hover-bg: var(--ml-color-primary-hover);
+		--ml-calendar-view-mini-selected-color: var(--ml-color-text-inverse);
+		--ml-calendar-view-mini-dot-color: var(--ml-color-primary);
+
+		/* ── Calendar View: focus ring ── */
+		--ml-calendar-view-focus-ring: var(--ml-shadow-focus-ring);
 	}
 
 	.ml-cv {
-		border: var(--ml-border) solid var(--ml-color-border);
-		border-radius: var(--ml-radius-lg);
-		background-color: var(--ml-color-surface);
+		border: var(--ml-calendar-view-border-width) solid var(--ml-calendar-view-border-color);
+		border-radius: var(--ml-calendar-view-radius);
+		background-color: var(--ml-calendar-view-bg);
 		overflow: hidden;
 	}
 
@@ -19,8 +85,8 @@ export const calendarViewStyles = () => css`
 		align-items: center;
 		justify-content: space-between;
 		gap: var(--ml-space-4);
-		padding: var(--ml-space-4) var(--ml-space-5);
-		border-bottom: var(--ml-border) solid var(--ml-color-border);
+		padding: var(--ml-calendar-view-header-padding);
+		border-bottom: var(--ml-calendar-view-border-width) solid var(--ml-calendar-view-border-color);
 	}
 
 	.ml-cv__header-left {
@@ -36,9 +102,9 @@ export const calendarViewStyles = () => css`
 		justify-content: center;
 		width: 2.75rem;
 		height: 2.75rem;
-		border-radius: var(--ml-radius-lg);
-		background-color: var(--ml-color-primary);
-		color: var(--ml-color-text-inverse);
+		border-radius: var(--ml-calendar-view-radius);
+		background-color: var(--ml-calendar-view-today-badge-bg);
+		color: var(--ml-calendar-view-today-badge-color);
 		line-height: 1;
 		flex-shrink: 0;
 	}
@@ -68,24 +134,24 @@ export const calendarViewStyles = () => css`
 	}
 
 	.ml-cv__title {
-		font-size: var(--ml-text-lg);
-		font-weight: var(--ml-font-semibold);
-		color: var(--ml-color-text);
+		font-size: var(--ml-calendar-view-title-size);
+		font-weight: var(--ml-calendar-view-title-weight);
+		color: var(--ml-calendar-view-title-color);
 		margin: 0;
 	}
 
 	.ml-cv__week-badge {
 		font-size: var(--ml-text-xs);
 		font-weight: var(--ml-font-medium);
-		color: var(--ml-color-primary);
-		background-color: var(--ml-purple-50);
+		color: var(--ml-calendar-view-week-badge-color);
+		background-color: var(--ml-calendar-view-week-badge-bg);
 		padding: var(--ml-space-0-5) var(--ml-space-2);
 		border-radius: var(--ml-radius-full);
 	}
 
 	.ml-cv__subtitle {
 		font-size: var(--ml-text-sm);
-		color: var(--ml-color-text-muted);
+		color: var(--ml-calendar-view-subtitle-color);
 	}
 
 	.ml-cv__header-right {
@@ -110,7 +176,7 @@ export const calendarViewStyles = () => css`
 	.ml-cv__nav-group {
 		display: flex;
 		align-items: center;
-		border: var(--ml-border) solid var(--ml-color-border);
+		border: var(--ml-calendar-view-border-width) solid var(--ml-calendar-view-border-color);
 		border-radius: var(--ml-radius-md);
 		overflow: hidden;
 	}
@@ -123,47 +189,47 @@ export const calendarViewStyles = () => css`
 		height: 2.25rem;
 		border: none;
 		background: none;
-		color: var(--ml-color-text-muted);
+		color: var(--ml-calendar-view-nav-color);
 		cursor: pointer;
 		transition: background-color var(--ml-duration-150) var(--ml-ease-in-out), color var(--ml-duration-150) var(--ml-ease-in-out);
 	}
 
 	.ml-cv__nav-btn:hover {
-		background-color: var(--ml-color-surface-raised);
-		color: var(--ml-color-text);
+		background-color: var(--ml-calendar-view-nav-hover-bg);
+		color: var(--ml-calendar-view-nav-hover-color);
 	}
 
 	.ml-cv__nav-btn:focus-visible {
 		outline: none;
-		box-shadow: var(--ml-shadow-focus-ring);
+		box-shadow: var(--ml-calendar-view-focus-ring);
 		z-index: 1;
 	}
 
 	.ml-cv__nav-btn + .ml-cv__nav-btn {
-		border-left: var(--ml-border) solid var(--ml-color-border);
+		border-left: var(--ml-calendar-view-border-width) solid var(--ml-calendar-view-border-color);
 	}
 
 	.ml-cv__today-btn {
 		height: 2.25rem;
 		padding: 0 var(--ml-space-3);
-		border: var(--ml-border) solid var(--ml-color-border);
+		border: var(--ml-calendar-view-border-width) solid var(--ml-calendar-view-border-color);
 		border-radius: var(--ml-radius-md);
 		background: none;
 		font-family: var(--ml-font-sans);
 		font-size: var(--ml-text-sm);
 		font-weight: var(--ml-font-medium);
-		color: var(--ml-color-text);
+		color: var(--ml-calendar-view-title-color);
 		cursor: pointer;
 		transition: background-color var(--ml-duration-150) var(--ml-ease-in-out);
 	}
 
 	.ml-cv__today-btn:hover {
-		background-color: var(--ml-color-surface-raised);
+		background-color: var(--ml-calendar-view-nav-hover-bg);
 	}
 
 	.ml-cv__today-btn:focus-visible {
 		outline: none;
-		box-shadow: var(--ml-shadow-focus-ring);
+		box-shadow: var(--ml-calendar-view-focus-ring);
 	}
 
 	/* View dropdown */
@@ -177,24 +243,24 @@ export const calendarViewStyles = () => css`
 		gap: var(--ml-space-1-5);
 		height: 2.25rem;
 		padding: 0 var(--ml-space-3);
-		border: var(--ml-border) solid var(--ml-color-border);
+		border: var(--ml-calendar-view-border-width) solid var(--ml-calendar-view-border-color);
 		border-radius: var(--ml-radius-md);
 		background: none;
 		font-family: var(--ml-font-sans);
 		font-size: var(--ml-text-sm);
 		font-weight: var(--ml-font-medium);
-		color: var(--ml-color-text);
+		color: var(--ml-calendar-view-title-color);
 		cursor: pointer;
 		transition: background-color var(--ml-duration-150) var(--ml-ease-in-out);
 	}
 
 	.ml-cv__view-trigger:hover {
-		background-color: var(--ml-color-surface-raised);
+		background-color: var(--ml-calendar-view-nav-hover-bg);
 	}
 
 	.ml-cv__view-trigger:focus-visible {
 		outline: none;
-		box-shadow: var(--ml-shadow-focus-ring);
+		box-shadow: var(--ml-calendar-view-focus-ring);
 	}
 
 	.ml-cv__view-trigger ml-icon {
@@ -210,10 +276,10 @@ export const calendarViewStyles = () => css`
 		top: calc(100% + 4px);
 		right: 0;
 		min-width: 140px;
-		background-color: var(--ml-color-surface);
-		border: var(--ml-border) solid var(--ml-color-border);
+		background-color: var(--ml-calendar-view-menu-bg);
+		border: var(--ml-calendar-view-border-width) solid var(--ml-calendar-view-border-color);
 		border-radius: var(--ml-radius-md);
-		box-shadow: var(--ml-shadow-lg);
+		box-shadow: var(--ml-calendar-view-menu-shadow);
 		padding: var(--ml-space-1);
 		z-index: 10;
 	}
@@ -228,18 +294,18 @@ export const calendarViewStyles = () => css`
 		background: none;
 		font-family: var(--ml-font-sans);
 		font-size: var(--ml-text-sm);
-		color: var(--ml-color-text);
+		color: var(--ml-calendar-view-title-color);
 		cursor: pointer;
 		transition: background-color var(--ml-duration-150) var(--ml-ease-in-out);
 	}
 
 	.ml-cv__view-option:hover {
-		background-color: var(--ml-color-surface-raised);
+		background-color: var(--ml-calendar-view-nav-hover-bg);
 	}
 
 	.ml-cv__view-option--active {
 		font-weight: var(--ml-font-medium);
-		color: var(--ml-color-primary);
+		color: var(--ml-calendar-view-menu-active-color);
 	}
 
 	.ml-cv__add-btn {
@@ -250,22 +316,22 @@ export const calendarViewStyles = () => css`
 		padding: 0 var(--ml-space-3);
 		border: none;
 		border-radius: var(--ml-radius-md);
-		background-color: var(--ml-color-primary);
+		background-color: var(--ml-calendar-view-add-bg);
 		font-family: var(--ml-font-sans);
 		font-size: var(--ml-text-sm);
 		font-weight: var(--ml-font-medium);
-		color: var(--ml-color-text-inverse);
+		color: var(--ml-calendar-view-add-color);
 		cursor: pointer;
 		transition: background-color var(--ml-duration-150) var(--ml-ease-in-out);
 	}
 
 	.ml-cv__add-btn:hover {
-		background-color: var(--ml-color-primary-hover);
+		background-color: var(--ml-calendar-view-add-hover-bg);
 	}
 
 	.ml-cv__add-btn:focus-visible {
 		outline: none;
-		box-shadow: var(--ml-shadow-focus-ring);
+		box-shadow: var(--ml-calendar-view-focus-ring);
 	}
 
 	/* ── Month View ── */
@@ -277,19 +343,19 @@ export const calendarViewStyles = () => css`
 	.ml-cv__weekday-header {
 		display: grid;
 		grid-template-columns: repeat(7, minmax(0, 1fr));
-		border-bottom: var(--ml-border) solid var(--ml-color-border);
+		border-bottom: var(--ml-calendar-view-border-width) solid var(--ml-calendar-view-border-color);
 	}
 
 	.ml-cv__weekday {
 		padding: var(--ml-space-2) var(--ml-space-3);
 		font-size: var(--ml-text-xs);
 		font-weight: var(--ml-font-medium);
-		color: var(--ml-color-text-muted);
+		color: var(--ml-calendar-view-weekday-color);
 		text-align: center;
 	}
 
 	.ml-cv__weekday--today {
-		color: var(--ml-color-primary);
+		color: var(--ml-calendar-view-weekday-today-color);
 		font-weight: var(--ml-font-semibold);
 	}
 
@@ -300,9 +366,9 @@ export const calendarViewStyles = () => css`
 
 	.ml-cv__day-cell {
 		position: relative;
-		min-height: 120px;
-		border-right: var(--ml-border) solid var(--ml-color-border);
-		border-bottom: var(--ml-border) solid var(--ml-color-border);
+		min-height: var(--ml-calendar-view-cell-min-height);
+		border-right: var(--ml-calendar-view-border-width) solid var(--ml-calendar-view-border-color);
+		border-bottom: var(--ml-calendar-view-border-width) solid var(--ml-calendar-view-border-color);
 		padding: var(--ml-space-1);
 		cursor: pointer;
 		transition: background-color var(--ml-duration-150) var(--ml-ease-in-out);
@@ -313,15 +379,15 @@ export const calendarViewStyles = () => css`
 	}
 
 	.ml-cv__day-cell:hover {
-		background-color: var(--ml-color-surface-sunken);
+		background-color: var(--ml-calendar-view-cell-hover-bg);
 	}
 
 	.ml-cv__day-cell--other-month {
-		background-color: var(--ml-color-surface-sunken);
+		background-color: var(--ml-calendar-view-cell-other-bg);
 	}
 
 	.ml-cv__day-cell--other-month .ml-cv__day-number {
-		color: var(--ml-color-text-disabled);
+		color: var(--ml-calendar-view-cell-other-color);
 	}
 
 	.ml-cv__day-number {
@@ -331,13 +397,13 @@ export const calendarViewStyles = () => css`
 		width: 1.75rem;
 		height: 1.75rem;
 		font-size: var(--ml-text-sm);
-		color: var(--ml-color-text);
+		color: var(--ml-calendar-view-title-color);
 		margin-bottom: var(--ml-space-0-5);
 	}
 
 	.ml-cv__day-number--today {
-		background-color: var(--ml-color-primary);
-		color: var(--ml-color-text-inverse);
+		background-color: var(--ml-calendar-view-today-bg);
+		color: var(--ml-calendar-view-today-color);
 		border-radius: var(--ml-radius-full);
 		font-weight: var(--ml-font-semibold);
 	}
@@ -353,8 +419,8 @@ export const calendarViewStyles = () => css`
 		align-items: center;
 		gap: var(--ml-space-1);
 		padding: 1px var(--ml-space-1-5);
-		border-radius: var(--ml-radius-sm);
-		border-left: 3px solid;
+		border-radius: var(--ml-calendar-view-event-radius);
+		border-left: var(--ml-calendar-view-event-border-width) solid;
 		font-size: 0.6875rem;
 		line-height: 1.45;
 		cursor: pointer;
@@ -389,7 +455,7 @@ export const calendarViewStyles = () => css`
 	.ml-cv__more-link {
 		font-size: 0.6875rem;
 		font-weight: var(--ml-font-medium);
-		color: var(--ml-color-text-muted);
+		color: var(--ml-calendar-view-weekday-color);
 		padding: 1px var(--ml-space-1-5);
 		cursor: pointer;
 		border: none;
@@ -399,7 +465,7 @@ export const calendarViewStyles = () => css`
 	}
 
 	.ml-cv__more-link:hover {
-		color: var(--ml-color-primary);
+		color: var(--ml-calendar-view-menu-active-color);
 	}
 
 	.ml-cv__day-add {
@@ -413,8 +479,8 @@ export const calendarViewStyles = () => css`
 		height: 1.25rem;
 		border: none;
 		border-radius: var(--ml-radius-full);
-		background-color: var(--ml-color-primary);
-		color: var(--ml-color-text-inverse);
+		background-color: var(--ml-calendar-view-add-bg);
+		color: var(--ml-calendar-view-add-color);
 		font-size: var(--ml-text-sm);
 		cursor: pointer;
 		line-height: 1;
@@ -432,7 +498,7 @@ export const calendarViewStyles = () => css`
 
 	.ml-cv__time-header {
 		display: grid;
-		border-bottom: var(--ml-border) solid var(--ml-color-border);
+		border-bottom: var(--ml-calendar-view-border-width) solid var(--ml-calendar-view-border-color);
 	}
 
 	.ml-cv__time-header--week {
@@ -444,7 +510,7 @@ export const calendarViewStyles = () => css`
 	}
 
 	.ml-cv__time-header-gutter {
-		border-right: var(--ml-border) solid var(--ml-color-border);
+		border-right: var(--ml-calendar-view-border-width) solid var(--ml-calendar-view-border-color);
 	}
 
 	.ml-cv__time-header-day {
@@ -452,7 +518,7 @@ export const calendarViewStyles = () => css`
 		flex-direction: column;
 		align-items: center;
 		padding: var(--ml-space-2) 0;
-		border-right: var(--ml-border) solid var(--ml-color-border);
+		border-right: var(--ml-calendar-view-border-width) solid var(--ml-calendar-view-border-color);
 	}
 
 	.ml-cv__time-header-day:last-child {
@@ -462,13 +528,13 @@ export const calendarViewStyles = () => css`
 	.ml-cv__time-header-label {
 		font-size: var(--ml-text-xs);
 		font-weight: var(--ml-font-medium);
-		color: var(--ml-color-text-muted);
+		color: var(--ml-calendar-view-weekday-color);
 	}
 
 	.ml-cv__time-header-number {
 		font-size: var(--ml-text-lg);
 		font-weight: var(--ml-font-semibold);
-		color: var(--ml-color-text);
+		color: var(--ml-calendar-view-title-color);
 		width: 2rem;
 		height: 2rem;
 		display: flex;
@@ -477,12 +543,12 @@ export const calendarViewStyles = () => css`
 	}
 
 	.ml-cv__time-header-day--today .ml-cv__time-header-label {
-		color: var(--ml-color-primary);
+		color: var(--ml-calendar-view-weekday-today-color);
 	}
 
 	.ml-cv__time-header-day--today .ml-cv__time-header-number {
-		background-color: var(--ml-color-primary);
-		color: var(--ml-color-text-inverse);
+		background-color: var(--ml-calendar-view-today-bg);
+		color: var(--ml-calendar-view-today-color);
 		border-radius: var(--ml-radius-full);
 	}
 
@@ -506,11 +572,11 @@ export const calendarViewStyles = () => css`
 	}
 
 	.ml-cv__time-gutter {
-		border-right: var(--ml-border) solid var(--ml-color-border);
+		border-right: var(--ml-calendar-view-border-width) solid var(--ml-calendar-view-border-color);
 	}
 
 	.ml-cv__time-column {
-		border-right: var(--ml-border) solid var(--ml-color-border);
+		border-right: var(--ml-calendar-view-border-width) solid var(--ml-calendar-view-border-color);
 	}
 
 	.ml-cv__time-column--last {
@@ -518,7 +584,7 @@ export const calendarViewStyles = () => css`
 	}
 
 	.ml-cv__time-row {
-		border-bottom: var(--ml-border) solid var(--ml-color-border);
+		border-bottom: var(--ml-calendar-view-border-width) solid var(--ml-calendar-view-border-color);
 		pointer-events: none;
 	}
 
@@ -528,7 +594,7 @@ export const calendarViewStyles = () => css`
 		justify-content: flex-end;
 		padding: var(--ml-space-1) var(--ml-space-2) 0;
 		font-size: 0.625rem;
-		color: var(--ml-color-text-muted);
+		color: var(--ml-calendar-view-weekday-color);
 		white-space: nowrap;
 		pointer-events: none;
 	}
@@ -538,8 +604,8 @@ export const calendarViewStyles = () => css`
 		box-sizing: border-box;
 		min-width: 0;
 		min-height: 0;
-		border-radius: var(--ml-radius-sm);
-		border-left: 3px solid;
+		border-radius: var(--ml-calendar-view-event-radius);
+		border-left: var(--ml-calendar-view-event-border-width) solid;
 		padding: var(--ml-space-1) var(--ml-space-1-5);
 		font-size: 0.6875rem;
 		overflow: hidden;
@@ -584,7 +650,7 @@ export const calendarViewStyles = () => css`
 	}
 
 	.ml-cv__day-sidebar {
-		border-left: var(--ml-border) solid var(--ml-color-border);
+		border-left: var(--ml-calendar-view-border-width) solid var(--ml-calendar-view-border-color);
 		padding: var(--ml-space-4);
 		overflow-y: auto;
 		max-height: 780px;
@@ -605,7 +671,7 @@ export const calendarViewStyles = () => css`
 	.ml-cv__mini-cal-title {
 		font-size: var(--ml-text-sm);
 		font-weight: var(--ml-font-semibold);
-		color: var(--ml-color-text);
+		color: var(--ml-calendar-view-title-color);
 	}
 
 	.ml-cv__mini-cal-nav {
@@ -623,13 +689,13 @@ export const calendarViewStyles = () => css`
 		border: none;
 		border-radius: var(--ml-radius-sm);
 		background: none;
-		color: var(--ml-color-text-muted);
+		color: var(--ml-calendar-view-nav-color);
 		cursor: pointer;
 	}
 
 	.ml-cv__mini-cal-btn:hover {
-		background-color: var(--ml-color-surface-raised);
-		color: var(--ml-color-text);
+		background-color: var(--ml-calendar-view-nav-hover-bg);
+		color: var(--ml-calendar-view-nav-hover-color);
 	}
 
 	.ml-cv__mini-cal-weekdays {
@@ -641,7 +707,7 @@ export const calendarViewStyles = () => css`
 	.ml-cv__mini-cal-weekday {
 		font-size: 0.625rem;
 		font-weight: var(--ml-font-medium);
-		color: var(--ml-color-text-muted);
+		color: var(--ml-calendar-view-weekday-color);
 		text-align: center;
 		padding: var(--ml-space-0-5) 0;
 	}
@@ -661,18 +727,18 @@ export const calendarViewStyles = () => css`
 		border-radius: var(--ml-radius-full);
 		background: none;
 		font-size: 0.6875rem;
-		color: var(--ml-color-text);
+		color: var(--ml-calendar-view-title-color);
 		cursor: pointer;
 		padding: 0;
 		gap: 1px;
 	}
 
 	.ml-cv__mini-cal-day:hover {
-		background-color: var(--ml-color-surface-raised);
+		background-color: var(--ml-calendar-view-nav-hover-bg);
 	}
 
 	.ml-cv__mini-cal-day--other {
-		color: var(--ml-color-text-disabled);
+		color: var(--ml-calendar-view-cell-other-color);
 	}
 
 	.ml-cv__mini-cal-day--today {
@@ -680,31 +746,31 @@ export const calendarViewStyles = () => css`
 	}
 
 	.ml-cv__mini-cal-day--selected {
-		background-color: var(--ml-color-primary);
-		color: var(--ml-color-text-inverse);
+		background-color: var(--ml-calendar-view-mini-selected-bg);
+		color: var(--ml-calendar-view-mini-selected-color);
 		font-weight: var(--ml-font-semibold);
 	}
 
 	.ml-cv__mini-cal-day--selected:hover {
-		background-color: var(--ml-color-primary-hover);
+		background-color: var(--ml-calendar-view-mini-selected-hover-bg);
 	}
 
 	.ml-cv__mini-cal-dot {
 		width: 3px;
 		height: 3px;
 		border-radius: var(--ml-radius-full);
-		background-color: var(--ml-color-primary);
+		background-color: var(--ml-calendar-view-mini-dot-color);
 	}
 
 	.ml-cv__mini-cal-day--selected .ml-cv__mini-cal-dot {
-		background-color: var(--ml-color-text-inverse);
+		background-color: var(--ml-calendar-view-mini-selected-color);
 	}
 
 	/* Sidebar event list */
 	.ml-cv__sidebar-title {
 		font-size: var(--ml-text-sm);
 		font-weight: var(--ml-font-semibold);
-		color: var(--ml-color-text);
+		color: var(--ml-calendar-view-title-color);
 		margin-bottom: var(--ml-space-3);
 	}
 
@@ -724,7 +790,7 @@ export const calendarViewStyles = () => css`
 	}
 
 	.ml-cv__sidebar-event:hover {
-		background-color: var(--ml-color-surface-raised);
+		background-color: var(--ml-calendar-view-sidebar-event-hover-bg);
 	}
 
 	.ml-cv__sidebar-event-bar {
@@ -749,7 +815,7 @@ export const calendarViewStyles = () => css`
 	.ml-cv__sidebar-event-title {
 		font-size: var(--ml-text-sm);
 		font-weight: var(--ml-font-medium);
-		color: var(--ml-color-text);
+		color: var(--ml-calendar-view-title-color);
 		white-space: nowrap;
 		overflow: hidden;
 		text-overflow: ellipsis;
@@ -757,12 +823,12 @@ export const calendarViewStyles = () => css`
 
 	.ml-cv__sidebar-event-time {
 		font-size: var(--ml-text-xs);
-		color: var(--ml-color-text-muted);
+		color: var(--ml-calendar-view-weekday-color);
 	}
 
 	.ml-cv__sidebar-empty {
 		font-size: var(--ml-text-sm);
-		color: var(--ml-color-text-muted);
+		color: var(--ml-calendar-view-weekday-color);
 		text-align: center;
 		padding: var(--ml-space-6) 0;
 	}

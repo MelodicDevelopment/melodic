@@ -3,20 +3,63 @@ import { css } from '@melodicdev/core';
 export const toastStyles = () => css`
 	:host {
 		display: block;
+
+		/* Background & border */
+		--ml-toast-bg: var(--ml-color-surface);
+		--ml-toast-border-color: var(--ml-color-border);
+		--ml-toast-border-radius: var(--ml-radius-lg);
+		--ml-toast-shadow: var(--ml-shadow-lg);
+
+		/* Spacing */
+		--ml-toast-gap: var(--ml-space-3);
+		--ml-toast-padding: var(--ml-space-4);
+		--ml-toast-min-width: 320px;
+		--ml-toast-max-width: 420px;
+
+		/* Title */
+		--ml-toast-title-font-size: var(--ml-text-sm);
+		--ml-toast-title-font-weight: var(--ml-font-semibold);
+		--ml-toast-title-color: var(--ml-color-text);
+		--ml-toast-title-line-height: var(--ml-leading-tight);
+
+		/* Message */
+		--ml-toast-message-font-size: var(--ml-text-sm);
+		--ml-toast-message-color: var(--ml-color-text-secondary);
+		--ml-toast-message-line-height: var(--ml-leading-relaxed);
+		--ml-toast-message-margin-top: var(--ml-space-1);
+
+		/* Icon variant colors */
+		--ml-toast-info-icon-color: var(--ml-color-primary);
+		--ml-toast-success-icon-color: var(--ml-color-success);
+		--ml-toast-warning-icon-color: var(--ml-color-warning);
+		--ml-toast-error-icon-color: var(--ml-color-danger);
+
+		/* Dismiss button */
+		--ml-toast-dismiss-border-radius: var(--ml-radius-sm);
+		--ml-toast-dismiss-color: var(--ml-color-text-tertiary);
+		--ml-toast-dismiss-hover-color: var(--ml-color-text);
+
+		/* Transition */
+		--ml-toast-transition-duration: var(--ml-duration-150);
+		--ml-toast-transition-easing: var(--ml-ease-in-out);
+
+		/* Animation */
+		--ml-toast-animation-duration: var(--ml-duration-300);
+		--ml-toast-animation-easing: var(--ml-ease-out);
 	}
 
 	.ml-toast {
 		display: flex;
 		align-items: flex-start;
-		gap: var(--ml-space-3);
-		padding: var(--ml-space-4);
-		background-color: var(--ml-color-surface);
-		border: 1px solid var(--ml-color-border);
-		border-radius: var(--ml-radius-lg);
-		box-shadow: var(--ml-shadow-lg);
-		min-width: 320px;
-		max-width: 420px;
-		animation: ml-toast-in var(--ml-duration-300) var(--ml-ease-out);
+		gap: var(--ml-toast-gap);
+		padding: var(--ml-toast-padding);
+		background-color: var(--ml-toast-bg);
+		border: 1px solid var(--ml-toast-border-color);
+		border-radius: var(--ml-toast-border-radius);
+		box-shadow: var(--ml-toast-shadow);
+		min-width: var(--ml-toast-min-width);
+		max-width: var(--ml-toast-max-width);
+		animation: ml-toast-in var(--ml-toast-animation-duration) var(--ml-toast-animation-easing);
 	}
 
 	@keyframes ml-toast-in {
@@ -37,19 +80,19 @@ export const toastStyles = () => css`
 	}
 
 	.ml-toast--info .ml-toast__icon {
-		color: var(--ml-color-primary);
+		color: var(--ml-toast-info-icon-color);
 	}
 
 	.ml-toast--success .ml-toast__icon {
-		color: var(--ml-color-success);
+		color: var(--ml-toast-success-icon-color);
 	}
 
 	.ml-toast--warning .ml-toast__icon {
-		color: var(--ml-color-warning);
+		color: var(--ml-toast-warning-icon-color);
 	}
 
 	.ml-toast--error .ml-toast__icon {
-		color: var(--ml-color-danger);
+		color: var(--ml-toast-error-icon-color);
 	}
 
 	.ml-toast__content {
@@ -58,21 +101,21 @@ export const toastStyles = () => css`
 	}
 
 	.ml-toast__title {
-		font-size: var(--ml-text-sm);
-		font-weight: var(--ml-font-semibold);
-		color: var(--ml-color-text);
-		line-height: var(--ml-leading-tight);
+		font-size: var(--ml-toast-title-font-size);
+		font-weight: var(--ml-toast-title-font-weight);
+		color: var(--ml-toast-title-color);
+		line-height: var(--ml-toast-title-line-height);
 	}
 
 	.ml-toast__message {
-		font-size: var(--ml-text-sm);
-		color: var(--ml-color-text-secondary);
-		line-height: var(--ml-leading-relaxed);
-		margin-top: var(--ml-space-1);
+		font-size: var(--ml-toast-message-font-size);
+		color: var(--ml-toast-message-color);
+		line-height: var(--ml-toast-message-line-height);
+		margin-top: var(--ml-toast-message-margin-top);
 	}
 
 	.ml-toast__title + .ml-toast__message {
-		margin-top: var(--ml-space-1);
+		margin-top: var(--ml-toast-message-margin-top);
 	}
 
 	.ml-toast__dismiss {
@@ -83,13 +126,13 @@ export const toastStyles = () => css`
 		padding: 0;
 		background: none;
 		border: none;
-		border-radius: var(--ml-radius-sm);
+		border-radius: var(--ml-toast-dismiss-border-radius);
 		cursor: pointer;
-		color: var(--ml-color-text-tertiary);
-		transition: color var(--ml-duration-150) var(--ml-ease-in-out);
+		color: var(--ml-toast-dismiss-color);
+		transition: color var(--ml-toast-transition-duration) var(--ml-toast-transition-easing);
 	}
 
 	.ml-toast__dismiss:hover {
-		color: var(--ml-color-text);
+		color: var(--ml-toast-dismiss-hover-color);
 	}
 `;

@@ -3,6 +3,30 @@ import { css } from '@melodicdev/core';
 export const alertStyles = () => css`
 	:host {
 		display: block;
+
+		/* Spacing */
+		--ml-alert-gap: var(--ml-space-3);
+		--ml-alert-padding: var(--ml-space-4);
+		--ml-alert-border-radius: var(--ml-radius-lg);
+
+		/* Typography */
+		--ml-alert-title-font-weight: var(--ml-font-semibold);
+		--ml-alert-title-font-size: var(--ml-text-sm);
+		--ml-alert-title-margin-bottom: var(--ml-space-1);
+		--ml-alert-message-font-size: var(--ml-text-sm);
+		--ml-alert-message-line-height: var(--ml-leading-relaxed);
+
+		/* Icon */
+		--ml-alert-icon-size: 1.25rem;
+
+		/* Dismiss button */
+		--ml-alert-dismiss-border-radius: var(--ml-radius-sm);
+		--ml-alert-dismiss-opacity: 0.5;
+		--ml-alert-dismiss-hover-opacity: 1;
+
+		/* Transition */
+		--ml-alert-transition-duration: var(--ml-duration-150);
+		--ml-alert-transition-easing: var(--ml-ease-in-out);
 	}
 
 	:host([hidden]) {
@@ -11,9 +35,9 @@ export const alertStyles = () => css`
 
 	.ml-alert {
 		display: flex;
-		gap: var(--ml-space-3);
-		padding: var(--ml-space-4);
-		border-radius: var(--ml-radius-lg);
+		gap: var(--ml-alert-gap);
+		padding: var(--ml-alert-padding);
+		border-radius: var(--ml-alert-border-radius);
 		border: var(--ml-border) solid transparent;
 	}
 
@@ -65,12 +89,12 @@ export const alertStyles = () => css`
 	}
 
 	.ml-alert__icon ml-icon {
-		font-size: 1.25rem;
+		font-size: var(--ml-alert-icon-size);
 	}
 
 	.ml-alert__icon svg {
-		width: 1.25rem;
-		height: 1.25rem;
+		width: var(--ml-alert-icon-size);
+		height: var(--ml-alert-icon-size);
 	}
 
 	.ml-alert__content {
@@ -79,14 +103,14 @@ export const alertStyles = () => css`
 	}
 
 	.ml-alert__title {
-		font-weight: var(--ml-font-semibold);
-		font-size: var(--ml-text-sm);
-		margin-bottom: var(--ml-space-1);
+		font-weight: var(--ml-alert-title-font-weight);
+		font-size: var(--ml-alert-title-font-size);
+		margin-bottom: var(--ml-alert-title-margin-bottom);
 	}
 
 	.ml-alert__message {
-		font-size: var(--ml-text-sm);
-		line-height: var(--ml-leading-relaxed);
+		font-size: var(--ml-alert-message-font-size);
+		line-height: var(--ml-alert-message-line-height);
 	}
 
 	.ml-alert__dismiss {
@@ -97,21 +121,21 @@ export const alertStyles = () => css`
 		padding: 0;
 		background: none;
 		border: none;
-		border-radius: var(--ml-radius-sm);
+		border-radius: var(--ml-alert-dismiss-border-radius);
 		cursor: pointer;
 		color: currentColor;
-		opacity: 0.5;
+		opacity: var(--ml-alert-dismiss-opacity);
 		transition:
-			opacity var(--ml-duration-150) var(--ml-ease-in-out),
-			background-color var(--ml-duration-150) var(--ml-ease-in-out);
+			opacity var(--ml-alert-transition-duration) var(--ml-alert-transition-easing),
+			background-color var(--ml-alert-transition-duration) var(--ml-alert-transition-easing);
 	}
 
 	.ml-alert__dismiss:hover {
-		opacity: 1;
+		opacity: var(--ml-alert-dismiss-hover-opacity);
 	}
 
 	.ml-alert__dismiss:focus-visible {
 		outline: none;
-		opacity: 1;
+		opacity: var(--ml-alert-dismiss-hover-opacity);
 	}
 `;

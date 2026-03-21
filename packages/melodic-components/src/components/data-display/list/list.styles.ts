@@ -3,6 +3,10 @@ import { css } from '@melodicdev/core';
 export const listStyles = () => css`
 	:host {
 		display: block;
+
+		/* ── List: divider ── */
+		--ml-list-divider-width: var(--ml-border);
+		--ml-list-divider-color: var(--ml-color-border);
 	}
 
 	.ml-list {
@@ -25,6 +29,6 @@ export const listStyles = () => css`
 
 	/* Default variant: dividers between items */
 	.ml-list--default ::slotted(ml-list-item:not(:last-of-type)) {
-		border-bottom: var(--ml-border) solid var(--ml-color-border);
+		border-bottom: var(--ml-list-divider-width) solid var(--ml-list-divider-color);
 	}
 `;

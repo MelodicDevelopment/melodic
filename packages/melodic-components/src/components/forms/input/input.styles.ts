@@ -5,6 +5,56 @@ export const inputStyles = () => css`
 		display: block;
 		width: 100%;
 		min-width: 0;
+
+		/* --- Label --- */
+		--ml-input-label-font-size: var(--ml-text-sm);
+		--ml-input-label-font-weight: var(--ml-font-medium);
+		--ml-input-label-color: var(--ml-color-text-secondary);
+		--ml-input-label-line-height: var(--ml-leading-tight);
+
+		/* --- Required indicator --- */
+		--ml-input-required-color: var(--ml-color-danger);
+
+		/* --- Wrapper --- */
+		--ml-input-bg: var(--ml-color-input-bg);
+		--ml-input-border-width: var(--ml-border);
+		--ml-input-border-color: var(--ml-color-border-strong);
+		--ml-input-border-radius: var(--ml-radius);
+		--ml-input-shadow: var(--ml-shadow-xs);
+		--ml-input-hover-border-color: var(--ml-color-border);
+		--ml-input-padding: var(--ml-space-2-5) var(--ml-space-3-5);
+		--ml-input-gap: var(--ml-space-2);
+
+		/* --- Field --- */
+		--ml-input-color: var(--ml-color-text);
+		--ml-input-font-family: var(--ml-font-sans);
+		--ml-input-font-size: var(--ml-text-sm);
+		--ml-input-line-height: var(--ml-leading-normal);
+		--ml-input-placeholder-color: var(--ml-color-text-muted);
+
+		/* --- Focus --- */
+		--ml-input-focus-border-color: var(--ml-color-primary);
+		--ml-input-focus-shadow: var(--ml-shadow-focus-ring);
+
+		/* --- Error --- */
+		--ml-input-error-border-color: var(--ml-color-danger);
+		--ml-input-error-focus-shadow: var(--ml-shadow-ring-error);
+		--ml-input-error-color: var(--ml-color-danger);
+
+		/* --- Disabled --- */
+		--ml-input-disabled-bg: var(--ml-color-input-disabled-bg);
+		--ml-input-disabled-color: var(--ml-color-text-muted);
+
+		/* --- Hint --- */
+		--ml-input-hint-color: var(--ml-color-text-muted);
+		--ml-input-hint-font-size: var(--ml-text-sm);
+
+		/* --- Prefix / Suffix --- */
+		--ml-input-addon-color: var(--ml-color-text-muted);
+
+		/* --- Transition --- */
+		--ml-input-transition-duration: var(--ml-duration-150);
+		--ml-input-transition-easing: var(--ml-ease-in-out);
 	}
 
 	.ml-input {
@@ -14,32 +64,33 @@ export const inputStyles = () => css`
 	}
 
 	.ml-input__label {
-		font-size: var(--ml-text-sm);
-		font-weight: var(--ml-font-medium);
-		color: var(--ml-color-text-secondary);
-		line-height: var(--ml-leading-tight);
+		font-size: var(--ml-input-label-font-size);
+		font-weight: var(--ml-input-label-font-weight);
+		color: var(--ml-input-label-color);
+		line-height: var(--ml-input-label-line-height);
 	}
 
 	.ml-input__required {
-		color: var(--ml-color-danger);
+		color: var(--ml-input-required-color);
 		margin-left: var(--ml-space-0-5);
 	}
 
 	.ml-input__wrapper {
 		display: flex;
 		align-items: center;
-		gap: var(--ml-space-2);
-		background-color: var(--ml-color-input-bg);
-		border: var(--ml-border) solid var(--ml-color-border-strong);
-		border-radius: var(--ml-radius);
-		box-shadow: var(--ml-shadow-xs);
+		gap: var(--ml-input-gap);
+		padding: var(--ml-input-padding);
+		background-color: var(--ml-input-bg);
+		border: var(--ml-input-border-width) solid var(--ml-input-border-color);
+		border-radius: var(--ml-input-border-radius);
+		box-shadow: var(--ml-input-shadow);
 		transition:
-			border-color var(--ml-duration-150) var(--ml-ease-in-out),
-			box-shadow var(--ml-duration-150) var(--ml-ease-in-out);
+			border-color var(--ml-input-transition-duration) var(--ml-input-transition-easing),
+			box-shadow var(--ml-input-transition-duration) var(--ml-input-transition-easing);
 	}
 
 	.ml-input__wrapper:hover:not(.ml-input--disabled .ml-input__wrapper) {
-		border-color: var(--ml-color-border);
+		border-color: var(--ml-input-hover-border-color);
 	}
 
 	.ml-input__field {
@@ -47,10 +98,10 @@ export const inputStyles = () => css`
 		min-width: 0;
 		border: none;
 		background: transparent;
-		color: var(--ml-color-text);
-		font-family: var(--ml-font-sans);
-		font-size: inherit;
-		line-height: var(--ml-leading-normal);
+		color: var(--ml-input-color);
+		font-family: var(--ml-input-font-family);
+		font-size: var(--ml-input-font-size);
+		line-height: var(--ml-input-line-height);
 	}
 
 	.ml-input__field:focus {
@@ -58,46 +109,47 @@ export const inputStyles = () => css`
 	}
 
 	.ml-input__field::placeholder {
-		color: var(--ml-color-text-muted);
+		color: var(--ml-input-placeholder-color);
 	}
 
 	.ml-input__field:disabled {
 		cursor: not-allowed;
-		color: var(--ml-color-text-muted);
+		color: var(--ml-input-disabled-color);
 	}
 
 	.ml-input__hint,
 	.ml-input__error {
-		font-size: var(--ml-text-sm);
-		line-height: var(--ml-leading-tight);
+		font-size: var(--ml-input-hint-font-size);
+		line-height: var(--ml-input-label-line-height);
 	}
 
 	.ml-input__hint {
-		color: var(--ml-color-text-muted);
+		color: var(--ml-input-hint-color);
 	}
 
 	.ml-input__error {
-		color: var(--ml-color-danger);
+		color: var(--ml-input-error-color);
 	}
 
 	.ml-input--focused .ml-input__wrapper {
-		border-color: var(--ml-color-primary);
-		box-shadow: var(--ml-shadow-focus-ring);
+		border-color: var(--ml-input-focus-border-color);
+		box-shadow: var(--ml-input-focus-shadow);
 	}
 
 	.ml-input--error .ml-input__wrapper {
-		border-color: var(--ml-color-danger);
+		border-color: var(--ml-input-error-border-color);
 	}
 
 	.ml-input--error.ml-input--focused .ml-input__wrapper {
-		box-shadow: var(--ml-shadow-ring-error);
+		box-shadow: var(--ml-input-error-focus-shadow);
 	}
 
 	.ml-input--disabled .ml-input__wrapper {
-		background-color: var(--ml-color-input-disabled-bg);
+		background-color: var(--ml-input-disabled-bg);
 		cursor: not-allowed;
 	}
 
+	/* --- Size variants --- */
 	.ml-input--sm .ml-input__wrapper {
 		padding: var(--ml-space-2) var(--ml-space-3);
 	}
@@ -126,7 +178,7 @@ export const inputStyles = () => css`
 	::slotted([slot='suffix']) {
 		display: flex;
 		align-items: center;
-		color: var(--ml-color-text-muted);
+		color: var(--ml-input-addon-color);
 		flex-shrink: 0;
 	}
 `;

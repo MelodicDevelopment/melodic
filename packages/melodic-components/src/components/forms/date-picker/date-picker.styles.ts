@@ -3,20 +3,76 @@ import { css } from '@melodicdev/core';
 export const datePickerStyles = () => css`
 	:host {
 		display: block;
+
+		/* --- Label --- */
+		--ml-date-picker-label-font-size: var(--ml-text-sm);
+		--ml-date-picker-label-font-weight: var(--ml-font-medium);
+		--ml-date-picker-label-color: var(--ml-color-text-secondary);
+		--ml-date-picker-label-line-height: var(--ml-leading-tight);
+		--ml-date-picker-label-margin-bottom: var(--ml-space-1-5);
+
+		/* --- Required indicator --- */
+		--ml-date-picker-required-color: var(--ml-color-danger);
+
+		/* --- Trigger --- */
+		--ml-date-picker-bg: var(--ml-color-input-bg);
+		--ml-date-picker-border-width: var(--ml-border);
+		--ml-date-picker-border-color: var(--ml-color-border);
+		--ml-date-picker-border-radius: var(--ml-radius-md);
+		--ml-date-picker-color: var(--ml-color-text);
+		--ml-date-picker-font-family: var(--ml-font-sans);
+		--ml-date-picker-font-size: var(--ml-text-sm);
+		--ml-date-picker-padding: var(--ml-space-2) var(--ml-space-3);
+		--ml-date-picker-gap: var(--ml-space-2);
+		--ml-date-picker-hover-border-color: var(--ml-color-border-strong);
+
+		/* --- Focus --- */
+		--ml-date-picker-focus-border-color: var(--ml-trigger-focus-border, var(--ml-color-primary));
+		--ml-date-picker-focus-shadow: var(--ml-shadow-focus-ring);
+
+		/* --- Error --- */
+		--ml-date-picker-error-border-color: var(--ml-color-danger);
+		--ml-date-picker-error-focus-shadow: 0 0 0 3px rgba(239, 68, 68, 0.15);
+		--ml-date-picker-error-color: var(--ml-color-danger);
+
+		/* --- Disabled --- */
+		--ml-date-picker-disabled-opacity: 0.5;
+		--ml-date-picker-disabled-bg: var(--ml-color-surface-sunken);
+
+		/* --- Icon --- */
+		--ml-date-picker-icon-color: var(--ml-color-text-muted);
+
+		/* --- Placeholder --- */
+		--ml-date-picker-placeholder-color: var(--ml-color-text-muted);
+
+		/* --- Popover --- */
+		--ml-date-picker-popover-padding: var(--ml-space-4);
+		--ml-date-picker-popover-border-color: var(--ml-color-border);
+		--ml-date-picker-popover-border-radius: var(--ml-radius-lg);
+		--ml-date-picker-popover-bg: var(--ml-color-surface);
+		--ml-date-picker-popover-shadow: var(--ml-shadow-lg);
+
+		/* --- Hint --- */
+		--ml-date-picker-hint-color: var(--ml-color-text-muted);
+		--ml-date-picker-hint-font-size: var(--ml-text-sm);
+
+		/* --- Transition --- */
+		--ml-date-picker-transition-duration: var(--ml-duration-150);
+		--ml-date-picker-transition-easing: var(--ml-ease-in-out);
 	}
 
 	/* Label */
 	.ml-date-picker__label {
 		display: block;
-		font-size: var(--ml-text-sm);
-		font-weight: var(--ml-font-medium);
-		color: var(--ml-color-text-secondary);
-		margin-bottom: var(--ml-space-1-5);
-		line-height: var(--ml-leading-tight);
+		font-size: var(--ml-date-picker-label-font-size);
+		font-weight: var(--ml-date-picker-label-font-weight);
+		color: var(--ml-date-picker-label-color);
+		margin-bottom: var(--ml-date-picker-label-margin-bottom);
+		line-height: var(--ml-date-picker-label-line-height);
 	}
 
 	.ml-date-picker__required {
-		color: var(--ml-color-danger);
+		color: var(--ml-date-picker-required-color);
 		margin-left: var(--ml-space-0-5);
 	}
 
@@ -24,48 +80,50 @@ export const datePickerStyles = () => css`
 	.ml-date-picker__trigger {
 		display: flex;
 		align-items: center;
-		gap: var(--ml-space-2);
+		gap: var(--ml-date-picker-gap);
 		width: 100%;
-		border: var(--ml-border) solid var(--ml-color-border);
-		border-radius: var(--ml-radius-md);
-		background-color: var(--ml-color-input-bg);
-		color: var(--ml-color-text);
+		padding: var(--ml-date-picker-padding);
+		border: var(--ml-date-picker-border-width) solid var(--ml-date-picker-border-color);
+		border-radius: var(--ml-date-picker-border-radius);
+		background-color: var(--ml-date-picker-bg);
+		color: var(--ml-date-picker-color);
 		cursor: pointer;
-		font-family: var(--ml-font-sans);
+		font-family: var(--ml-date-picker-font-family);
+		font-size: var(--ml-date-picker-font-size);
 		text-align: left;
 		transition:
-			border-color var(--ml-duration-150) var(--ml-ease-in-out),
-			box-shadow var(--ml-duration-150) var(--ml-ease-in-out);
+			border-color var(--ml-date-picker-transition-duration) var(--ml-date-picker-transition-easing),
+			box-shadow var(--ml-date-picker-transition-duration) var(--ml-date-picker-transition-easing);
 	}
 
 	.ml-date-picker__trigger:hover:not(:disabled) {
-		border-color: var(--ml-color-border-strong);
+		border-color: var(--ml-date-picker-hover-border-color);
 	}
 
 	.ml-date-picker__trigger:focus-visible {
 		outline: none;
-		border-color: var(--ml-trigger-focus-border, var(--ml-color-primary));
-		box-shadow: var(--ml-shadow-focus-ring);
+		border-color: var(--ml-date-picker-focus-border-color);
+		box-shadow: var(--ml-date-picker-focus-shadow);
 	}
 
 	.ml-date-picker--open .ml-date-picker__trigger {
-		border-color: var(--ml-trigger-focus-border, var(--ml-color-primary));
-		box-shadow: var(--ml-shadow-focus-ring);
+		border-color: var(--ml-date-picker-focus-border-color);
+		box-shadow: var(--ml-date-picker-focus-shadow);
 	}
 
 	.ml-date-picker--error .ml-date-picker__trigger {
-		border-color: var(--ml-color-danger);
+		border-color: var(--ml-date-picker-error-border-color);
 	}
 
 	.ml-date-picker--error .ml-date-picker__trigger:focus-visible,
 	.ml-date-picker--error.ml-date-picker--open .ml-date-picker__trigger {
-		box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.15);
+		box-shadow: var(--ml-date-picker-error-focus-shadow);
 	}
 
 	.ml-date-picker--disabled .ml-date-picker__trigger {
-		opacity: 0.5;
+		opacity: var(--ml-date-picker-disabled-opacity);
 		cursor: not-allowed;
-		background-color: var(--ml-color-surface-sunken);
+		background-color: var(--ml-date-picker-disabled-bg);
 	}
 
 	/* Sizes */
@@ -87,7 +145,7 @@ export const datePickerStyles = () => css`
 	/* Icon */
 	.ml-date-picker__icon {
 		flex-shrink: 0;
-		color: var(--ml-color-text-muted);
+		color: var(--ml-date-picker-icon-color);
 	}
 
 	/* Value */
@@ -100,7 +158,7 @@ export const datePickerStyles = () => css`
 	}
 
 	.ml-date-picker__value--placeholder {
-		color: var(--ml-color-text-muted);
+		color: var(--ml-date-picker-placeholder-color);
 	}
 
 	/* Popover */
@@ -108,19 +166,19 @@ export const datePickerStyles = () => css`
 		position: fixed;
 		inset: unset;
 		margin: 0;
-		padding: var(--ml-space-4);
-		border: var(--ml-border) solid var(--ml-color-border);
-		border-radius: var(--ml-radius-lg);
-		background-color: var(--ml-color-surface);
-		box-shadow: var(--ml-shadow-lg);
+		padding: var(--ml-date-picker-popover-padding);
+		border: var(--ml-date-picker-border-width) solid var(--ml-date-picker-popover-border-color);
+		border-radius: var(--ml-date-picker-popover-border-radius);
+		background-color: var(--ml-date-picker-popover-bg);
+		box-shadow: var(--ml-date-picker-popover-shadow);
 		z-index: 50;
 
 		opacity: 0;
 		transform: scale(0.95);
 		transition:
-			opacity var(--ml-duration-150) var(--ml-ease-out),
-			transform var(--ml-duration-150) var(--ml-ease-out),
-			display var(--ml-duration-150) allow-discrete;
+			opacity var(--ml-date-picker-transition-duration) var(--ml-ease-out),
+			transform var(--ml-date-picker-transition-duration) var(--ml-ease-out),
+			display var(--ml-date-picker-transition-duration) allow-discrete;
 	}
 
 	.ml-date-picker__popover:popover-open {
@@ -139,16 +197,16 @@ export const datePickerStyles = () => css`
 	.ml-date-picker__hint,
 	.ml-date-picker__error {
 		display: block;
-		margin-top: var(--ml-space-1-5);
-		font-size: var(--ml-text-sm);
-		line-height: var(--ml-leading-tight);
+		margin-top: var(--ml-date-picker-label-margin-bottom);
+		font-size: var(--ml-date-picker-hint-font-size);
+		line-height: var(--ml-date-picker-label-line-height);
 	}
 
 	.ml-date-picker__hint {
-		color: var(--ml-color-text-muted);
+		color: var(--ml-date-picker-hint-color);
 	}
 
 	.ml-date-picker__error {
-		color: var(--ml-color-danger);
+		color: var(--ml-date-picker-error-color);
 	}
 `;

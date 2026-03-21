@@ -3,20 +3,57 @@ import { css } from '@melodicdev/core';
 export const tagStyles = () => css`
 	:host {
 		display: inline-block;
+
+		/* ── Tag: base ── */
+		--ml-tag-font: var(--ml-font-sans);
+		--ml-tag-font-weight: var(--ml-font-medium);
+		--ml-tag-radius: var(--ml-radius-md);
+		--ml-tag-border-width: var(--ml-border);
+		--ml-tag-border-color: var(--ml-color-border);
+		--ml-tag-bg: var(--ml-color-surface);
+		--ml-tag-color: var(--ml-color-text);
+
+		/* ── Tag: dot colors ── */
+		--ml-tag-dot-success: var(--ml-color-success);
+		--ml-tag-dot-warning: var(--ml-color-warning);
+		--ml-tag-dot-danger: var(--ml-color-danger);
+		--ml-tag-dot-info: var(--ml-color-info);
+		--ml-tag-dot-primary: var(--ml-color-primary);
+		--ml-tag-dot-secondary: var(--ml-color-secondary);
+
+		/* ── Tag: count ── */
+		--ml-tag-count-color: var(--ml-color-text-secondary);
+
+		/* ── Tag: close button ── */
+		--ml-tag-close-color: var(--ml-color-text-muted);
+		--ml-tag-close-hover-color: var(--ml-color-text-secondary);
+		--ml-tag-close-active-color: var(--ml-color-text);
+
+		/* ── Tag: checkbox ── */
+		--ml-tag-checkbox-border: var(--ml-color-border-strong);
+		--ml-tag-checkbox-bg: var(--ml-color-surface);
+		--ml-tag-checkbox-checked-bg: var(--ml-color-primary);
+		--ml-tag-checkbox-checked-border: var(--ml-color-primary);
+		--ml-tag-checkbox-hover-border: var(--ml-color-primary);
+		--ml-tag-checkbox-checked-hover-bg: var(--ml-color-primary-hover);
+		--ml-tag-checkbox-checked-hover-border: var(--ml-color-primary-hover);
+
+		/* ── Tag: disabled ── */
+		--ml-tag-disabled-opacity: 0.5;
 	}
 
 	.ml-tag {
 		display: inline-flex;
 		align-items: center;
 		gap: var(--ml-space-1-5);
-		font-family: var(--ml-font-sans);
-		font-weight: var(--ml-font-medium);
+		font-family: var(--ml-tag-font);
+		font-weight: var(--ml-tag-font-weight);
 		line-height: 1;
 		white-space: nowrap;
-		border-radius: var(--ml-radius-md);
-		border: var(--ml-border) solid var(--ml-color-border);
-		background-color: var(--ml-color-surface);
-		color: var(--ml-color-text);
+		border-radius: var(--ml-tag-radius);
+		border: var(--ml-tag-border-width) solid var(--ml-tag-border-color);
+		background-color: var(--ml-tag-bg);
+		color: var(--ml-tag-color);
 	}
 
 	/* Sizes */
@@ -49,27 +86,27 @@ export const tagStyles = () => css`
 	}
 
 	.ml-tag__dot--success {
-		background-color: var(--ml-color-success);
+		background-color: var(--ml-tag-dot-success);
 	}
 
 	.ml-tag__dot--warning {
-		background-color: var(--ml-color-warning);
+		background-color: var(--ml-tag-dot-warning);
 	}
 
 	.ml-tag__dot--danger {
-		background-color: var(--ml-color-danger);
+		background-color: var(--ml-tag-dot-danger);
 	}
 
 	.ml-tag__dot--info {
-		background-color: var(--ml-color-info);
+		background-color: var(--ml-tag-dot-info);
 	}
 
 	.ml-tag__dot--primary {
-		background-color: var(--ml-color-primary);
+		background-color: var(--ml-tag-dot-primary);
 	}
 
 	.ml-tag__dot--secondary {
-		background-color: var(--ml-color-secondary);
+		background-color: var(--ml-tag-dot-secondary);
 	}
 
 	/* Avatar */
@@ -110,8 +147,8 @@ export const tagStyles = () => css`
 		align-items: center;
 		justify-content: center;
 		font-size: inherit;
-		font-weight: var(--ml-font-medium);
-		color: var(--ml-color-text-secondary);
+		font-weight: var(--ml-tag-font-weight);
+		color: var(--ml-tag-count-color);
 	}
 
 	/* Close button */
@@ -124,7 +161,7 @@ export const tagStyles = () => css`
 		margin-right: calc(var(--ml-space-1) * -1);
 		border: none;
 		background: none;
-		color: var(--ml-color-text-muted);
+		color: var(--ml-tag-close-color);
 		cursor: pointer;
 		border-radius: var(--ml-radius-sm);
 		transition: color 0.15s ease;
@@ -132,11 +169,11 @@ export const tagStyles = () => css`
 	}
 
 	.ml-tag__close:hover {
-		color: var(--ml-color-text-secondary);
+		color: var(--ml-tag-close-hover-color);
 	}
 
 	.ml-tag__close:active {
-		color: var(--ml-color-text);
+		color: var(--ml-tag-close-active-color);
 	}
 
 	/* Checkbox */
@@ -149,9 +186,9 @@ export const tagStyles = () => css`
 		padding: 0;
 		margin: 0;
 		margin-left: calc(var(--ml-space-0-5) * -1);
-		border: var(--ml-border) solid var(--ml-color-border-strong);
+		border: var(--ml-tag-border-width) solid var(--ml-tag-checkbox-border);
 		border-radius: var(--ml-radius-sm);
-		background: var(--ml-color-surface);
+		background: var(--ml-tag-checkbox-bg);
 		cursor: pointer;
 		flex-shrink: 0;
 		transition: background-color 0.15s ease, border-color 0.15s ease;
@@ -174,22 +211,22 @@ export const tagStyles = () => css`
 	}
 
 	.ml-tag__checkbox--checked {
-		background-color: var(--ml-color-primary);
-		border-color: var(--ml-color-primary);
+		background-color: var(--ml-tag-checkbox-checked-bg);
+		border-color: var(--ml-tag-checkbox-checked-border);
 	}
 
 	.ml-tag__checkbox:hover {
-		border-color: var(--ml-color-primary);
+		border-color: var(--ml-tag-checkbox-hover-border);
 	}
 
 	.ml-tag__checkbox--checked:hover {
-		background-color: var(--ml-color-primary-hover);
-		border-color: var(--ml-color-primary-hover);
+		background-color: var(--ml-tag-checkbox-checked-hover-bg);
+		border-color: var(--ml-tag-checkbox-checked-hover-border);
 	}
 
 	/* Disabled state */
 	.ml-tag--disabled {
-		opacity: 0.5;
+		opacity: var(--ml-tag-disabled-opacity);
 		pointer-events: none;
 	}
 `;

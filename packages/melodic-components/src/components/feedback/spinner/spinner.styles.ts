@@ -5,6 +5,18 @@ export const spinnerStyles = () => css`
 		display: inline-flex;
 		align-items: center;
 		justify-content: center;
+
+		/* Color — defaults to currentColor via stroke in SVG */
+		--ml-spinner-color: currentColor;
+
+		/* Size — default md (1.5rem) */
+		--ml-spinner-size: 1.5rem;
+
+		/* Track opacity */
+		--ml-spinner-track-opacity: 0.25;
+
+		/* Animation */
+		--ml-spinner-animation-duration: 0.75s;
 	}
 
 	.spinner {
@@ -14,40 +26,44 @@ export const spinnerStyles = () => css`
 	}
 
 	.spinner__svg {
-		animation: spin 0.75s linear infinite;
+		animation: spin var(--ml-spinner-animation-duration) linear infinite;
 	}
 
 	.spinner__track {
-		opacity: 0.25;
+		opacity: var(--ml-spinner-track-opacity);
 	}
 
 	.spinner__indicator {
 		opacity: 1;
 	}
 
-	.spinner--xs .spinner__svg {
-		width: 1rem;
-		height: 1rem;
+	.spinner--xs {
+		--ml-spinner-size: 1rem;
 	}
 
-	.spinner--sm .spinner__svg {
-		width: 1.25rem;
-		height: 1.25rem;
+	.spinner--sm {
+		--ml-spinner-size: 1.25rem;
 	}
 
-	.spinner--md .spinner__svg {
-		width: 1.5rem;
-		height: 1.5rem;
+	.spinner--md {
+		--ml-spinner-size: 1.5rem;
 	}
 
-	.spinner--lg .spinner__svg {
-		width: 2rem;
-		height: 2rem;
+	.spinner--lg {
+		--ml-spinner-size: 2rem;
 	}
 
+	.spinner--xl {
+		--ml-spinner-size: 2.5rem;
+	}
+
+	.spinner--xs .spinner__svg,
+	.spinner--sm .spinner__svg,
+	.spinner--md .spinner__svg,
+	.spinner--lg .spinner__svg,
 	.spinner--xl .spinner__svg {
-		width: 2.5rem;
-		height: 2.5rem;
+		width: var(--ml-spinner-size);
+		height: var(--ml-spinner-size);
 	}
 
 	@keyframes spin {

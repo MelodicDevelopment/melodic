@@ -5,7 +5,14 @@ export const iconStyles = () => css`
 		display: inline-flex;
 		align-items: center;
 		justify-content: center;
-		color: var(--ml-icon-color, currentColor);
+
+		/* Color — defaults to inherited text color */
+		--ml-icon-color: currentColor;
+
+		/* Size — default 24px (md) */
+		--ml-icon-size: 24px;
+
+		color: var(--ml-icon-color);
 	}
 
 	:host([size='xs']) {
@@ -25,6 +32,6 @@ export const iconStyles = () => css`
 	}
 
 	i {
-		font-size: var(--ml-icon-size, 24px);
+		font-size: var(--ml-icon-size);
 	}
 `;

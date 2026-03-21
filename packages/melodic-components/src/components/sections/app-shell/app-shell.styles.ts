@@ -4,6 +4,37 @@ export const appShellStyles = () => css`
 	:host {
 		display: block;
 		height: 100%;
+
+		/* Border */
+		--ml-app-shell-border-width: var(--ml-border);
+		--ml-app-shell-border-color: var(--ml-color-border);
+
+		/* Header */
+		--ml-app-shell-header-bg: var(--ml-color-surface);
+
+		/* Mobile sidebar */
+		--ml-app-shell-sidebar-width: var(--ml-sidebar-width, 280px);
+		--ml-app-shell-sidebar-bg: var(--ml-color-surface);
+		--ml-app-shell-sidebar-transition: var(--ml-duration-200);
+
+		/* Backdrop */
+		--ml-app-shell-backdrop-bg: rgba(0, 0, 0, 0.4);
+		--ml-app-shell-backdrop-transition: var(--ml-duration-200);
+
+		/* Menu button */
+		--ml-app-shell-menu-btn-size: 36px;
+		--ml-app-shell-menu-btn-margin: var(--ml-space-3);
+		--ml-app-shell-menu-btn-radius: var(--ml-radius);
+		--ml-app-shell-menu-btn-color: var(--ml-color-text-secondary);
+		--ml-app-shell-menu-btn-hover-bg: var(--ml-color-surface-secondary);
+		--ml-app-shell-menu-btn-hover-color: var(--ml-color-text);
+		--ml-app-shell-menu-btn-focus-color: var(--ml-color-primary);
+		--ml-app-shell-menu-btn-transition: var(--ml-duration-150);
+
+		/* Scrollbar */
+		--ml-app-shell-scrollbar-width: 6px;
+		--ml-app-shell-scrollbar-thumb-color: var(--ml-color-border);
+		--ml-app-shell-scrollbar-thumb-radius: var(--ml-radius-full);
 	}
 
 	/* ============================================
@@ -24,7 +55,7 @@ export const appShellStyles = () => css`
 
 	.ml-app-shell--sidebar-right .ml-app-shell__sidebar {
 		order: 2;
-		border-left: var(--ml-border) solid var(--ml-color-border);
+		border-left: var(--ml-app-shell-border-width) solid var(--ml-app-shell-border-color);
 		border-right: none;
 	}
 
@@ -38,7 +69,7 @@ export const appShellStyles = () => css`
 	.ml-app-shell__sidebar {
 		grid-row: 1 / -1;
 		overflow: hidden;
-		border-right: var(--ml-border) solid var(--ml-color-border);
+		border-right: var(--ml-app-shell-border-width) solid var(--ml-app-shell-border-color);
 	}
 
 	::slotted([slot="sidebar"]) {
@@ -62,8 +93,8 @@ export const appShellStyles = () => css`
 		display: flex;
 		align-items: center;
 		flex-shrink: 0;
-		border-bottom: var(--ml-border) solid var(--ml-color-border);
-		background-color: var(--ml-color-surface);
+		border-bottom: var(--ml-app-shell-border-width) solid var(--ml-app-shell-border-color);
+		background-color: var(--ml-app-shell-header-bg);
 	}
 
 	.ml-app-shell__header:empty {
@@ -88,7 +119,7 @@ export const appShellStyles = () => css`
 
 	/* Scrollbar styling */
 	.ml-app-shell__content::-webkit-scrollbar {
-		width: 6px;
+		width: var(--ml-app-shell-scrollbar-width);
 	}
 
 	.ml-app-shell__content::-webkit-scrollbar-track {
@@ -96,8 +127,8 @@ export const appShellStyles = () => css`
 	}
 
 	.ml-app-shell__content::-webkit-scrollbar-thumb {
-		background-color: var(--ml-color-border);
-		border-radius: var(--ml-radius-full);
+		background-color: var(--ml-app-shell-scrollbar-thumb-color);
+		border-radius: var(--ml-app-shell-scrollbar-thumb-radius);
 	}
 
 	/* ============================================
@@ -108,25 +139,25 @@ export const appShellStyles = () => css`
 		align-items: center;
 		justify-content: center;
 		flex-shrink: 0;
-		width: 36px;
-		height: 36px;
-		margin-left: var(--ml-space-3);
+		width: var(--ml-app-shell-menu-btn-size);
+		height: var(--ml-app-shell-menu-btn-size);
+		margin-left: var(--ml-app-shell-menu-btn-margin);
 		padding: 0;
 		border: none;
-		border-radius: var(--ml-radius);
+		border-radius: var(--ml-app-shell-menu-btn-radius);
 		background: transparent;
-		color: var(--ml-color-text-secondary);
+		color: var(--ml-app-shell-menu-btn-color);
 		cursor: pointer;
-		transition: background-color var(--ml-duration-150) var(--ml-ease-in-out);
+		transition: background-color var(--ml-app-shell-menu-btn-transition) var(--ml-ease-in-out);
 	}
 
 	.ml-app-shell__menu-btn:hover {
-		background-color: var(--ml-color-surface-secondary);
-		color: var(--ml-color-text);
+		background-color: var(--ml-app-shell-menu-btn-hover-bg);
+		color: var(--ml-app-shell-menu-btn-hover-color);
 	}
 
 	.ml-app-shell__menu-btn:focus-visible {
-		outline: 2px solid var(--ml-color-primary);
+		outline: 2px solid var(--ml-app-shell-menu-btn-focus-color);
 		outline-offset: -2px;
 	}
 
@@ -151,18 +182,18 @@ export const appShellStyles = () => css`
 			left: 0;
 			bottom: 0;
 			z-index: 50;
-			width: var(--ml-sidebar-width, 280px);
+			width: var(--ml-app-shell-sidebar-width);
 			transform: translateX(-100%);
-			transition: transform var(--ml-duration-200) var(--ml-ease-in-out);
-			border-right: var(--ml-border) solid var(--ml-color-border);
-			background-color: var(--ml-color-surface);
+			transition: transform var(--ml-app-shell-sidebar-transition) var(--ml-ease-in-out);
+			border-right: var(--ml-app-shell-border-width) solid var(--ml-app-shell-border-color);
+			background-color: var(--ml-app-shell-sidebar-bg);
 		}
 
 		.ml-app-shell--sidebar-right .ml-app-shell__sidebar {
 			left: auto;
 			right: 0;
 			transform: translateX(100%);
-			border-left: var(--ml-border) solid var(--ml-color-border);
+			border-left: var(--ml-app-shell-border-width) solid var(--ml-app-shell-border-color);
 			border-right: none;
 		}
 
@@ -176,10 +207,10 @@ export const appShellStyles = () => css`
 			position: fixed;
 			inset: 0;
 			z-index: 40;
-			background-color: rgba(0, 0, 0, 0.4);
+			background-color: var(--ml-app-shell-backdrop-bg);
 			opacity: 0;
 			pointer-events: none;
-			transition: opacity var(--ml-duration-200) var(--ml-ease-in-out);
+			transition: opacity var(--ml-app-shell-backdrop-transition) var(--ml-ease-in-out);
 		}
 
 		.ml-app-shell__backdrop--visible {

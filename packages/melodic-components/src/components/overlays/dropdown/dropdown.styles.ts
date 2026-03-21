@@ -2,6 +2,21 @@ import { css } from '@melodicdev/core';
 
 export const dropdownStyles = () => css`
 	:host {
+		/* Menu */
+		--ml-dropdown-padding: var(--ml-space-1);
+		--ml-dropdown-border-color: var(--ml-color-border);
+		--ml-dropdown-radius: var(--ml-radius-lg);
+		--ml-dropdown-bg: var(--ml-color-surface);
+		--ml-dropdown-color: var(--ml-color-text);
+		--ml-dropdown-shadow: var(--ml-shadow-lg);
+		--ml-dropdown-min-width: 180px;
+		--ml-dropdown-transition: var(--ml-duration-150) var(--ml-ease-out);
+
+		/* Arrow */
+		--ml-dropdown-arrow-size: 8px;
+		--ml-dropdown-arrow-bg: var(--ml-color-surface);
+		--ml-dropdown-arrow-border-color: var(--ml-color-border);
+
 		display: inline-block;
 	}
 
@@ -19,21 +34,21 @@ export const dropdownStyles = () => css`
 		position: fixed;
 		inset: unset;
 		margin: 0;
-		padding: var(--ml-space-1);
-		border: 1px solid var(--ml-color-border);
-		border-radius: var(--ml-radius-lg);
-		background-color: var(--ml-color-surface);
-		color: var(--ml-color-text);
-		box-shadow: var(--ml-shadow-lg);
-		min-width: 180px;
+		padding: var(--ml-dropdown-padding);
+		border: 1px solid var(--ml-dropdown-border-color);
+		border-radius: var(--ml-dropdown-radius);
+		background-color: var(--ml-dropdown-bg);
+		color: var(--ml-dropdown-color);
+		box-shadow: var(--ml-dropdown-shadow);
+		min-width: var(--ml-dropdown-min-width);
 		overflow: visible;
 		opacity: 0;
 		transform: scale(0.95);
 		transition:
-			opacity var(--ml-duration-150) var(--ml-ease-out),
-			transform var(--ml-duration-150) var(--ml-ease-out),
-			overlay var(--ml-duration-150) var(--ml-ease-out) allow-discrete,
-			display var(--ml-duration-150) var(--ml-ease-out) allow-discrete;
+			opacity var(--ml-dropdown-transition),
+			transform var(--ml-dropdown-transition),
+			overlay var(--ml-dropdown-transition) allow-discrete,
+			display var(--ml-dropdown-transition) allow-discrete;
 	}
 
 	.ml-dropdown__menu:not(:popover-open) {
@@ -54,10 +69,10 @@ export const dropdownStyles = () => css`
 
 	.ml-dropdown__arrow {
 		position: absolute;
-		width: 8px;
-		height: 8px;
-		background-color: var(--ml-color-surface);
-		border: 1px solid var(--ml-color-border);
+		width: var(--ml-dropdown-arrow-size);
+		height: var(--ml-dropdown-arrow-size);
+		background-color: var(--ml-dropdown-arrow-bg);
+		border: 1px solid var(--ml-dropdown-arrow-border-color);
 		transform: rotate(45deg);
 	}
 

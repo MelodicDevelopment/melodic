@@ -3,12 +3,56 @@ import { css } from '@melodicdev/core';
 export const radioStyles = () => css`
 	:host {
 		display: block;
+
+		/* --- Circle --- */
+		--ml-radio-circle-size: 1.25rem;
+		--ml-radio-circle-bg: var(--ml-color-input-bg);
+		--ml-radio-circle-border-width: var(--ml-border);
+		--ml-radio-circle-border-color: var(--ml-color-border-strong);
+		--ml-radio-circle-border-radius: var(--ml-radius-full);
+
+		/* --- Dot --- */
+		--ml-radio-dot-size: 0.5rem;
+		--ml-radio-dot-color: var(--ml-color-primary);
+
+		/* --- Checked --- */
+		--ml-radio-checked-border-color: var(--ml-color-primary);
+		--ml-radio-checked-bg: var(--ml-color-primary-subtle);
+		--ml-radio-checked-hover-border-color: var(--ml-color-primary-hover);
+		--ml-radio-checked-hover-dot-color: var(--ml-color-primary-hover);
+
+		/* --- Hover --- */
+		--ml-radio-hover-border-color: var(--ml-color-primary);
+
+		/* --- Focus --- */
+		--ml-radio-focus-border-color: var(--ml-color-primary);
+		--ml-radio-focus-shadow: var(--ml-shadow-focus-ring);
+
+		/* --- Label --- */
+		--ml-radio-label-font-size: var(--ml-text-sm);
+		--ml-radio-label-font-weight: var(--ml-font-medium);
+		--ml-radio-label-color: var(--ml-color-text-secondary);
+		--ml-radio-label-line-height: 1.25rem;
+
+		/* --- Hint --- */
+		--ml-radio-hint-font-size: var(--ml-text-sm);
+		--ml-radio-hint-color: var(--ml-color-text-muted);
+
+		/* --- Gap --- */
+		--ml-radio-gap: var(--ml-space-3);
+
+		/* --- Disabled --- */
+		--ml-radio-disabled-opacity: 0.5;
+
+		/* --- Transition --- */
+		--ml-radio-transition-duration: var(--ml-duration-150);
+		--ml-radio-transition-easing: var(--ml-ease-in-out);
 	}
 
 	.ml-radio {
 		display: inline-flex;
 		align-items: flex-start;
-		gap: var(--ml-space-3);
+		gap: var(--ml-radio-gap);
 		cursor: pointer;
 		user-select: none;
 	}
@@ -19,7 +63,7 @@ export const radioStyles = () => css`
 
 	.ml-radio--disabled .ml-radio__circle,
 	.ml-radio--disabled .ml-radio__label {
-		opacity: 0.5;
+		opacity: var(--ml-radio-disabled-opacity);
 	}
 
 	.ml-radio__input {
@@ -34,38 +78,42 @@ export const radioStyles = () => css`
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		background-color: var(--ml-color-input-bg);
-		border: var(--ml-border) solid var(--ml-color-border-strong);
-		border-radius: var(--ml-radius-full);
+		width: var(--ml-radio-circle-size);
+		height: var(--ml-radio-circle-size);
+		background-color: var(--ml-radio-circle-bg);
+		border: var(--ml-radio-circle-border-width) solid var(--ml-radio-circle-border-color);
+		border-radius: var(--ml-radio-circle-border-radius);
 		transition:
-			background-color var(--ml-duration-150) var(--ml-ease-in-out),
-			border-color var(--ml-duration-150) var(--ml-ease-in-out),
-			box-shadow var(--ml-duration-150) var(--ml-ease-in-out);
+			background-color var(--ml-radio-transition-duration) var(--ml-radio-transition-easing),
+			border-color var(--ml-radio-transition-duration) var(--ml-radio-transition-easing),
+			box-shadow var(--ml-radio-transition-duration) var(--ml-radio-transition-easing);
 	}
 
 	.ml-radio__input:focus-visible + .ml-radio__circle {
-		border-color: var(--ml-color-primary);
-		box-shadow: var(--ml-shadow-focus-ring);
+		border-color: var(--ml-radio-focus-border-color);
+		box-shadow: var(--ml-radio-focus-shadow);
 	}
 
 	.ml-radio--checked .ml-radio__circle {
-		border-color: var(--ml-color-primary);
-		background-color: var(--ml-color-primary-subtle);
+		border-color: var(--ml-radio-checked-border-color);
+		background-color: var(--ml-radio-checked-bg);
 	}
 
 	.ml-radio:hover:not(.ml-radio--disabled) .ml-radio__circle {
-		border-color: var(--ml-color-primary);
+		border-color: var(--ml-radio-hover-border-color);
 	}
 
 	.ml-radio--checked:hover:not(.ml-radio--disabled) .ml-radio__circle {
-		border-color: var(--ml-color-primary-hover);
+		border-color: var(--ml-radio-checked-hover-border-color);
 	}
 
 	.ml-radio__dot {
-		border-radius: var(--ml-radius-full);
-		background-color: var(--ml-color-primary);
+		width: var(--ml-radio-dot-size);
+		height: var(--ml-radio-dot-size);
+		border-radius: var(--ml-radio-circle-border-radius);
+		background-color: var(--ml-radio-dot-color);
 		transform: scale(0);
-		transition: transform var(--ml-duration-150) var(--ml-ease-in-out);
+		transition: transform var(--ml-radio-transition-duration) var(--ml-radio-transition-easing);
 	}
 
 	.ml-radio--checked .ml-radio__dot {
@@ -73,57 +121,40 @@ export const radioStyles = () => css`
 	}
 
 	.ml-radio--checked:hover:not(.ml-radio--disabled) .ml-radio__dot {
-		background-color: var(--ml-color-primary-hover);
+		background-color: var(--ml-radio-checked-hover-dot-color);
 	}
 
-	.ml-radio--sm .ml-radio__circle {
-		width: 1rem;
-		height: 1rem;
+	/* --- Size variants --- */
+	.ml-radio--sm {
+		--ml-radio-circle-size: 1rem;
+		--ml-radio-dot-size: 0.375rem;
 	}
 
-	.ml-radio--sm .ml-radio__dot {
-		width: 0.375rem;
-		height: 0.375rem;
+	.ml-radio--md {
+		--ml-radio-circle-size: 1.25rem;
+		--ml-radio-dot-size: 0.5rem;
 	}
 
-	.ml-radio--md .ml-radio__circle {
-		width: 1.25rem;
-		height: 1.25rem;
-	}
-
-	.ml-radio--md .ml-radio__dot {
-		width: 0.5rem;
-		height: 0.5rem;
-	}
-
-	.ml-radio--lg .ml-radio__circle {
-		width: 1.5rem;
-		height: 1.5rem;
-	}
-
-	.ml-radio--lg .ml-radio__dot {
-		width: 0.625rem;
-		height: 0.625rem;
+	.ml-radio--lg {
+		--ml-radio-circle-size: 1.5rem;
+		--ml-radio-dot-size: 0.625rem;
+		--ml-radio-label-font-size: var(--ml-text-base);
+		--ml-radio-label-line-height: 1.5rem;
 	}
 
 	.ml-radio__label {
-		font-size: var(--ml-text-sm);
-		font-weight: var(--ml-font-medium);
-		color: var(--ml-color-text-secondary);
-		line-height: 1.25rem;
-	}
-
-	.ml-radio--lg .ml-radio__label {
-		font-size: var(--ml-text-base);
-		line-height: 1.5rem;
+		font-size: var(--ml-radio-label-font-size);
+		font-weight: var(--ml-radio-label-font-weight);
+		color: var(--ml-radio-label-color);
+		line-height: var(--ml-radio-label-line-height);
 	}
 
 	.ml-radio__hint {
 		display: block;
 		margin-top: var(--ml-space-0-5);
-		margin-left: calc(1.25rem + var(--ml-space-3));
-		font-size: var(--ml-text-sm);
-		color: var(--ml-color-text-muted);
+		margin-left: calc(var(--ml-radio-circle-size) + var(--ml-radio-gap));
+		font-size: var(--ml-radio-hint-font-size);
+		color: var(--ml-radio-hint-color);
 		line-height: var(--ml-leading-tight);
 	}
 `;

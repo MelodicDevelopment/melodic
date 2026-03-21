@@ -3,6 +3,17 @@ import { css } from '@melodicdev/core';
 export const avatarStyles = () => css`
 	:host {
 		display: inline-block;
+
+		/* ── Avatar: colors ── */
+		--ml-avatar-bg: var(--ml-color-surface-raised);
+		--ml-avatar-color: var(--ml-color-text-muted);
+		--ml-avatar-font-weight: var(--ml-font-semibold);
+		--ml-avatar-border-color: var(--ml-color-surface);
+		--ml-avatar-shadow: var(--ml-shadow-xs);
+		--ml-avatar-radius: var(--ml-radius-full);
+
+		/* ── Avatar: fallback icon ── */
+		--ml-avatar-fallback-color: var(--ml-color-text-subtle);
 	}
 
 	.ml-avatar {
@@ -10,13 +21,13 @@ export const avatarStyles = () => css`
 		align-items: center;
 		justify-content: center;
 		overflow: hidden;
-		background-color: var(--ml-color-surface-raised);
-		color: var(--ml-color-text-muted);
-		font-weight: var(--ml-font-semibold);
+		background-color: var(--ml-avatar-bg);
+		color: var(--ml-avatar-color);
+		font-weight: var(--ml-avatar-font-weight);
 		vertical-align: middle;
-		border-radius: var(--ml-radius-full);
-		border: 2px solid var(--ml-avatar-border-color, var(--ml-color-surface));
-		box-shadow: var(--ml-shadow-xs);
+		border-radius: var(--ml-avatar-radius);
+		border: 2px solid var(--ml-avatar-border-color);
+		box-shadow: var(--ml-avatar-shadow);
 	}
 
 	.ml-avatar--rounded {
@@ -81,7 +92,7 @@ export const avatarStyles = () => css`
 		justify-content: center;
 		width: 60%;
 		height: 60%;
-		color: var(--ml-color-text-subtle);
+		color: var(--ml-avatar-fallback-color);
 	}
 
 	.ml-avatar__fallback svg {

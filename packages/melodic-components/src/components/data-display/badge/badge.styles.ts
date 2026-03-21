@@ -3,34 +3,53 @@ import { css } from '@melodicdev/core';
 export const badgeStyles = () => css`
 	:host {
 		display: inline-block;
+
+		/* ── Badge: base ── */
+		--ml-badge-font: var(--ml-font-sans);
+		--ml-badge-font-weight: var(--ml-font-medium);
+		--ml-badge-radius: var(--ml-radius-md);
+		--ml-badge-border-width: var(--ml-border);
+
+		/* ── Badge: pill shape ── */
+		--ml-badge-pill-radius: var(--ml-radius-full);
+
+		/* ── Badge: dot ── */
+		--ml-badge-dot-size: 0.375rem;
+		--ml-badge-dot-size-lg: 0.5rem;
+
+		/* ── Badge: secondary variant ── */
+		--ml-badge-secondary-color: var(--ml-color-text-secondary);
+
+		/* ── Badge: custom variant ── */
+		--ml-badge-custom-color: var(--ml-badge-color, #fff);
 	}
 
 	.ml-badge {
 		display: inline-flex;
 		align-items: center;
 		gap: var(--ml-space-1-5);
-		font-family: var(--ml-font-sans);
-		font-weight: var(--ml-font-medium);
+		font-family: var(--ml-badge-font);
+		font-weight: var(--ml-badge-font-weight);
 		line-height: 1;
 		white-space: nowrap;
-		border-radius: var(--ml-radius-md);
-		border: var(--ml-border) solid transparent;
+		border-radius: var(--ml-badge-radius);
+		border: var(--ml-badge-border-width) solid transparent;
 	}
 
 	.ml-badge--pill {
-		border-radius: var(--ml-radius-full);
+		border-radius: var(--ml-badge-pill-radius);
 	}
 
 	.ml-badge__dot {
-		width: 0.375rem;
-		height: 0.375rem;
+		width: var(--ml-badge-dot-size);
+		height: var(--ml-badge-dot-size);
 		border-radius: var(--ml-radius-full);
 		background-color: currentColor;
 	}
 
 	.ml-badge--lg .ml-badge__dot {
-		width: 0.5rem;
-		height: 0.5rem;
+		width: var(--ml-badge-dot-size-lg);
+		height: var(--ml-badge-dot-size-lg);
 	}
 
 	.ml-badge--sm {
@@ -63,7 +82,7 @@ export const badgeStyles = () => css`
 	.ml-badge--secondary {
 		background-color: var(--ml-badge-default-bg);
 		border-color: var(--ml-badge-default-border);
-		color: var(--ml-color-text-secondary);
+		color: var(--ml-badge-secondary-color);
 	}
 
 	.ml-badge--success {
@@ -87,7 +106,7 @@ export const badgeStyles = () => css`
 	.ml-badge--custom {
 		background-color: var(--ml-badge-bg);
 		border-color: transparent;
-		color: var(--ml-badge-color, #fff);
+		color: var(--ml-badge-custom-color);
 	}
 
 `;

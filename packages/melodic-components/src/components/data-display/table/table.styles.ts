@@ -3,14 +3,49 @@ import { css } from '@melodicdev/core';
 export const tableStyles = () => css`
 	:host {
 		display: block;
+
+		/* ── Table: surface ── */
+		--ml-table-bg: var(--ml-color-surface);
+		--ml-table-border-width: var(--ml-border);
+		--ml-table-border-color: var(--ml-color-border);
+		--ml-table-radius: var(--ml-radius-lg);
+		--ml-table-font: var(--ml-font-sans);
+
+		/* ── Table: header section ── */
+		--ml-table-title-color: var(--ml-color-text);
+		--ml-table-description-color: var(--ml-color-text-muted);
+
+		/* ── Table: column header ── */
+		--ml-table-header-bg: var(--ml-color-surface-sunken);
+		--ml-table-header-color: var(--ml-color-text-muted);
+		--ml-table-header-sorted-color: var(--ml-color-text);
+
+		/* ── Table: sort icon ── */
+		--ml-table-sort-color: var(--ml-color-text-muted);
+		--ml-table-sort-active-color: var(--ml-color-primary);
+
+		/* ── Table: rows ── */
+		--ml-table-row-hover-bg: var(--ml-color-surface-sunken);
+		--ml-table-row-hover-border-color: transparent;
+		--ml-table-row-hover-border-width: 0;
+		--ml-table-row-selected-bg: var(--ml-color-primary-subtle, rgba(99, 102, 241, 0.04));
+		--ml-table-row-selected-hover-bg: var(--ml-color-primary-subtle, rgba(99, 102, 241, 0.06));
+		--ml-table-row-striped-bg: var(--ml-color-surface-sunken);
+		--ml-table-row-striped-hover-bg: var(--ml-color-surface-raised);
+
+		/* ── Table: cells ── */
+		--ml-table-cell-color: var(--ml-color-text);
+
+		/* ── Table: checkbox ── */
+		--ml-table-checkbox-accent: var(--ml-color-primary);
 	}
 
 	.ml-table {
-		border: var(--ml-border) solid var(--ml-color-border);
-		border-radius: var(--ml-radius-lg);
-		background-color: var(--ml-color-surface);
+		border: var(--ml-table-border-width) solid var(--ml-table-border-color);
+		border-radius: var(--ml-table-radius);
+		background-color: var(--ml-table-bg);
 		overflow: hidden;
-		font-family: var(--ml-font-sans);
+		font-family: var(--ml-table-font);
 	}
 
 	/* ── Header ── */
@@ -20,7 +55,7 @@ export const tableStyles = () => css`
 		justify-content: space-between;
 		gap: var(--ml-space-4);
 		padding: var(--ml-space-5) var(--ml-space-6);
-		border-bottom: var(--ml-border) solid var(--ml-color-border);
+		border-bottom: var(--ml-table-border-width) solid var(--ml-table-border-color);
 	}
 
 	.ml-table__header-text {
@@ -33,14 +68,14 @@ export const tableStyles = () => css`
 		margin: 0;
 		font-size: var(--ml-text-lg);
 		font-weight: var(--ml-font-semibold);
-		color: var(--ml-color-text);
+		color: var(--ml-table-title-color);
 		line-height: var(--ml-leading-tight);
 	}
 
 	.ml-table__description {
 		margin: 0;
 		font-size: var(--ml-text-sm);
-		color: var(--ml-color-text-muted);
+		color: var(--ml-table-description-color);
 		line-height: var(--ml-leading-normal);
 	}
 
@@ -57,7 +92,7 @@ export const tableStyles = () => css`
 
 	/* ── Header cells ── */
 	thead {
-		background-color: var(--ml-color-surface-sunken);
+		background-color: var(--ml-table-header-bg);
 	}
 
 	.ml-table--sticky-header thead {
@@ -67,14 +102,14 @@ export const tableStyles = () => css`
 	}
 
 	thead tr {
-		border-bottom: var(--ml-border) solid var(--ml-color-border);
+		border-bottom: var(--ml-table-border-width) solid var(--ml-table-border-color);
 	}
 
 	.ml-table__th {
 		padding: var(--ml-space-3) var(--ml-space-6);
 		font-size: var(--ml-text-xs);
 		font-weight: var(--ml-font-medium);
-		color: var(--ml-color-text-muted);
+		color: var(--ml-table-header-color);
 		text-transform: uppercase;
 		letter-spacing: 0.05em;
 		text-align: left;
@@ -95,11 +130,11 @@ export const tableStyles = () => css`
 	}
 
 	.ml-table__th--sortable:hover {
-		color: var(--ml-color-text);
+		color: var(--ml-table-header-sorted-color);
 	}
 
 	.ml-table__th--sorted {
-		color: var(--ml-color-text);
+		color: var(--ml-table-header-sorted-color);
 	}
 
 	.ml-table__th-content {
@@ -112,16 +147,16 @@ export const tableStyles = () => css`
 		display: inline-flex;
 		align-items: center;
 		flex-shrink: 0;
-		color: var(--ml-color-text-muted);
+		color: var(--ml-table-sort-color);
 	}
 
 	.ml-table__th--sorted .ml-table__sort-icon {
-		color: var(--ml-color-primary);
+		color: var(--ml-table-sort-active-color);
 	}
 
 	/* ── Body rows ── */
 	.ml-table__row {
-		border-bottom: var(--ml-border) solid var(--ml-color-border);
+		border-bottom: var(--ml-table-border-width) solid var(--ml-table-border-color);
 		transition: background-color var(--ml-duration-150) var(--ml-ease-in-out);
 	}
 
@@ -130,9 +165,9 @@ export const tableStyles = () => css`
 	}
 
 	.ml-table--hoverable .ml-table__row:hover {
-		background-color: var(--ml-table-row-hover-bg, var(--ml-color-surface-sunken));
-		border-color: var(--ml-table-row-hover-border-color, transparent);
-		border-width: var(--ml-table-row-hover-border-width, 0);
+		background-color: var(--ml-table-row-hover-bg);
+		border-color: var(--ml-table-row-hover-border-color);
+		border-width: var(--ml-table-row-hover-border-width);
 		border-style: solid;
 	}
 
@@ -141,27 +176,27 @@ export const tableStyles = () => css`
 	}
 
 	.ml-table__row--selected {
-		background-color: var(--ml-color-primary-subtle, rgba(99, 102, 241, 0.04));
+		background-color: var(--ml-table-row-selected-bg);
 	}
 
 	.ml-table--hoverable .ml-table__row--selected:hover {
-		background-color: var(--ml-color-primary-subtle, rgba(99, 102, 241, 0.06));
+		background-color: var(--ml-table-row-selected-hover-bg);
 	}
 
 	/* Striped */
 	.ml-table--striped .ml-table__row:nth-child(even) {
-		background-color: var(--ml-color-surface-sunken);
+		background-color: var(--ml-table-row-striped-bg);
 	}
 
 	.ml-table--striped.ml-table--hoverable .ml-table__row:hover {
-		background-color: var(--ml-color-surface-raised);
+		background-color: var(--ml-table-row-striped-hover-bg);
 	}
 
 	/* ── Body cells ── */
 	.ml-table__td {
 		padding: var(--ml-space-4) var(--ml-space-6);
 		font-size: var(--ml-text-sm);
-		color: var(--ml-color-text);
+		color: var(--ml-table-cell-color);
 		vertical-align: middle;
 	}
 
@@ -188,7 +223,7 @@ export const tableStyles = () => css`
 	.ml-table__checkbox {
 		width: 1rem;
 		height: 1rem;
-		accent-color: var(--ml-color-primary);
+		accent-color: var(--ml-table-checkbox-accent);
 		cursor: pointer;
 		margin: 0;
 		vertical-align: middle;
@@ -239,7 +274,7 @@ export const tableStyles = () => css`
 		align-items: center;
 		justify-content: space-between;
 		padding: var(--ml-space-3) var(--ml-space-6);
-		border-top: var(--ml-border) solid var(--ml-color-border);
+		border-top: var(--ml-table-border-width) solid var(--ml-table-border-color);
 	}
 
 	.ml-table--sm .ml-table__footer--visible {

@@ -373,6 +373,40 @@ Multi-component directories (e.g. tabs, sidebar, steps) use the same pattern wit
 6. Add `import '@melodicdev/components/name'` to `web/demo/main.ts`
 7. Add nav link + demo section to `web/demo/components/demo-app/demo-app.template.ts`
 
+### Component CSS Custom Properties (Required)
+
+Every component **must** define component-scoped CSS custom properties on `:host` for all visual properties. Rules reference these properties, never global tokens directly. This allows consumers to customize individual components without overriding global tokens.
+
+**Pattern:**
+```css
+:host {
+    /* ── Button: base ── */
+    --ml-button-bg: var(--ml-color-primary);
+    --ml-button-color: var(--ml-color-text-inverse);
+    --ml-button-radius: var(--ml-radius);
+    --ml-button-hover-bg: var(--ml-color-primary-hover);
+    --ml-button-transition-duration: var(--ml-duration-150);
+}
+.ml-button {
+    background-color: var(--ml-button-bg);
+    color: var(--ml-button-color);
+    border-radius: var(--ml-button-radius);
+}
+.ml-button:hover {
+    background-color: var(--ml-button-hover-bg);
+}
+```
+
+**Rules:**
+- Naming: `--ml-{component}-{state?}-{property}` (states: hover, active, focus, disabled, checked)
+- Variants (e.g. primary/secondary) reassign the base `--ml-{component}-*` properties
+- Sizes (e.g. sm/md/lg) override base properties on the size modifier class
+- Expose `border-width` and `border-color` separately, not the full shorthand
+- Expose transitions as `--ml-{component}-transition-duration` and `--ml-{component}-transition-easing`
+- Do NOT expose structural properties (display, overflow, position, flex-direction)
+- Add grouped comment documentation in `:host` listing all available properties
+- No inline styles for layout — the component's shadow DOM handles all slot layout
+
 ---
 
 ## CLI Tool
