@@ -130,7 +130,10 @@ export const tableStyles = () => css`
 	}
 
 	.ml-table--hoverable .ml-table__row:hover {
-		background-color: var(--ml-color-surface-sunken);
+		background-color: var(--ml-table-row-hover-bg, var(--ml-color-surface-sunken));
+		border-color: var(--ml-table-row-hover-border-color, transparent);
+		border-width: var(--ml-table-row-hover-border-width, 0);
+		border-style: solid;
 	}
 
 	.ml-table--row-clickable .ml-table__row {

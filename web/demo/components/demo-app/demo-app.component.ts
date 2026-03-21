@@ -1,3 +1,5 @@
+declare const __ML_COMPONENTS_VERSION__: string;
+
 import { MelodicComponent, Service, html } from '@melodicdev/core';
 import type { IElementRef } from '@melodicdev/core';
 import { DialogService, ToastService, type UniqueID, type ThemeMode, type SelectOption, type AutocompleteOption, type AutocompleteSearchFn } from '@melodicdev/components';
@@ -26,6 +28,8 @@ export class DemoApp implements IElementRef {
 	private readonly _toastService!: ToastService;
 
 	public elementRef!: HTMLElement;
+
+	public version = __ML_COMPONENTS_VERSION__;
 
 	public isDark = false;
 

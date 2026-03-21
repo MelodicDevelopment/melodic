@@ -26,13 +26,16 @@ import { sidebarItemStyles } from './sidebar-item.styles.js';
 	selector: 'ml-sidebar-item',
 	template: sidebarItemTemplate,
 	styles: sidebarItemStyles,
-	attributes: ['icon', 'label', 'value', 'href', 'active', 'disabled', 'badge', 'badge-color', 'external', 'expanded', 'collapsed', 'level']
+	attributes: ['icon', 'icon-format', 'label', 'value', 'href', 'active', 'disabled', 'badge', 'badge-color', 'external', 'expanded', 'collapsed', 'level']
 })
 export class SidebarItemComponent implements IElementRef, OnCreate, OnDestroy {
 	public elementRef!: HTMLElement;
 
 	/** Icon name */
 	public icon = '';
+
+	/** Icon format (passed through to ml-icon) */
+	public 'icon-format': 'fill' | 'thin' | 'light' | 'regular' | 'bold' | '' = '';
 
 	/** Display label */
 	public label = '';

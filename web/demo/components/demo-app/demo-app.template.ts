@@ -11,7 +11,7 @@ export const demoAppTemplate = (c: DemoApp) => {
 						<span class="demo-logo__icon">M</span>
 						<span class="demo-logo__text">Melodic</span>
 					</div>
-					<span class="demo-version">v1.0.0</span>
+					<span class="demo-version">v${c.version}</span>
 				</div>
 
 				<nav class="demo-nav">
@@ -98,6 +98,12 @@ export const demoAppTemplate = (c: DemoApp) => {
 					<a href="#list" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'list')}>
 						<ml-icon icon="list-dashes" size="sm"></ml-icon>List
 					</a>
+					<a href="#stat-card" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'stat-card')}>
+						<ml-icon icon="chart-line-up" size="sm"></ml-icon>Stat Card
+					</a>
+					<a href="#profile-card" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'profile-card')}>
+						<ml-icon icon="identification-card" size="sm"></ml-icon>Profile Card
+					</a>
 
 					<span class="demo-nav__label">Layout</span>
 					<a href="#cards" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'cards')}>
@@ -165,6 +171,9 @@ export const demoAppTemplate = (c: DemoApp) => {
 					<a href="#hero-section" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'hero-section')}>
 						<ml-icon icon="star" size="sm"></ml-icon>Hero Section
 					</a>
+					<a href="#page-section" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'page-section')}>
+						<ml-icon icon="rows" size="sm"></ml-icon>Page Section
+					</a>
 
 					<span class="demo-nav__label">Pages</span>
 					<a href="#login-page" class="demo-nav__item" @click=${(event: Event) => c.handleNavClick(event, 'login-page')}>
@@ -192,11 +201,11 @@ export const demoAppTemplate = (c: DemoApp) => {
 					</div>
 					<div class="demo-header__stats">
 						<div class="demo-stat">
-							<span class="demo-stat__value">31+</span>
+							<span class="demo-stat__value">50+</span>
 							<span class="demo-stat__label">Components</span>
 						</div>
 						<div class="demo-stat">
-							<span class="demo-stat__value">6</span>
+							<span class="demo-stat__value">9</span>
 							<span class="demo-stat__label">Categories</span>
 						</div>
 						<div class="demo-stat">
@@ -3241,6 +3250,145 @@ const routes = [
 							</div>
 						</div>
 					</section>
+					<!-- Stat Card Section -->
+					<section id="stat-card" class="demo-section">
+						<div class="demo-section__header">
+							<h2>Stat Card</h2>
+							<p>Dashboard metric cards with label, value, optional trend indicator, and icon.</p>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>Basic Usage</h3>
+								<span class="demo-card__badge">Serif values</span>
+							</div>
+							<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: var(--ml-space-4);">
+								<ml-stat-card
+									label="Total Members"
+									value="1,247"
+									trend="+6 this month"
+									trend-direction="up"
+									icon="users"
+								></ml-stat-card>
+								<ml-stat-card
+									label="Avg Attendance"
+									value="312"
+									trend="-3% from last week"
+									trend-direction="down"
+									icon="chart-line-up"
+								></ml-stat-card>
+								<ml-stat-card
+									label="New Visitors"
+									value="28"
+									trend="Same as last month"
+									trend-direction="neutral"
+									icon="hand-waving"
+								></ml-stat-card>
+							</div>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>Sans-serif Values</h3>
+							</div>
+							<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: var(--ml-space-4);">
+								<ml-stat-card
+									label="Open Tasks"
+									value="42"
+									value-font="sans"
+									icon="check-circle"
+								></ml-stat-card>
+								<ml-stat-card
+									label="Volunteers"
+									value="89"
+									value-font="sans"
+									trend="+12 this quarter"
+									trend-direction="up"
+									icon="heart"
+									icon-color="#c9a84c"
+								></ml-stat-card>
+							</div>
+						</div>
+					</section>
+
+					<!-- Profile Card Section -->
+					<section id="profile-card" class="demo-section">
+						<div class="demo-section__header">
+							<h2>Profile Card</h2>
+							<p>Identity card for person or entity detail pages with avatar, contact info, tags, and actions.</p>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>Basic Profile</h3>
+							</div>
+							<div class="demo-row" style="max-width: 340px;">
+								<ml-profile-card
+									name="Sarah Mitchell"
+									subtitle="Member · Women's Ministry"
+									avatar-size="lg"
+								>
+									<ml-button slot="actions" variant="primary" size="sm">Message</ml-button>
+									<ml-button slot="actions" variant="outline" size="sm">Edit</ml-button>
+									<div slot="details"><ml-icon icon="envelope" size="sm"></ml-icon> sarah@example.com</div>
+									<div slot="details"><ml-icon icon="phone" size="sm"></ml-icon> (555) 123-4567</div>
+									<ml-badge slot="tags" variant="primary" pill>Women's Ministry</ml-badge>
+									<ml-badge slot="tags" pill>Choir</ml-badge>
+									<ml-badge slot="tags" pill>Greeting Team</ml-badge>
+									<div slot="meta">Member since: January 2019</div>
+									<div slot="meta">Birthday: March 15</div>
+								</ml-profile-card>
+							</div>
+						</div>
+					</section>
+
+					<!-- Page Section Section -->
+					<section id="page-section" class="demo-section">
+						<div class="demo-section__header">
+							<h2>Page Section</h2>
+							<p>Titled content sections with consistent heading typography and optional action links.</p>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>With Subtitle & Action</h3>
+							</div>
+							<div>
+								<ml-page-section title="Recent Activity" subtitle="Last 7 days" action-label="View All" action-href="#">
+									<ml-activity-feed>
+										<ml-activity-feed-item name="John Doe" timestamp="2 hours ago" avatar-initials="JD">
+											Joined the Sunday worship team
+										</ml-activity-feed-item>
+										<ml-activity-feed-item name="Jane Smith" timestamp="5 hours ago" avatar-initials="JS">
+											Updated her contact information
+										</ml-activity-feed-item>
+									</ml-activity-feed>
+								</ml-page-section>
+							</div>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>Padding Variants</h3>
+								<span class="demo-card__badge">4 sizes</span>
+							</div>
+							<div style="display: flex; flex-direction: column; gap: var(--ml-space-6);">
+								<ml-page-section title="No Padding" padding="none">
+									<p style="font-family: var(--ml-font-sans); font-size: var(--ml-text-sm); color: var(--ml-color-text-secondary);">Content with no padding.</p>
+								</ml-page-section>
+								<ml-page-section title="Small Padding" padding="sm">
+									<p style="font-family: var(--ml-font-sans); font-size: var(--ml-text-sm); color: var(--ml-color-text-secondary);">Content with small padding.</p>
+								</ml-page-section>
+								<ml-page-section title="Medium Padding (Default)" padding="md">
+									<p style="font-family: var(--ml-font-sans); font-size: var(--ml-text-sm); color: var(--ml-color-text-secondary);">Content with medium padding.</p>
+								</ml-page-section>
+								<ml-page-section title="Large Padding" padding="lg">
+									<p style="font-family: var(--ml-font-sans); font-size: var(--ml-text-sm); color: var(--ml-color-text-secondary);">Content with large padding.</p>
+								</ml-page-section>
+							</div>
+						</div>
+					</section>
+
 				</main>
 
 				<footer class="demo-footer">

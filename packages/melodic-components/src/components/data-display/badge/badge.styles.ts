@@ -84,4 +84,10 @@ export const badgeStyles = () => css`
 		color: var(--ml-badge-error-text);
 	}
 
+	.ml-badge--custom {
+		background-color: var(--ml-badge-bg);
+		border-color: transparent;
+		color: var(--ml-badge-color, #fff);
+	}
+
 `;

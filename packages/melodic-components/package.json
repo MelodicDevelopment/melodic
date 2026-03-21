@@ -1,6 +1,6 @@
 {
 	"name": "@melodicdev/components",
-	"version": "1.3.0",
+	"version": "1.4.0",
 	"description": "Themeable UI component library built on the Melodic Framework",
 	"license": "MIT",
 	"author": "Melodic Development",
@@ -172,6 +172,18 @@
 		"./page-header": {
 			"types": "./lib/components/sections/page-header/index.d.ts",
 			"default": "./lib/components/sections/page-header/index.js"
+		},
+		"./page-section": {
+			"types": "./lib/components/sections/page-section/index.d.ts",
+			"default": "./lib/components/sections/page-section/index.js"
+		},
+		"./stat-card": {
+			"types": "./lib/components/data-display/stat-card/index.d.ts",
+			"default": "./lib/components/data-display/stat-card/index.js"
+		},
+		"./profile-card": {
+			"types": "./lib/components/data-display/profile-card/index.d.ts",
+			"default": "./lib/components/data-display/profile-card/index.js"
 		},
 		"./pagination": {
 			"types": "./lib/components/navigation/pagination/index.d.ts",

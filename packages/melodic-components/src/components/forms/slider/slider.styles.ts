@@ -106,7 +106,7 @@ export const sliderStyles = () => css`
 		width: 20px;
 		height: 20px;
 		border-radius: var(--ml-radius-full);
-		background-color: white;
+		background-color: var(--ml-color-surface);
 		border: 2px solid var(--ml-color-primary);
 		box-shadow: var(--ml-shadow-sm);
 		transition:
@@ -132,7 +132,7 @@ export const sliderStyles = () => css`
 		width: 20px;
 		height: 20px;
 		border-radius: var(--ml-radius-full);
-		background-color: white;
+		background-color: var(--ml-color-surface);
 		border: 2px solid var(--ml-color-primary);
 		box-shadow: var(--ml-shadow-sm);
 	}

@@ -106,6 +106,7 @@ export const activityFeedItemStyles = () => css`
 		height: 8px;
 		border-radius: var(--ml-radius-full);
 		flex-shrink: 0;
+		background-color: var(--ml-afi-indicator-bg);
 	}
 
 	.ml-afi__indicator--gray {

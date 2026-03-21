@@ -8,7 +8,7 @@ export function sidebarItemTemplate(c: SidebarItemComponent) {
 	const content = html`
 		<div class="ml-sidebar-item__leading">
 			<slot name="leading">
-				${when(!!c.icon, () => html`<ml-icon icon=${c.icon} size="sm"></ml-icon>`)}
+				${when(!!c.icon, () => html`<ml-icon icon=${c.icon} size="sm" format=${c['icon-format'] || 'regular'}></ml-icon>`)}
 			</slot>
 		</div>
 		${when(!isCollapsed, () => html`

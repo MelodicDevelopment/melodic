@@ -1,6 +1,9 @@
 import { defineConfig } from 'vite';
 import { resolve } from 'node:path';
+import { readFileSync } from 'node:fs';
 import { viteStaticCopy } from 'vite-plugin-static-copy';
+
+const componentsPkg = JSON.parse(readFileSync(resolve(__dirname, 'packages/melodic-components/package.json'), 'utf-8'));
 
 export default defineConfig({
 	plugins: [
@@ -67,12 +70,18 @@ export default defineConfig({
 			'@melodicdev/components/app-shell': resolve(__dirname, 'packages/melodic-components/src/components/sections/app-shell/index.ts'),
 			'@melodicdev/components/hero-section': resolve(__dirname, 'packages/melodic-components/src/components/sections/hero/index.ts'),
 			'@melodicdev/components/page-header': resolve(__dirname, 'packages/melodic-components/src/components/sections/page-header/index.ts'),
+			'@melodicdev/components/page-section': resolve(__dirname, 'packages/melodic-components/src/components/sections/page-section/index.ts'),
+			'@melodicdev/components/stat-card': resolve(__dirname, 'packages/melodic-components/src/components/data-display/stat-card/index.ts'),
+			'@melodicdev/components/profile-card': resolve(__dirname, 'packages/melodic-components/src/components/data-display/profile-card/index.ts'),
 			'@melodicdev/components/login-page': resolve(__dirname, 'packages/melodic-components/src/components/pages/auth/index.ts'),
 			'@melodicdev/components/signup-page': resolve(__dirname, 'packages/melodic-components/src/components/pages/auth/index.ts'),
 			'@melodicdev/components/dashboard-page': resolve(__dirname, 'packages/melodic-components/src/components/pages/dashboard/index.ts'),
 			'@melodicdev/components/directives': resolve(__dirname, 'packages/melodic-components/src/directives/index.ts'),
 			'@melodicdev/components': resolve(__dirname, 'packages/melodic-components/src/index.ts')
 		}
+	},
+	define: {
+		__ML_COMPONENTS_VERSION__: JSON.stringify(componentsPkg.version)
 	},
 	server: {
 		port: 5175,

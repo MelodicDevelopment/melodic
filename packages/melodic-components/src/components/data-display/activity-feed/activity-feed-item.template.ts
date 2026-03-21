@@ -32,8 +32,9 @@ export function activityFeedItemTemplate(c: ActivityFeedItemComponent) {
 							<span
 								class=${classMap({
 									'ml-afi__indicator': true,
-									[`ml-afi__indicator--${c['indicator-color']}`]: true
+									[`ml-afi__indicator--${c['indicator-color']}`]: c.isPresetColor
 								})}
+								style=${c.isPresetColor ? '' : `--ml-afi-indicator-bg: ${c['indicator-color']}`}
 							></span>
 						`
 					)}

@@ -63,6 +63,9 @@ import '@melodicdev/components/sidebar';
 import '@melodicdev/components/app-shell';
 import '@melodicdev/components/hero-section';
 import '@melodicdev/components/page-header';
+import '@melodicdev/components/page-section';
+import '@melodicdev/components/stat-card';
+import '@melodicdev/components/profile-card';
 
 // Import components - Pages
 import '@melodicdev/components/login-page';

@@ -6,7 +6,7 @@ export const cardStyles = () => css`
 	}
 
 	.ml-card {
-		background-color: var(--ml-color-surface);
+		background-color: var(--ml-card-bg, var(--ml-color-surface));
 		border-radius: var(--ml-radius-lg);
 		overflow: hidden;
 		height: 100%;

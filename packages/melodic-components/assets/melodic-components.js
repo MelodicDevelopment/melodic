@@ -688,6 +688,12 @@ var HttpClient = class {
 			};
 			return Promise.resolve(cancelledResponse);
 		}
+		if (requestConfig.body instanceof FormData) {
+			const headers = { ...requestConfig.headers };
+			delete headers["Content-Type"];
+			delete headers["content-type"];
+			requestConfig.headers = headers;
+		}
 		if (requestConfig.abortController === void 0) requestConfig.abortController = new AbortController();
 		let response = await this.executeRequest(requestConfig);
 		response = await this.executeResponseInterceptors(response);
@@ -8139,7 +8145,7 @@ const sliderStyles = () => css`
 		width: 20px;
 		height: 20px;
 		border-radius: var(--ml-radius-full);
-		background-color: white;
+		background-color: var(--ml-color-surface);
 		border: 2px solid var(--ml-color-primary);
 		box-shadow: var(--ml-shadow-sm);
 		transition:
@@ -8165,7 +8171,7 @@ const sliderStyles = () => css`
 		width: 20px;
 		height: 20px;
 		border-radius: var(--ml-radius-full);
-		background-color: white;
+		background-color: var(--ml-color-surface);
 		border: 2px solid var(--ml-color-primary);
 		box-shadow: var(--ml-shadow-sm);
 	}
@@ -10291,7 +10297,7 @@ const cardStyles = () => css`
 	}
 
 	.ml-card {
-		background-color: var(--ml-color-surface);
+		background-color: var(--ml-card-bg, var(--ml-color-surface));
 		border-radius: var(--ml-radius-lg);
 		overflow: hidden;
 		height: 100%;
@@ -10637,7 +10643,7 @@ const avatarStyles = () => css`
 		font-weight: var(--ml-font-semibold);
 		vertical-align: middle;
 		border-radius: var(--ml-radius-full);
-		border: 2px solid var(--ml-color-surface);
+		border: 2px solid var(--ml-avatar-border-color, var(--ml-color-surface));
 		box-shadow: var(--ml-shadow-xs);
 	}
 
@@ -10740,15 +10746,18 @@ AvatarComponent = __decorate([MelodicComponent({
 	]
 })], AvatarComponent);
 function badgeTemplate(c) {
+	const customStyle = c.color ? `--ml-badge-bg: ${c.color}; --ml-badge-color: #fff` : "";
 	return html`
 		<span
 			class=${classMap({
 		"ml-badge": true,
-		[`ml-badge--${c.variant}`]: true,
+		[`ml-badge--${c.variant}`]: !c.color,
+		"ml-badge--custom": !!c.color,
 		[`ml-badge--${c.size}`]: true,
 		"ml-badge--dot": c.dot,
 		"ml-badge--pill": c.pill
 	})}
+			style=${customStyle}
 		>
 			${c.dot ? html`<span class="ml-badge__dot"></span>` : ""}
 			<slot></slot>
@@ -10839,6 +10848,12 @@ const badgeStyles = () => css`
 		color: var(--ml-badge-error-text);
 	}
 
+	.ml-badge--custom {
+		background-color: var(--ml-badge-bg);
+		border-color: transparent;
+		color: var(--ml-badge-color, #fff);
+	}
+
 `;
 var BadgeComponent = class BadgeComponent$1 {
 	constructor() {
@@ -10846,6 +10861,7 @@ var BadgeComponent = class BadgeComponent$1 {
 		this.size = "md";
 		this.dot = false;
 		this.pill = false;
+		this.color = "";
 	}
 };
 BadgeComponent = __decorate([MelodicComponent({
@@ -10856,7 +10872,8 @@ BadgeComponent = __decorate([MelodicComponent({
 		"variant",
 		"size",
 		"dot",
-		"pill"
+		"pill",
+		"color"
 	]
 })], BadgeComponent);
 function badgeGroupTemplate(c) {
@@ -11574,8 +11591,9 @@ function activityFeedItemTemplate(c) {
 							<span
 								class=${classMap({
 		"ml-afi__indicator": true,
-		[`ml-afi__indicator--${c["indicator-color"]}`]: true
+		[`ml-afi__indicator--${c["indicator-color"]}`]: c.isPresetColor
 	})}
+								style=${c.isPresetColor ? "" : `--ml-afi-indicator-bg: ${c["indicator-color"]}`}
 							></span>
 						`)}
 				</div>
@@ -11698,6 +11716,7 @@ const activityFeedItemStyles = () => css`
 		height: 8px;
 		border-radius: var(--ml-radius-full);
 		flex-shrink: 0;
+		background-color: var(--ml-afi-indicator-bg);
 	}
 
 	.ml-afi__indicator--gray {
@@ -11720,6 +11739,13 @@ const activityFeedItemStyles = () => css`
 		background-color: var(--ml-color-error);
 	}
 `;
+var INDICATOR_PRESETS = new Set([
+	"success",
+	"warning",
+	"error",
+	"primary",
+	"gray"
+]);
 var ActivityFeedItemComponent = class ActivityFeedItemComponent$1 {
 	constructor() {
 		this.name = "";
@@ -11730,6 +11756,9 @@ var ActivityFeedItemComponent = class ActivityFeedItemComponent$1 {
 		this.subtitle = "";
 		this.indicator = false;
 		this["indicator-color"] = "gray";
+	}
+	get isPresetColor() {
+		return INDICATOR_PRESETS.has(this["indicator-color"]);
 	}
 	get hasAvatarSlot() {
 		return this.elementRef?.querySelector("[slot=\"avatar\"]") !== null;
@@ -12005,7 +12034,10 @@ const tableStyles = () => css`
 	}
 
 	.ml-table--hoverable .ml-table__row:hover {
-		background-color: var(--ml-color-surface-sunken);
+		background-color: var(--ml-table-row-hover-bg, var(--ml-color-surface-sunken));
+		border-color: var(--ml-table-row-hover-border-color, transparent);
+		border-width: var(--ml-table-row-hover-border-width, 0);
+		border-style: solid;
 	}
 
 	.ml-table--row-clickable .ml-table__row {
@@ -16426,13 +16458,11 @@ var SidebarComponent = class SidebarComponent$1 {
 		this.collapsed = false;
 		this.navigation = [];
 		this.footerNavigation = [];
-		this._slottedItems = [];
 		this._hoverTimer = null;
 		this._handleItemClick = this.onItemClick.bind(this);
 		this._handleMouseEnter = this.onMouseEnter.bind(this);
 		this._handleMouseLeave = this.onMouseLeave.bind(this);
-		this.handleDefaultSlotChange = (event) => {
-			this._slottedItems = event.target.assignedElements({ flatten: true });
+		this.handleDefaultSlotChange = () => {
 			this.updateItemStates();
 		};
 		this.handleConfigItemClick = (value, href) => {
@@ -16611,7 +16641,7 @@ function sidebarItemTemplate(c) {
 	const content = html`
 		<div class="ml-sidebar-item__leading">
 			<slot name="leading">
-				${when(!!c.icon, () => html`<ml-icon icon=${c.icon} size="sm"></ml-icon>`)}
+				${when(!!c.icon, () => html`<ml-icon icon=${c.icon} size="sm" format=${c["icon-format"] || "regular"}></ml-icon>`)}
 			</slot>
 		</div>
 		${when(!isCollapsed, () => html`
@@ -16831,6 +16861,7 @@ const sidebarItemStyles = () => css`
 var SidebarItemComponent = class SidebarItemComponent$1 {
 	constructor() {
 		this.icon = "";
+		this["icon-format"] = "";
 		this.label = "";
 		this.value = "";
 		this.href = "";
@@ -16878,6 +16909,7 @@ SidebarItemComponent = __decorate([MelodicComponent({
 	styles: sidebarItemStyles,
 	attributes: [
 		"icon",
+		"icon-format",
 		"label",
 		"value",
 		"href",

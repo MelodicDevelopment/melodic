@@ -15,7 +15,7 @@ export const avatarStyles = () => css`
 		font-weight: var(--ml-font-semibold);
 		vertical-align: middle;
 		border-radius: var(--ml-radius-full);
-		border: 2px solid var(--ml-color-surface);
+		border: 2px solid var(--ml-avatar-border-color, var(--ml-color-surface));
 		box-shadow: var(--ml-shadow-xs);
 	}
 

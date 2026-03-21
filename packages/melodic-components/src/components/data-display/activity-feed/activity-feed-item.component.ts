@@ -4,7 +4,8 @@ import type { Size } from '../../../types/index.js';
 import { activityFeedItemTemplate } from './activity-feed-item.template.js';
 import { activityFeedItemStyles } from './activity-feed-item.styles.js';
 
-type IndicatorColor = 'success' | 'warning' | 'error' | 'primary' | 'gray';
+type IndicatorPreset = 'success' | 'warning' | 'error' | 'primary' | 'gray';
+const INDICATOR_PRESETS = new Set<string>(['success', 'warning', 'error', 'primary', 'gray']);
 
 /**
  * ml-activity-feed-item - Individual activity entry within a feed
@@ -50,8 +51,13 @@ export class ActivityFeedItemComponent implements IElementRef {
 	/** Show indicator dot */
 	public indicator = false;
 
-	/** Indicator dot color */
-	public 'indicator-color': IndicatorColor = 'gray';
+	/** Indicator dot color — preset name or any CSS color value */
+	public 'indicator-color': IndicatorPreset | string = 'gray';
+
+	/** Whether the indicator-color is a preset name */
+	public get isPresetColor(): boolean {
+		return INDICATOR_PRESETS.has(this['indicator-color']);
+	}
 
 	/** Check if avatar slot has content */
 	public get hasAvatarSlot(): boolean {

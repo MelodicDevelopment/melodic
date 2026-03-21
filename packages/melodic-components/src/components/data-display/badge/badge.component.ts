@@ -21,7 +21,7 @@ import { badgeStyles } from './badge.styles.js';
 	selector: 'ml-badge',
 	template: badgeTemplate,
 	styles: badgeStyles,
-	attributes: ['variant', 'size', 'dot', 'pill']
+	attributes: ['variant', 'size', 'dot', 'pill', 'color']
 })
 export class BadgeComponent implements IElementRef {
 	public elementRef!: HTMLElement;
@@ -37,4 +37,7 @@ export class BadgeComponent implements IElementRef {
 
 	/** Use pill (rounded) shape */
 	public pill = false;
+
+	/** Custom background color — any CSS color value. Overrides variant colors. */
+	public color = '';
 }
