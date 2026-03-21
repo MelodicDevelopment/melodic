@@ -245,6 +245,40 @@ const navGroups: SidebarNavGroup[] = [
 
 Items with slotted `ml-sidebar-item` children become expandable submenus automatically.
 
+**Key CSS Custom Properties (sidebar & sidebar-item):**
+
+| Property | Default | Description |
+|----------|---------|-------------|
+| `--ml-sidebar-width` | `280px` | Sidebar width |
+| `--ml-sidebar-bg` | `var(--ml-color-surface)` | Sidebar background |
+| `--ml-sidebar-border-color` | `var(--ml-color-border)` | Border color |
+| `--ml-sidebar-item-color` | `var(--ml-color-text-secondary)` | Item text color |
+| `--ml-sidebar-item-hover-bg` | `var(--ml-gray-100)` | Item hover background |
+| `--ml-sidebar-item-active-bg` | `var(--ml-color-primary)` | Active item background |
+| `--ml-sidebar-item-active-color` | `var(--ml-color-text-inverse)` | Active item text color |
+| `--ml-sidebar-item-active-indicator-width` | `0px` | Left border accent width on active item |
+| `--ml-sidebar-item-active-indicator-color` | `transparent` | Left border accent color on active item |
+| `--ml-sidebar-item-icon-color` | `inherit` | Icon color (separate from text) |
+| `--ml-sidebar-item-active-icon-color` | `inherit` | Icon color when item is active |
+| `--ml-sidebar-item-hover-icon-color` | `inherit` | Icon color on hover |
+| `--ml-sidebar-item-active-badge-bg` | `var(--ml-sidebar-item-badge-bg)` | Badge background when item is active |
+| `--ml-sidebar-item-active-badge-color` | `var(--ml-sidebar-item-badge-color)` | Badge text color when item is active |
+| `--ml-sidebar-group-label-color` | `var(--ml-color-text-muted)` | Group label text color |
+
+**Bookmark-style active indicator example:**
+
+```css
+ml-sidebar {
+    --ml-sidebar-item-active-bg: transparent;
+    --ml-sidebar-item-active-color: #c9a84c;
+    --ml-sidebar-item-active-indicator-width: 3px;
+    --ml-sidebar-item-active-indicator-color: #c9a84c;
+    --ml-sidebar-item-active-icon-color: #c9a84c;
+    --ml-sidebar-item-active-badge-bg: #c9a84c;
+    --ml-sidebar-item-active-badge-color: #fff;
+}
+```
+
 ---
 
 ## ml-steps / ml-step / ml-step-panel

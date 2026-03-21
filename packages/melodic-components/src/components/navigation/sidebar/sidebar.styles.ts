@@ -73,9 +73,18 @@ export const sidebarStyles = () => css`
 		--ml-sidebar-item-active-color: var(--ml-color-text-inverse);
 		--ml-sidebar-item-active-hover-bg: var(--ml-color-primary-hover);
 
+		/* Active indicator (left border accent) */
+		--ml-sidebar-item-active-indicator-width: 0px;
+		--ml-sidebar-item-active-indicator-color: transparent;
+
 		/* Item disabled */
 		--ml-sidebar-item-disabled-color: var(--ml-color-text-muted);
 		--ml-sidebar-item-disabled-opacity: 0.6;
+
+		/* Icon colors (separate from text) */
+		--ml-sidebar-item-icon-color: inherit;
+		--ml-sidebar-item-active-icon-color: inherit;
+		--ml-sidebar-item-hover-icon-color: inherit;
 
 		/* Item icon size */
 		--ml-sidebar-item-icon-size: 20px;
@@ -91,6 +100,10 @@ export const sidebarStyles = () => css`
 		--ml-sidebar-badge-font-weight: var(--ml-font-medium);
 		--ml-sidebar-badge-bg: var(--ml-color-surface-tertiary);
 		--ml-sidebar-badge-color: var(--ml-color-text-secondary);
+
+		/* Active badge overrides */
+		--ml-sidebar-item-active-badge-bg: var(--ml-sidebar-badge-bg);
+		--ml-sidebar-item-active-badge-color: var(--ml-sidebar-badge-color);
 
 		/* Chevron transition */
 		--ml-sidebar-chevron-transition: var(--ml-duration-200) var(--ml-ease-in-out);
@@ -242,6 +255,7 @@ export const sidebarStyles = () => css`
 		padding: var(--ml-sidebar-item-padding-y) var(--ml-sidebar-item-padding-x);
 		padding-left: calc(var(--ml-sidebar-item-padding-x) + (var(--level) * var(--ml-space-5)));
 		border: none;
+		border-left: var(--ml-sidebar-item-active-indicator-width) solid transparent;
 		border-radius: var(--ml-sidebar-item-radius);
 		background: transparent;
 		color: var(--ml-sidebar-item-color);
@@ -270,6 +284,7 @@ export const sidebarStyles = () => css`
 	.ml-sidebar__item-link--active {
 		background-color: var(--ml-sidebar-item-active-bg);
 		color: var(--ml-sidebar-item-active-color);
+		border-left-color: var(--ml-sidebar-item-active-indicator-color);
 	}
 
 	.ml-sidebar__item-link--active:hover {
@@ -296,7 +311,15 @@ export const sidebarStyles = () => css`
 		flex-shrink: 0;
 		width: var(--ml-sidebar-item-icon-size);
 		height: var(--ml-sidebar-item-icon-size);
-		color: inherit;
+		color: var(--ml-sidebar-item-icon-color);
+	}
+
+	.ml-sidebar__item-link--active .ml-sidebar__item-leading {
+		color: var(--ml-sidebar-item-active-icon-color);
+	}
+
+	.ml-sidebar__item-link:hover:not(.ml-sidebar__item-link--disabled):not(.ml-sidebar__item-link--active) .ml-sidebar__item-leading {
+		color: var(--ml-sidebar-item-hover-icon-color);
 	}
 
 	/* Label */
@@ -349,6 +372,11 @@ export const sidebarStyles = () => css`
 	.ml-sidebar__item-badge--error {
 		background-color: var(--ml-color-error-subtle);
 		color: var(--ml-color-error);
+	}
+
+	.ml-sidebar__item-link--active .ml-sidebar__item-badge {
+		background-color: var(--ml-sidebar-item-active-badge-bg);
+		color: var(--ml-sidebar-item-active-badge-color);
 	}
 
 	/* Chevron for expandable items */

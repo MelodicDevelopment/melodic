@@ -31,6 +31,7 @@ export const selectStyles = () => css`
 		/* --- Focus --- */
 		--ml-select-focus-border-color: var(--ml-color-primary);
 		--ml-select-focus-shadow: var(--ml-shadow-focus-ring);
+		--ml-select-focus-inset-shadow: none;
 
 		/* --- Error --- */
 		--ml-select-error-border-color: var(--ml-color-danger);
@@ -148,7 +149,7 @@ export const selectStyles = () => css`
 	.ml-select__trigger:focus-within {
 		outline: none;
 		border-color: var(--ml-select-focus-border-color);
-		box-shadow: var(--ml-select-focus-shadow);
+		box-shadow: var(--ml-select-focus-shadow), var(--ml-select-focus-inset-shadow);
 	}
 
 	.ml-select--disabled .ml-select__trigger {

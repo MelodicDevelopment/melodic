@@ -11,6 +11,7 @@ export const pageHeaderStyles = () => css`
 
 		/* Font */
 		--ml-page-header-font-family: var(--ml-font-sans);
+		--ml-page-header-color: var(--ml-color-text);
 
 		/* Border */
 		--ml-page-header-border-width: var(--ml-border);
@@ -45,6 +46,7 @@ export const pageHeaderStyles = () => css`
 	.ml-page-header {
 		padding: var(--ml-page-header-padding);
 		font-family: var(--ml-page-header-font-family);
+		color: var(--ml-page-header-color);
 	}
 
 	.ml-page-header--divider {

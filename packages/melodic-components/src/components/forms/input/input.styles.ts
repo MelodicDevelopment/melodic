@@ -35,6 +35,7 @@ export const inputStyles = () => css`
 		/* --- Focus --- */
 		--ml-input-focus-border-color: var(--ml-color-primary);
 		--ml-input-focus-shadow: var(--ml-shadow-focus-ring);
+		--ml-input-focus-inset-shadow: none;
 
 		/* --- Error --- */
 		--ml-input-error-border-color: var(--ml-color-danger);
@@ -133,7 +134,7 @@ export const inputStyles = () => css`
 
 	.ml-input--focused .ml-input__wrapper {
 		border-color: var(--ml-input-focus-border-color);
-		box-shadow: var(--ml-input-focus-shadow);
+		box-shadow: var(--ml-input-focus-shadow), var(--ml-input-focus-inset-shadow);
 	}
 
 	.ml-input--error .ml-input__wrapper {

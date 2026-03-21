@@ -747,6 +747,9 @@ ml-sidebar {
     --ml-sidebar-bg: #1a4a3a;
     --ml-sidebar-item-active-bg: transparent;
     --ml-sidebar-item-active-color: #c9a84c;
+    --ml-sidebar-item-active-indicator-width: 3px;
+    --ml-sidebar-item-active-indicator-color: #c9a84c;
+    --ml-sidebar-item-active-icon-color: #c9a84c;
     --ml-sidebar-group-label-color: rgba(201, 168, 76, 0.5);
 }
 
@@ -842,6 +845,7 @@ type Breakpoint = 'xs' | 'sm' | 'md' | 'lg' | 'xl' | '2xl';
 | `--ml-button-color` | `var(--ml-color-text-inverse)` | Text color |
 | `--ml-button-border-color` | `var(--ml-color-primary)` | Border color |
 | `--ml-button-hover-bg` | `var(--ml-color-primary-hover)` | Hover background |
+| `--ml-button-hover-border-color` | `var(--ml-color-primary-hover)` | Hover border color |
 | `--ml-button-hover-color` | `var(--ml-color-text-inverse)` | Hover text color |
 | `--ml-button-border-radius` | `var(--ml-radius)` | Border radius |
 | `--ml-button-font-size` | `var(--ml-text-sm)` | Font size |
@@ -936,6 +940,7 @@ Props: `value`, `icon`, `disabled`, `active` (managed), `groupDisabled`, `groupS
 | `--ml-input-border-radius` | `var(--ml-radius)` | Border radius |
 | `--ml-input-focus-border-color` | `var(--ml-color-primary)` | Focus border color |
 | `--ml-input-focus-shadow` | `var(--ml-shadow-focus-ring)` | Focus ring shadow |
+| `--ml-input-focus-inset-shadow` | `none` | Additional inset shadow on focus (composited with focus-shadow) |
 | `--ml-input-label-color` | `var(--ml-color-text-secondary)` | Label text color |
 | `--ml-input-placeholder-color` | `var(--ml-color-text-muted)` | Placeholder color |
 
@@ -1767,6 +1772,8 @@ interface TableColumn {
 | `--ml-table-header-bg` | `var(--ml-color-surface-sunken)` | Column header background |
 | `--ml-table-header-color` | `var(--ml-color-text-muted)` | Column header text color |
 | `--ml-table-row-hover-bg` | `var(--ml-color-surface-sunken)` | Row hover background |
+| `--ml-table-row-hover-border-left-width` | `0` | Left border width on row hover (bookmark accent) |
+| `--ml-table-row-hover-border-left-color` | `transparent` | Left border color on row hover |
 | `--ml-table-cell-color` | `var(--ml-color-text)` | Cell text color |
 | `--ml-table-sort-active-color` | `var(--ml-color-primary)` | Active sort icon color |
 
@@ -2119,6 +2126,13 @@ interface SidebarNavItem {
 | `--ml-sidebar-item-hover-bg` | `var(--ml-gray-100)` | Item hover background |
 | `--ml-sidebar-item-active-bg` | `var(--ml-color-primary)` | Active item background |
 | `--ml-sidebar-item-active-color` | `var(--ml-color-text-inverse)` | Active item text color |
+| `--ml-sidebar-item-active-indicator-width` | `0px` | Left border accent width on active item |
+| `--ml-sidebar-item-active-indicator-color` | `transparent` | Left border accent color on active item |
+| `--ml-sidebar-item-icon-color` | `inherit` | Icon color (separate from text) |
+| `--ml-sidebar-item-active-icon-color` | `inherit` | Icon color when item is active |
+| `--ml-sidebar-item-hover-icon-color` | `inherit` | Icon color on hover |
+| `--ml-sidebar-item-active-badge-bg` | `var(--ml-sidebar-badge-bg)` | Badge background when item is active |
+| `--ml-sidebar-item-active-badge-color` | `var(--ml-sidebar-badge-color)` | Badge text color when item is active |
 | `--ml-sidebar-group-label-color` | `var(--ml-color-text-muted)` | Group label text color |
 
 ### ml-sidebar-group
@@ -2247,6 +2261,17 @@ dialogService.open('#confirmDialog');
 
 Uses Popover API (`popover="auto"` or `"manual"`) + `computePosition`/`autoUpdate`.
 
+#### Key CSS Custom Properties
+
+| Property | Default | Description |
+|----------|---------|-------------|
+| `--ml-popover-bg` | `var(--ml-color-surface)` | Panel background |
+| `--ml-popover-color` | `var(--ml-color-text)` | Panel text color |
+| `--ml-popover-border-color` | `var(--ml-color-border)` | Panel border color |
+| `--ml-popover-radius` | `var(--ml-radius-lg)` | Panel border radius |
+| `--ml-popover-shadow` | `var(--ml-shadow-lg)` | Panel box shadow |
+| `--ml-popover-content-overflow` | `visible` | Content overflow (set to `auto` for scroll) |
+
 ---
 
 ### ml-dropdown
@@ -2330,6 +2355,16 @@ Shows on hover + focus. `max-width: 320px`, `z-index: 9999`.
 **Slots:** `breadcrumb`, `title`, `description`, `actions`, `tabs`, `meta`
 
 **Responsive:** <= 640px: stacks vertically, actions stretch full width.
+
+#### Key CSS Custom Properties
+
+| Property | Default | Description |
+|----------|---------|-------------|
+| `--ml-page-header-color` | `var(--ml-color-text)` | General text color |
+| `--ml-page-header-title-color` | `var(--ml-color-text)` | Title text color |
+| `--ml-page-header-description-color` | `var(--ml-color-text-secondary)` | Description text color |
+| `--ml-page-header-border-color` | `var(--ml-color-border)` | Bottom divider border color |
+| `--ml-page-header-padding` | `var(--ml-space-6) var(--ml-space-6) var(--ml-space-4)` | Container padding |
 
 ---
 

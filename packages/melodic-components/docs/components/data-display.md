@@ -450,6 +450,18 @@ interface TableColumn {
 
 > **Virtual scrolling:** When `virtual` is set, the table wrapper becomes the scroll container. The parent element **must have a defined height** (e.g. `height: 500px` or `height: 100%` inside a flex/grid). Row heights are fixed (`44px` for `md`, `36px` for `sm`).
 
+**Key CSS Custom Properties:**
+
+| Property | Default | Description |
+|----------|---------|-------------|
+| `--ml-table-bg` | `var(--ml-color-surface)` | Table background |
+| `--ml-table-border-color` | `var(--ml-color-border)` | Border color |
+| `--ml-table-header-bg` | `var(--ml-color-surface-sunken)` | Column header background |
+| `--ml-table-row-hover-bg` | `var(--ml-color-surface-sunken)` | Row hover background |
+| `--ml-table-row-hover-border-left-width` | `0` | Left border width on row hover (bookmark accent) |
+| `--ml-table-row-hover-border-left-color` | `transparent` | Left border color on row hover |
+| `--ml-table-cell-color` | `var(--ml-color-text)` | Cell text color |
+
 ---
 
 ## ml-data-grid

@@ -5805,6 +5805,7 @@ const inputStyles = () => css`
 		/* --- Focus --- */
 		--ml-input-focus-border-color: var(--ml-color-primary);
 		--ml-input-focus-shadow: var(--ml-shadow-focus-ring);
+		--ml-input-focus-inset-shadow: none;
 
 		/* --- Error --- */
 		--ml-input-error-border-color: var(--ml-color-danger);
@@ -5903,7 +5904,7 @@ const inputStyles = () => css`
 
 	.ml-input--focused .ml-input__wrapper {
 		border-color: var(--ml-input-focus-border-color);
-		box-shadow: var(--ml-input-focus-shadow);
+		box-shadow: var(--ml-input-focus-shadow), var(--ml-input-focus-inset-shadow);
 	}
 
 	.ml-input--error .ml-input__wrapper {
@@ -6099,6 +6100,7 @@ const textareaStyles = () => css`
 		/* --- Focus --- */
 		--ml-textarea-focus-border-color: var(--ml-color-primary);
 		--ml-textarea-focus-shadow: var(--ml-shadow-focus-ring);
+		--ml-textarea-focus-inset-shadow: none;
 
 		/* --- Error --- */
 		--ml-textarea-error-border-color: var(--ml-color-danger);
@@ -6164,7 +6166,7 @@ const textareaStyles = () => css`
 	.ml-textarea__field:focus {
 		outline: none;
 		border-color: var(--ml-textarea-focus-border-color);
-		box-shadow: var(--ml-textarea-focus-shadow);
+		box-shadow: var(--ml-textarea-focus-shadow), var(--ml-textarea-focus-inset-shadow);
 	}
 
 	.ml-textarea__field::placeholder {
@@ -7684,6 +7686,7 @@ const selectStyles = () => css`
 		/* --- Focus --- */
 		--ml-select-focus-border-color: var(--ml-color-primary);
 		--ml-select-focus-shadow: var(--ml-shadow-focus-ring);
+		--ml-select-focus-inset-shadow: none;
 
 		/* --- Error --- */
 		--ml-select-error-border-color: var(--ml-color-danger);
@@ -7801,7 +7804,7 @@ const selectStyles = () => css`
 	.ml-select__trigger:focus-within {
 		outline: none;
 		border-color: var(--ml-select-focus-border-color);
-		box-shadow: var(--ml-select-focus-shadow);
+		box-shadow: var(--ml-select-focus-shadow), var(--ml-select-focus-inset-shadow);
 	}
 
 	.ml-select--disabled .ml-select__trigger {
@@ -12867,6 +12870,8 @@ const tableStyles = () => css`
 		--ml-table-row-hover-bg: var(--ml-color-surface-sunken);
 		--ml-table-row-hover-border-color: transparent;
 		--ml-table-row-hover-border-width: 0;
+		--ml-table-row-hover-border-left-width: 0;
+		--ml-table-row-hover-border-left-color: transparent;
 		--ml-table-row-selected-bg: var(--ml-color-primary-subtle, rgba(99, 102, 241, 0.04));
 		--ml-table-row-selected-hover-bg: var(--ml-color-primary-subtle, rgba(99, 102, 241, 0.06));
 		--ml-table-row-striped-bg: var(--ml-color-surface-sunken);
@@ -13008,6 +13013,8 @@ const tableStyles = () => css`
 		border-color: var(--ml-table-row-hover-border-color);
 		border-width: var(--ml-table-row-hover-border-width);
 		border-style: solid;
+		border-left-width: var(--ml-table-row-hover-border-left-width);
+		border-left-color: var(--ml-table-row-hover-border-left-color);
 	}
 
 	.ml-table--row-clickable .ml-table__row {
@@ -17468,9 +17475,18 @@ const sidebarStyles = () => css`
 		--ml-sidebar-item-active-color: var(--ml-color-text-inverse);
 		--ml-sidebar-item-active-hover-bg: var(--ml-color-primary-hover);
 
+		/* Active indicator (left border accent) */
+		--ml-sidebar-item-active-indicator-width: 0px;
+		--ml-sidebar-item-active-indicator-color: transparent;
+
 		/* Item disabled */
 		--ml-sidebar-item-disabled-color: var(--ml-color-text-muted);
 		--ml-sidebar-item-disabled-opacity: 0.6;
+
+		/* Icon colors (separate from text) */
+		--ml-sidebar-item-icon-color: inherit;
+		--ml-sidebar-item-active-icon-color: inherit;
+		--ml-sidebar-item-hover-icon-color: inherit;
 
 		/* Item icon size */
 		--ml-sidebar-item-icon-size: 20px;
@@ -17486,6 +17502,10 @@ const sidebarStyles = () => css`
 		--ml-sidebar-badge-font-weight: var(--ml-font-medium);
 		--ml-sidebar-badge-bg: var(--ml-color-surface-tertiary);
 		--ml-sidebar-badge-color: var(--ml-color-text-secondary);
+
+		/* Active badge overrides */
+		--ml-sidebar-item-active-badge-bg: var(--ml-sidebar-badge-bg);
+		--ml-sidebar-item-active-badge-color: var(--ml-sidebar-badge-color);
 
 		/* Chevron transition */
 		--ml-sidebar-chevron-transition: var(--ml-duration-200) var(--ml-ease-in-out);
@@ -17637,6 +17657,7 @@ const sidebarStyles = () => css`
 		padding: var(--ml-sidebar-item-padding-y) var(--ml-sidebar-item-padding-x);
 		padding-left: calc(var(--ml-sidebar-item-padding-x) + (var(--level) * var(--ml-space-5)));
 		border: none;
+		border-left: var(--ml-sidebar-item-active-indicator-width) solid transparent;
 		border-radius: var(--ml-sidebar-item-radius);
 		background: transparent;
 		color: var(--ml-sidebar-item-color);
@@ -17665,6 +17686,7 @@ const sidebarStyles = () => css`
 	.ml-sidebar__item-link--active {
 		background-color: var(--ml-sidebar-item-active-bg);
 		color: var(--ml-sidebar-item-active-color);
+		border-left-color: var(--ml-sidebar-item-active-indicator-color);
 	}
 
 	.ml-sidebar__item-link--active:hover {
@@ -17691,7 +17713,15 @@ const sidebarStyles = () => css`
 		flex-shrink: 0;
 		width: var(--ml-sidebar-item-icon-size);
 		height: var(--ml-sidebar-item-icon-size);
-		color: inherit;
+		color: var(--ml-sidebar-item-icon-color);
+	}
+
+	.ml-sidebar__item-link--active .ml-sidebar__item-leading {
+		color: var(--ml-sidebar-item-active-icon-color);
+	}
+
+	.ml-sidebar__item-link:hover:not(.ml-sidebar__item-link--disabled):not(.ml-sidebar__item-link--active) .ml-sidebar__item-leading {
+		color: var(--ml-sidebar-item-hover-icon-color);
 	}
 
 	/* Label */
@@ -17744,6 +17774,11 @@ const sidebarStyles = () => css`
 	.ml-sidebar__item-badge--error {
 		background-color: var(--ml-color-error-subtle);
 		color: var(--ml-color-error);
+	}
+
+	.ml-sidebar__item-link--active .ml-sidebar__item-badge {
+		background-color: var(--ml-sidebar-item-active-badge-bg);
+		color: var(--ml-sidebar-item-active-badge-color);
 	}
 
 	/* Chevron for expandable items */
@@ -18059,9 +18094,18 @@ const sidebarItemStyles = () => css`
 		--ml-sidebar-item-active-color: var(--ml-color-text-inverse);
 		--ml-sidebar-item-active-hover-bg: var(--ml-color-primary-hover);
 
+		/* Active indicator (left border accent) */
+		--ml-sidebar-item-active-indicator-width: 0px;
+		--ml-sidebar-item-active-indicator-color: transparent;
+
 		/* Item disabled */
 		--ml-sidebar-item-disabled-color: var(--ml-color-text-muted);
 		--ml-sidebar-item-disabled-opacity: 0.6;
+
+		/* Icon colors (separate from text) */
+		--ml-sidebar-item-icon-color: inherit;
+		--ml-sidebar-item-active-icon-color: inherit;
+		--ml-sidebar-item-hover-icon-color: inherit;
 
 		/* Item icon size */
 		--ml-sidebar-item-icon-size: 20px;
@@ -18077,6 +18121,10 @@ const sidebarItemStyles = () => css`
 		--ml-sidebar-item-badge-font-weight: var(--ml-font-medium);
 		--ml-sidebar-item-badge-bg: var(--ml-color-surface-tertiary);
 		--ml-sidebar-item-badge-color: var(--ml-color-text-secondary);
+
+		/* Active badge overrides */
+		--ml-sidebar-item-active-badge-bg: var(--ml-sidebar-item-badge-bg);
+		--ml-sidebar-item-active-badge-color: var(--ml-sidebar-item-badge-color);
 
 		/* Chevron transition */
 		--ml-sidebar-item-chevron-transition: var(--ml-duration-200) var(--ml-ease-in-out);
@@ -18097,6 +18145,7 @@ const sidebarItemStyles = () => css`
 		padding: var(--ml-sidebar-item-padding-y) var(--ml-sidebar-item-padding-x);
 		padding-left: calc(var(--ml-sidebar-item-padding-x) + (var(--level) * var(--ml-space-5)));
 		border: none;
+		border-left: var(--ml-sidebar-item-active-indicator-width) solid transparent;
 		border-radius: var(--ml-sidebar-item-radius);
 		background: transparent;
 		color: var(--ml-sidebar-item-color);
@@ -18125,6 +18174,7 @@ const sidebarItemStyles = () => css`
 	.ml-sidebar-item__link--active {
 		background-color: var(--ml-sidebar-item-active-bg);
 		color: var(--ml-sidebar-item-active-color);
+		border-left-color: var(--ml-sidebar-item-active-indicator-color);
 	}
 
 	.ml-sidebar-item__link--active:hover {
@@ -18151,7 +18201,15 @@ const sidebarItemStyles = () => css`
 		flex-shrink: 0;
 		width: var(--ml-sidebar-item-icon-size);
 		height: var(--ml-sidebar-item-icon-size);
-		color: inherit;
+		color: var(--ml-sidebar-item-icon-color);
+	}
+
+	.ml-sidebar-item__link--active .ml-sidebar-item__leading {
+		color: var(--ml-sidebar-item-active-icon-color);
+	}
+
+	.ml-sidebar-item__link:hover:not(.ml-sidebar-item__link--disabled):not(.ml-sidebar-item__link--active) .ml-sidebar-item__leading {
+		color: var(--ml-sidebar-item-hover-icon-color);
 	}
 
 	/* Label */
@@ -18212,6 +18270,11 @@ const sidebarItemStyles = () => css`
 	.ml-sidebar-item__badge--error {
 		background-color: var(--ml-color-error-subtle);
 		color: var(--ml-color-error);
+	}
+
+	.ml-sidebar-item__link--active .ml-sidebar-item__badge {
+		background-color: var(--ml-sidebar-item-active-badge-bg);
+		color: var(--ml-sidebar-item-active-badge-color);
 	}
 
 	/* Chevron for expandable items */
@@ -21388,6 +21451,7 @@ const popoverStyles = () => css`
 		--ml-popover-bg: var(--ml-color-surface);
 		--ml-popover-color: var(--ml-color-text);
 		--ml-popover-shadow: var(--ml-shadow-lg);
+		--ml-popover-content-overflow: visible;
 		--ml-popover-transition: var(--ml-duration-150) var(--ml-ease-out);
 
 		/* Arrow */
@@ -21418,7 +21482,7 @@ const popoverStyles = () => css`
 		background-color: var(--ml-popover-bg);
 		color: var(--ml-popover-color);
 		box-shadow: var(--ml-popover-shadow);
-		overflow: visible;
+		overflow: var(--ml-popover-content-overflow);
 		opacity: 0;
 		transform: scale(0.95);
 		transition:
@@ -22355,6 +22419,7 @@ const pageHeaderStyles = () => css`
 
 		/* Font */
 		--ml-page-header-font-family: var(--ml-font-sans);
+		--ml-page-header-color: var(--ml-color-text);
 
 		/* Border */
 		--ml-page-header-border-width: var(--ml-border);
@@ -22389,6 +22454,7 @@ const pageHeaderStyles = () => css`
 	.ml-page-header {
 		padding: var(--ml-page-header-padding);
 		font-family: var(--ml-page-header-font-family);
+		color: var(--ml-page-header-color);
 	}
 
 	.ml-page-header--divider {

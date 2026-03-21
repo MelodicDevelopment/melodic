@@ -144,6 +144,16 @@ import '@melodicdev/components/page-header';
 | `actions` | Action buttons (right-aligned) |
 | `tabs` | `ml-tabs` placed at the bottom of the header |
 
+**Key CSS Custom Properties:**
+
+| Property | Default | Description |
+|----------|---------|-------------|
+| `--ml-page-header-color` | `var(--ml-color-text)` | General text color |
+| `--ml-page-header-title-color` | `var(--ml-color-text)` | Title text color |
+| `--ml-page-header-description-color` | `var(--ml-color-text-secondary)` | Description text color |
+| `--ml-page-header-border-color` | `var(--ml-color-border)` | Bottom divider border color |
+| `--ml-page-header-padding` | `var(--ml-space-6) var(--ml-space-6) var(--ml-space-4)` | Container padding |
+
 ---
 
 ## ml-page-section

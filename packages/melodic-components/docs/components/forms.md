@@ -128,6 +128,17 @@ import '@melodicdev/components/input';
 
 **Events:** `ml:input` `{ value }`, `ml:change` `{ value }`, `ml:focus`, `ml:blur`
 
+**Key CSS Custom Properties:**
+
+| Property | Default | Description |
+|----------|---------|-------------|
+| `--ml-input-bg` | `var(--ml-color-input-bg)` | Input background |
+| `--ml-input-color` | `var(--ml-color-text)` | Text color |
+| `--ml-input-border-color` | `var(--ml-color-border-strong)` | Border color |
+| `--ml-input-focus-border-color` | `var(--ml-color-primary)` | Focus border color |
+| `--ml-input-focus-shadow` | `var(--ml-shadow-focus-ring)` | Focus ring shadow |
+| `--ml-input-focus-inset-shadow` | `none` | Additional inset shadow on focus (composited with focus-shadow) |
+
 ---
 
 ## ml-textarea
@@ -164,6 +175,13 @@ import '@melodicdev/components/textarea';
 **Events:** `ml:input` `{ value }`, `ml:change` `{ value }`, `ml:focus`, `ml:blur`
 
 A character counter appears automatically when `maxLength` is set.
+
+**Key CSS Custom Properties:**
+
+| Property | Default | Description |
+|----------|---------|-------------|
+| `--ml-textarea-focus-shadow` | `var(--ml-shadow-focus-ring)` | Focus ring shadow |
+| `--ml-textarea-focus-inset-shadow` | `none` | Additional inset shadow on focus (composited with focus-shadow) |
 
 ---
 
@@ -386,6 +404,13 @@ interface SelectOption {
 - `ml:open`, `ml:close`
 
 Supports full keyboard navigation. Multi-select shows selected items as inline tags with search filtering.
+
+**Key CSS Custom Properties:**
+
+| Property | Default | Description |
+|----------|---------|-------------|
+| `--ml-select-focus-shadow` | `var(--ml-shadow-focus-ring)` | Focus ring shadow |
+| `--ml-select-focus-inset-shadow` | `none` | Additional inset shadow on focus (composited with focus-shadow) |
 
 ---
 

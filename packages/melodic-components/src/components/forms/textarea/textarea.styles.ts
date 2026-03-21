@@ -33,6 +33,7 @@ export const textareaStyles = () => css`
 		/* --- Focus --- */
 		--ml-textarea-focus-border-color: var(--ml-color-primary);
 		--ml-textarea-focus-shadow: var(--ml-shadow-focus-ring);
+		--ml-textarea-focus-inset-shadow: none;
 
 		/* --- Error --- */
 		--ml-textarea-error-border-color: var(--ml-color-danger);
@@ -98,7 +99,7 @@ export const textareaStyles = () => css`
 	.ml-textarea__field:focus {
 		outline: none;
 		border-color: var(--ml-textarea-focus-border-color);
-		box-shadow: var(--ml-textarea-focus-shadow);
+		box-shadow: var(--ml-textarea-focus-shadow), var(--ml-textarea-focus-inset-shadow);
 	}
 
 	.ml-textarea__field::placeholder {

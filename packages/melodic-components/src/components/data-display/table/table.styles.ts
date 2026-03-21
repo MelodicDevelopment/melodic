@@ -28,6 +28,8 @@ export const tableStyles = () => css`
 		--ml-table-row-hover-bg: var(--ml-color-surface-sunken);
 		--ml-table-row-hover-border-color: transparent;
 		--ml-table-row-hover-border-width: 0;
+		--ml-table-row-hover-border-left-width: 0;
+		--ml-table-row-hover-border-left-color: transparent;
 		--ml-table-row-selected-bg: var(--ml-color-primary-subtle, rgba(99, 102, 241, 0.04));
 		--ml-table-row-selected-hover-bg: var(--ml-color-primary-subtle, rgba(99, 102, 241, 0.06));
 		--ml-table-row-striped-bg: var(--ml-color-surface-sunken);
@@ -169,6 +171,8 @@ export const tableStyles = () => css`
 		border-color: var(--ml-table-row-hover-border-color);
 		border-width: var(--ml-table-row-hover-border-width);
 		border-style: solid;
+		border-left-width: var(--ml-table-row-hover-border-left-width);
+		border-left-color: var(--ml-table-row-hover-border-left-color);
 	}
 
 	.ml-table--row-clickable .ml-table__row {

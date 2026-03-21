@@ -10,6 +10,7 @@ export const popoverStyles = () => css`
 		--ml-popover-bg: var(--ml-color-surface);
 		--ml-popover-color: var(--ml-color-text);
 		--ml-popover-shadow: var(--ml-shadow-lg);
+		--ml-popover-content-overflow: visible;
 		--ml-popover-transition: var(--ml-duration-150) var(--ml-ease-out);
 
 		/* Arrow */
@@ -40,7 +41,7 @@ export const popoverStyles = () => css`
 		background-color: var(--ml-popover-bg);
 		color: var(--ml-popover-color);
 		box-shadow: var(--ml-popover-shadow);
-		overflow: visible;
+		overflow: var(--ml-popover-content-overflow);
 		opacity: 0;
 		transform: scale(0.95);
 		transition:

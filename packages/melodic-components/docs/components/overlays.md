@@ -194,6 +194,17 @@ import '@melodicdev/components/popover';
 
 Uses `autoUpdate` to reposition on scroll and resize.
 
+**Key CSS Custom Properties:**
+
+| Property | Default | Description |
+|----------|---------|-------------|
+| `--ml-popover-bg` | `var(--ml-color-surface)` | Panel background |
+| `--ml-popover-color` | `var(--ml-color-text)` | Panel text color |
+| `--ml-popover-border-color` | `var(--ml-color-border)` | Panel border color |
+| `--ml-popover-radius` | `var(--ml-radius-lg)` | Panel border radius |
+| `--ml-popover-shadow` | `var(--ml-shadow-lg)` | Panel box shadow |
+| `--ml-popover-content-overflow` | `visible` | Content overflow (set to `auto` for scroll) |
+
 ---
 
 ## ml-dropdown
