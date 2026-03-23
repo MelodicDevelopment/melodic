@@ -18,11 +18,11 @@ export const timePickerStyles = () => css`
 		--ml-time-picker-bg: var(--ml-color-input-bg);
 		--ml-time-picker-border-width: var(--ml-border);
 		--ml-time-picker-border-color: var(--ml-color-border);
-		--ml-time-picker-border-radius: var(--ml-radius-md);
+		--ml-time-picker-border-radius: var(--ml-radius);
 		--ml-time-picker-color: var(--ml-color-text);
 		--ml-time-picker-font-family: var(--ml-font-sans);
 		--ml-time-picker-font-size: var(--ml-text-sm);
-		--ml-time-picker-padding: var(--ml-space-2) var(--ml-space-3);
+		--ml-time-picker-padding: var(--ml-space-2-5) var(--ml-space-3-5);
 		--ml-time-picker-gap: var(--ml-space-2);
 		--ml-time-picker-hover-border-color: var(--ml-color-border-strong);
 
@@ -32,12 +32,12 @@ export const timePickerStyles = () => css`
 
 		/* --- Error --- */
 		--ml-time-picker-error-border-color: var(--ml-color-danger);
-		--ml-time-picker-error-focus-shadow: 0 0 0 3px rgba(239, 68, 68, 0.15);
+		--ml-time-picker-error-focus-shadow: var(--ml-shadow-ring-error);
 		--ml-time-picker-error-color: var(--ml-color-danger);
 
 		/* --- Disabled --- */
 		--ml-time-picker-disabled-opacity: 0.5;
-		--ml-time-picker-disabled-bg: var(--ml-color-surface-sunken);
+		--ml-time-picker-disabled-bg: var(--ml-color-input-disabled-bg);
 
 		/* --- Icon --- */
 		--ml-time-picker-icon-color: var(--ml-color-text-muted);
@@ -175,17 +175,17 @@ export const timePickerStyles = () => css`
 
 	/* Sizes */
 	.ml-time-picker--sm .ml-time-picker__trigger {
-		padding: var(--ml-space-1-5) var(--ml-space-2-5);
-		font-size: var(--ml-text-xs);
-	}
-
-	.ml-time-picker--md .ml-time-picker__trigger {
 		padding: var(--ml-space-2) var(--ml-space-3);
 		font-size: var(--ml-text-sm);
 	}
 
-	.ml-time-picker--lg .ml-time-picker__trigger {
+	.ml-time-picker--md .ml-time-picker__trigger {
 		padding: var(--ml-space-2-5) var(--ml-space-3-5);
+		font-size: var(--ml-text-sm);
+	}
+
+	.ml-time-picker--lg .ml-time-picker__trigger {
+		padding: var(--ml-space-3) var(--ml-space-3-5);
 		font-size: var(--ml-text-base);
 	}
 

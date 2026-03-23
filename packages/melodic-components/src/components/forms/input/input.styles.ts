@@ -18,9 +18,9 @@ export const inputStyles = () => css`
 		/* --- Wrapper --- */
 		--ml-input-bg: var(--ml-color-input-bg);
 		--ml-input-border-width: var(--ml-border);
-		--ml-input-border-color: var(--ml-color-border-strong);
+		--ml-input-border-color: var(--ml-color-border);
 		--ml-input-border-radius: var(--ml-radius);
-		--ml-input-shadow: var(--ml-shadow-xs);
+		--ml-input-shadow: none;
 		--ml-input-hover-border-color: var(--ml-color-border);
 		--ml-input-padding: var(--ml-space-2-5) var(--ml-space-3-5);
 		--ml-input-gap: var(--ml-space-2);

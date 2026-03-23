@@ -5788,9 +5788,9 @@ const inputStyles = () => css`
 		/* --- Wrapper --- */
 		--ml-input-bg: var(--ml-color-input-bg);
 		--ml-input-border-width: var(--ml-border);
-		--ml-input-border-color: var(--ml-color-border-strong);
+		--ml-input-border-color: var(--ml-color-border);
 		--ml-input-border-radius: var(--ml-radius);
-		--ml-input-shadow: var(--ml-shadow-xs);
+		--ml-input-shadow: none;
 		--ml-input-hover-border-color: var(--ml-color-border);
 		--ml-input-padding: var(--ml-space-2-5) var(--ml-space-3-5);
 		--ml-input-gap: var(--ml-space-2);
@@ -6085,9 +6085,9 @@ const textareaStyles = () => css`
 		/* --- Field --- */
 		--ml-textarea-bg: var(--ml-color-input-bg);
 		--ml-textarea-border-width: var(--ml-border);
-		--ml-textarea-border-color: var(--ml-color-border-strong);
+		--ml-textarea-border-color: var(--ml-color-border);
 		--ml-textarea-border-radius: var(--ml-radius);
-		--ml-textarea-shadow: var(--ml-shadow-xs);
+		--ml-textarea-shadow: none;
 		--ml-textarea-color: var(--ml-color-text);
 		--ml-textarea-font-family: var(--ml-font-sans);
 		--ml-textarea-font-size: var(--ml-text-sm);
@@ -7672,7 +7672,7 @@ const selectStyles = () => css`
 		--ml-select-required-color: var(--ml-color-danger);
 
 		/* --- Trigger --- */
-		--ml-select-bg: var(--ml-color-surface);
+		--ml-select-bg: var(--ml-color-input-bg);
 		--ml-select-border-width: var(--ml-border);
 		--ml-select-border-color: var(--ml-color-border);
 		--ml-select-border-radius: var(--ml-radius);
@@ -9575,11 +9575,11 @@ const datePickerStyles = () => css`
 		--ml-date-picker-bg: var(--ml-color-input-bg);
 		--ml-date-picker-border-width: var(--ml-border);
 		--ml-date-picker-border-color: var(--ml-color-border);
-		--ml-date-picker-border-radius: var(--ml-radius-md);
+		--ml-date-picker-border-radius: var(--ml-radius);
 		--ml-date-picker-color: var(--ml-color-text);
 		--ml-date-picker-font-family: var(--ml-font-sans);
 		--ml-date-picker-font-size: var(--ml-text-sm);
-		--ml-date-picker-padding: var(--ml-space-2) var(--ml-space-3);
+		--ml-date-picker-padding: var(--ml-space-2-5) var(--ml-space-3-5);
 		--ml-date-picker-gap: var(--ml-space-2);
 		--ml-date-picker-hover-border-color: var(--ml-color-border-strong);
 
@@ -9589,12 +9589,12 @@ const datePickerStyles = () => css`
 
 		/* --- Error --- */
 		--ml-date-picker-error-border-color: var(--ml-color-danger);
-		--ml-date-picker-error-focus-shadow: 0 0 0 3px rgba(239, 68, 68, 0.15);
+		--ml-date-picker-error-focus-shadow: var(--ml-shadow-ring-error);
 		--ml-date-picker-error-color: var(--ml-color-danger);
 
 		/* --- Disabled --- */
 		--ml-date-picker-disabled-opacity: 0.5;
-		--ml-date-picker-disabled-bg: var(--ml-color-surface-sunken);
+		--ml-date-picker-disabled-bg: var(--ml-color-input-disabled-bg);
 
 		/* --- Icon --- */
 		--ml-date-picker-icon-color: var(--ml-color-text-muted);
@@ -9685,17 +9685,17 @@ const datePickerStyles = () => css`
 
 	/* Sizes */
 	.ml-date-picker--sm .ml-date-picker__trigger {
-		padding: var(--ml-space-1-5) var(--ml-space-2-5);
-		font-size: var(--ml-text-xs);
-	}
-
-	.ml-date-picker--md .ml-date-picker__trigger {
 		padding: var(--ml-space-2) var(--ml-space-3);
 		font-size: var(--ml-text-sm);
 	}
 
-	.ml-date-picker--lg .ml-date-picker__trigger {
+	.ml-date-picker--md .ml-date-picker__trigger {
 		padding: var(--ml-space-2-5) var(--ml-space-3-5);
+		font-size: var(--ml-text-sm);
+	}
+
+	.ml-date-picker--lg .ml-date-picker__trigger {
+		padding: var(--ml-space-3) var(--ml-space-3-5);
 		font-size: var(--ml-text-base);
 	}
 

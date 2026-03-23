@@ -17,7 +17,7 @@ export const autocompleteStyles = () => css`
 		--ml-autocomplete-required-color: var(--ml-color-danger);
 
 		/* --- Trigger --- */
-		--ml-autocomplete-bg: var(--ml-color-surface);
+		--ml-autocomplete-bg: var(--ml-color-input-bg);
 		--ml-autocomplete-border-width: var(--ml-border);
 		--ml-autocomplete-border-color: var(--ml-color-border);
 		--ml-autocomplete-border-radius: var(--ml-radius);

@@ -18,9 +18,9 @@ export const textareaStyles = () => css`
 		/* --- Field --- */
 		--ml-textarea-bg: var(--ml-color-input-bg);
 		--ml-textarea-border-width: var(--ml-border);
-		--ml-textarea-border-color: var(--ml-color-border-strong);
+		--ml-textarea-border-color: var(--ml-color-border);
 		--ml-textarea-border-radius: var(--ml-radius);
-		--ml-textarea-shadow: var(--ml-shadow-xs);
+		--ml-textarea-shadow: none;
 		--ml-textarea-color: var(--ml-color-text);
 		--ml-textarea-font-family: var(--ml-font-sans);
 		--ml-textarea-font-size: var(--ml-text-sm);

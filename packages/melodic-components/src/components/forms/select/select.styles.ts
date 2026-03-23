@@ -17,7 +17,7 @@ export const selectStyles = () => css`
 		--ml-select-required-color: var(--ml-color-danger);
 
 		/* --- Trigger --- */
-		--ml-select-bg: var(--ml-color-surface);
+		--ml-select-bg: var(--ml-color-input-bg);
 		--ml-select-border-width: var(--ml-border);
 		--ml-select-border-color: var(--ml-color-border);
 		--ml-select-border-radius: var(--ml-radius);
