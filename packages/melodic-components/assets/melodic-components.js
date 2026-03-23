@@ -22740,6 +22740,8 @@ const authLayoutCss = `
 
 		/* Split variant */
 		--ml-auth-split-padding: var(--ml-space-10);
+		--ml-auth-split-form-padding: var(--ml-auth-split-padding);
+		--ml-auth-split-brand-padding: var(--ml-auth-split-padding);
 		--ml-auth-split-form-bg: var(--ml-color-surface);
 		--ml-auth-split-brand-bg: var(--ml-color-primary);
 		--ml-auth-split-brand-color: var(--ml-color-text-inverse);
@@ -22811,7 +22813,7 @@ const authLayoutCss = `
 		align-items: center;
 		justify-content: center;
 		flex: 1;
-		padding: var(--ml-auth-split-padding);
+		padding: var(--ml-auth-split-form-padding);
 		background-color: var(--ml-auth-split-form-bg);
 	}
 
@@ -22825,7 +22827,7 @@ const authLayoutCss = `
 		align-items: center;
 		justify-content: center;
 		flex: 1;
-		padding: var(--ml-auth-split-padding);
+		padding: var(--ml-auth-split-brand-padding);
 		background-color: var(--ml-auth-split-brand-bg);
 		color: var(--ml-auth-split-brand-color);
 		position: relative;
@@ -22836,6 +22838,8 @@ const authLayoutCss = `
 		position: relative;
 		z-index: 1;
 		text-align: center;
+		width: 100%;
+		height: 100%;
 		max-width: var(--ml-auth-split-brand-max-width);
 	}
 
