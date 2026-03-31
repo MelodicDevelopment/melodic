@@ -1,6 +1,6 @@
 {
 	"name": "@melodicdev/components",
-	"version": "1.5.5",
+	"version": "1.5.6",
 	"description": "Themeable UI component library built on the Melodic Framework",
 	"license": "MIT",
 	"author": "Melodic Development",
@@ -279,6 +279,7 @@
 		"@melodicdev/core": "^1.4.7"
 	},
 	"devDependencies": {
+		"@phosphor-icons/web": "^2.1.2",
 		"typescript": "~5.9.3",
 		"vite": "npm:rolldown-vite@7.2.5"
 	}
