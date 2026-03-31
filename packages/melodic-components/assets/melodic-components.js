@@ -16154,7 +16154,7 @@ CalendarViewComponent = __decorate([MelodicComponent({
 	]
 })], CalendarViewComponent);
 const iconTemplate = (c) => {
-	return html`<i class="${c.format === "regular" ? "ph" : `ph-${c.format}`}">${c.format === "regular" ? c.icon : `${c.icon}-${c.format}`}</i>`;
+	return html`<i class="${c.format === "regular" ? "ph" : `ph-${c.format}`}">${c.icon}</i>`;
 };
 const iconStyles = () => css`
 	:host {
