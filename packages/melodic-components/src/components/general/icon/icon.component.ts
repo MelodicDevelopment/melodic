@@ -21,7 +21,7 @@ import { iconStyles } from './icon.styles.js';
 	attributes: ['icon', 'format', 'size']
 })
 export class IconComponent {
-	/** phosphor icon ligature */
+	/** phosphor icon name (maps to unicode codepoint) */
 	public icon: string = '';
 
 	/** phosphor icon format */

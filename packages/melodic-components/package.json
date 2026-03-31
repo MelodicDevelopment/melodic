@@ -1,6 +1,6 @@
 {
 	"name": "@melodicdev/components",
-	"version": "1.5.4",
+	"version": "1.5.5",
 	"description": "Themeable UI component library built on the Melodic Framework",
 	"license": "MIT",
 	"author": "Melodic Development",
@@ -273,7 +273,8 @@
 		"test": "vitest run",
 		"test:watch": "vitest",
 		"docs": "vite --config vite.config.docs.ts",
-		"docs:build": "vite build --config vite.config.docs.ts"
+		"docs:build": "vite build --config vite.config.docs.ts",
+		"generate:icon-map": "node scripts/generate-icon-map.mjs"
 	},
 	"peerDependencies": {
 		"@melodicdev/core": "^1.4.7"

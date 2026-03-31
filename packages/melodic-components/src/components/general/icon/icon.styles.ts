@@ -33,5 +33,15 @@ export const iconStyles = () => css`
 
 	i {
 		font-size: var(--ml-icon-size);
+		line-height: 1;
+		speak: never;
+		-webkit-font-smoothing: antialiased;
+		-moz-osx-font-smoothing: grayscale;
 	}
+
+	i.ph { font-family: 'Phosphor' !important; }
+	i.ph-bold { font-family: 'Phosphor-Bold' !important; }
+	i.ph-fill { font-family: 'Phosphor-Fill' !important; }
+	i.ph-light { font-family: 'Phosphor-Light' !important; }
+	i.ph-thin { font-family: 'Phosphor-Thin' !important; }
 `;
