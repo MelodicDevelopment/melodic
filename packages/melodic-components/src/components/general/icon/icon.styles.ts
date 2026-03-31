@@ -32,6 +32,7 @@ export const iconStyles = () => css`
 	}
 
 	i {
+		font-style: normal;
 		font-size: var(--ml-icon-size);
 		line-height: 1;
 		speak: never;

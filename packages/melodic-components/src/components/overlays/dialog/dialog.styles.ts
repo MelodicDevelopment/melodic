@@ -161,7 +161,7 @@ export const dialogStyles = () => css`
 
 	/* Body */
 	.ml-dialog-body {
-		flex: 1;
+		flex: 1 1 auto;
 		padding: var(--ml-dialog-body-padding);
 		overflow-y: auto;
 		font-size: var(--ml-dialog-body-font-size);

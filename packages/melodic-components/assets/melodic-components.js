@@ -17720,6 +17720,7 @@ const iconStyles = () => css`
 	}
 
 	i {
+		font-style: normal;
 		font-size: var(--ml-icon-size);
 		line-height: 1;
 		speak: never;
@@ -21723,7 +21724,7 @@ const dialogStyles = () => css`
 
 	/* Body */
 	.ml-dialog-body {
-		flex: 1;
+		flex: 1 1 auto;
 		padding: var(--ml-dialog-body-padding);
 		overflow-y: auto;
 		font-size: var(--ml-dialog-body-font-size);
