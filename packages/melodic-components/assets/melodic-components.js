@@ -5421,6 +5421,10 @@ const buttonStyles = () => css`
 		width: 1.25em;
 		height: 1.25em;
 	}
+
+	::slotted(ml-icon) {
+		--ml-icon-size: 1.125em;
+	}
 `;
 var ButtonComponent = class ButtonComponent$1 {
 	constructor() {
