@@ -162,6 +162,57 @@ export class DateTimePickerComponent implements IElementRef, OnCreate, OnDestroy
 			timePicker.addEventListener('ml:change', handler);
 			this._listeners.push(() => timePicker.removeEventListener('ml:change', handler));
 		}
+
+		// Bridge Tab focus between date input and time input across shadow boundaries.
+		// Internal segment navigation (month→day→year, hour→minute→am/pm) doesn't
+		// fire focusout on the <input>, so we only intercept when focus actually leaves.
+		if (datePicker && timePicker) {
+			const dateInput = datePicker.shadowRoot?.querySelector('input') as HTMLInputElement | null;
+			const timeInput = timePicker.shadowRoot?.querySelector('input') as HTMLInputElement | null;
+
+			if (dateInput && timeInput) {
+				let tabForward = false;
+				let tabBackward = false;
+
+				const dateKeydown = (e: KeyboardEvent) => {
+					if (e.key === 'Tab' && !e.shiftKey) {
+						tabForward = true;
+						requestAnimationFrame(() => { tabForward = false; });
+					}
+				};
+				const dateFocusOut = () => {
+					if (tabForward) {
+						tabForward = false;
+						timeInput.focus();
+					}
+				};
+				dateInput.addEventListener('keydown', dateKeydown);
+				dateInput.addEventListener('focusout', dateFocusOut);
+				this._listeners.push(() => {
+					dateInput.removeEventListener('keydown', dateKeydown);
+					dateInput.removeEventListener('focusout', dateFocusOut);
+				});
+
+				const timeKeydown = (e: KeyboardEvent) => {
+					if (e.key === 'Tab' && e.shiftKey) {
+						tabBackward = true;
+						requestAnimationFrame(() => { tabBackward = false; });
+					}
+				};
+				const timeFocusOut = () => {
+					if (tabBackward) {
+						tabBackward = false;
+						dateInput.focus();
+					}
+				};
+				timeInput.addEventListener('keydown', timeKeydown);
+				timeInput.addEventListener('focusout', timeFocusOut);
+				this._listeners.push(() => {
+					timeInput.removeEventListener('keydown', timeKeydown);
+					timeInput.removeEventListener('focusout', timeFocusOut);
+				});
+			}
+		}
 	}
 
 	private emitChange(): void {

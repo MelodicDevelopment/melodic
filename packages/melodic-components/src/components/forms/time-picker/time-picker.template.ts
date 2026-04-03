@@ -17,23 +17,34 @@ export function timePickerTemplate(c: TimePickerComponent) {
 				</label>
 			`)}
 
-			<button
-				type="button"
-				class="ml-time-picker__trigger"
-				?disabled=${c.disabled}
-				aria-haspopup="dialog"
-				aria-expanded=${c.isOpen ? 'true' : 'false'}
-				@click=${c.togglePopover}
-				@keydown=${c.handleKeyDown}
-			>
-				<ml-icon icon="clock" size="sm" class="ml-time-picker__icon"></ml-icon>
-				<span class=${classMap({
-					'ml-time-picker__value': true,
-					'ml-time-picker__value--placeholder': !c.value
-				})}>
-					${c.value ? c.displayValue : c.placeholder}
-				</span>
-			</button>
+			<div class="ml-time-picker__trigger">
+				<input
+					type="time"
+					class="ml-time-picker__input"
+					.value=${c.value}
+					min=${c.min}
+					max=${c.max}
+					step=${c.showSeconds ? '1' : '60'}
+					placeholder=${c.placeholder}
+					?disabled=${c.disabled}
+					?required=${c.required}
+					aria-haspopup="dialog"
+					aria-expanded=${c.isOpen ? 'true' : 'false'}
+					@change=${c.handleTimeInput}
+					@click=${c.handleInputClick}
+					@keydown=${c.handleKeyDown}
+				/>
+				<button
+					type="button"
+					class="ml-time-picker__clock-btn"
+					?disabled=${c.disabled}
+					aria-label="Open time picker"
+					tabindex="-1"
+					@click=${c.togglePopover}
+				>
+					<ml-icon icon="clock" size="sm" class="ml-time-picker__icon"></ml-icon>
+				</button>
+			</div>
 
 			<div class="ml-time-picker__popover" popover="auto">
 				<div class="ml-time-picker__spinner-group">

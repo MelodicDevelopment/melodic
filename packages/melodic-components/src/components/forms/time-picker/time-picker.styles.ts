@@ -123,32 +123,24 @@ export const timePickerStyles = () => css`
 		margin-left: var(--ml-space-0-5);
 	}
 
-	/* Trigger button */
+	/* Trigger wrapper */
 	.ml-time-picker__trigger {
 		display: flex;
 		align-items: center;
-		gap: var(--ml-time-picker-gap);
 		width: 100%;
-		padding: var(--ml-time-picker-padding);
 		border: var(--ml-time-picker-border-width) solid var(--ml-time-picker-border-color);
 		border-radius: var(--ml-time-picker-border-radius);
 		background-color: var(--ml-time-picker-bg);
-		color: var(--ml-time-picker-color);
-		cursor: pointer;
-		font-family: var(--ml-time-picker-font-family);
-		font-size: var(--ml-time-picker-font-size);
-		text-align: left;
 		transition:
 			border-color var(--ml-time-picker-transition-duration) var(--ml-time-picker-transition-easing),
 			box-shadow var(--ml-time-picker-transition-duration) var(--ml-time-picker-transition-easing);
 	}
 
-	.ml-time-picker__trigger:hover:not(:disabled) {
+	.ml-time-picker__trigger:hover:not(:has(:disabled)) {
 		border-color: var(--ml-time-picker-hover-border-color);
 	}
 
-	.ml-time-picker__trigger:focus-visible {
-		outline: none;
+	.ml-time-picker__trigger:focus-within {
 		border-color: var(--ml-time-picker-focus-border-color);
 		box-shadow: var(--ml-time-picker-focus-shadow);
 	}
@@ -162,7 +154,7 @@ export const timePickerStyles = () => css`
 		border-color: var(--ml-time-picker-error-border-color);
 	}
 
-	.ml-time-picker--error .ml-time-picker__trigger:focus-visible,
+	.ml-time-picker--error .ml-time-picker__trigger:focus-within,
 	.ml-time-picker--error.ml-time-picker--open .ml-time-picker__trigger {
 		box-shadow: var(--ml-time-picker-error-focus-shadow);
 	}
@@ -173,39 +165,73 @@ export const timePickerStyles = () => css`
 		background-color: var(--ml-time-picker-disabled-bg);
 	}
 
+	/* Time input */
+	.ml-time-picker__input {
+		flex: 1;
+		min-width: 0;
+		border: none;
+		outline: none;
+		background: transparent;
+		color: var(--ml-time-picker-color);
+		font-family: var(--ml-time-picker-font-family);
+		font-size: var(--ml-time-picker-font-size);
+		padding: var(--ml-time-picker-padding);
+	}
+
+	/* Hide native time picker indicator across browsers */
+	.ml-time-picker__input::-webkit-calendar-picker-indicator {
+		display: none;
+		-webkit-appearance: none;
+	}
+
+	.ml-time-picker__input::-webkit-date-and-time-value {
+		text-align: left;
+	}
+
+	.ml-time-picker__input:disabled {
+		cursor: not-allowed;
+	}
+
 	/* Sizes */
-	.ml-time-picker--sm .ml-time-picker__trigger {
+	.ml-time-picker--sm .ml-time-picker__input {
 		padding: var(--ml-space-2) var(--ml-space-3);
 		font-size: var(--ml-text-sm);
 	}
 
-	.ml-time-picker--md .ml-time-picker__trigger {
+	.ml-time-picker--md .ml-time-picker__input {
 		padding: var(--ml-space-2-5) var(--ml-space-3-5);
 		font-size: var(--ml-text-sm);
 	}
 
-	.ml-time-picker--lg .ml-time-picker__trigger {
+	.ml-time-picker--lg .ml-time-picker__input {
 		padding: var(--ml-space-3) var(--ml-space-3-5);
 		font-size: var(--ml-text-base);
+	}
+
+	/* Clock button */
+	.ml-time-picker__clock-btn {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		border: none;
+		background: transparent;
+		cursor: pointer;
+		padding: 0 var(--ml-space-3) 0 0;
+		color: var(--ml-time-picker-icon-color);
+		transition: color var(--ml-time-picker-transition-duration) var(--ml-time-picker-transition-easing);
+	}
+
+	.ml-time-picker__clock-btn:hover:not(:disabled) {
+		color: var(--ml-time-picker-color);
+	}
+
+	.ml-time-picker__clock-btn:disabled {
+		cursor: not-allowed;
 	}
 
 	/* Icon */
 	.ml-time-picker__icon {
 		flex-shrink: 0;
-		color: var(--ml-time-picker-icon-color);
-	}
-
-	/* Value */
-	.ml-time-picker__value {
-		flex: 1;
-		min-width: 0;
-		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
-	}
-
-	.ml-time-picker__value--placeholder {
-		color: var(--ml-time-picker-placeholder-color);
 	}
 
 	/* Popover */

@@ -4,20 +4,10 @@ import { computePosition, autoUpdate, offset, flip, shift } from '../../../utils
 import { datePickerTemplate } from './date-picker.template.js';
 import { datePickerStyles } from './date-picker.styles.js';
 
-const MONTH_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-
-function formatDisplay(iso: string): string {
-	if (!iso) return '';
-	const parts = iso.split('-');
-	if (parts.length !== 3) return iso;
-	const month = parseInt(parts[1], 10) - 1;
-	const day = parseInt(parts[2], 10);
-	const year = parseInt(parts[0], 10);
-	return `${MONTH_SHORT[month]} ${day}, ${year}`;
-}
-
 /**
  * ml-date-picker - Date input with calendar dropdown
+ *
+ * Users can type a date directly into the input or pick from the calendar popover.
  *
  * @example
  * ```html
@@ -71,10 +61,6 @@ export class DatePickerComponent implements IElementRef, OnCreate, OnDestroy {
 
 	private _cleanupAutoUpdate: (() => void) | null = null;
 
-	public get displayValue(): string {
-		return formatDisplay(this.value);
-	}
-
 	public onCreate(): void {
 		const popoverEl = this.getPopoverEl();
 		if (popoverEl) {
@@ -98,7 +84,20 @@ export class DatePickerComponent implements IElementRef, OnCreate, OnDestroy {
 		}
 	};
 
-	/** Called when a day is clicked - selects immediately and closes */
+	/** Called when the user types a date into the input */
+	public handleInput = (event: Event): void => {
+		const input = event.target as HTMLInputElement;
+		this.commitValue(input.value);
+	};
+
+	/** Clicking the input opens the calendar */
+	public handleInputClick = (): void => {
+		if (!this.isOpen) {
+			this.toggleCalendar();
+		}
+	};
+
+	/** Called when a day is clicked in the calendar - selects immediately and closes */
 	public handleDateSelect = (event: Event): void => {
 		event.stopPropagation();
 		const detail = (event as CustomEvent).detail as { value: string };
@@ -110,9 +109,20 @@ export class DatePickerComponent implements IElementRef, OnCreate, OnDestroy {
 		if (event.key === 'Escape' && this.isOpen) {
 			event.preventDefault();
 			this.closePopover();
-		} else if ((event.key === 'Enter' || event.key === ' ' || event.key === 'ArrowDown') && !this.isOpen) {
+		}
+		// Prevent Space from triggering the native date picker
+		if (event.key === ' ') {
 			event.preventDefault();
-			this.toggleCalendar();
+			if (!this.isOpen) {
+				this.toggleCalendar();
+			}
+		}
+		// Prevent F4 / Alt+Down from triggering the native picker in some browsers
+		if (event.key === 'F4' || (event.altKey && event.key === 'ArrowDown')) {
+			event.preventDefault();
+			if (!this.isOpen) {
+				this.toggleCalendar();
+			}
 		}
 	};
 
@@ -168,10 +178,14 @@ export class DatePickerComponent implements IElementRef, OnCreate, OnDestroy {
 	}
 
 	private returnFocus(): void {
-		const triggerEl = this.getTriggerEl();
-		if (triggerEl) {
-			triggerEl.focus();
+		const inputEl = this.getInputEl();
+		if (inputEl) {
+			inputEl.focus();
 		}
+	}
+
+	private getInputEl(): HTMLElement | null {
+		return this.elementRef.shadowRoot?.querySelector('.ml-date-picker__input') as HTMLElement | null;
 	}
 
 	private getTriggerEl(): HTMLElement | null {

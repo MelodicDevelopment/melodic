@@ -9530,23 +9530,33 @@ function datePickerTemplate(c) {
 				</label>
 			`)}
 
-			<button
-				type="button"
-				class="ml-date-picker__trigger"
-				?disabled=${c.disabled}
-				aria-haspopup="dialog"
-				aria-expanded=${c.isOpen ? "true" : "false"}
-				@click=${c.toggleCalendar}
-				@keydown=${c.handleKeyDown}
-			>
-				<ml-icon icon="calendar-blank" size="sm" class="ml-date-picker__icon"></ml-icon>
-				<span class=${classMap({
-		"ml-date-picker__value": true,
-		"ml-date-picker__value--placeholder": !c.value
-	})}>
-					${c.value ? c.displayValue : c.placeholder}
-				</span>
-			</button>
+			<div class="ml-date-picker__trigger">
+				<input
+					type="date"
+					class="ml-date-picker__input"
+					.value=${c.value}
+					min=${c.min}
+					max=${c.max}
+					placeholder=${c.placeholder}
+					?disabled=${c.disabled}
+					?required=${c.required}
+					aria-haspopup="dialog"
+					aria-expanded=${c.isOpen ? "true" : "false"}
+					@change=${c.handleInput}
+					@click=${c.handleInputClick}
+					@keydown=${c.handleKeyDown}
+				/>
+				<button
+					type="button"
+					class="ml-date-picker__calendar-btn"
+					?disabled=${c.disabled}
+					aria-label="Open calendar"
+					tabindex="-1"
+					@click=${c.toggleCalendar}
+				>
+					<ml-icon icon="calendar-blank" size="sm" class="ml-date-picker__icon"></ml-icon>
+				</button>
+			</div>
 
 			<div class="ml-date-picker__popover" popover="auto">
 				<ml-calendar
@@ -9637,32 +9647,24 @@ const datePickerStyles = () => css`
 		margin-left: var(--ml-space-0-5);
 	}
 
-	/* Trigger button */
+	/* Trigger wrapper */
 	.ml-date-picker__trigger {
 		display: flex;
 		align-items: center;
-		gap: var(--ml-date-picker-gap);
 		width: 100%;
-		padding: var(--ml-date-picker-padding);
 		border: var(--ml-date-picker-border-width) solid var(--ml-date-picker-border-color);
 		border-radius: var(--ml-date-picker-border-radius);
 		background-color: var(--ml-date-picker-bg);
-		color: var(--ml-date-picker-color);
-		cursor: pointer;
-		font-family: var(--ml-date-picker-font-family);
-		font-size: var(--ml-date-picker-font-size);
-		text-align: left;
 		transition:
 			border-color var(--ml-date-picker-transition-duration) var(--ml-date-picker-transition-easing),
 			box-shadow var(--ml-date-picker-transition-duration) var(--ml-date-picker-transition-easing);
 	}
 
-	.ml-date-picker__trigger:hover:not(:disabled) {
+	.ml-date-picker__trigger:hover:not(:has(:disabled)) {
 		border-color: var(--ml-date-picker-hover-border-color);
 	}
 
-	.ml-date-picker__trigger:focus-visible {
-		outline: none;
+	.ml-date-picker__trigger:focus-within {
 		border-color: var(--ml-date-picker-focus-border-color);
 		box-shadow: var(--ml-date-picker-focus-shadow);
 	}
@@ -9676,7 +9678,7 @@ const datePickerStyles = () => css`
 		border-color: var(--ml-date-picker-error-border-color);
 	}
 
-	.ml-date-picker--error .ml-date-picker__trigger:focus-visible,
+	.ml-date-picker--error .ml-date-picker__trigger:focus-within,
 	.ml-date-picker--error.ml-date-picker--open .ml-date-picker__trigger {
 		box-shadow: var(--ml-date-picker-error-focus-shadow);
 	}
@@ -9687,39 +9689,73 @@ const datePickerStyles = () => css`
 		background-color: var(--ml-date-picker-disabled-bg);
 	}
 
+	/* Date input */
+	.ml-date-picker__input {
+		flex: 1;
+		min-width: 0;
+		border: none;
+		outline: none;
+		background: transparent;
+		color: var(--ml-date-picker-color);
+		font-family: var(--ml-date-picker-font-family);
+		font-size: var(--ml-date-picker-font-size);
+		padding: var(--ml-date-picker-padding);
+	}
+
+	/* Hide native date picker indicator across browsers */
+	.ml-date-picker__input::-webkit-calendar-picker-indicator {
+		display: none;
+		-webkit-appearance: none;
+	}
+
+	.ml-date-picker__input::-webkit-date-and-time-value {
+		text-align: left;
+	}
+
+	.ml-date-picker__input:disabled {
+		cursor: not-allowed;
+	}
+
 	/* Sizes */
-	.ml-date-picker--sm .ml-date-picker__trigger {
+	.ml-date-picker--sm .ml-date-picker__input {
 		padding: var(--ml-space-2) var(--ml-space-3);
 		font-size: var(--ml-text-sm);
 	}
 
-	.ml-date-picker--md .ml-date-picker__trigger {
+	.ml-date-picker--md .ml-date-picker__input {
 		padding: var(--ml-space-2-5) var(--ml-space-3-5);
 		font-size: var(--ml-text-sm);
 	}
 
-	.ml-date-picker--lg .ml-date-picker__trigger {
+	.ml-date-picker--lg .ml-date-picker__input {
 		padding: var(--ml-space-3) var(--ml-space-3-5);
 		font-size: var(--ml-text-base);
+	}
+
+	/* Calendar button */
+	.ml-date-picker__calendar-btn {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		border: none;
+		background: transparent;
+		cursor: pointer;
+		padding: 0 var(--ml-space-3) 0 0;
+		color: var(--ml-date-picker-icon-color);
+		transition: color var(--ml-date-picker-transition-duration) var(--ml-date-picker-transition-easing);
+	}
+
+	.ml-date-picker__calendar-btn:hover:not(:disabled) {
+		color: var(--ml-date-picker-color);
+	}
+
+	.ml-date-picker__calendar-btn:disabled {
+		cursor: not-allowed;
 	}
 
 	/* Icon */
 	.ml-date-picker__icon {
 		flex-shrink: 0;
-		color: var(--ml-date-picker-icon-color);
-	}
-
-	/* Value */
-	.ml-date-picker__value {
-		flex: 1;
-		min-width: 0;
-		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
-	}
-
-	.ml-date-picker__value--placeholder {
-		color: var(--ml-date-picker-placeholder-color);
 	}
 
 	/* Popover */
@@ -9771,29 +9807,6 @@ const datePickerStyles = () => css`
 		color: var(--ml-date-picker-error-color);
 	}
 `;
-var MONTH_SHORT = [
-	"Jan",
-	"Feb",
-	"Mar",
-	"Apr",
-	"May",
-	"Jun",
-	"Jul",
-	"Aug",
-	"Sep",
-	"Oct",
-	"Nov",
-	"Dec"
-];
-function formatDisplay(iso) {
-	if (!iso) return "";
-	const parts = iso.split("-");
-	if (parts.length !== 3) return iso;
-	const month = parseInt(parts[1], 10) - 1;
-	const day = parseInt(parts[2], 10);
-	const year = parseInt(parts[0], 10);
-	return `${MONTH_SHORT[month]} ${day}, ${year}`;
-}
 var DatePickerComponent = class DatePickerComponent$1 {
 	constructor() {
 		this.value = "";
@@ -9813,6 +9826,13 @@ var DatePickerComponent = class DatePickerComponent$1 {
 			const popoverEl = this.getPopoverEl();
 			if (popoverEl) popoverEl.togglePopover();
 		};
+		this.handleInput = (event) => {
+			const input = event.target;
+			this.commitValue(input.value);
+		};
+		this.handleInputClick = () => {
+			if (!this.isOpen) this.toggleCalendar();
+		};
 		this.handleDateSelect = (event) => {
 			event.stopPropagation();
 			const detail = event.detail;
@@ -9823,9 +9843,14 @@ var DatePickerComponent = class DatePickerComponent$1 {
 			if (event.key === "Escape" && this.isOpen) {
 				event.preventDefault();
 				this.closePopover();
-			} else if ((event.key === "Enter" || event.key === " " || event.key === "ArrowDown") && !this.isOpen) {
+			}
+			if (event.key === " ") {
 				event.preventDefault();
-				this.toggleCalendar();
+				if (!this.isOpen) this.toggleCalendar();
+			}
+			if (event.key === "F4" || event.altKey && event.key === "ArrowDown") {
+				event.preventDefault();
+				if (!this.isOpen) this.toggleCalendar();
 			}
 		};
 		this._handleToggle = (event) => {
@@ -9839,9 +9864,6 @@ var DatePickerComponent = class DatePickerComponent$1 {
 				this.returnFocus();
 			}
 		};
-	}
-	get displayValue() {
-		return formatDisplay(this.value);
 	}
 	onCreate() {
 		const popoverEl = this.getPopoverEl();
@@ -9885,8 +9907,11 @@ var DatePickerComponent = class DatePickerComponent$1 {
 		popoverEl.style.top = `${y}px`;
 	}
 	returnFocus() {
-		const triggerEl = this.getTriggerEl();
-		if (triggerEl) triggerEl.focus();
+		const inputEl = this.getInputEl();
+		if (inputEl) inputEl.focus();
+	}
+	getInputEl() {
+		return this.elementRef.shadowRoot?.querySelector(".ml-date-picker__input");
 	}
 	getTriggerEl() {
 		return this.elementRef.shadowRoot?.querySelector(".ml-date-picker__trigger");

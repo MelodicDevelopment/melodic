@@ -216,13 +216,37 @@ export class TimePickerComponent implements IElementRef, OnCreate, OnDestroy {
 		this.editPeriod = this.editHour >= 12 ? 'PM' : 'AM';
 	};
 
+	/** Called when the user types a time into the input */
+	public handleTimeInput = (event: Event): void => {
+		const input = event.target as HTMLInputElement;
+		this.commitValue(input.value);
+	};
+
+	/** Clicking the input opens the popover */
+	public handleInputClick = (): void => {
+		if (!this.isOpen) {
+			this.togglePopover();
+		}
+	};
+
 	public handleKeyDown = (event: KeyboardEvent): void => {
 		if (event.key === 'Escape' && this.isOpen) {
 			event.preventDefault();
 			this.closePopover();
-		} else if ((event.key === 'Enter' || event.key === ' ' || event.key === 'ArrowDown') && !this.isOpen) {
+		}
+		// Prevent Space from triggering the native time picker
+		if (event.key === ' ') {
 			event.preventDefault();
-			this.togglePopover();
+			if (!this.isOpen) {
+				this.togglePopover();
+			}
+		}
+		// Prevent F4 / Alt+Down from triggering the native picker in some browsers
+		if (event.key === 'F4' || (event.altKey && event.key === 'ArrowDown')) {
+			event.preventDefault();
+			if (!this.isOpen) {
+				this.togglePopover();
+			}
 		}
 	};
 
@@ -371,10 +395,14 @@ export class TimePickerComponent implements IElementRef, OnCreate, OnDestroy {
 	}
 
 	private returnFocus(): void {
-		const triggerEl = this.getTriggerEl();
-		if (triggerEl) {
-			triggerEl.focus();
+		const inputEl = this.getInputEl();
+		if (inputEl) {
+			inputEl.focus();
 		}
+	}
+
+	private getInputEl(): HTMLElement | null {
+		return this.elementRef.shadowRoot?.querySelector('.ml-time-picker__input') as HTMLElement | null;
 	}
 
 	private getTriggerEl(): HTMLElement | null {
