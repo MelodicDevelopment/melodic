@@ -101,6 +101,12 @@ export class AutocompleteComponent implements IElementRef, OnCreate, OnDestroy {
 	/** Resolved async results */
 	public asyncOptions: AutocompleteOption[] = [];
 
+	/** Initial option providing label for pre-set value (single mode, async) */
+	public initialOption: AutocompleteOption | null = null;
+
+	/** Initial options providing labels for pre-set values (multi mode, async) */
+	public initialOptions: AutocompleteOption[] = [];
+
 	private readonly _handleKeyDown = this.onKeyDown.bind(this);
 	private readonly _handleDocumentClick = this.onDocumentClick.bind(this);
 	private _handleScroll: ((event: Event) => void) | null = null;
@@ -173,7 +179,8 @@ export class AutocompleteComponent implements IElementRef, OnCreate, OnDestroy {
 	/** Get the selected option (single mode) */
 	public get selectedOption(): AutocompleteOption | undefined {
 		return this.allOptions.find((opt) => opt.value === this.value)
-			?? this.options.find((opt) => opt.value === this.value);
+			?? this.options.find((opt) => opt.value === this.value)
+			?? (this.initialOption?.value === this.value ? this.initialOption : undefined);
 	}
 
 	/** Get selected options (multi mode) */
@@ -183,8 +190,10 @@ export class AutocompleteComponent implements IElementRef, OnCreate, OnDestroy {
 		}
 		const found = this.allOptions.filter((opt) => this.values.includes(opt.value));
 		const foundValues = new Set(found.map((opt) => opt.value));
-		const fallback = this.options.filter((opt) => this.values.includes(opt.value) && !foundValues.has(opt.value));
-		return [...found, ...fallback];
+		const staticFallback = this.options.filter((opt) => this.values.includes(opt.value) && !foundValues.has(opt.value));
+		staticFallback.forEach((opt) => foundValues.add(opt.value));
+		const initialFallback = this.initialOptions.filter((opt) => this.values.includes(opt.value) && !foundValues.has(opt.value));
+		return [...found, ...staticFallback, ...initialFallback];
 	}
 
 	/** All available options (static or async) */

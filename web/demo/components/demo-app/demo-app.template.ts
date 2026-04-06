@@ -551,6 +551,15 @@ export const demoAppTemplate = (c: DemoApp) => {
 								.debounce=${300}
 								hint="Simulated async search with 500ms delay"
 							></ml-autocomplete>
+							<ml-autocomplete
+								label="Async + Pre-set Value"
+								placeholder="Type to search..."
+								.searchFn=${c.autocompleteSearchFn}
+								.debounce=${300}
+								value="melodic"
+								.initialOption=${{ value: 'melodic', label: 'Melodic', subtitle: 'Lightweight web component framework', icon: 'music-notes' }}
+								hint="Pre-set value resolves label via initialOption before async loads"
+							></ml-autocomplete>
 							<ml-autocomplete label="Disabled" placeholder="Cannot search" .options=${c.countryOptions} disabled></ml-autocomplete>
 						</div>
 					</section>
