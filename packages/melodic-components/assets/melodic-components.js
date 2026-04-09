@@ -5144,32 +5144,51 @@ SpinnerComponent = __decorate([MelodicComponent({
 	attributes: ["size", "label"]
 })], SpinnerComponent);
 function buttonTemplate(c) {
-	return html`
-		<button
-			type="${c.type}"
-			class=${classMap({
+	const classes = classMap({
 		"ml-button": true,
 		[`ml-button--${c.variant}`]: true,
 		[`ml-button--${c.size}`]: true,
 		"ml-button--disabled": c.isDisabled,
 		"ml-button--loading": c.loading,
 		"ml-button--full-width": c.fullWidth
-	})}
+	});
+	const content = html`
+		${when(c.loading, () => html`
+				<span class="ml-button__spinner">
+					<ml-spinner size="sm"></ml-spinner>
+				</span>
+			`)}
+		<span class="ml-button__content">
+			<slot name="icon-start"></slot>
+			<slot></slot>
+			<slot name="icon-end"></slot>
+		</span>
+	`;
+	if (c.href != null) return html`
+			<a
+				href=${c.isDisabled ? void 0 : c.href}
+				target=${c.target ?? void 0}
+				rel=${c.rel ?? void 0}
+				download=${c.download ?? void 0}
+				class=${classes}
+				role="button"
+				@click=${c.handleClick}
+				aria-disabled=${c.isDisabled ? "true" : "false"}
+				aria-busy=${c.loading ? "true" : "false"}
+			>
+				${content}
+			</a>
+		`;
+	return html`
+		<button
+			type="${c.type}"
+			class=${classes}
 			?disabled=${c.isDisabled}
 			@click=${c.handleClick}
 			aria-disabled=${c.isDisabled ? "true" : "false"}
 			aria-busy=${c.loading ? "true" : "false"}
 		>
-			${when(c.loading, () => html`
-					<span class="ml-button__spinner">
-						<ml-spinner size="sm"></ml-spinner>
-					</span>
-				`)}
-			<span class="ml-button__content">
-				<slot name="icon-start"></slot>
-				<slot></slot>
-				<slot name="icon-end"></slot>
-			</span>
+			${content}
 		</button>
 	`;
 }
@@ -5434,6 +5453,10 @@ var ButtonComponent = class ButtonComponent$1 {
 		this.disabled = false;
 		this.loading = false;
 		this.fullWidth = false;
+		this.href = null;
+		this.target = null;
+		this.rel = null;
+		this.download = null;
 		this.handleClick = (event) => {
 			if (this.isDisabled) {
 				event.preventDefault();
@@ -5464,7 +5487,11 @@ ButtonComponent = __decorate([MelodicComponent({
 		"type",
 		"disabled",
 		"loading",
-		"full-width"
+		"full-width",
+		"href",
+		"target",
+		"rel",
+		"download"
 	]
 })], ButtonComponent);
 function buttonGroupTemplate(c) {

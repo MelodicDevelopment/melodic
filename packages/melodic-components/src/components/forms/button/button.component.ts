@@ -29,7 +29,7 @@ import { buttonStyles } from './button.styles.js';
 	selector: 'ml-button',
 	template: buttonTemplate,
 	styles: buttonStyles,
-	attributes: ['variant', 'size', 'type', 'disabled', 'loading', 'full-width']
+	attributes: ['variant', 'size', 'type', 'disabled', 'loading', 'full-width', 'href', 'target', 'rel', 'download']
 })
 export class ButtonComponent implements IElementRef, OnInit {
 	public elementRef!: HTMLElement;
@@ -51,6 +51,18 @@ export class ButtonComponent implements IElementRef, OnInit {
 
 	/** Make button full width */
 	public fullWidth = false;
+
+	/** If set, renders as an anchor tag instead of a button */
+	public href: string | null = null;
+
+	/** Anchor target (only used when href is set) */
+	public target: string | null = null;
+
+	/** Anchor rel (only used when href is set) */
+	public rel: string | null = null;
+
+	/** Anchor download (only used when href is set) */
+	public download: string | null = null;
 
 	public onInit(): void {
 		// Ensure proper ARIA role

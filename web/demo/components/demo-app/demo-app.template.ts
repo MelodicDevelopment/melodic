@@ -262,6 +262,19 @@ export const demoAppTemplate = (c: DemoApp) => {
 							</div>
 						</div>
 
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>As Anchor (href)</h3>
+								<p>Set <code>href</code> to render as an <code>&lt;a&gt;</code> — right-click to open in a new tab.</p>
+							</div>
+							<div class="demo-row">
+								<ml-button href="https://melodic.dev" target="_blank" rel="noopener">External Link</ml-button>
+								<ml-button href="#buttons" variant="secondary">Internal Link</ml-button>
+								<ml-button href="https://melodic.dev" variant="outline">Outline</ml-button>
+								<ml-button href="https://melodic.dev" variant="link">Link Variant</ml-button>
+								<ml-button href="https://melodic.dev" disabled>Disabled Link</ml-button>
+							</div>
+						</div>
 					</section>
 
 					<!-- Button Groups Section -->
@@ -534,7 +547,13 @@ export const demoAppTemplate = (c: DemoApp) => {
 						<div class="demo-grid">
 							<ml-autocomplete label="Country" placeholder="Search countries..." .options=${c.countryOptions}></ml-autocomplete>
 							<ml-autocomplete label="With Subtitles" placeholder="Search users..." .options=${c.autocompleteUserOptions}></ml-autocomplete>
-							<ml-autocomplete label="With Error" placeholder="Search..." .options=${c.countryOptions} .error=${c.autocompleteError} @ml:change=${c.handleAutocompleteErrorChange}></ml-autocomplete>
+							<ml-autocomplete
+								label="With Error"
+								placeholder="Search..."
+								.options=${c.countryOptions}
+								.error=${c.autocompleteError}
+								@ml:change=${c.handleAutocompleteErrorChange}
+							></ml-autocomplete>
 							<ml-autocomplete
 								label="Multi-select"
 								placeholder="Search countries..."
@@ -625,8 +644,18 @@ export const demoAppTemplate = (c: DemoApp) => {
 							</div>
 							<ml-radio-card-group value="business" label="Select a plan">
 								<ml-radio-card value="basic" label="Basic plan" description="Up to 5 users, 10GB storage" detail="$10/mo"></ml-radio-card>
-								<ml-radio-card value="business" label="Business plan" description="Up to 50 users, 100GB storage" detail="$25/mo"></ml-radio-card>
-								<ml-radio-card value="enterprise" label="Enterprise plan" description="Unlimited users, 1TB storage" detail="$99/mo"></ml-radio-card>
+								<ml-radio-card
+									value="business"
+									label="Business plan"
+									description="Up to 50 users, 100GB storage"
+									detail="$25/mo"
+								></ml-radio-card>
+								<ml-radio-card
+									value="enterprise"
+									label="Enterprise plan"
+									description="Unlimited users, 1TB storage"
+									detail="$99/mo"
+								></ml-radio-card>
 							</ml-radio-card-group>
 						</div>
 
@@ -875,7 +904,12 @@ export const demoAppTemplate = (c: DemoApp) => {
 								<h3>States</h3>
 							</div>
 							<div class="demo-grid">
-								<ml-date-time-picker label="With error" .error=${c.dateTimePickerError} required @ml:change=${c.handleDateTimePickerChange}></ml-date-time-picker>
+								<ml-date-time-picker
+									label="With error"
+									.error=${c.dateTimePickerError}
+									required
+									@ml:change=${c.handleDateTimePickerChange}
+								></ml-date-time-picker>
 								<ml-date-time-picker label="Disabled" value="2026-02-08T09:30" disabled></ml-date-time-picker>
 							</div>
 						</div>
@@ -901,31 +935,29 @@ export const demoAppTemplate = (c: DemoApp) => {
 									@ml:change=${c.handleFileChange}
 								></ml-file-upload>
 
-								${c.uploadedFiles.length > 0 ? html`
-									<ml-stack gap="3">
-										${repeat(
-											c.uploadedFiles,
-											(f) => f.name,
-											(f) => html`
-												<ml-file-upload-item
-													name=${f.name}
-													size=${f.size}
-													status=${f.status}
-													progress=${f.progress}
-													error=${f.error}
-													@ml:remove=${c.handleFileRemove}
-													@ml:retry=${c.handleFileRetry}
-												></ml-file-upload-item>
-											`
-										)}
-									</ml-stack>
-								` : ''}
+								${c.uploadedFiles.length > 0
+									? html`
+											<ml-stack gap="3">
+												${repeat(
+													c.uploadedFiles,
+													(f) => f.name,
+													(f) => html`
+														<ml-file-upload-item
+															name=${f.name}
+															size=${f.size}
+															status=${f.status}
+															progress=${f.progress}
+															error=${f.error}
+															@ml:remove=${c.handleFileRemove}
+															@ml:retry=${c.handleFileRetry}
+														></ml-file-upload-item>
+													`
+												)}
+											</ml-stack>
+										`
+									: ''}
 
-								<ml-file-upload
-									label="Click to upload"
-									sublabel="or drag and drop"
-									disabled
-								></ml-file-upload>
+								<ml-file-upload label="Click to upload" sublabel="or drag and drop" disabled></ml-file-upload>
 							</ml-stack>
 						</div>
 
@@ -935,32 +967,13 @@ export const demoAppTemplate = (c: DemoApp) => {
 								<span class="demo-card__badge">4 states</span>
 							</div>
 							<ml-stack gap="3">
-								<ml-file-upload-item
-									name="design-mockup.pdf"
-									size="2.4 MB"
-									status="idle"
-								></ml-file-upload-item>
+								<ml-file-upload-item name="design-mockup.pdf" size="2.4 MB" status="idle"></ml-file-upload-item>
 
-								<ml-file-upload-item
-									name="dashboard-screenshot.png"
-									size="4.1 MB"
-									status="uploading"
-									progress="50"
-								></ml-file-upload-item>
+								<ml-file-upload-item name="dashboard-screenshot.png" size="4.1 MB" status="uploading" progress="50"></ml-file-upload-item>
 
-								<ml-file-upload-item
-									name="brand-guidelines.pdf"
-									size="1.8 MB"
-									status="complete"
-									progress="100"
-								></ml-file-upload-item>
+								<ml-file-upload-item name="brand-guidelines.pdf" size="1.8 MB" status="complete" progress="100"></ml-file-upload-item>
 
-								<ml-file-upload-item
-									name="video-intro.mp4"
-									size="16.2 MB"
-									status="error"
-									error="File size exceeds limit"
-								></ml-file-upload-item>
+								<ml-file-upload-item name="video-intro.mp4" size="16.2 MB" status="error" error="File size exceeds limit"></ml-file-upload-item>
 							</ml-stack>
 						</div>
 
@@ -1084,11 +1097,7 @@ export const demoAppTemplate = (c: DemoApp) => {
 									<span style="font-size: var(--ml-text-sm); color: var(--ml-color-text-muted);">
 										Page ${c.teamPage} of ${c.teamTotalPages}
 									</span>
-									<ml-pagination
-										page=${c.teamPage}
-										total-pages=${c.teamTotalPages}
-										@ml:page-change=${c.handleTeamPageChange}
-									></ml-pagination>
+									<ml-pagination page=${c.teamPage} total-pages=${c.teamTotalPages} @ml:page-change=${c.handleTeamPageChange}></ml-pagination>
 								</div>
 							</ml-table>
 						</div>
@@ -1111,11 +1120,7 @@ export const demoAppTemplate = (c: DemoApp) => {
 							<div class="demo-card__header">
 								<h3>Compact Size</h3>
 							</div>
-							<ml-table
-								.columns=${c.simpleColumns}
-								.rows=${c.invoiceRows}
-								size="sm"
-							></ml-table>
+							<ml-table .columns=${c.simpleColumns} .rows=${c.invoiceRows} size="sm"></ml-table>
 						</div>
 
 						<div class="demo-card">
@@ -1142,7 +1147,10 @@ export const demoAppTemplate = (c: DemoApp) => {
 					<section id="data-grid" class="demo-section">
 						<div class="demo-section__header">
 							<h2>Data Grid</h2>
-							<p>Full-featured spreadsheet-style grid with virtual scrolling, sorting, filtering, selection, pinned columns, column resizing, and reordering.</p>
+							<p>
+								Full-featured spreadsheet-style grid with virtual scrolling, sorting, filtering, selection, pinned columns, column resizing, and
+								reordering.
+							</p>
 						</div>
 
 						<div class="demo-card">
@@ -1476,7 +1484,9 @@ export const demoAppTemplate = (c: DemoApp) => {
 									<span>Pushed 3 commits to <a href="#">main</a></span>
 									<div slot="content">
 										<ml-card variant="outlined">
-											<div style="font-size: var(--ml-text-xs); color: var(--ml-color-text-secondary); display: flex; flex-direction: column; gap: var(--ml-space-1);">
+											<div
+												style="font-size: var(--ml-text-xs); color: var(--ml-color-text-secondary); display: flex; flex-direction: column; gap: var(--ml-space-1);"
+											>
 												<div><strong style="color: var(--ml-color-text)">a1b2c3d</strong> Fix responsive layout on dashboard</div>
 												<div><strong style="color: var(--ml-color-text)">e4f5g6h</strong> Update API error handling</div>
 												<div><strong style="color: var(--ml-color-text)">i7j8k9l</strong> Add unit tests for auth module</div>
@@ -1553,35 +1563,45 @@ export const demoAppTemplate = (c: DemoApp) => {
 								<ml-list-item primary="Olivia Rhye" secondary="Product Designer — Working on the checkout redesign for Q3 launch">
 									<ml-avatar slot="leading" initials="OR" size="sm"></ml-avatar>
 									<div slot="trailing" style="display: flex; align-items: center; gap: var(--ml-space-2);">
-										<span style="width: 8px; height: 8px; border-radius: var(--ml-radius-full); background-color: var(--ml-color-success);"></span>
+										<span
+											style="width: 8px; height: 8px; border-radius: var(--ml-radius-full); background-color: var(--ml-color-success);"
+										></span>
 										<span style="font-size: var(--ml-text-xs); color: var(--ml-color-text-tertiary);">Online</span>
 									</div>
 								</ml-list-item>
 								<ml-list-item primary="Phoenix Baker" secondary="Engineering Lead — Reviewing pull requests and sprint planning">
 									<ml-avatar slot="leading" initials="PB" size="sm"></ml-avatar>
 									<div slot="trailing" style="display: flex; align-items: center; gap: var(--ml-space-2);">
-										<span style="width: 8px; height: 8px; border-radius: var(--ml-radius-full); background-color: var(--ml-color-success);"></span>
+										<span
+											style="width: 8px; height: 8px; border-radius: var(--ml-radius-full); background-color: var(--ml-color-success);"
+										></span>
 										<span style="font-size: var(--ml-text-xs); color: var(--ml-color-text-tertiary);">Online</span>
 									</div>
 								</ml-list-item>
 								<ml-list-item primary="Lana Steiner" secondary="Frontend Developer — Out for lunch, back at 1:00 PM">
 									<ml-avatar slot="leading" initials="LS" size="sm"></ml-avatar>
 									<div slot="trailing" style="display: flex; align-items: center; gap: var(--ml-space-2);">
-										<span style="width: 8px; height: 8px; border-radius: var(--ml-radius-full); background-color: var(--ml-color-warning);"></span>
+										<span
+											style="width: 8px; height: 8px; border-radius: var(--ml-radius-full); background-color: var(--ml-color-warning);"
+										></span>
 										<span style="font-size: var(--ml-text-xs); color: var(--ml-color-text-tertiary);">Away</span>
 									</div>
 								</ml-list-item>
 								<ml-list-item primary="Demi Wilkinson" secondary="QA Engineer — Last seen yesterday at 5:32 PM">
 									<ml-avatar slot="leading" initials="DW" size="sm"></ml-avatar>
 									<div slot="trailing" style="display: flex; align-items: center; gap: var(--ml-space-2);">
-										<span style="width: 8px; height: 8px; border-radius: var(--ml-radius-full); background-color: var(--ml-color-text-tertiary);"></span>
+										<span
+											style="width: 8px; height: 8px; border-radius: var(--ml-radius-full); background-color: var(--ml-color-text-tertiary);"
+										></span>
 										<span style="font-size: var(--ml-text-xs); color: var(--ml-color-text-tertiary);">Offline</span>
 									</div>
 								</ml-list-item>
 								<ml-list-item primary="Candice Wu" secondary="Backend Developer — In a meeting until 3:00 PM">
 									<ml-avatar slot="leading" initials="CW" size="sm"></ml-avatar>
 									<div slot="trailing" style="display: flex; align-items: center; gap: var(--ml-space-2);">
-										<span style="width: 8px; height: 8px; border-radius: var(--ml-radius-full); background-color: var(--ml-color-error);"></span>
+										<span
+											style="width: 8px; height: 8px; border-radius: var(--ml-radius-full); background-color: var(--ml-color-error);"
+										></span>
 										<span style="font-size: var(--ml-text-xs); color: var(--ml-color-text-tertiary);">Busy</span>
 									</div>
 								</ml-list-item>
@@ -1623,13 +1643,21 @@ export const demoAppTemplate = (c: DemoApp) => {
 							</div>
 							<ml-list>
 								<ml-list-item primary="Edit profile" secondary="Change your name, bio, avatar, and public profile details" interactive>
-									<ml-avatar slot="leading" size="xs" style="background-color: var(--ml-color-primary-light); color: var(--ml-color-primary);">
+									<ml-avatar
+										slot="leading"
+										size="xs"
+										style="background-color: var(--ml-color-primary-light); color: var(--ml-color-primary);"
+									>
 										<ml-icon icon="user" size="xs"></ml-icon>
 									</ml-avatar>
 									<ml-icon slot="trailing" icon="caret-right" size="sm" style="color: var(--ml-color-text-tertiary);"></ml-icon>
 								</ml-list-item>
 								<ml-list-item primary="Notifications" secondary="Choose which emails and push alerts you receive for updates" interactive>
-									<ml-avatar slot="leading" size="xs" style="background-color: var(--ml-color-warning-light); color: var(--ml-color-warning);">
+									<ml-avatar
+										slot="leading"
+										size="xs"
+										style="background-color: var(--ml-color-warning-light); color: var(--ml-color-warning);"
+									>
 										<ml-icon icon="bell" size="xs"></ml-icon>
 									</ml-avatar>
 									<div slot="trailing" style="display: flex; align-items: center; gap: var(--ml-space-2);">
@@ -1637,14 +1665,26 @@ export const demoAppTemplate = (c: DemoApp) => {
 										<ml-icon icon="caret-right" size="sm" style="color: var(--ml-color-text-tertiary);"></ml-icon>
 									</div>
 								</ml-list-item>
-								<ml-list-item primary="Security" secondary="Update your password, enable two-factor auth, and review login sessions" interactive>
-									<ml-avatar slot="leading" size="xs" style="background-color: var(--ml-color-success-light); color: var(--ml-color-success);">
+								<ml-list-item
+									primary="Security"
+									secondary="Update your password, enable two-factor auth, and review login sessions"
+									interactive
+								>
+									<ml-avatar
+										slot="leading"
+										size="xs"
+										style="background-color: var(--ml-color-success-light); color: var(--ml-color-success);"
+									>
 										<ml-icon icon="lock" size="xs"></ml-icon>
 									</ml-avatar>
 									<ml-icon slot="trailing" icon="caret-right" size="sm" style="color: var(--ml-color-text-tertiary);"></ml-icon>
 								</ml-list-item>
 								<ml-list-item primary="Billing" secondary="Manage your subscription, download invoices, and update payment methods" interactive>
-									<ml-avatar slot="leading" size="xs" style="background-color: var(--ml-color-primary-light); color: var(--ml-color-primary);">
+									<ml-avatar
+										slot="leading"
+										size="xs"
+										style="background-color: var(--ml-color-primary-light); color: var(--ml-color-primary);"
+									>
 										<ml-icon icon="credit-card" size="xs"></ml-icon>
 									</ml-avatar>
 									<div slot="trailing" style="display: flex; align-items: center; gap: var(--ml-space-2);">
@@ -1652,7 +1692,12 @@ export const demoAppTemplate = (c: DemoApp) => {
 										<ml-icon icon="caret-right" size="sm" style="color: var(--ml-color-text-tertiary);"></ml-icon>
 									</div>
 								</ml-list-item>
-								<ml-list-item primary="Delete account" secondary="Permanently erase your account, projects, and all associated data" interactive disabled>
+								<ml-list-item
+									primary="Delete account"
+									secondary="Permanently erase your account, projects, and all associated data"
+									interactive
+									disabled
+								>
 									<ml-avatar slot="leading" size="xs" style="background-color: var(--ml-color-error-light); color: var(--ml-color-error);">
 										<ml-icon icon="trash" size="xs"></ml-icon>
 									</ml-avatar>
@@ -1670,32 +1715,53 @@ export const demoAppTemplate = (c: DemoApp) => {
 								<ml-list-item>
 									<ml-avatar slot="leading" initials="OR" size="sm"></ml-avatar>
 									<div>
-										<div style="font-size: var(--ml-text-sm); font-weight: var(--ml-font-semibold); color: var(--ml-color-text);">Olivia Rhye</div>
-										<div style="font-size: var(--ml-text-xs); color: var(--ml-color-text-secondary);">Finished the <strong style="color: var(--ml-color-text);">design system audit</strong> and handed off the final report to engineering — 2 hours ago</div>
+										<div style="font-size: var(--ml-text-sm); font-weight: var(--ml-font-semibold); color: var(--ml-color-text);">
+											Olivia Rhye
+										</div>
+										<div style="font-size: var(--ml-text-xs); color: var(--ml-color-text-secondary);">
+											Finished the <strong style="color: var(--ml-color-text);">design system audit</strong> and handed off the final
+											report to engineering — 2 hours ago
+										</div>
 									</div>
 									<ml-badge slot="trailing" variant="pill" color="success">Done</ml-badge>
 								</ml-list-item>
 								<ml-list-item>
 									<ml-avatar slot="leading" initials="PB" size="sm"></ml-avatar>
 									<div>
-										<div style="font-size: var(--ml-text-sm); font-weight: var(--ml-font-semibold); color: var(--ml-color-text);">Phoenix Baker</div>
-										<div style="font-size: var(--ml-text-xs); color: var(--ml-color-text-secondary);">Building the REST endpoints for the <strong style="color: var(--ml-color-text);">payment gateway integration</strong> — updated 30 min ago</div>
+										<div style="font-size: var(--ml-text-sm); font-weight: var(--ml-font-semibold); color: var(--ml-color-text);">
+											Phoenix Baker
+										</div>
+										<div style="font-size: var(--ml-text-xs); color: var(--ml-color-text-secondary);">
+											Building the REST endpoints for the
+											<strong style="color: var(--ml-color-text);">payment gateway integration</strong> — updated 30 min ago
+										</div>
 									</div>
 									<ml-badge slot="trailing" variant="pill" color="warning">In Progress</ml-badge>
 								</ml-list-item>
 								<ml-list-item>
 									<ml-avatar slot="leading" initials="LS" size="sm"></ml-avatar>
 									<div>
-										<div style="font-size: var(--ml-text-sm); font-weight: var(--ml-font-semibold); color: var(--ml-color-text);">Lana Steiner</div>
-										<div style="font-size: var(--ml-text-xs); color: var(--ml-color-text-secondary);">Left comments on <strong style="color: var(--ml-color-text);">Pull Request #482</strong> requesting changes to the auth flow — 1 day ago</div>
+										<div style="font-size: var(--ml-text-sm); font-weight: var(--ml-font-semibold); color: var(--ml-color-text);">
+											Lana Steiner
+										</div>
+										<div style="font-size: var(--ml-text-xs); color: var(--ml-color-text-secondary);">
+											Left comments on <strong style="color: var(--ml-color-text);">Pull Request #482</strong> requesting changes to the
+											auth flow — 1 day ago
+										</div>
 									</div>
 									<ml-badge slot="trailing" variant="pill" color="primary">Review</ml-badge>
 								</ml-list-item>
 								<ml-list-item>
 									<ml-avatar slot="leading" initials="DW" size="sm"></ml-avatar>
 									<div>
-										<div style="font-size: var(--ml-text-sm); font-weight: var(--ml-font-semibold); color: var(--ml-color-text);">Demi Wilkinson</div>
-										<div style="font-size: var(--ml-text-xs); color: var(--ml-color-text-secondary);">Waiting on DevOps to resolve the <strong style="color: var(--ml-color-text);">staging database migration</strong> before testing can continue — 3 days ago</div>
+										<div style="font-size: var(--ml-text-sm); font-weight: var(--ml-font-semibold); color: var(--ml-color-text);">
+											Demi Wilkinson
+										</div>
+										<div style="font-size: var(--ml-text-xs); color: var(--ml-color-text-secondary);">
+											Waiting on DevOps to resolve the
+											<strong style="color: var(--ml-color-text);">staging database migration</strong> before testing can continue — 3
+											days ago
+										</div>
 									</div>
 									<ml-badge slot="trailing" variant="pill" color="error">Blocked</ml-badge>
 								</ml-list-item>
@@ -1709,7 +1775,11 @@ export const demoAppTemplate = (c: DemoApp) => {
 							</div>
 							<div style="display: flex; flex-direction: column; gap: var(--ml-space-6);">
 								<div>
-									<p style="font-size: var(--ml-text-xs); color: var(--ml-color-text-tertiary); margin-bottom: var(--ml-space-2); text-transform: uppercase; font-weight: var(--ml-font-semibold); letter-spacing: 0.05em;">Small</p>
+									<p
+										style="font-size: var(--ml-text-xs); color: var(--ml-color-text-tertiary); margin-bottom: var(--ml-space-2); text-transform: uppercase; font-weight: var(--ml-font-semibold); letter-spacing: 0.05em;"
+									>
+										Small
+									</p>
 									<ml-list size="sm">
 										<ml-list-item primary="Weekly standup" secondary="Recurring meeting every Monday at 9:00 AM with the product team">
 											<ml-icon slot="leading" icon="calendar-blank" size="sm"></ml-icon>
@@ -1726,7 +1796,11 @@ export const demoAppTemplate = (c: DemoApp) => {
 									</ml-list>
 								</div>
 								<div>
-									<p style="font-size: var(--ml-text-xs); color: var(--ml-color-text-tertiary); margin-bottom: var(--ml-space-2); text-transform: uppercase; font-weight: var(--ml-font-semibold); letter-spacing: 0.05em;">Medium (default)</p>
+									<p
+										style="font-size: var(--ml-text-xs); color: var(--ml-color-text-tertiary); margin-bottom: var(--ml-space-2); text-transform: uppercase; font-weight: var(--ml-font-semibold); letter-spacing: 0.05em;"
+									>
+										Medium (default)
+									</p>
 									<ml-list size="md">
 										<ml-list-item primary="Weekly standup" secondary="Recurring meeting every Monday at 9:00 AM with the product team">
 											<ml-icon slot="leading" icon="calendar-blank" size="sm"></ml-icon>
@@ -1743,7 +1817,11 @@ export const demoAppTemplate = (c: DemoApp) => {
 									</ml-list>
 								</div>
 								<div>
-									<p style="font-size: var(--ml-text-xs); color: var(--ml-color-text-tertiary); margin-bottom: var(--ml-space-2); text-transform: uppercase; font-weight: var(--ml-font-semibold); letter-spacing: 0.05em;">Large</p>
+									<p
+										style="font-size: var(--ml-text-xs); color: var(--ml-color-text-tertiary); margin-bottom: var(--ml-space-2); text-transform: uppercase; font-weight: var(--ml-font-semibold); letter-spacing: 0.05em;"
+									>
+										Large
+									</p>
 									<ml-list size="lg">
 										<ml-list-item primary="Weekly standup" secondary="Recurring meeting every Monday at 9:00 AM with the product team">
 											<ml-icon slot="leading" icon="calendar-blank" size="sm"></ml-icon>
@@ -2055,11 +2133,7 @@ const routes = [
 							<div class="demo-card__header">
 								<h3>Interactive</h3>
 							</div>
-							<ml-pagination
-								.page=${c.currentPage}
-								total-pages="10"
-								@ml:page-change=${c.handlePageChange}
-							></ml-pagination>
+							<ml-pagination .page=${c.currentPage} total-pages="10" @ml:page-change=${c.handlePageChange}></ml-pagination>
 						</div>
 
 						<div class="demo-card">
@@ -2141,43 +2215,76 @@ const routes = [
 							<div class="demo-card__header">
 								<h3>Interactive with Panels</h3>
 							</div>
-							<ml-steps .active=${c.activeStep} variant="numbered" connector="dotted" color="success" .steps=${c.wizardSteps} @ml:change=${c.handleStepChange}>
+							<ml-steps
+								.active=${c.activeStep}
+								variant="numbered"
+								connector="dotted"
+								color="success"
+								.steps=${c.wizardSteps}
+								@ml:change=${c.handleStepChange}
+							>
 								<ml-step-panel value="details">
 									<div style="padding: var(--ml-space-4); border: 1px solid var(--ml-color-border); border-radius: var(--ml-radius-lg);">
 										<h4 style="margin: 0 0 var(--ml-space-2) 0; font-family: var(--ml-font-sans);">Your Details</h4>
-										<p style="margin: 0; color: var(--ml-color-text-secondary); font-family: var(--ml-font-sans); font-size: var(--ml-text-sm);">Please provide your name and email address.</p>
+										<p
+											style="margin: 0; color: var(--ml-color-text-secondary); font-family: var(--ml-font-sans); font-size: var(--ml-text-sm);"
+										>
+											Please provide your name and email address.
+										</p>
 									</div>
 								</ml-step-panel>
 								<ml-step-panel value="company">
 									<div style="padding: var(--ml-space-4); border: 1px solid var(--ml-color-border); border-radius: var(--ml-radius-lg);">
 										<h4 style="margin: 0 0 var(--ml-space-2) 0; font-family: var(--ml-font-sans);">Company Details</h4>
-										<p style="margin: 0; color: var(--ml-color-text-secondary); font-family: var(--ml-font-sans); font-size: var(--ml-text-sm);">Tell us a few details about your company.</p>
+										<p
+											style="margin: 0; color: var(--ml-color-text-secondary); font-family: var(--ml-font-sans); font-size: var(--ml-text-sm);"
+										>
+											Tell us a few details about your company.
+										</p>
 									</div>
 								</ml-step-panel>
 								<ml-step-panel value="invite">
 									<div style="padding: var(--ml-space-4); border: 1px solid var(--ml-color-border); border-radius: var(--ml-radius-lg);">
 										<h4 style="margin: 0 0 var(--ml-space-2) 0; font-family: var(--ml-font-sans);">Invite Your Team</h4>
-										<p style="margin: 0; color: var(--ml-color-text-secondary); font-family: var(--ml-font-sans); font-size: var(--ml-text-sm);">Start collaborating with your team members.</p>
+										<p
+											style="margin: 0; color: var(--ml-color-text-secondary); font-family: var(--ml-font-sans); font-size: var(--ml-text-sm);"
+										>
+											Start collaborating with your team members.
+										</p>
 									</div>
 								</ml-step-panel>
 								<ml-step-panel value="review">
 									<div style="padding: var(--ml-space-4); border: 1px solid var(--ml-color-border); border-radius: var(--ml-radius-lg);">
 										<h4 style="margin: 0 0 var(--ml-space-2) 0; font-family: var(--ml-font-sans);">Review</h4>
-										<p style="margin: 0; color: var(--ml-color-text-secondary); font-family: var(--ml-font-sans); font-size: var(--ml-text-sm);">Review all your information and confirm.</p>
+										<p
+											style="margin: 0; color: var(--ml-color-text-secondary); font-family: var(--ml-font-sans); font-size: var(--ml-text-sm);"
+										>
+											Review all your information and confirm.
+										</p>
 									</div>
 								</ml-step-panel>
 							</ml-steps>
 							<div style="display: flex; gap: var(--ml-space-3); margin-top: var(--ml-space-4);">
-								<ml-button variant="outline" size="sm" @click=${() => {
-									const steps = c.wizardSteps;
-									const idx = steps.findIndex(s => s.value === c.activeStep);
-									if (idx > 0) c.goToStep(steps[idx - 1].value);
-								}}>Back</ml-button>
-								<ml-button variant="primary" size="sm" @click=${() => {
-									const steps = c.wizardSteps;
-									const idx = steps.findIndex(s => s.value === c.activeStep);
-									if (idx < steps.length - 1) c.goToStep(steps[idx + 1].value);
-								}}>Next</ml-button>
+								<ml-button
+									variant="outline"
+									size="sm"
+									@click=${() => {
+										const steps = c.wizardSteps;
+										const idx = steps.findIndex((s) => s.value === c.activeStep);
+										if (idx > 0) c.goToStep(steps[idx - 1].value);
+									}}
+									>Back</ml-button
+								>
+								<ml-button
+									variant="primary"
+									size="sm"
+									@click=${() => {
+										const steps = c.wizardSteps;
+										const idx = steps.findIndex((s) => s.value === c.activeStep);
+										if (idx < steps.length - 1) c.goToStep(steps[idx + 1].value);
+									}}
+									>Next</ml-button
+								>
 							</div>
 						</div>
 					</section>
@@ -2194,11 +2301,19 @@ const routes = [
 								<h3>Default Sidebar (Slotted)</h3>
 								<span class="demo-card__badge">Full width</span>
 							</div>
-							<div style="height: 600px; border: var(--ml-border) solid var(--ml-color-border); border-radius: var(--ml-radius-lg); overflow: hidden;">
+							<div
+								style="height: 600px; border: var(--ml-border) solid var(--ml-color-border); border-radius: var(--ml-radius-lg); overflow: hidden;"
+							>
 								<ml-sidebar active="home">
 									<div slot="header" style="display: flex; align-items: center; gap: var(--ml-space-3);">
-										<div style="width: 32px; height: 32px; border-radius: var(--ml-radius); background: var(--ml-color-primary); display: flex; align-items: center; justify-content: center; color: white; font-weight: var(--ml-font-bold); font-size: var(--ml-text-sm);">U</div>
-										<span style="font-family: var(--ml-font-sans); font-weight: var(--ml-font-semibold); font-size: var(--ml-text-base);">Untitled UI</span>
+										<div
+											style="width: 32px; height: 32px; border-radius: var(--ml-radius); background: var(--ml-color-primary); display: flex; align-items: center; justify-content: center; color: white; font-weight: var(--ml-font-bold); font-size: var(--ml-text-sm);"
+										>
+											U
+										</div>
+										<span style="font-family: var(--ml-font-sans); font-weight: var(--ml-font-semibold); font-size: var(--ml-text-base);"
+											>Untitled UI</span
+										>
 									</div>
 									<div slot="search">
 										<ml-input placeholder="Search" size="sm" icon="magnifying-glass"></ml-input>
@@ -2215,22 +2330,57 @@ const routes = [
 										<ml-sidebar-item icon="users" label="Users" value="users"></ml-sidebar-item>
 									</ml-sidebar-group>
 									<ml-sidebar-item slot="footer-nav" icon="gear" label="Settings" value="settings"></ml-sidebar-item>
-									<ml-sidebar-item slot="footer-nav" icon="lifebuoy" label="Support" value="support" badge="Online" badge-color="success"></ml-sidebar-item>
-									<ml-sidebar-item slot="footer-nav" icon="arrow-square-out" label="Open in browser" value="browser" href="#" external></ml-sidebar-item>
-									<div slot="feature" style="padding: var(--ml-space-4); background: var(--ml-color-surface-secondary); border-radius: var(--ml-radius-lg); font-family: var(--ml-font-sans);">
-										<p style="margin: 0 0 var(--ml-space-1) 0; font-size: var(--ml-text-sm); font-weight: var(--ml-font-medium); color: var(--ml-color-text);">Used space</p>
-										<p style="margin: 0 0 var(--ml-space-3) 0; font-size: var(--ml-text-xs); color: var(--ml-color-text-secondary);">Your team has used 80% of available space.</p>
+									<ml-sidebar-item
+										slot="footer-nav"
+										icon="lifebuoy"
+										label="Support"
+										value="support"
+										badge="Online"
+										badge-color="success"
+									></ml-sidebar-item>
+									<ml-sidebar-item
+										slot="footer-nav"
+										icon="arrow-square-out"
+										label="Open in browser"
+										value="browser"
+										href="#"
+										external
+									></ml-sidebar-item>
+									<div
+										slot="feature"
+										style="padding: var(--ml-space-4); background: var(--ml-color-surface-secondary); border-radius: var(--ml-radius-lg); font-family: var(--ml-font-sans);"
+									>
+										<p
+											style="margin: 0 0 var(--ml-space-1) 0; font-size: var(--ml-text-sm); font-weight: var(--ml-font-medium); color: var(--ml-color-text);"
+										>
+											Used space
+										</p>
+										<p style="margin: 0 0 var(--ml-space-3) 0; font-size: var(--ml-text-xs); color: var(--ml-color-text-secondary);">
+											Your team has used 80% of available space.
+										</p>
 										<ml-progress value="80" size="sm"></ml-progress>
 										<div style="display: flex; gap: var(--ml-space-3); margin-top: var(--ml-space-3);">
-											<a href="#" style="font-size: var(--ml-text-sm); color: var(--ml-color-text-secondary); text-decoration: none;">Dismiss</a>
-											<a href="#" style="font-size: var(--ml-text-sm); color: var(--ml-color-primary); text-decoration: none; font-weight: var(--ml-font-medium);">Upgrade plan</a>
+											<a href="#" style="font-size: var(--ml-text-sm); color: var(--ml-color-text-secondary); text-decoration: none;"
+												>Dismiss</a
+											>
+											<a
+												href="#"
+												style="font-size: var(--ml-text-sm); color: var(--ml-color-primary); text-decoration: none; font-weight: var(--ml-font-medium);"
+												>Upgrade plan</a
+											>
 										</div>
 									</div>
 									<div slot="user" style="display: flex; align-items: center; gap: var(--ml-space-3); font-family: var(--ml-font-sans);">
 										<ml-avatar name="Olivia Rhye" size="sm"></ml-avatar>
 										<div style="flex: 1; min-width: 0;">
-											<div style="font-size: var(--ml-text-sm); font-weight: var(--ml-font-semibold); color: var(--ml-color-text);">Olivia Rhye</div>
-											<div style="font-size: var(--ml-text-xs); color: var(--ml-color-text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">olivia@untitledui.com</div>
+											<div style="font-size: var(--ml-text-sm); font-weight: var(--ml-font-semibold); color: var(--ml-color-text);">
+												Olivia Rhye
+											</div>
+											<div
+												style="font-size: var(--ml-text-xs); color: var(--ml-color-text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"
+											>
+												olivia@untitledui.com
+											</div>
 										</div>
 										<ml-icon icon="caret-up-down" size="sm" style="color: var(--ml-color-text-muted);"></ml-icon>
 									</div>
@@ -2243,40 +2393,59 @@ const routes = [
 								<h3>Config-Driven Sidebar</h3>
 								<span class="demo-card__badge">Navigation property</span>
 							</div>
-							<div style="height: 500px; border: var(--ml-border) solid var(--ml-color-border); border-radius: var(--ml-radius-lg); overflow: hidden;">
-								<ml-sidebar active="dashboard" .navigation=${[
-									{
-										label: 'GENERAL',
-										items: [
-											{ value: 'dashboard', label: 'Dashboard', icon: 'chart-bar' },
-											{ value: 'projects', label: 'Projects', icon: 'folder', children: [
-												{ value: 'proj-active', label: 'Active' },
-												{ value: 'proj-archived', label: 'Archived' }
-											]},
-											{ value: 'documents', label: 'Documents', icon: 'file-text' },
-											{ value: 'calendar', label: 'Calendar', icon: 'calendar' }
-										]
-									},
-									{
-										label: 'UNTITLED UI',
-										items: [
-											{ value: 'reporting', label: 'Reporting', icon: 'chart-line-up' },
-											{ value: 'tasks', label: 'Tasks', icon: 'check-square', badge: '5', badgeColor: 'primary' },
-											{ value: 'users', label: 'Users', icon: 'users' }
-										]
-									}
-								]} .footerNavigation=${[
-									{ value: 'settings', label: 'Settings', icon: 'gear' },
-									{ value: 'support', label: 'Support', icon: 'lifebuoy' }
-								]}>
+							<div
+								style="height: 500px; border: var(--ml-border) solid var(--ml-color-border); border-radius: var(--ml-radius-lg); overflow: hidden;"
+							>
+								<ml-sidebar
+									active="dashboard"
+									.navigation=${[
+										{
+											label: 'GENERAL',
+											items: [
+												{ value: 'dashboard', label: 'Dashboard', icon: 'chart-bar' },
+												{
+													value: 'projects',
+													label: 'Projects',
+													icon: 'folder',
+													children: [
+														{ value: 'proj-active', label: 'Active' },
+														{ value: 'proj-archived', label: 'Archived' }
+													]
+												},
+												{ value: 'documents', label: 'Documents', icon: 'file-text' },
+												{ value: 'calendar', label: 'Calendar', icon: 'calendar' }
+											]
+										},
+										{
+											label: 'UNTITLED UI',
+											items: [
+												{ value: 'reporting', label: 'Reporting', icon: 'chart-line-up' },
+												{ value: 'tasks', label: 'Tasks', icon: 'check-square', badge: '5', badgeColor: 'primary' },
+												{ value: 'users', label: 'Users', icon: 'users' }
+											]
+										}
+									]}
+									.footerNavigation=${[
+										{ value: 'settings', label: 'Settings', icon: 'gear' },
+										{ value: 'support', label: 'Support', icon: 'lifebuoy' }
+									]}
+								>
 									<div slot="header" style="display: flex; align-items: center; gap: var(--ml-space-3);">
-										<div style="width: 32px; height: 32px; border-radius: var(--ml-radius); background: var(--ml-color-primary); display: flex; align-items: center; justify-content: center; color: white; font-weight: var(--ml-font-bold); font-size: var(--ml-text-sm);">U</div>
-										<span style="font-family: var(--ml-font-sans); font-weight: var(--ml-font-semibold); font-size: var(--ml-text-base);">Untitled UI</span>
+										<div
+											style="width: 32px; height: 32px; border-radius: var(--ml-radius); background: var(--ml-color-primary); display: flex; align-items: center; justify-content: center; color: white; font-weight: var(--ml-font-bold); font-size: var(--ml-text-sm);"
+										>
+											U
+										</div>
+										<span style="font-family: var(--ml-font-sans); font-weight: var(--ml-font-semibold); font-size: var(--ml-text-base);"
+											>Untitled UI</span
+										>
 									</div>
 									<div slot="user" style="display: flex; align-items: center; gap: var(--ml-space-3); font-family: var(--ml-font-sans);">
 										<ml-avatar name="Phoenix Baker" size="sm"></ml-avatar>
 										<div style="flex: 1; min-width: 0;">
-											<div style="font-size: var(--ml-text-sm); font-weight: var(--ml-font-semibold); color: var(--ml-color-text);">Phoenix Baker</div>
+											<div style="font-size: var(--ml-text-sm); font-weight: var(--ml-font-semibold); color: var(--ml-color-text);">
+												Phoenix Baker
+											</div>
 											<div style="font-size: var(--ml-text-xs); color: var(--ml-color-text-secondary);">phoenix@untitledui.com</div>
 										</div>
 									</div>
@@ -2289,22 +2458,29 @@ const routes = [
 								<h3>Slim Variant</h3>
 								<span class="demo-card__badge">Expands on hover</span>
 							</div>
-							<div style="height: 400px; border: var(--ml-border) solid var(--ml-color-border); border-radius: var(--ml-radius-lg); overflow: hidden;">
-								<ml-sidebar variant="slim" active="home" .navigation=${[
-									{
-										items: [
-											{ value: 'home', label: 'Home', icon: 'house' },
-											{ value: 'dashboard', label: 'Dashboard', icon: 'chart-bar' },
-											{ value: 'projects', label: 'Projects', icon: 'folder' },
-											{ value: 'tasks', label: 'Tasks', icon: 'check-square' },
-											{ value: 'reporting', label: 'Reporting', icon: 'chart-line-up' },
-											{ value: 'users', label: 'Users', icon: 'users' }
-										]
-									}
-								]} .footerNavigation=${[
-									{ value: 'settings', label: 'Settings', icon: 'gear' },
-									{ value: 'support', label: 'Support', icon: 'lifebuoy' }
-								]}>
+							<div
+								style="height: 400px; border: var(--ml-border) solid var(--ml-color-border); border-radius: var(--ml-radius-lg); overflow: hidden;"
+							>
+								<ml-sidebar
+									variant="slim"
+									active="home"
+									.navigation=${[
+										{
+											items: [
+												{ value: 'home', label: 'Home', icon: 'house' },
+												{ value: 'dashboard', label: 'Dashboard', icon: 'chart-bar' },
+												{ value: 'projects', label: 'Projects', icon: 'folder' },
+												{ value: 'tasks', label: 'Tasks', icon: 'check-square' },
+												{ value: 'reporting', label: 'Reporting', icon: 'chart-line-up' },
+												{ value: 'users', label: 'Users', icon: 'users' }
+											]
+										}
+									]}
+									.footerNavigation=${[
+										{ value: 'settings', label: 'Settings', icon: 'gear' },
+										{ value: 'support', label: 'Support', icon: 'lifebuoy' }
+									]}
+								>
 									<div slot="user" style="display: flex; align-items: center; justify-content: center;">
 										<ml-avatar name="Olivia Rhye" size="sm"></ml-avatar>
 									</div>
@@ -2353,9 +2529,7 @@ const routes = [
 								<ml-button variant="outline" @click=${() => c.showToast('warning', 'Warning', 'Please check your input.')}>
 									Warning Toast
 								</ml-button>
-								<ml-button variant="outline" @click=${() => c.showToast('error', 'Error', 'Something went wrong.')}>
-									Error Toast
-								</ml-button>
+								<ml-button variant="outline" @click=${() => c.showToast('error', 'Error', 'Something went wrong.')}> Error Toast </ml-button>
 							</div>
 						</div>
 
@@ -2617,16 +2791,8 @@ const routes = [
 								<span class="demo-card__badge">Custom component</span>
 							</div>
 							<div class="demo-row">
-								<profile-popover
-									name="Jane Cooper"
-									email="jane.cooper@example.com"
-									role="Admin"
-								></profile-popover>
-								<profile-popover
-									name="Alex Morgan"
-									email="alex.morgan@example.com"
-									role="Editor"
-								></profile-popover>
+								<profile-popover name="Jane Cooper" email="jane.cooper@example.com" role="Admin"></profile-popover>
+								<profile-popover name="Alex Morgan" email="alex.morgan@example.com" role="Editor"></profile-popover>
 							</div>
 						</div>
 
@@ -2645,10 +2811,7 @@ const routes = [
 										Delete Item
 									</ml-button>
 								</confirm-popover>
-								<confirm-popover
-									message="Are you sure you want to archive this project?"
-									@ml:confirm=${c.handleConfirmResult}
-								>
+								<confirm-popover message="Are you sure you want to archive this project?" @ml:confirm=${c.handleConfirmResult}>
 									<ml-button slot="trigger" variant="outline">
 										<ml-icon icon="archive" size="sm"></ml-icon>
 										Archive Project
@@ -2883,21 +3046,33 @@ const routes = [
 								<h3>Default Layout</h3>
 								<span class="demo-card__badge">Sidebar + Content</span>
 							</div>
-							<div style="height: 400px; border: var(--ml-border) solid var(--ml-color-border); border-radius: var(--ml-radius-lg); overflow: hidden;">
+							<div
+								style="height: 400px; border: var(--ml-border) solid var(--ml-color-border); border-radius: var(--ml-radius-lg); overflow: hidden;"
+							>
 								<ml-app-shell>
-									<div slot="sidebar" style="padding: var(--ml-space-4); background: var(--ml-color-surface); border-right: var(--ml-border) solid var(--ml-color-border); height: 100%; box-sizing: border-box; font-family: var(--ml-font-sans);">
-										<div style="font-weight: var(--ml-font-semibold); font-size: var(--ml-text-sm); margin-bottom: var(--ml-space-4);">Sidebar</div>
+									<div
+										slot="sidebar"
+										style="padding: var(--ml-space-4); background: var(--ml-color-surface); border-right: var(--ml-border) solid var(--ml-color-border); height: 100%; box-sizing: border-box; font-family: var(--ml-font-sans);"
+									>
+										<div style="font-weight: var(--ml-font-semibold); font-size: var(--ml-text-sm); margin-bottom: var(--ml-space-4);">
+											Sidebar
+										</div>
 										<div style="display: flex; flex-direction: column; gap: var(--ml-space-2);">
 											<span style="font-size: var(--ml-text-sm); color: var(--ml-color-text-secondary);">Nav Item 1</span>
 											<span style="font-size: var(--ml-text-sm); color: var(--ml-color-text-secondary);">Nav Item 2</span>
 											<span style="font-size: var(--ml-text-sm); color: var(--ml-color-text-secondary);">Nav Item 3</span>
 										</div>
 									</div>
-									<div slot="header" style="font-family: var(--ml-font-sans); font-weight: var(--ml-font-semibold); font-size: var(--ml-text-lg); color: var(--ml-color-text);">
+									<div
+										slot="header"
+										style="font-family: var(--ml-font-sans); font-weight: var(--ml-font-semibold); font-size: var(--ml-text-lg); color: var(--ml-color-text);"
+									>
 										Page Title
 									</div>
 									<div style="padding: var(--ml-space-6); font-family: var(--ml-font-sans);">
-										<p style="color: var(--ml-color-text-secondary); font-size: var(--ml-text-sm);">Main content area. This scrolls independently from the sidebar and header.</p>
+										<p style="color: var(--ml-color-text-secondary); font-size: var(--ml-text-sm);">
+											Main content area. This scrolls independently from the sidebar and header.
+										</p>
 									</div>
 								</ml-app-shell>
 							</div>
@@ -2908,15 +3083,25 @@ const routes = [
 								<h3>Fixed Header</h3>
 								<span class="demo-card__badge">header-fixed</span>
 							</div>
-							<div style="height: 300px; border: var(--ml-border) solid var(--ml-color-border); border-radius: var(--ml-radius-lg); overflow: hidden;">
+							<div
+								style="height: 300px; border: var(--ml-border) solid var(--ml-color-border); border-radius: var(--ml-radius-lg); overflow: hidden;"
+							>
 								<ml-app-shell header-fixed>
-									<div slot="sidebar" style="padding: var(--ml-space-4); background: var(--ml-color-surface); border-right: var(--ml-border) solid var(--ml-color-border); height: 100%; box-sizing: border-box; font-family: var(--ml-font-sans);">
+									<div
+										slot="sidebar"
+										style="padding: var(--ml-space-4); background: var(--ml-color-surface); border-right: var(--ml-border) solid var(--ml-color-border); height: 100%; box-sizing: border-box; font-family: var(--ml-font-sans);"
+									>
 										<div style="font-weight: var(--ml-font-semibold); font-size: var(--ml-text-sm);">Sidebar</div>
 									</div>
-									<div slot="header" style="font-family: var(--ml-font-sans); font-weight: var(--ml-font-semibold); font-size: var(--ml-text-sm); color: var(--ml-color-text);">
+									<div
+										slot="header"
+										style="font-family: var(--ml-font-sans); font-weight: var(--ml-font-semibold); font-size: var(--ml-text-sm); color: var(--ml-color-text);"
+									>
 										Fixed Header
 									</div>
-									<div style="padding: var(--ml-space-6); font-family: var(--ml-font-sans); font-size: var(--ml-text-sm); color: var(--ml-color-text-secondary);">
+									<div
+										style="padding: var(--ml-space-6); font-family: var(--ml-font-sans); font-size: var(--ml-text-sm); color: var(--ml-color-text-secondary);"
+									>
 										<p>The header stays fixed while content scrolls.</p>
 									</div>
 								</ml-app-shell>
@@ -2946,9 +3131,7 @@ const routes = [
 									<ml-button slot="actions" variant="outline" size="sm">
 										<ml-icon icon="download-simple" size="sm"></ml-icon>Export
 									</ml-button>
-									<ml-button slot="actions" variant="primary" size="sm">
-										<ml-icon icon="plus" size="sm"></ml-icon>Add Member
-									</ml-button>
+									<ml-button slot="actions" variant="primary" size="sm"> <ml-icon icon="plus" size="sm"></ml-icon>Add Member </ml-button>
 								</ml-page-header>
 							</div>
 						</div>
@@ -2972,7 +3155,11 @@ const routes = [
 								<span class="demo-card__badge">Centered layout</span>
 							</div>
 							<div style="border: var(--ml-border) solid var(--ml-color-border); border-radius: var(--ml-radius-lg); overflow: hidden;">
-								<ml-page-header variant="centered" title="Welcome to Your Dashboard" description="Here you can manage all of your projects, team members, and settings.">
+								<ml-page-header
+									variant="centered"
+									title="Welcome to Your Dashboard"
+									description="Here you can manage all of your projects, team members, and settings."
+								>
 									<ml-button slot="actions" variant="primary">Get Started</ml-button>
 								</ml-page-header>
 							</div>
@@ -2987,9 +3174,7 @@ const routes = [
 								<ml-page-header title="Project Alpha" description="Mobile app redesign for Q1 2026">
 									<ml-badge slot="meta" variant="success" size="sm">Active</ml-badge>
 									<ml-badge slot="meta" variant="default" size="sm">v2.1.0</ml-badge>
-									<ml-button slot="actions" variant="outline" size="sm">
-										<ml-icon icon="gear" size="sm"></ml-icon>Settings
-									</ml-button>
+									<ml-button slot="actions" variant="outline" size="sm"> <ml-icon icon="gear" size="sm"></ml-icon>Settings </ml-button>
 								</ml-page-header>
 							</div>
 						</div>
@@ -2998,7 +3183,9 @@ const routes = [
 							<div class="demo-card__header">
 								<h3>No Divider</h3>
 							</div>
-							<div style="border: var(--ml-border) solid var(--ml-color-border); border-radius: var(--ml-radius-lg); overflow: hidden; background: var(--ml-color-surface-secondary);">
+							<div
+								style="border: var(--ml-border) solid var(--ml-color-border); border-radius: var(--ml-radius-lg); overflow: hidden; background: var(--ml-color-surface-secondary);"
+							>
 								<ml-page-header title="Notifications" divider="false"></ml-page-header>
 							</div>
 						</div>
@@ -3020,7 +3207,10 @@ const routes = [
 								<ml-hero-section variant="centered" size="md" background="subtle">
 									<ml-badge slot="eyebrow" variant="primary" size="sm" pill>New Release</ml-badge>
 									<span slot="title">Build amazing web apps with Melodic</span>
-									<span slot="description">A modern, lightweight web component framework with built-in routing, state management, and a beautiful component library.</span>
+									<span slot="description"
+										>A modern, lightweight web component framework with built-in routing, state management, and a beautiful component
+										library.</span
+									>
 									<div slot="actions" style="display: flex; gap: var(--ml-space-3); justify-content: center;">
 										<ml-button variant="primary" size="lg">Get Started</ml-button>
 										<ml-button variant="outline" size="lg">Documentation</ml-button>
@@ -3037,12 +3227,17 @@ const routes = [
 							<div style="border: var(--ml-border) solid var(--ml-color-border); border-radius: var(--ml-radius-lg); overflow: hidden;">
 								<ml-hero-section variant="split" size="sm">
 									<span slot="title">Ship features faster</span>
-									<span slot="description">Melodic gives you everything you need to build production-ready web applications in record time.</span>
+									<span slot="description"
+										>Melodic gives you everything you need to build production-ready web applications in record time.</span
+									>
 									<div slot="actions" style="display: flex; gap: var(--ml-space-3);">
 										<ml-button variant="primary">Start Free Trial</ml-button>
 										<ml-button variant="ghost">Learn More</ml-button>
 									</div>
-									<div slot="media" style="background: var(--ml-color-surface-secondary); border-radius: var(--ml-radius-lg); height: 280px; display: flex; align-items: center; justify-content: center; color: var(--ml-color-text-muted); font-family: var(--ml-font-sans); font-size: var(--ml-text-sm);">
+									<div
+										slot="media"
+										style="background: var(--ml-color-surface-secondary); border-radius: var(--ml-radius-lg); height: 280px; display: flex; align-items: center; justify-content: center; color: var(--ml-color-text-muted); font-family: var(--ml-font-sans); font-size: var(--ml-text-sm);"
+									>
 										Image / Illustration
 									</div>
 								</ml-hero-section>
@@ -3085,7 +3280,11 @@ const routes = [
 							<div style="border: var(--ml-border) solid var(--ml-color-border); border-radius: var(--ml-radius-lg); overflow: hidden;">
 								<ml-login-page>
 									<div slot="logo" style="display: flex; align-items: center; gap: var(--ml-space-2); justify-content: center;">
-										<div style="width: 32px; height: 32px; border-radius: var(--ml-radius); background: var(--ml-color-primary); display: flex; align-items: center; justify-content: center; color: white; font-weight: var(--ml-font-bold); font-size: var(--ml-text-sm);">M</div>
+										<div
+											style="width: 32px; height: 32px; border-radius: var(--ml-radius); background: var(--ml-color-primary); display: flex; align-items: center; justify-content: center; color: white; font-weight: var(--ml-font-bold); font-size: var(--ml-text-sm);"
+										>
+											M
+										</div>
 									</div>
 									<div slot="social" style="display: flex; flex-direction: column; gap: var(--ml-space-2); font-family: var(--ml-font-sans);">
 										<ml-button variant="outline" full-width>
@@ -3101,8 +3300,14 @@ const routes = [
 										</ml-form-field>
 										<ml-button variant="primary" full-width>Sign In</ml-button>
 									</div>
-									<div slot="footer" style="text-align: center; font-family: var(--ml-font-sans); font-size: var(--ml-text-sm); color: var(--ml-color-text-secondary);">
-										Don't have an account? <a href="#" style="color: var(--ml-color-primary); text-decoration: none; font-weight: var(--ml-font-medium);">Sign up</a>
+									<div
+										slot="footer"
+										style="text-align: center; font-family: var(--ml-font-sans); font-size: var(--ml-text-sm); color: var(--ml-color-text-secondary);"
+									>
+										Don't have an account?
+										<a href="#" style="color: var(--ml-color-primary); text-decoration: none; font-weight: var(--ml-font-medium);"
+											>Sign up</a
+										>
 									</div>
 								</ml-login-page>
 							</div>
@@ -3113,7 +3318,9 @@ const routes = [
 								<h3>Split Variant</h3>
 								<span class="demo-card__badge">Form + Brand</span>
 							</div>
-							<div style="min-height: 500px; border: var(--ml-border) solid var(--ml-color-border); border-radius: var(--ml-radius-lg); overflow: hidden;">
+							<div
+								style="min-height: 500px; border: var(--ml-border) solid var(--ml-color-border); border-radius: var(--ml-radius-lg); overflow: hidden;"
+							>
 								<ml-login-page variant="split">
 									<div slot="form" style="display: flex; flex-direction: column; gap: var(--ml-space-4); font-family: var(--ml-font-sans);">
 										<ml-form-field label="Email">
@@ -3124,8 +3331,13 @@ const routes = [
 										</ml-form-field>
 										<ml-button variant="primary" full-width>Sign In</ml-button>
 									</div>
-									<div slot="brand" style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; font-family: var(--ml-font-sans); color: white; text-align: center; padding: var(--ml-space-8);">
-										<h2 style="font-size: var(--ml-text-2xl); font-weight: var(--ml-font-bold); margin: 0 0 var(--ml-space-2) 0;">Welcome Back</h2>
+									<div
+										slot="brand"
+										style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; font-family: var(--ml-font-sans); color: white; text-align: center; padding: var(--ml-space-8);"
+									>
+										<h2 style="font-size: var(--ml-text-2xl); font-weight: var(--ml-font-bold); margin: 0 0 var(--ml-space-2) 0;">
+											Welcome Back
+										</h2>
 										<p style="font-size: var(--ml-text-base); opacity: 0.9; margin: 0;">Sign in to continue to your dashboard.</p>
 									</div>
 								</ml-login-page>
@@ -3148,7 +3360,11 @@ const routes = [
 							<div style="border: var(--ml-border) solid var(--ml-color-border); border-radius: var(--ml-radius-lg); overflow: hidden;">
 								<ml-signup-page>
 									<div slot="logo" style="display: flex; align-items: center; gap: var(--ml-space-2); justify-content: center;">
-										<div style="width: 32px; height: 32px; border-radius: var(--ml-radius); background: var(--ml-color-primary); display: flex; align-items: center; justify-content: center; color: white; font-weight: var(--ml-font-bold); font-size: var(--ml-text-sm);">M</div>
+										<div
+											style="width: 32px; height: 32px; border-radius: var(--ml-radius); background: var(--ml-color-primary); display: flex; align-items: center; justify-content: center; color: white; font-weight: var(--ml-font-bold); font-size: var(--ml-text-sm);"
+										>
+											M
+										</div>
 									</div>
 									<div slot="social" style="display: flex; flex-direction: column; gap: var(--ml-space-2); font-family: var(--ml-font-sans);">
 										<ml-button variant="outline" full-width>
@@ -3172,8 +3388,14 @@ const routes = [
 										</ml-form-field>
 										<ml-button variant="primary" full-width>Create Account</ml-button>
 									</div>
-									<div slot="footer" style="text-align: center; font-family: var(--ml-font-sans); font-size: var(--ml-text-sm); color: var(--ml-color-text-secondary);">
-										Already have an account? <a href="#" style="color: var(--ml-color-primary); text-decoration: none; font-weight: var(--ml-font-medium);">Log in</a>
+									<div
+										slot="footer"
+										style="text-align: center; font-family: var(--ml-font-sans); font-size: var(--ml-text-sm); color: var(--ml-color-text-secondary);"
+									>
+										Already have an account?
+										<a href="#" style="color: var(--ml-color-primary); text-decoration: none; font-weight: var(--ml-font-medium);"
+											>Log in</a
+										>
 									</div>
 								</ml-signup-page>
 							</div>
@@ -3192,12 +3414,21 @@ const routes = [
 								<h3>Full Dashboard</h3>
 								<span class="demo-card__badge">Composite layout</span>
 							</div>
-							<div style="height: 600px; border: var(--ml-border) solid var(--ml-color-border); border-radius: var(--ml-radius-lg); overflow: hidden;">
+							<div
+								style="height: 600px; border: var(--ml-border) solid var(--ml-color-border); border-radius: var(--ml-radius-lg); overflow: hidden;"
+							>
 								<ml-dashboard-page title="Dashboard" description="Overview of your account activity.">
-									<div slot="sidebar" style="padding: var(--ml-space-4); background: var(--ml-color-surface); border-right: var(--ml-border) solid var(--ml-color-border); height: 100%; box-sizing: border-box; font-family: var(--ml-font-sans);">
-										<div style="font-weight: var(--ml-font-semibold); font-size: var(--ml-text-sm); margin-bottom: var(--ml-space-4);">Navigation</div>
+									<div
+										slot="sidebar"
+										style="padding: var(--ml-space-4); background: var(--ml-color-surface); border-right: var(--ml-border) solid var(--ml-color-border); height: 100%; box-sizing: border-box; font-family: var(--ml-font-sans);"
+									>
+										<div style="font-weight: var(--ml-font-semibold); font-size: var(--ml-text-sm); margin-bottom: var(--ml-space-4);">
+											Navigation
+										</div>
 										<div style="display: flex; flex-direction: column; gap: var(--ml-space-2);">
-											<span style="font-size: var(--ml-text-sm); color: var(--ml-color-primary); font-weight: var(--ml-font-medium);">Dashboard</span>
+											<span style="font-size: var(--ml-text-sm); color: var(--ml-color-primary); font-weight: var(--ml-font-medium);"
+												>Dashboard</span
+											>
 											<span style="font-size: var(--ml-text-sm); color: var(--ml-color-text-secondary);">Projects</span>
 											<span style="font-size: var(--ml-text-sm); color: var(--ml-color-text-secondary);">Team</span>
 											<span style="font-size: var(--ml-text-sm); color: var(--ml-color-text-secondary);">Settings</span>
@@ -3206,23 +3437,38 @@ const routes = [
 									<ml-button slot="header-actions" variant="primary" size="sm">
 										<ml-icon icon="plus" size="sm"></ml-icon>New Project
 									</ml-button>
-									<div slot="metrics" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--ml-space-4); font-family: var(--ml-font-sans);">
+									<div
+										slot="metrics"
+										style="display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--ml-space-4); font-family: var(--ml-font-sans);"
+									>
 										<ml-card>
 											<div style="padding: var(--ml-space-1);">
 												<div style="font-size: var(--ml-text-sm); color: var(--ml-color-text-secondary);">Total Revenue</div>
-												<div style="font-size: var(--ml-text-2xl); font-weight: var(--ml-font-bold); color: var(--ml-color-text); margin-top: var(--ml-space-1);">$45,231</div>
+												<div
+													style="font-size: var(--ml-text-2xl); font-weight: var(--ml-font-bold); color: var(--ml-color-text); margin-top: var(--ml-space-1);"
+												>
+													$45,231
+												</div>
 											</div>
 										</ml-card>
 										<ml-card>
 											<div style="padding: var(--ml-space-1);">
 												<div style="font-size: var(--ml-text-sm); color: var(--ml-color-text-secondary);">Active Users</div>
-												<div style="font-size: var(--ml-text-2xl); font-weight: var(--ml-font-bold); color: var(--ml-color-text); margin-top: var(--ml-space-1);">2,350</div>
+												<div
+													style="font-size: var(--ml-text-2xl); font-weight: var(--ml-font-bold); color: var(--ml-color-text); margin-top: var(--ml-space-1);"
+												>
+													2,350
+												</div>
 											</div>
 										</ml-card>
 										<ml-card>
 											<div style="padding: var(--ml-space-1);">
 												<div style="font-size: var(--ml-text-sm); color: var(--ml-color-text-secondary);">Conversion Rate</div>
-												<div style="font-size: var(--ml-text-2xl); font-weight: var(--ml-font-bold); color: var(--ml-color-text); margin-top: var(--ml-space-1);">3.2%</div>
+												<div
+													style="font-size: var(--ml-text-2xl); font-weight: var(--ml-font-bold); color: var(--ml-color-text); margin-top: var(--ml-space-1);"
+												>
+													3.2%
+												</div>
 											</div>
 										</ml-card>
 									</div>
@@ -3233,14 +3479,18 @@ const routes = [
 												<div style="display: flex; align-items: center; gap: var(--ml-space-3);">
 													<ml-avatar name="Olivia Rhye" size="sm"></ml-avatar>
 													<div style="flex: 1;">
-														<div style="font-size: var(--ml-text-sm); font-weight: var(--ml-font-medium);">Olivia Rhye created a new project</div>
+														<div style="font-size: var(--ml-text-sm); font-weight: var(--ml-font-medium);">
+															Olivia Rhye created a new project
+														</div>
 														<div style="font-size: var(--ml-text-xs); color: var(--ml-color-text-muted);">2 hours ago</div>
 													</div>
 												</div>
 												<div style="display: flex; align-items: center; gap: var(--ml-space-3);">
 													<ml-avatar name="Phoenix Baker" size="sm"></ml-avatar>
 													<div style="flex: 1;">
-														<div style="font-size: var(--ml-text-sm); font-weight: var(--ml-font-medium);">Phoenix Baker updated sprint board</div>
+														<div style="font-size: var(--ml-text-sm); font-weight: var(--ml-font-medium);">
+															Phoenix Baker updated sprint board
+														</div>
 														<div style="font-size: var(--ml-text-xs); color: var(--ml-color-text-muted);">4 hours ago</div>
 													</div>
 												</div>
@@ -3272,13 +3522,7 @@ const routes = [
 								<span class="demo-card__badge">Serif values</span>
 							</div>
 							<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: var(--ml-space-4);">
-								<ml-stat-card
-									label="Total Members"
-									value="1,247"
-									trend="+6 this month"
-									trend-direction="up"
-									icon="users"
-								></ml-stat-card>
+								<ml-stat-card label="Total Members" value="1,247" trend="+6 this month" trend-direction="up" icon="users"></ml-stat-card>
 								<ml-stat-card
 									label="Avg Attendance"
 									value="312"
@@ -3301,12 +3545,7 @@ const routes = [
 								<h3>Sans-serif Values</h3>
 							</div>
 							<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: var(--ml-space-4);">
-								<ml-stat-card
-									label="Open Tasks"
-									value="42"
-									value-font="sans"
-									icon="check-circle"
-								></ml-stat-card>
+								<ml-stat-card label="Open Tasks" value="42" value-font="sans" icon="check-circle"></ml-stat-card>
 								<ml-stat-card
 									label="Volunteers"
 									value="89"
@@ -3332,11 +3571,7 @@ const routes = [
 								<h3>Basic Profile</h3>
 							</div>
 							<div class="demo-row" style="max-width: 340px;">
-								<ml-profile-card
-									name="Sarah Mitchell"
-									subtitle="Member · Women's Ministry"
-									avatar-size="lg"
-								>
+								<ml-profile-card name="Sarah Mitchell" subtitle="Member · Women's Ministry" avatar-size="lg">
 									<ml-button slot="actions" variant="primary" size="sm">Message</ml-button>
 									<ml-button slot="actions" variant="outline" size="sm">Edit</ml-button>
 									<div slot="details"><ml-icon icon="envelope" size="sm"></ml-icon> sarah@example.com</div>
@@ -3383,21 +3618,28 @@ const routes = [
 							</div>
 							<div style="display: flex; flex-direction: column; gap: var(--ml-space-6);">
 								<ml-page-section title="No Padding" padding="none">
-									<p style="font-family: var(--ml-font-sans); font-size: var(--ml-text-sm); color: var(--ml-color-text-secondary);">Content with no padding.</p>
+									<p style="font-family: var(--ml-font-sans); font-size: var(--ml-text-sm); color: var(--ml-color-text-secondary);">
+										Content with no padding.
+									</p>
 								</ml-page-section>
 								<ml-page-section title="Small Padding" padding="sm">
-									<p style="font-family: var(--ml-font-sans); font-size: var(--ml-text-sm); color: var(--ml-color-text-secondary);">Content with small padding.</p>
+									<p style="font-family: var(--ml-font-sans); font-size: var(--ml-text-sm); color: var(--ml-color-text-secondary);">
+										Content with small padding.
+									</p>
 								</ml-page-section>
 								<ml-page-section title="Medium Padding (Default)" padding="md">
-									<p style="font-family: var(--ml-font-sans); font-size: var(--ml-text-sm); color: var(--ml-color-text-secondary);">Content with medium padding.</p>
+									<p style="font-family: var(--ml-font-sans); font-size: var(--ml-text-sm); color: var(--ml-color-text-secondary);">
+										Content with medium padding.
+									</p>
 								</ml-page-section>
 								<ml-page-section title="Large Padding" padding="lg">
-									<p style="font-family: var(--ml-font-sans); font-size: var(--ml-text-sm); color: var(--ml-color-text-secondary);">Content with large padding.</p>
+									<p style="font-family: var(--ml-font-sans); font-size: var(--ml-text-sm); color: var(--ml-color-text-secondary);">
+										Content with large padding.
+									</p>
 								</ml-page-section>
 							</div>
 						</div>
 					</section>
-
 				</main>
 
 				<footer class="demo-footer">
