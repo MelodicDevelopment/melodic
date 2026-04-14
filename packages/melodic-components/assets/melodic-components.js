@@ -9062,57 +9062,146 @@ FormFieldComponent = __decorate([MelodicComponent({
 		"required"
 	]
 })], FormFieldComponent);
-function calendarTemplate(c) {
+function dayGrid(c) {
 	return html`
-		<div class="ml-calendar" role="grid" aria-label=${c.monthLabel}>
-			<div class="ml-calendar__header">
-				<div class="ml-calendar__nav-group">
-					<button type="button" class="ml-calendar__nav" aria-label="Previous year" @click=${c.prevYear}>
-						<ml-icon icon="caret-double-left" size="sm"></ml-icon>
-					</button>
-					<button type="button" class="ml-calendar__nav" aria-label="Previous month" @click=${c.prevMonth}>
-						<ml-icon icon="caret-left" size="sm"></ml-icon>
-					</button>
-				</div>
-				<span class="ml-calendar__month-label">${c.monthLabel}</span>
-				<div class="ml-calendar__nav-group">
-					<button type="button" class="ml-calendar__nav" aria-label="Next month" @click=${c.nextMonth}>
-						<ml-icon icon="caret-right" size="sm"></ml-icon>
-					</button>
-					<button type="button" class="ml-calendar__nav" aria-label="Next year" @click=${c.nextYear}>
-						<ml-icon icon="caret-double-right" size="sm"></ml-icon>
-					</button>
-				</div>
-			</div>
+		<div class="ml-calendar__weekdays" role="row">
+			${repeat(c.weekdays, (d) => d, (d) => html`
+				<span class="ml-calendar__weekday" role="columnheader">${d}</span>
+			`)}
+		</div>
 
-			<div class="ml-calendar__weekdays" role="row">
-				${repeat(c.weekdays, (d) => d, (d) => html`
-					<span class="ml-calendar__weekday" role="columnheader">${d}</span>
-				`)}
-			</div>
-
-			<div class="ml-calendar__grid">
-				${repeat(c.days, (day) => day.iso, (day) => html`
-					<button
-						type="button"
-						class=${classMap({
+		<div class="ml-calendar__grid" @keydown=${c.handleGridKeyDown}>
+			${repeat(c.days, (day) => day.iso, (day) => html`
+				<button
+					type="button"
+					class=${classMap({
 		"ml-calendar__day": true,
 		"ml-calendar__day--other-month": !day.isCurrentMonth,
 		"ml-calendar__day--today": day.isToday,
 		"ml-calendar__day--selected": day.isSelected,
 		"ml-calendar__day--disabled": day.isDisabled
 	})}
-						?disabled=${day.isDisabled || !day.isCurrentMonth}
-						tabindex=${day.isCurrentMonth ? "0" : "-1"}
-						aria-selected=${day.isSelected ? "true" : "false"}
-						aria-label=${day.iso}
-						@click=${() => c.selectDay(day)}
-					>
-						<span class="ml-calendar__day-number">${day.date}</span>
-						${day.isToday ? html`<span class="ml-calendar__today-dot"></span>` : ""}
+					?disabled=${day.isDisabled || !day.isCurrentMonth}
+					tabindex=${day.isCurrentMonth ? "0" : "-1"}
+					aria-selected=${day.isSelected ? "true" : "false"}
+					aria-label=${day.iso}
+					@click=${() => c.selectDay(day)}
+				>
+					<span class="ml-calendar__day-number">${day.date}</span>
+					${day.isToday ? html`<span class="ml-calendar__today-dot"></span>` : ""}
+				</button>
+			`)}
+		</div>
+	`;
+}
+function monthGrid(c) {
+	return html`
+		<div class="ml-calendar__cell-grid" @keydown=${c.handleGridKeyDown}>
+			${repeat(c.months, (m) => m.index, (m) => html`
+				<button
+					type="button"
+					class=${classMap({
+		"ml-calendar__cell": true,
+		"ml-calendar__cell--selected": m.isSelected,
+		"ml-calendar__cell--current": m.isCurrent,
+		"ml-calendar__cell--disabled": m.isDisabled
+	})}
+					?disabled=${m.isDisabled}
+					tabindex="0"
+					aria-selected=${m.isSelected ? "true" : "false"}
+					aria-label=${m.label}
+					@click=${() => c.selectViewMonth(m)}
+				>
+					${m.label}
+				</button>
+			`)}
+		</div>
+	`;
+}
+function yearGrid(c) {
+	return html`
+		<div class="ml-calendar__cell-grid" @keydown=${c.handleGridKeyDown}>
+			${repeat(c.years, (y) => y.year, (y) => html`
+				<button
+					type="button"
+					class=${classMap({
+		"ml-calendar__cell": true,
+		"ml-calendar__cell--selected": y.isSelected,
+		"ml-calendar__cell--current": y.isCurrent,
+		"ml-calendar__cell--disabled": y.isDisabled
+	})}
+					?disabled=${y.isDisabled}
+					tabindex=${y.isDisabled ? "-1" : "0"}
+					aria-selected=${y.isSelected ? "true" : "false"}
+					aria-label=${String(y.year)}
+					@click=${() => c.selectViewYear(y)}
+				>
+					${y.year}
+				</button>
+			`)}
+		</div>
+	`;
+}
+function calendarTemplate(c) {
+	return html`
+		<div class=${classMap({
+		"ml-calendar": true,
+		[`ml-calendar--view-${c.view}`]: true
+	})} role="grid" aria-label=${c.headerLabel}>
+			<div class="ml-calendar__header">
+				<div class="ml-calendar__nav-group">
+					<button type="button" class="ml-calendar__nav" aria-label="Previous" @click=${c.headerPrevFar}>
+						<ml-icon icon="caret-double-left" size="sm"></ml-icon>
 					</button>
-				`)}
+					${when(c.view === "day", () => html`
+						<button type="button" class="ml-calendar__nav" aria-label="Previous month" @click=${c.prevMonth}>
+							<ml-icon icon="caret-left" size="sm"></ml-icon>
+						</button>
+					`)}
+				</div>
+
+				${when(c.view === "day", () => html`
+						<div class="ml-calendar__title">
+							<button
+								type="button"
+								class="ml-calendar__title-btn"
+								aria-label="Select month"
+								aria-expanded="false"
+								@click=${c.openMonthView}
+							>${c.monthLabel}</button>
+							<button
+								type="button"
+								class="ml-calendar__title-btn"
+								aria-label="Select year"
+								aria-expanded="false"
+								@click=${c.openYearView}
+							>${c.viewYear}</button>
+						</div>
+					`, () => html`
+						<button
+							type="button"
+							class="ml-calendar__title-btn ml-calendar__title-btn--wide"
+							aria-label=${c.view === "month" ? "Back to day view" : "Select year"}
+							aria-expanded="true"
+							@click=${c.view === "month" ? c.openMonthView : c.openYearView}
+						>${c.headerLabel}</button>
+					`)}
+
+				<div class="ml-calendar__nav-group">
+					${when(c.view === "day", () => html`
+						<button type="button" class="ml-calendar__nav" aria-label="Next month" @click=${c.nextMonth}>
+							<ml-icon icon="caret-right" size="sm"></ml-icon>
+						</button>
+					`)}
+					<button type="button" class="ml-calendar__nav" aria-label="Next" @click=${c.headerNextFar}>
+						<ml-icon icon="caret-double-right" size="sm"></ml-icon>
+					</button>
+				</div>
 			</div>
+
+			${when(c.view === "day", () => dayGrid(c))}
+			${when(c.view === "month", () => monthGrid(c))}
+			${when(c.view === "year", () => yearGrid(c))}
 
 			<div class="ml-calendar__footer">
 				<button type="button" class="ml-calendar__today-btn" @click=${c.goToToday}>Today</button>
@@ -9128,10 +9217,28 @@ const calendarStyles = () => css`
 		--ml-calendar-width: 280px;
 		--ml-calendar-font-family: var(--ml-font-sans);
 
-		/* --- Month label --- */
+		/* --- Month/year title --- */
 		--ml-calendar-month-font-size: var(--ml-text-sm);
 		--ml-calendar-month-font-weight: var(--ml-font-semibold);
 		--ml-calendar-month-color: var(--ml-color-text);
+		--ml-calendar-title-btn-padding-x: var(--ml-space-1-5);
+		--ml-calendar-title-btn-padding-y: var(--ml-space-1);
+		--ml-calendar-title-btn-border-radius: var(--ml-radius-md);
+		--ml-calendar-title-btn-hover-bg: var(--ml-color-surface-raised);
+		--ml-calendar-title-btn-hover-color: var(--ml-color-text);
+
+		/* --- Month/year cells --- */
+		--ml-calendar-cell-font-size: var(--ml-text-sm);
+		--ml-calendar-cell-font-weight: var(--ml-font-regular);
+		--ml-calendar-cell-color: var(--ml-color-text);
+		--ml-calendar-cell-border-radius: var(--ml-radius-md);
+		--ml-calendar-cell-hover-bg: var(--ml-color-surface-raised);
+		--ml-calendar-cell-selected-bg: var(--ml-color-primary);
+		--ml-calendar-cell-selected-color: var(--ml-color-text-inverse);
+		--ml-calendar-cell-selected-font-weight: var(--ml-font-semibold);
+		--ml-calendar-cell-selected-hover-bg: var(--ml-color-primary-hover);
+		--ml-calendar-cell-current-font-weight: var(--ml-font-semibold);
+		--ml-calendar-cell-height: 3rem;
 
 		/* --- Nav buttons --- */
 		--ml-calendar-nav-size: 2rem;
@@ -9205,10 +9312,94 @@ const calendarStyles = () => css`
 		gap: 0;
 	}
 
-	.ml-calendar__month-label {
+	.ml-calendar__title {
+		display: flex;
+		align-items: center;
+		gap: var(--ml-space-1);
+	}
+
+	.ml-calendar__title-btn {
+		border: none;
+		background: none;
+		padding: var(--ml-calendar-title-btn-padding-y) var(--ml-calendar-title-btn-padding-x);
+		border-radius: var(--ml-calendar-title-btn-border-radius);
+		font-family: inherit;
 		font-size: var(--ml-calendar-month-font-size);
 		font-weight: var(--ml-calendar-month-font-weight);
 		color: var(--ml-calendar-month-color);
+		cursor: pointer;
+		transition: background-color var(--ml-calendar-transition-duration) var(--ml-calendar-transition-easing), color var(--ml-calendar-transition-duration) var(--ml-calendar-transition-easing);
+	}
+
+	.ml-calendar__title-btn:hover {
+		background-color: var(--ml-calendar-title-btn-hover-bg);
+		color: var(--ml-calendar-title-btn-hover-color);
+	}
+
+	.ml-calendar__title-btn:focus-visible {
+		outline: none;
+		box-shadow: var(--ml-calendar-focus-shadow);
+	}
+
+	.ml-calendar__title-btn--wide {
+		min-width: 0;
+	}
+
+	/* Month / year cell grid */
+	.ml-calendar__cell-grid {
+		display: grid;
+		grid-template-columns: repeat(3, 1fr);
+		gap: var(--ml-space-1);
+		padding: var(--ml-space-1) 0;
+	}
+
+	.ml-calendar__cell {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		height: var(--ml-calendar-cell-height);
+		border: none;
+		border-radius: var(--ml-calendar-cell-border-radius);
+		background: none;
+		font-family: inherit;
+		font-size: var(--ml-calendar-cell-font-size);
+		font-weight: var(--ml-calendar-cell-font-weight);
+		color: var(--ml-calendar-cell-color);
+		cursor: pointer;
+		padding: 0;
+		transition:
+			background-color var(--ml-calendar-transition-duration) var(--ml-calendar-transition-easing),
+			color var(--ml-calendar-transition-duration) var(--ml-calendar-transition-easing);
+	}
+
+	.ml-calendar__cell:hover:not(:disabled):not(.ml-calendar__cell--selected) {
+		background-color: var(--ml-calendar-cell-hover-bg);
+	}
+
+	.ml-calendar__cell:focus-visible {
+		outline: none;
+		box-shadow: var(--ml-calendar-focus-shadow);
+		z-index: 1;
+	}
+
+	.ml-calendar__cell--current {
+		font-weight: var(--ml-calendar-cell-current-font-weight);
+	}
+
+	.ml-calendar__cell--selected {
+		background-color: var(--ml-calendar-cell-selected-bg);
+		color: var(--ml-calendar-cell-selected-color);
+		font-weight: var(--ml-calendar-cell-selected-font-weight);
+	}
+
+	.ml-calendar__cell--selected:hover:not(:disabled) {
+		background-color: var(--ml-calendar-cell-selected-hover-bg);
+	}
+
+	.ml-calendar__cell--disabled,
+	.ml-calendar__cell:disabled {
+		opacity: var(--ml-calendar-disabled-opacity);
+		cursor: not-allowed;
 	}
 
 	.ml-calendar__nav {
@@ -9380,6 +9571,20 @@ var MONTH_NAMES$1 = [
 	"November",
 	"December"
 ];
+var MONTH_NAMES_SHORT = [
+	"Jan",
+	"Feb",
+	"Mar",
+	"Apr",
+	"May",
+	"Jun",
+	"Jul",
+	"Aug",
+	"Sep",
+	"Oct",
+	"Nov",
+	"Dec"
+];
 var WEEKDAYS = [
 	"Su",
 	"Mo",
@@ -9389,6 +9594,9 @@ var WEEKDAYS = [
 	"Fr",
 	"Sa"
 ];
+var YEARS_PER_PAGE = 12;
+var DEFAULT_MIN_YEAR_OFFSET = 120;
+var DEFAULT_MAX_YEAR_OFFSET = 10;
 function toIso(year, month, day) {
 	return `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
 }
@@ -9396,13 +9604,25 @@ function todayIso() {
 	const d = /* @__PURE__ */ new Date();
 	return toIso(d.getFullYear(), d.getMonth(), d.getDate());
 }
+function parseYear(val) {
+	if (typeof val === "number" && Number.isFinite(val)) return val;
+	if (typeof val === "string" && val.trim() !== "") {
+		const n = Number.parseInt(val, 10);
+		if (Number.isFinite(n)) return n;
+	}
+	return null;
+}
 var CalendarComponent = class CalendarComponent$1 {
 	constructor() {
 		this.value = "";
 		this.min = "";
 		this.max = "";
+		this.minYear = "";
+		this.maxYear = "";
 		this.viewMonth = (/* @__PURE__ */ new Date()).getMonth();
 		this.viewYear = (/* @__PURE__ */ new Date()).getFullYear();
+		this.view = "day";
+		this.yearPageStart = 0;
 		this.prevYear = () => {
 			this.viewYear--;
 		};
@@ -9421,6 +9641,55 @@ var CalendarComponent = class CalendarComponent$1 {
 				this.viewYear++;
 			} else this.viewMonth++;
 		};
+		this.headerPrev = () => {
+			if (this.view === "year") this.prevYearPage();
+			else if (this.view === "month") this.prevYear();
+			else this.prevMonth();
+		};
+		this.headerNext = () => {
+			if (this.view === "year") this.nextYearPage();
+			else if (this.view === "month") this.nextYear();
+			else this.nextMonth();
+		};
+		this.headerPrevFar = () => {
+			if (this.view === "year") this.prevYearPage();
+			else this.prevYear();
+		};
+		this.headerNextFar = () => {
+			if (this.view === "year") this.nextYearPage();
+			else this.nextYear();
+		};
+		this.prevYearPage = () => {
+			const next = this.yearPageStart - YEARS_PER_PAGE;
+			const minPage = this.computeYearPageStart(this.resolvedMinYear);
+			this.yearPageStart = Math.max(next, minPage);
+		};
+		this.nextYearPage = () => {
+			const next = this.yearPageStart + YEARS_PER_PAGE;
+			const maxPage = this.computeYearPageStart(this.resolvedMaxYear);
+			this.yearPageStart = Math.min(next, maxPage);
+		};
+		this.openMonthView = () => {
+			this.view = this.view === "month" ? "day" : "month";
+		};
+		this.openYearView = () => {
+			if (this.view === "year") {
+				this.view = "day";
+				return;
+			}
+			this.yearPageStart = this.computeYearPageStart(this.viewYear);
+			this.view = "year";
+		};
+		this.selectViewMonth = (month) => {
+			if (month.isDisabled) return;
+			this.viewMonth = month.index;
+			this.view = "day";
+		};
+		this.selectViewYear = (year) => {
+			if (year.isDisabled) return;
+			this.viewYear = year.year;
+			this.view = "month";
+		};
 		this.selectDay = (day) => {
 			if (day.isDisabled) return;
 			this.value = day.iso;
@@ -9436,6 +9705,7 @@ var CalendarComponent = class CalendarComponent$1 {
 			const now = /* @__PURE__ */ new Date();
 			this.viewMonth = now.getMonth();
 			this.viewYear = now.getFullYear();
+			this.view = "day";
 			const iso = todayIso();
 			if (!this.isDisabled(iso)) {
 				this.value = iso;
@@ -9446,12 +9716,56 @@ var CalendarComponent = class CalendarComponent$1 {
 				}));
 			}
 		};
+		this.handleGridKeyDown = (event) => {
+			const key = event.key;
+			if (key !== "ArrowLeft" && key !== "ArrowRight" && key !== "ArrowUp" && key !== "ArrowDown" && key !== "Home" && key !== "End") return;
+			const target = event.target;
+			if (!target || target.tagName !== "BUTTON") return;
+			const grid = target.closest(".ml-calendar__grid, .ml-calendar__cell-grid");
+			if (!grid) return;
+			const cells = Array.from(grid.querySelectorAll("button:not([disabled])")).filter((el) => el.tabIndex !== -1);
+			if (cells.length === 0) return;
+			const idx = cells.indexOf(target);
+			if (idx === -1) return;
+			const cols = this.view === "day" ? 7 : 3;
+			let nextIdx = idx;
+			switch (key) {
+				case "ArrowLeft":
+					nextIdx = idx - 1;
+					break;
+				case "ArrowRight":
+					nextIdx = idx + 1;
+					break;
+				case "ArrowUp":
+					nextIdx = idx - cols;
+					break;
+				case "ArrowDown":
+					nextIdx = idx + cols;
+					break;
+				case "Home":
+					nextIdx = 0;
+					break;
+				case "End":
+					nextIdx = cells.length - 1;
+					break;
+			}
+			if (nextIdx < 0 || nextIdx >= cells.length) {
+				event.preventDefault();
+				return;
+			}
+			event.preventDefault();
+			cells[nextIdx].focus();
+		};
 	}
 	onInit() {
 		this.navigateToValue();
+		this.yearPageStart = this.computeYearPageStart(this.viewYear);
 	}
 	onAttributeChange(name, _, newVal) {
-		if (name === "value" && newVal) this.navigateToValue();
+		if (name === "value" && newVal) {
+			this.navigateToValue();
+			this.yearPageStart = this.computeYearPageStart(this.viewYear);
+		}
 	}
 	navigateToValue() {
 		if (!this.value) return;
@@ -9462,10 +9776,27 @@ var CalendarComponent = class CalendarComponent$1 {
 		}
 	}
 	get monthLabel() {
-		return `${MONTH_NAMES$1[this.viewMonth]} ${this.viewYear}`;
+		return MONTH_NAMES$1[this.viewMonth];
+	}
+	get yearLabel() {
+		return String(this.viewYear);
+	}
+	get yearRangeLabel() {
+		return `${this.yearPageStart} – ${this.yearPageStart + YEARS_PER_PAGE - 1}`;
+	}
+	get headerLabel() {
+		if (this.view === "year") return this.yearRangeLabel;
+		if (this.view === "month") return this.yearLabel;
+		return `${this.monthLabel} ${this.viewYear}`;
 	}
 	get weekdays() {
 		return WEEKDAYS;
+	}
+	get resolvedMinYear() {
+		return parseYear(this.minYear) ?? (/* @__PURE__ */ new Date()).getFullYear() - DEFAULT_MIN_YEAR_OFFSET;
+	}
+	get resolvedMaxYear() {
+		return parseYear(this.maxYear) ?? (/* @__PURE__ */ new Date()).getFullYear() + DEFAULT_MAX_YEAR_OFFSET;
 	}
 	get days() {
 		const year = this.viewYear;
@@ -9525,6 +9856,66 @@ var CalendarComponent = class CalendarComponent$1 {
 		}
 		return result;
 	}
+	get months() {
+		const selectedMonth = this.selectedMonthForYear(this.viewYear);
+		const now = /* @__PURE__ */ new Date();
+		return MONTH_NAMES_SHORT.map((label, index) => ({
+			index,
+			label,
+			isSelected: selectedMonth === index,
+			isCurrent: now.getFullYear() === this.viewYear && now.getMonth() === index,
+			isDisabled: this.isMonthDisabled(this.viewYear, index)
+		}));
+	}
+	get years() {
+		const result = [];
+		const selectedYear = this.selectedYear();
+		const now = (/* @__PURE__ */ new Date()).getFullYear();
+		const minY = this.resolvedMinYear;
+		const maxY = this.resolvedMaxYear;
+		for (let i = 0; i < YEARS_PER_PAGE; i++) {
+			const year = this.yearPageStart + i;
+			const inRange = year >= minY && year <= maxY;
+			result.push({
+				year,
+				isSelected: selectedYear === year,
+				isCurrent: year === now,
+				isDisabled: !inRange,
+				isPlaceholder: !inRange && (year < minY || year > maxY)
+			});
+		}
+		return result;
+	}
+	get canPageYearsBack() {
+		return this.yearPageStart > this.resolvedMinYear;
+	}
+	get canPageYearsForward() {
+		return this.yearPageStart + YEARS_PER_PAGE - 1 < this.resolvedMaxYear;
+	}
+	computeYearPageStart(year) {
+		const minY = this.resolvedMinYear;
+		return minY + Math.floor((year - minY) / YEARS_PER_PAGE) * YEARS_PER_PAGE;
+	}
+	selectedMonthForYear(year) {
+		if (!this.value) return null;
+		const parts = this.value.split("-");
+		if (parts.length !== 3) return null;
+		if (Number.parseInt(parts[0], 10) !== year) return null;
+		return Number.parseInt(parts[1], 10) - 1;
+	}
+	selectedYear() {
+		if (!this.value) return null;
+		const parts = this.value.split("-");
+		if (parts.length !== 3) return null;
+		return Number.parseInt(parts[0], 10);
+	}
+	isMonthDisabled(year, month) {
+		const monthEnd = toIso(year, month, new Date(year, month + 1, 0).getDate());
+		const monthStart = toIso(year, month, 1);
+		if (this.min && monthEnd < this.min) return true;
+		if (this.max && monthStart > this.max) return true;
+		return false;
+	}
 	isDisabled(iso) {
 		if (this.min && iso < this.min) return true;
 		if (this.max && iso > this.max) return true;
@@ -9538,7 +9929,9 @@ CalendarComponent = __decorate([MelodicComponent({
 	attributes: [
 		"value",
 		"min",
-		"max"
+		"max",
+		"min-year",
+		"max-year"
 	]
 })], CalendarComponent);
 function datePickerTemplate(c) {
@@ -9590,6 +9983,8 @@ function datePickerTemplate(c) {
 					value=${c.value}
 					min=${c.min}
 					max=${c.max}
+					min-year=${c.minYear}
+					max-year=${c.maxYear}
 					@ml:select=${c.handleDateSelect}
 				></ml-calendar>
 			</div>
@@ -9846,6 +10241,8 @@ var DatePickerComponent = class DatePickerComponent$1 {
 		this.required = false;
 		this.min = "";
 		this.max = "";
+		this.minYear = "";
+		this.maxYear = "";
 		this.isOpen = false;
 		this._cleanupAutoUpdate = null;
 		this.toggleCalendar = () => {
@@ -9961,7 +10358,9 @@ DatePickerComponent = __decorate([MelodicComponent({
 		"disabled",
 		"required",
 		"min",
-		"max"
+		"max",
+		"min-year",
+		"max-year"
 	]
 })], DatePickerComponent);
 function alertTemplate(c) {

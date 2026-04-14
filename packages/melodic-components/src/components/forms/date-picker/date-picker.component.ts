@@ -21,7 +21,7 @@ import { datePickerStyles } from './date-picker.styles.js';
 	selector: 'ml-date-picker',
 	template: datePickerTemplate,
 	styles: datePickerStyles,
-	attributes: ['value', 'placeholder', 'label', 'hint', 'error', 'size', 'disabled', 'required', 'min', 'max']
+	attributes: ['value', 'placeholder', 'label', 'hint', 'error', 'size', 'disabled', 'required', 'min', 'max', 'min-year', 'max-year']
 })
 export class DatePickerComponent implements IElementRef, OnCreate, OnDestroy {
 	public elementRef!: HTMLElement;
@@ -55,6 +55,12 @@ export class DatePickerComponent implements IElementRef, OnCreate, OnDestroy {
 
 	/** Maximum selectable date (YYYY-MM-DD) */
 	public max = '';
+
+	/** Earliest year reachable in the year picker (defaults to currentYear - 120) */
+	public minYear: number | string = '';
+
+	/** Latest year reachable in the year picker (defaults to currentYear + 10) */
+	public maxYear: number | string = '';
 
 	/** Whether the calendar popover is open */
 	public isOpen = false;

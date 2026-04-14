@@ -50,6 +50,8 @@ export function datePickerTemplate(c: DatePickerComponent) {
 					value=${c.value}
 					min=${c.min}
 					max=${c.max}
+					min-year=${c.minYear}
+					max-year=${c.maxYear}
 					@ml:select=${c.handleDateSelect}
 				></ml-calendar>
 			</div>

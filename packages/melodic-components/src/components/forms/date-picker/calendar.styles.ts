@@ -8,10 +8,28 @@ export const calendarStyles = () => css`
 		--ml-calendar-width: 280px;
 		--ml-calendar-font-family: var(--ml-font-sans);
 
-		/* --- Month label --- */
+		/* --- Month/year title --- */
 		--ml-calendar-month-font-size: var(--ml-text-sm);
 		--ml-calendar-month-font-weight: var(--ml-font-semibold);
 		--ml-calendar-month-color: var(--ml-color-text);
+		--ml-calendar-title-btn-padding-x: var(--ml-space-1-5);
+		--ml-calendar-title-btn-padding-y: var(--ml-space-1);
+		--ml-calendar-title-btn-border-radius: var(--ml-radius-md);
+		--ml-calendar-title-btn-hover-bg: var(--ml-color-surface-raised);
+		--ml-calendar-title-btn-hover-color: var(--ml-color-text);
+
+		/* --- Month/year cells --- */
+		--ml-calendar-cell-font-size: var(--ml-text-sm);
+		--ml-calendar-cell-font-weight: var(--ml-font-regular);
+		--ml-calendar-cell-color: var(--ml-color-text);
+		--ml-calendar-cell-border-radius: var(--ml-radius-md);
+		--ml-calendar-cell-hover-bg: var(--ml-color-surface-raised);
+		--ml-calendar-cell-selected-bg: var(--ml-color-primary);
+		--ml-calendar-cell-selected-color: var(--ml-color-text-inverse);
+		--ml-calendar-cell-selected-font-weight: var(--ml-font-semibold);
+		--ml-calendar-cell-selected-hover-bg: var(--ml-color-primary-hover);
+		--ml-calendar-cell-current-font-weight: var(--ml-font-semibold);
+		--ml-calendar-cell-height: 3rem;
 
 		/* --- Nav buttons --- */
 		--ml-calendar-nav-size: 2rem;
@@ -85,10 +103,94 @@ export const calendarStyles = () => css`
 		gap: 0;
 	}
 
-	.ml-calendar__month-label {
+	.ml-calendar__title {
+		display: flex;
+		align-items: center;
+		gap: var(--ml-space-1);
+	}
+
+	.ml-calendar__title-btn {
+		border: none;
+		background: none;
+		padding: var(--ml-calendar-title-btn-padding-y) var(--ml-calendar-title-btn-padding-x);
+		border-radius: var(--ml-calendar-title-btn-border-radius);
+		font-family: inherit;
 		font-size: var(--ml-calendar-month-font-size);
 		font-weight: var(--ml-calendar-month-font-weight);
 		color: var(--ml-calendar-month-color);
+		cursor: pointer;
+		transition: background-color var(--ml-calendar-transition-duration) var(--ml-calendar-transition-easing), color var(--ml-calendar-transition-duration) var(--ml-calendar-transition-easing);
+	}
+
+	.ml-calendar__title-btn:hover {
+		background-color: var(--ml-calendar-title-btn-hover-bg);
+		color: var(--ml-calendar-title-btn-hover-color);
+	}
+
+	.ml-calendar__title-btn:focus-visible {
+		outline: none;
+		box-shadow: var(--ml-calendar-focus-shadow);
+	}
+
+	.ml-calendar__title-btn--wide {
+		min-width: 0;
+	}
+
+	/* Month / year cell grid */
+	.ml-calendar__cell-grid {
+		display: grid;
+		grid-template-columns: repeat(3, 1fr);
+		gap: var(--ml-space-1);
+		padding: var(--ml-space-1) 0;
+	}
+
+	.ml-calendar__cell {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		height: var(--ml-calendar-cell-height);
+		border: none;
+		border-radius: var(--ml-calendar-cell-border-radius);
+		background: none;
+		font-family: inherit;
+		font-size: var(--ml-calendar-cell-font-size);
+		font-weight: var(--ml-calendar-cell-font-weight);
+		color: var(--ml-calendar-cell-color);
+		cursor: pointer;
+		padding: 0;
+		transition:
+			background-color var(--ml-calendar-transition-duration) var(--ml-calendar-transition-easing),
+			color var(--ml-calendar-transition-duration) var(--ml-calendar-transition-easing);
+	}
+
+	.ml-calendar__cell:hover:not(:disabled):not(.ml-calendar__cell--selected) {
+		background-color: var(--ml-calendar-cell-hover-bg);
+	}
+
+	.ml-calendar__cell:focus-visible {
+		outline: none;
+		box-shadow: var(--ml-calendar-focus-shadow);
+		z-index: 1;
+	}
+
+	.ml-calendar__cell--current {
+		font-weight: var(--ml-calendar-cell-current-font-weight);
+	}
+
+	.ml-calendar__cell--selected {
+		background-color: var(--ml-calendar-cell-selected-bg);
+		color: var(--ml-calendar-cell-selected-color);
+		font-weight: var(--ml-calendar-cell-selected-font-weight);
+	}
+
+	.ml-calendar__cell--selected:hover:not(:disabled) {
+		background-color: var(--ml-calendar-cell-selected-hover-bg);
+	}
+
+	.ml-calendar__cell--disabled,
+	.ml-calendar__cell:disabled {
+		opacity: var(--ml-calendar-disabled-opacity);
+		cursor: not-allowed;
 	}
 
 	.ml-calendar__nav {

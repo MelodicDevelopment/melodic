@@ -795,6 +795,15 @@ export const demoAppTemplate = (c: DemoApp) => {
 
 						<div class="demo-card">
 							<div class="demo-card__header">
+								<h3>Year Range (Birthday)</h3>
+								<span class="demo-card__badge">min-year / max-year</span>
+							</div>
+							<p class="demo-card__description">Click the month or year in the header to jump views. <code>min-year</code> / <code>max-year</code> bound the year picker — default covers 120 years back + 10 forward.</p>
+							<ml-date-picker label="Date of birth" min-year="1900" max-year="2026" placeholder="MM/DD/YYYY"></ml-date-picker>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
 								<h3>Standalone Calendar</h3>
 							</div>
 							<div class="demo-row">

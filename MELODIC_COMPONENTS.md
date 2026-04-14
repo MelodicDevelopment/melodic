@@ -1241,7 +1241,9 @@ interface AutocompleteOption {
 
 #### Props / Attributes
 
-`value` (ISO `YYYY-MM-DD`), `placeholder` (`'Select date'`), `label`, `hint`, `error`, `size` (`'sm'`|`'md'`|`'lg'`), `disabled`, `required`, `min`, `max`
+`value` (ISO `YYYY-MM-DD`), `placeholder` (`'Select date'`), `label`, `hint`, `error`, `size` (`'sm'`|`'md'`|`'lg'`), `disabled`, `required`, `min`, `max`, `min-year`, `max-year`
+
+The calendar header shows clickable month and year labels. Clicking the month swaps the day grid for a month picker; clicking the year swaps it for a year grid paged 12 years at a time. `min-year` / `max-year` bound how far the year picker can reach (defaults: current year − 120 to current year + 10) — handy for birthday inputs.
 
 #### Events
 
@@ -1253,6 +1255,9 @@ interface AutocompleteOption {
 
 ```html
 <ml-date-picker label="Start date" value="2026-02-08" min="2026-01-01" max="2026-12-31"></ml-date-picker>
+
+<!-- Birthday picker: reach back to 1900 without clicking ‹ hundreds of times -->
+<ml-date-picker label="Date of birth" min-year="1900" max-year="2026"></ml-date-picker>
 ```
 
 ---
