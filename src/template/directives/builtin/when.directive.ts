@@ -11,7 +11,7 @@ import { type IDirectiveResult } from '../interfaces/idirective-result.interface
 
 interface WhenState {
 	condition: boolean;
-	template: TemplateResult;
+	template: TemplateResult | null;
 	falseTemplate: TemplateResult | null;
 	container: DocumentFragment | null;
 	startMarker: Comment;
@@ -51,8 +51,8 @@ export function when(
 
 			const state: WhenState = {
 				condition: false,
-				template: template(),
-				falseTemplate: falseTemplate ? falseTemplate() : null,
+				template: null,
+				falseTemplate: null,
 				container: null,
 				startMarker,
 				endMarker,
@@ -60,8 +60,10 @@ export function when(
 			};
 
 			if (condition) {
+				state.template = template();
 				renderContent(state, true);
-			} else if (state.falseTemplate) {
+			} else if (falseTemplate) {
+				state.falseTemplate = falseTemplate();
 				renderContent(state, false);
 			}
 

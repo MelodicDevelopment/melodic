@@ -36,7 +36,7 @@ melodic/
 
 | Package | Version | Description |
 |---------|---------|-------------|
-| `@melodicdev/core` | 1.5.2 | Core framework |
+| `@melodicdev/core` | 1.5.3 | Core framework |
 | `@melodicdev/components` | 1.6.0 | Themeable UI component library |
 | `@melodicdev/cli` | 1.3.0 | CLI scaffolding tool |
 
