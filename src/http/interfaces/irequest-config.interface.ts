@@ -19,4 +19,6 @@ export interface IRequestConfig {
 	credentials?: RequestCredentials;
 	mode?: RequestMode;
 	cancel?: IRequestCancellation;
+	/** @internal Tracks retry attempts driven by response interceptor error handlers. */
+	_retryCount?: number;
 }

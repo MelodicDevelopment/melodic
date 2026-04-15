@@ -95,7 +95,35 @@ http.interceptors.response({
 });
 ```
 
-Each interceptor can define an optional `error` handler.
+### Response error handling and retry
+
+A response interceptor may define an optional `error(error, context)` handler. It is invoked when:
+
+- The underlying request fails (non-2xx, network, abort), or
+- A prior interceptor's `intercept()` throws.
+
+`context` provides:
+
+- `retryCount` — retries already attempted for this request (0 on first failure).
+- `retry()` — a one-shot function that re-issues the original request (re-running request interceptors, so token-refresh flows work). Throws if called twice in one handler, or once `MAX_RETRIES` (3) is reached.
+
+**Recovery semantics:**
+
+- Return an `IHttpResponse` to recover — the remaining response interceptors run on it.
+- Reject (or resolve `void`) to defer to the next interceptor's `error()`.
+- If no handler recovers, the original error is rethrown to the caller.
+
+```typescript
+http.interceptors.response({
+	intercept: async (response) => response,
+	error: async (err, { retry, retryCount }) => {
+		if ((err as HttpError).response?.status !== 401) throw err;
+		if (retryCount > 0) throw err; // already tried once — give up
+		await refreshToken();
+		return await retry();
+	}
+});
+```
 
 ## Cancellation
 

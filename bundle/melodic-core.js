@@ -895,6 +895,7 @@ var RequestManager = class {
 		return hash;
 	}
 };
+var MAX_RETRIES = 3;
 var HttpClient = class {
 	constructor(config) {
 		this._requestManager = new RequestManager();
@@ -955,6 +956,7 @@ var HttpClient = class {
 		});
 	}
 	async internalRequest(config) {
+		const originalConfig = config;
 		let requestConfig = this.mergeConfig(config);
 		requestConfig = await this.executeRequestInterceptors(requestConfig);
 		if (requestConfig.cancel?.cancelled) {
@@ -977,11 +979,56 @@ var HttpClient = class {
 			delete headers["Content-Type"];
 			delete headers["content-type"];
 			requestConfig.headers = headers;
+		} else if (this.shouldDefaultJsonContentType(requestConfig.body)) {
+			const headers = { ...requestConfig.headers };
+			if (!Object.keys(headers).some((k) => k.toLowerCase() === "content-type")) {
+				headers["Content-Type"] = "application/json";
+				requestConfig.headers = headers;
+			}
 		}
 		if (requestConfig.abortController === void 0) requestConfig.abortController = new AbortController();
-		let response = await this.executeRequest(requestConfig);
-		response = await this.executeResponseInterceptors(response);
-		return response;
+		try {
+			const response = await this.executeRequest(requestConfig);
+			return await this.executeResponseInterceptors(response, 0);
+		} catch (error) {
+			return this.handleResponseError(error, originalConfig);
+		}
+	}
+	async handleResponseError(error, originalConfig) {
+		const retryCount = originalConfig._retryCount ?? 0;
+		for (let i = 0; i < this._interceptors.response.length; i++) {
+			const interceptor = this._interceptors.response[i];
+			if (!interceptor.error) continue;
+			let retryCalled = false;
+			const retry = async () => {
+				if (retryCalled) throw new Error("[HttpClient] retry() may only be called once per error handler invocation");
+				retryCalled = true;
+				if (retryCount >= MAX_RETRIES) throw new Error(`[HttpClient] Max retries (${MAX_RETRIES}) exceeded`);
+				return this.internalRequest({
+					...originalConfig,
+					_retryCount: retryCount + 1,
+					abortController: void 0
+				});
+			};
+			const context = {
+				retry,
+				retryCount
+			};
+			try {
+				const result = await interceptor.error(error, context);
+				if (this.isHttpResponse(result)) return this.executeResponseInterceptors(result, i + 1);
+			} catch {}
+		}
+		throw error;
+	}
+	isHttpResponse(value) {
+		return !!value && typeof value === "object" && "data" in value && "status" in value && "headers" in value && "config" in value;
+	}
+	shouldDefaultJsonContentType(body) {
+		if (body === null || body === void 0) return false;
+		if (typeof body === "string") return false;
+		if (body instanceof FormData || body instanceof Blob || body instanceof ArrayBuffer || body instanceof URLSearchParams || body instanceof ReadableStream) return false;
+		return typeof body === "object";
 	}
 	async executeRequest(config) {
 		if (config.deduplicate === true) {
@@ -1023,13 +1070,8 @@ var HttpClient = class {
 		}
 		return config;
 	}
-	async executeResponseInterceptors(response) {
-		for (const interceptor of this._interceptors.response) try {
-			response = await interceptor.intercept(response);
-		} catch (error) {
-			if (interceptor.error) await interceptor.error(error);
-			throw error;
-		}
+	async executeResponseInterceptors(response, startIndex) {
+		for (let i = startIndex; i < this._interceptors.response.length; i++) response = await this._interceptors.response[i].intercept(response);
 		return response;
 	}
 	mergeConfig(config) {

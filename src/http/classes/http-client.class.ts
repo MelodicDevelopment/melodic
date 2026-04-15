@@ -1,13 +1,18 @@
 import { AbortError, HttpError, NetworkError } from './http-error.class';
 import type { IHttpClientConfig } from '../interfaces/ihttp-client-config.interface';
 import type { IHttpRequestInterceptor } from '../interfaces/ihttp-request-interceptor.interface';
-import type { IHttpResponseInterceptor } from '../interfaces/ihttp-response-interceptor.interface';
+import type {
+	IHttpResponseErrorContext,
+	IHttpResponseInterceptor
+} from '../interfaces/ihttp-response-interceptor.interface';
 import type { IHttpResponse } from '../interfaces/ihttp-response.interface';
 import type { IInterceptorApi } from '../interfaces/iinterceptor-api.interface';
 import type { IProgressEvent } from '../interfaces/iprogress-event.interface';
 import type { IRequestConfig } from '../interfaces/irequest-config.interface';
 import type { HttpRequestBody } from '../types/http-request-body.type';
 import { RequestManager } from './request-manager.class';
+
+const MAX_RETRIES = 3;
 
 export class HttpClient {
 	private _clientConfig: IHttpClientConfig;
@@ -57,6 +62,7 @@ export class HttpClient {
 	}
 
 	private async internalRequest<T>(config: IRequestConfig): Promise<IHttpResponse<T>> {
+		const originalConfig: IRequestConfig = config;
 		let requestConfig: IRequestConfig = this.mergeConfig(config);
 		requestConfig = await this.executeRequestInterceptors(requestConfig);
 
@@ -85,6 +91,14 @@ export class HttpClient {
 			delete headers['Content-Type'];
 			delete headers['content-type'];
 			requestConfig.headers = headers;
+		} else if (this.shouldDefaultJsonContentType(requestConfig.body)) {
+			const headers = { ...requestConfig.headers } as Record<string, string>;
+			const hasContentType = Object.keys(headers).some((k) => k.toLowerCase() === 'content-type');
+
+			if (!hasContentType) {
+				headers['Content-Type'] = 'application/json';
+				requestConfig.headers = headers;
+			}
 		}
 
 		if (requestConfig.abortController === undefined) {
@@ -92,10 +106,91 @@ export class HttpClient {
 			requestConfig.abortController = abortController;
 		}
 
-		let response = await this.executeRequest<T>(requestConfig);
-		response = await this.executeResponseInterceptors(response);
+		try {
+			const response = await this.executeRequest<T>(requestConfig);
 
-		return response;
+			return await this.executeResponseInterceptors<T>(response, 0);
+		} catch (error) {
+			return this.handleResponseError<T>(error as Error, originalConfig);
+		}
+	}
+
+	private async handleResponseError<T>(error: Error, originalConfig: IRequestConfig): Promise<IHttpResponse<T>> {
+		const retryCount = originalConfig._retryCount ?? 0;
+
+		for (let i = 0; i < this._interceptors.response.length; i++) {
+			const interceptor = this._interceptors.response[i];
+
+			if (!interceptor.error) {
+				continue;
+			}
+
+			let retryCalled = false;
+			const retry = async (): Promise<IHttpResponse<T>> => {
+				if (retryCalled) {
+					throw new Error('[HttpClient] retry() may only be called once per error handler invocation');
+				}
+
+				retryCalled = true;
+
+				if (retryCount >= MAX_RETRIES) {
+					throw new Error(`[HttpClient] Max retries (${MAX_RETRIES}) exceeded`);
+				}
+
+				return this.internalRequest<T>({
+					...originalConfig,
+					_retryCount: retryCount + 1,
+					abortController: undefined
+				});
+			};
+
+			const context: IHttpResponseErrorContext<T> = { retry, retryCount };
+
+			try {
+				const result = await interceptor.error(error, context);
+
+				if (this.isHttpResponse<T>(result)) {
+					return this.executeResponseInterceptors<T>(result, i + 1);
+				}
+			} catch {
+				// Fall through to the next interceptor's error handler.
+			}
+		}
+
+		throw error;
+	}
+
+	private isHttpResponse<T>(value: unknown): value is IHttpResponse<T> {
+		return (
+			!!value &&
+			typeof value === 'object' &&
+			'data' in value &&
+			'status' in value &&
+			'headers' in value &&
+			'config' in value
+		);
+	}
+
+	private shouldDefaultJsonContentType(body: HttpRequestBody | undefined): boolean {
+		if (body === null || body === undefined) {
+			return false;
+		}
+
+		if (typeof body === 'string') {
+			return false;
+		}
+
+		if (
+			body instanceof FormData ||
+			body instanceof Blob ||
+			body instanceof ArrayBuffer ||
+			body instanceof URLSearchParams ||
+			body instanceof ReadableStream
+		) {
+			return false;
+		}
+
+		return typeof body === 'object';
 	}
 
 	private async executeRequest<T>(config: IRequestConfig): Promise<IHttpResponse<T>> {
@@ -169,16 +264,9 @@ export class HttpClient {
 		return config;
 	}
 
-	private async executeResponseInterceptors<T>(response: IHttpResponse<T>): Promise<IHttpResponse<T>> {
-		for (const interceptor of this._interceptors.response) {
-			try {
-				response = await interceptor.intercept(response);
-			} catch (error) {
-				if (interceptor.error) {
-					await interceptor.error(error as Error);
-				}
-				throw error;
-			}
+	private async executeResponseInterceptors<T>(response: IHttpResponse<T>, startIndex: number): Promise<IHttpResponse<T>> {
+		for (let i = startIndex; i < this._interceptors.response.length; i++) {
+			response = await this._interceptors.response[i].intercept(response);
 		}
 
 		return response;
