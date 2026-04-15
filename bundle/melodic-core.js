@@ -476,6 +476,12 @@ var AbstractControl = class {
 	markAllAsUntouched() {
 		this.markAsUntouched();
 	}
+	markAllAsDirty() {
+		this.markAsDirty();
+	}
+	markAllAsPristine() {
+		this.markAsPristine();
+	}
 	disable() {
 		this._ownDisabled.set(true);
 	}

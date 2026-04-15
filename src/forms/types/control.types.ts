@@ -21,3 +21,8 @@ export type ControlOptions<T> = {
 	updateOn?: UpdateOn;
 	messages?: MessageMap;
 };
+
+export type SetValueOptions = {
+	/** After setting the value, mark the control (and descendants) pristine instead of dirty. */
+	markAsPristine?: boolean;
+};

@@ -1,6 +1,6 @@
 import { signal, SignalEffect } from '../../signals';
 import type { Signal } from '../../signals';
-import type { ControlOptions } from '../types/control.types';
+import type { ControlOptions, SetValueOptions } from '../types/control.types';
 import { AbstractControl } from './abstract-control.class';
 
 export class FormArray<T = unknown> extends AbstractControl<T[]> {
@@ -72,22 +72,28 @@ export class FormArray<T = unknown> extends AbstractControl<T[]> {
 		this.controls.set([]);
 	}
 
-	public setValue(value: T[]): void {
+	public setValue(value: T[], options?: SetValueOptions): void {
 		if (this._ownDisabled()) return;
 		const controls = this.controls();
 		value.forEach((v, i) => {
-			controls[i]?.setValue(v);
+			controls[i]?.setValue(v, options);
 		});
+		if (options?.markAsPristine) {
+			this._dirty.set(false);
+		}
 	}
 
-	public patchValue(value: T[]): void {
+	public patchValue(value: T[], options?: SetValueOptions): void {
 		if (this._ownDisabled()) return;
 		const controls = this.controls();
 		value.forEach((v, i) => {
 			if (v !== undefined) {
-				controls[i]?.setValue(v);
+				controls[i]?.setValue(v, options);
 			}
 		});
+		if (options?.markAsPristine) {
+			this._dirty.set(false);
+		}
 	}
 
 	public reset(value?: T[]): void {
@@ -108,6 +114,20 @@ export class FormArray<T = unknown> extends AbstractControl<T[]> {
 		this._touched.set(false);
 		for (const control of this.controls()) {
 			control.markAllAsUntouched();
+		}
+	}
+
+	public markAllAsDirty(): void {
+		this._dirty.set(true);
+		for (const control of this.controls()) {
+			control.markAllAsDirty();
+		}
+	}
+
+	public markAllAsPristine(): void {
+		this._dirty.set(false);
+		for (const control of this.controls()) {
+			control.markAllAsPristine();
 		}
 	}
 

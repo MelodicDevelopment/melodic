@@ -1272,11 +1272,13 @@ email.dirty();   // true (Signal)
 
 | Method | Description |
 |--------|-------------|
-| `setValue(value)` | Set value, mark dirty, validate |
-| `patchValue(partial)` | Merge into current value |
+| `setValue(value, options?)` | Set value, mark dirty, validate. `{ markAsPristine: true }` keeps the control pristine (e.g., server hydration) |
+| `patchValue(partial, options?)` | Merge into current value. Same `options` as `setValue` |
 | `reset(value?)` | Reset to initial or provided value |
 | `markAsTouched()` / `markAsUntouched()` | Touch state |
 | `markAsDirty()` / `markAsPristine()` | Dirty state |
+| `markAllAsTouched()` / `markAllAsUntouched()` | Touch self (cascades in `FormGroup` / `FormArray`) |
+| `markAllAsDirty()` / `markAllAsPristine()` | Dirty self (cascades in `FormGroup` / `FormArray`) |
 | `disable()` / `enable()` | Disabled state |
 | `setValidators(validators)` | Replace sync validators |
 | `setAsyncValidators(validators)` | Replace async validators |
@@ -1331,11 +1333,11 @@ Ordered list of controls with `push`, `insert`, `removeAt`, `clear`, `at(index)`
 | `addControl(name, control)` | Add control dynamically |
 | `removeControl(name)` | Remove control |
 | `contains(name)` | Check existence |
-| `setValue(value)` | Set all children |
-| `patchValue(partial)` | Set only provided children |
+| `setValue(value, options?)` | Set all children. `{ markAsPristine: true }` keeps the form pristine after hydration |
+| `patchValue(partial, options?)` | Set only provided children. Same `options` as `setValue` |
 | `reset(value?)` | Reset all children |
-| `markAllAsTouched()` / `markAllAsUntouched()` | Touch all |
-| `markAllAsDirty()` / `markAllAsPristine()` | Dirty all |
+| `markAllAsTouched()` / `markAllAsUntouched()` | Touch all (cascades into nested groups/arrays) |
+| `markAllAsDirty()` / `markAllAsPristine()` | Dirty all (cascades into nested groups/arrays) |
 | `disable()` / `enable()` | Disable/enable group + children |
 | `validate()` | Validate all children + group validators |
 

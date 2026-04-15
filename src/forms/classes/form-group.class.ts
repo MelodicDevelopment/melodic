@@ -1,6 +1,6 @@
 import { signal, SignalEffect } from '../../signals';
 import type { Signal } from '../../signals';
-import type { ControlOptions } from '../types/control.types';
+import type { ControlOptions, SetValueOptions } from '../types/control.types';
 import { AbstractControl } from './abstract-control.class';
 
 export type FormGroupControls<T> = {
@@ -66,21 +66,27 @@ export class FormGroup<T = Record<string, unknown>> extends AbstractControl<Form
 		});
 	}
 
-	public setValue(value: FormGroupValue<T>): void {
+	public setValue(value: FormGroupValue<T>, options?: SetValueOptions): void {
 		if (this._ownDisabled()) return;
 		const controls = this.controls();
 		for (const key of Object.keys(value)) {
-			controls[key as keyof T]?.setValue(value[key as keyof T]);
+			controls[key as keyof T]?.setValue(value[key as keyof T], options);
+		}
+		if (options?.markAsPristine) {
+			this._dirty.set(false);
 		}
 	}
 
-	public patchValue(value: Partial<FormGroupValue<T>>): void {
+	public patchValue(value: Partial<FormGroupValue<T>>, options?: SetValueOptions): void {
 		if (this._ownDisabled()) return;
 		const controls = this.controls();
 		for (const key of Object.keys(value)) {
 			if (value[key as keyof T] !== undefined) {
-				controls[key as keyof T]?.setValue(value[key as keyof T] as T[keyof T]);
+				controls[key as keyof T]?.setValue(value[key as keyof T] as T[keyof T], options);
 			}
+		}
+		if (options?.markAsPristine) {
+			this._dirty.set(false);
 		}
 	}
 
@@ -112,12 +118,7 @@ export class FormGroup<T = Record<string, unknown>> extends AbstractControl<Form
 		this._dirty.set(true);
 		const controls = this.controls();
 		for (const key of Object.keys(controls)) {
-			const child = controls[key as keyof T];
-			if ('markAllAsDirty' in child && typeof (child as { markAllAsDirty?: () => void }).markAllAsDirty === 'function') {
-				(child as unknown as { markAllAsDirty: () => void }).markAllAsDirty();
-			} else {
-				child.markAsDirty();
-			}
+			controls[key as keyof T].markAllAsDirty();
 		}
 	}
 
@@ -125,12 +126,7 @@ export class FormGroup<T = Record<string, unknown>> extends AbstractControl<Form
 		this._dirty.set(false);
 		const controls = this.controls();
 		for (const key of Object.keys(controls)) {
-			const child = controls[key as keyof T];
-			if ('markAllAsPristine' in child && typeof (child as { markAllAsPristine?: () => void }).markAllAsPristine === 'function') {
-				(child as unknown as { markAllAsPristine: () => void }).markAllAsPristine();
-			} else {
-				child.markAsPristine();
-			}
+			controls[key as keyof T].markAllAsPristine();
 		}
 	}
 

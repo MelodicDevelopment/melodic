@@ -1,7 +1,7 @@
 import { signal, computed } from '../../signals';
 import type { Signal } from '../../signals';
 import type { ValidatorFn, AsyncValidatorFn, ValidationErrors, ValidationError, MessageMap, MessageValue } from '../types/validation.types';
-import type { ControlState, ControlOptions, UpdateOn } from '../types/control.types';
+import type { ControlState, ControlOptions, SetValueOptions, UpdateOn } from '../types/control.types';
 import { getGlobalMessage, resolveMessage } from '../messages/messages-registry';
 
 export abstract class AbstractControl<T = unknown> {
@@ -68,8 +68,8 @@ export abstract class AbstractControl<T = unknown> {
 		}));
 	}
 
-	public abstract setValue(value: T): void;
-	public abstract patchValue(value: unknown): void;
+	public abstract setValue(value: T, options?: SetValueOptions): void;
+	public abstract patchValue(value: unknown, options?: SetValueOptions): void;
 	public abstract reset(value?: T): void;
 	public abstract destroy(): void;
 
@@ -98,6 +98,14 @@ export abstract class AbstractControl<T = unknown> {
 
 	public markAllAsUntouched(): void {
 		this.markAsUntouched();
+	}
+
+	public markAllAsDirty(): void {
+		this.markAsDirty();
+	}
+
+	public markAllAsPristine(): void {
+		this.markAsPristine();
 	}
 
 	public disable(): void {

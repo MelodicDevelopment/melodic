@@ -225,6 +225,112 @@ describe('FormArray', () => {
 		expect(arr.length).toBe(2);
 		expect(arr.invalid()).toBe(false);
 	});
+
+	it('markAllAsDirty / markAllAsPristine cascade through children', () => {
+		const arr = createFormArray<string>([
+			createFormControl<string>('a'),
+			createFormControl<string>('b'),
+			createFormControl<string>('c')
+		]);
+
+		expect(arr.dirty()).toBe(false);
+		arr.markAllAsDirty();
+		expect(arr.dirty()).toBe(true);
+		for (let i = 0; i < arr.length; i++) {
+			expect(arr.at(i)!.dirty()).toBe(true);
+		}
+
+		arr.markAllAsPristine();
+		expect(arr.dirty()).toBe(false);
+		for (let i = 0; i < arr.length; i++) {
+			expect(arr.at(i)!.dirty()).toBe(false);
+		}
+	});
+
+	it('markAllAsDirty / markAllAsPristine cascade into nested FormGroups', () => {
+		const arr = createFormArray([
+			createFormGroup({ name: createFormControl<string>('a') }),
+			createFormGroup({ name: createFormControl<string>('b') })
+		]);
+
+		arr.markAllAsDirty();
+		expect(arr.dirty()).toBe(true);
+		expect(arr.at(0)!.dirty()).toBe(true);
+		expect((arr.at(0) as FormGroup<{ name: string }>).get('name').dirty()).toBe(true);
+
+		arr.markAllAsPristine();
+		expect(arr.dirty()).toBe(false);
+		expect(arr.at(0)!.dirty()).toBe(false);
+		expect((arr.at(0) as FormGroup<{ name: string }>).get('name').dirty()).toBe(false);
+	});
+});
+
+describe('setValue / patchValue { markAsPristine }', () => {
+	it('FormControl: setValue stays pristine when markAsPristine is true', () => {
+		const c = createFormControl<string>('initial');
+		c.setValue('hydrated', { markAsPristine: true });
+		expect(c.value()).toBe('hydrated');
+		expect(c.dirty()).toBe(false);
+		expect(c.pristine()).toBe(true);
+	});
+
+	it('FormControl: setValue still flips to dirty by default', () => {
+		const c = createFormControl<string>('initial');
+		c.setValue('changed');
+		expect(c.dirty()).toBe(true);
+	});
+
+	it('FormControl: markAsPristine clears existing dirty state after update', () => {
+		const c = createFormControl<string>('initial');
+		c.setValue('typed by user');
+		expect(c.dirty()).toBe(true);
+		c.setValue('server value', { markAsPristine: true });
+		expect(c.dirty()).toBe(false);
+	});
+
+	it('FormGroup: setValue({ markAsPristine: true }) keeps the whole tree pristine', () => {
+		const form = createFormGroup({
+			email: createFormControl<string>(''),
+			name: createFormControl<string>('')
+		});
+
+		form.setValue({ email: 'a@b.co', name: 'Ada' }, { markAsPristine: true });
+
+		expect(form.value()).toEqual({ email: 'a@b.co', name: 'Ada' });
+		expect(form.dirty()).toBe(false);
+		expect(form.get('email').dirty()).toBe(false);
+		expect(form.get('name').dirty()).toBe(false);
+	});
+
+	it('FormGroup: patchValue({ markAsPristine: true }) only touches specified keys', () => {
+		const form = createFormGroup({
+			email: createFormControl<string>('old@example.com'),
+			name: createFormControl<string>('')
+		});
+
+		form.get('name').setValue('user typed'); // dirty
+
+		form.patchValue({ email: 'new@example.com' }, { markAsPristine: true });
+
+		expect(form.get('email').value()).toBe('new@example.com');
+		expect(form.get('email').dirty()).toBe(false);
+		// Untouched child's dirty state is preserved
+		expect(form.get('name').dirty()).toBe(true);
+	});
+
+	it('FormArray: setValue({ markAsPristine: true }) keeps the array + children pristine', () => {
+		const arr = createFormArray<string>([
+			createFormControl<string>(''),
+			createFormControl<string>('')
+		]);
+
+		arr.setValue(['first', 'second'], { markAsPristine: true });
+
+		expect(arr.value()).toEqual(['first', 'second']);
+		expect(arr.dirty()).toBe(false);
+		expect(arr.at(0)!.dirty()).toBe(false);
+		expect(arr.at(1)!.dirty()).toBe(false);
+	});
 });
 
 describe('Component auto-subscribe', () => {
