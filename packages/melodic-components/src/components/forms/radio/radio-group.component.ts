@@ -1,8 +1,17 @@
 import { MelodicComponent } from '@melodicdev/core';
 import type { IElementRef, OnInit } from '@melodicdev/core';
+import { registerAdapter } from '@melodicdev/core/forms';
 import type { Orientation } from '../../../types/index.js';
 import { radioGroupTemplate } from './radio-group.template.js';
 import { radioGroupStyles } from './radio-group.styles.js';
+
+registerAdapter<string>((el) => el.tagName === 'ML-RADIO-GROUP', {
+	inputEvent: 'ml:change',
+	blurEvent: 'focusout',
+	getValue: (el) => (el as unknown as { value: string }).value ?? '',
+	setValue: (el, value) => { (el as unknown as { value: string }).value = value !== null && value !== undefined ? String(value) : ''; },
+	setDisabled: (el, disabled) => { (el as unknown as { disabled: boolean }).disabled = disabled; }
+});
 
 /**
  * ml-radio-group - Container for radio buttons

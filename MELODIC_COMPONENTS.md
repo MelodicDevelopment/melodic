@@ -930,6 +930,16 @@ Props: `value`, `icon`, `disabled`, `active` (managed), `groupDisabled`, `groupS
 </ml-input>
 ```
 
+#### Form Integration
+
+Bind a `FormControl` with the `:formControl` directive — the `error` attribute is populated automatically from the validator's resolved message when the control is touched and invalid:
+
+```typescript
+html`<ml-input label="Email" :formControl=${this.form.get('email')}></ml-input>`;
+```
+
+`error="..."` set manually still takes precedence at the attribute level when no `:formControl` is bound. The same auto-error behavior applies to other form components that observe the `error` attribute: `ml-textarea`, `ml-select`, `ml-autocomplete`, `ml-checkbox`, `ml-toggle`, `ml-radio-group`, `ml-slider`, `ml-date-picker`, `ml-time-picker`, `ml-date-time-picker`.
+
 #### Key CSS Custom Properties
 
 | Property | Default | Description |
@@ -1658,7 +1668,7 @@ Uses `currentColor` for stroke. ARIA: `role="status"`, `aria-label`.
 
 #### Props
 
-`variant` (`'default'`|`'primary'`|`'secondary'`|`'success'`|`'warning'`|`'error'`), `size` (`'sm'`|`'md'`|`'lg'`), `dot`, `pill`, `color` (`string`, `''` — custom background color, any CSS color; overrides variant)
+`variant` (`'default'`|`'primary'`|`'secondary'`|`'success'`|`'warning'`|`'error'`), `size` (`'xs'`|`'sm'`|`'md'`|`'lg'`), `dot`, `pill`, `color` (`string`, `''` — custom background color, any CSS color; overrides variant)
 
 #### Key CSS Custom Properties
 

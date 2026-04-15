@@ -315,6 +315,286 @@ var cacheCssSheet = (text) => {
 var hasCachedSheets = () => {
 	return cachedCssSheets.length > 0;
 };
+var activeEffect = null;
+const setActiveEffect = (effect) => {
+	activeEffect = effect;
+};
+const getActiveEffect = () => activeEffect;
+var SignalEffect = class {
+	constructor(execute) {
+		this.execute = execute;
+		this._dependencies = /* @__PURE__ */ new Set();
+		this._isRunning = false;
+		this._needsRerun = false;
+		this.run = () => {
+			if (this._isRunning) {
+				this._needsRerun = true;
+				return;
+			}
+			this._isRunning = true;
+			do {
+				this._needsRerun = false;
+				this._dependencies.forEach((signal$1) => {
+					signal$1.unsubscribe(this.run);
+				});
+				this._dependencies.clear();
+				const prevEffect = getActiveEffect();
+				setActiveEffect(this);
+				this.execute();
+				setActiveEffect(prevEffect);
+			} while (this._needsRerun);
+			this._isRunning = false;
+		};
+	}
+	addDependency(signal$1) {
+		this._dependencies.add(signal$1);
+	}
+	destroy() {
+		this._dependencies.forEach((signal$1) => {
+			signal$1.unsubscribe(this.run);
+		});
+		this._dependencies.clear();
+	}
+};
+function signal(initialValue) {
+	let value = initialValue;
+	const subscribers = /* @__PURE__ */ new Set();
+	const notify = () => {
+		[...subscribers].forEach((subscriber) => subscriber(value));
+	};
+	const read = (() => {
+		const activeEffect$1 = getActiveEffect();
+		if (activeEffect$1) {
+			activeEffect$1.addDependency(read);
+			subscribers.add(activeEffect$1.run);
+		}
+		return value;
+	});
+	read.set = (newValue) => {
+		if (value !== newValue) {
+			value = newValue;
+			notify();
+		}
+	};
+	read.update = (updater) => {
+		read.set(updater(value));
+	};
+	read.subscribe = (subscriber) => {
+		subscribers.add(subscriber);
+		return () => subscribers.delete(subscriber);
+	};
+	read.unsubscribe = (subscriber) => {
+		subscribers.delete(subscriber);
+	};
+	read.destroy = () => {
+		subscribers.clear();
+	};
+	Object.defineProperty(read, SIGNAL_MARKER, {
+		value: true,
+		enumerable: false,
+		configurable: false
+	});
+	return read;
+}
+function computed(computation) {
+	const computedSignal = signal(void 0);
+	const effect = new SignalEffect(() => {
+		computedSignal.set(computation());
+	});
+	effect.run();
+	const originalDestroy = computedSignal.destroy;
+	computedSignal.destroy = () => {
+		effect.destroy();
+		originalDestroy();
+	};
+	return computedSignal;
+}
+var globalMessages = {};
+function getGlobalMessage(code) {
+	return globalMessages[code];
+}
+function resolveMessage(message, params) {
+	if (typeof message === "function") return message(params ?? {});
+	return message;
+}
+var AbstractControl = class {
+	constructor(initialValue, options = {}) {
+		this.parent = null;
+		this._validators = [];
+		this._asyncValidators = [];
+		this._touched = signal(false);
+		this._dirty = signal(false);
+		this._pending = signal(false);
+		this._ownDisabled = signal(false);
+		this._asyncValidationId = 0;
+		this.value = signal(initialValue);
+		this.errors = signal(null);
+		this._validators = options.validators ?? [];
+		this._asyncValidators = options.asyncValidators ?? [];
+		this._ownDisabled.set(options.disabled ?? false);
+		this.updateOn = options.updateOn ?? "change";
+		this.messages = options.messages ?? {};
+	}
+	initializeAggregates() {
+		this.dirty = computed(() => this.computeDirty());
+		this.touched = computed(() => this.computeTouched());
+		this.pending = computed(() => this.computePending());
+		this.disabled = computed(() => this.computeDisabled());
+		this.pristine = computed(() => !this.dirty());
+		this.untouched = computed(() => !this.touched());
+		this.enabled = computed(() => !this.disabled());
+		this.invalid = computed(() => this.errors() !== null || this.hasInvalidChild());
+		this.valid = computed(() => !this.invalid() && !this.pending());
+		this.state = computed(() => ({
+			dirty: this.dirty(),
+			touched: this.touched(),
+			pristine: !this.dirty(),
+			untouched: !this.touched(),
+			valid: !this.invalid() && !this.pending(),
+			invalid: this.invalid(),
+			pending: this.pending(),
+			disabled: this.disabled(),
+			enabled: !this.disabled()
+		}));
+	}
+	markAsTouched() {
+		this._touched.set(true);
+		if (this.updateOn === "blur") this.runValidation();
+	}
+	markAsUntouched() {
+		this._touched.set(false);
+	}
+	markAsDirty() {
+		this._dirty.set(true);
+	}
+	markAsPristine() {
+		this._dirty.set(false);
+	}
+	markAllAsTouched() {
+		this.markAsTouched();
+	}
+	markAllAsUntouched() {
+		this.markAsUntouched();
+	}
+	disable() {
+		this._ownDisabled.set(true);
+	}
+	enable() {
+		this._ownDisabled.set(false);
+	}
+	setValidators(validators) {
+		this._validators = validators;
+		this.runValidation();
+	}
+	addValidators(validators) {
+		this._validators = [...this._validators, ...validators];
+		this.runValidation();
+	}
+	removeValidators(validators) {
+		this._validators = this._validators.filter((v) => !validators.includes(v));
+		this.runValidation();
+	}
+	setAsyncValidators(validators) {
+		this._asyncValidators = validators;
+		this.runValidation();
+	}
+	async validate() {
+		await this.runValidation();
+	}
+	getError(code) {
+		return this.errors()?.[code] ?? null;
+	}
+	hasError(code) {
+		return this.errors()?.[code] !== void 0;
+	}
+	getErrorMessage(code) {
+		const error = this.getError(code);
+		if (!error) return "";
+		const params = error.params;
+		const localMessage = this.resolveFromChain(code);
+		if (localMessage !== void 0) return resolveMessage(localMessage, params);
+		const globalMessage = getGlobalMessage(code);
+		if (globalMessage !== void 0) return resolveMessage(globalMessage, params);
+		return code;
+	}
+	getFirstErrorMessage() {
+		const errors = this.errors();
+		if (!errors) return "";
+		const codes = Object.keys(errors);
+		if (codes.length === 0) return "";
+		return this.getErrorMessage(codes[0]);
+	}
+	resolveFromChain(code) {
+		let control = this;
+		while (control !== null) {
+			if (control.messages[code] !== void 0) return control.messages[code];
+			control = control.parent;
+		}
+	}
+	async runValidation() {
+		const value = this.value();
+		let errors = null;
+		for (const validator of this._validators) {
+			const result = validator(value);
+			if (result !== null) errors = {
+				...errors ?? {},
+				...result
+			};
+		}
+		if (errors !== null) {
+			this.errors.set(errors);
+			return;
+		}
+		if (this._asyncValidators.length > 0) {
+			const id = ++this._asyncValidationId;
+			this._pending.set(true);
+			try {
+				const results = await Promise.all(this._asyncValidators.map((v) => v(value)));
+				if (id !== this._asyncValidationId) return;
+				for (const result of results) if (result !== null) errors = {
+					...errors ?? {},
+					...result
+				};
+			} finally {
+				if (id === this._asyncValidationId) this._pending.set(false);
+			}
+		}
+		this.errors.set(errors);
+	}
+	computeDirty() {
+		return this._dirty();
+	}
+	computeTouched() {
+		return this._touched();
+	}
+	computePending() {
+		return this._pending();
+	}
+	computeDisabled() {
+		return this._ownDisabled();
+	}
+	hasInvalidChild() {
+		return false;
+	}
+	destroySignals() {
+		this.value.destroy();
+		this.errors.destroy();
+		this._touched.destroy();
+		this._dirty.destroy();
+		this._pending.destroy();
+		this._ownDisabled.destroy();
+		this.dirty.destroy();
+		this.touched.destroy();
+		this.pristine.destroy();
+		this.untouched.destroy();
+		this.valid.destroy();
+		this.invalid.destroy();
+		this.pending.destroy();
+		this.disabled.destroy();
+		this.enabled.destroy();
+		this.state.destroy();
+	}
+};
 var ComponentBase = class extends HTMLElement {
 	constructor(meta, component) {
 		super();
@@ -400,6 +680,10 @@ var ComponentBase = class extends HTMLElement {
 				this.subscribeToSignal(value);
 				return false;
 			}
+			if (value instanceof AbstractControl) {
+				this.subscribeToSignal(value.state);
+				return false;
+			}
 			if (typeof value === "function") return false;
 			return prop !== "elementRef" && prop !== "constructor";
 		});
@@ -482,6 +766,37 @@ function MelodicComponent(meta) {
 			componentWithSelector.selector = meta.selector;
 			customElements.define(meta.selector, webComponent);
 		}
+	};
+}
+function getEnvironment() {
+	const viteEnv = void 0;
+	if (viteEnv === "dev" || viteEnv === "qa" || viteEnv === "prod") return viteEnv;
+	return "prod";
+}
+const environment = getEnvironment();
+function deepMerge(target, source) {
+	const result = { ...target };
+	for (const key of Object.keys(source)) {
+		const targetVal = result[key];
+		const sourceVal = source[key];
+		if (sourceVal !== null && typeof sourceVal === "object" && !Array.isArray(sourceVal) && targetVal !== null && typeof targetVal === "object" && !Array.isArray(targetVal)) result[key] = deepMerge(targetVal, sourceVal);
+		else result[key] = sourceVal;
+	}
+	return result;
+}
+function defineConfig(definition) {
+	const envOverrides = definition[environment];
+	const resolved = {
+		...definition.base,
+		...envOverrides
+	};
+	if (definition.extends) return deepMerge(definition.extends, resolved);
+	return resolved;
+}
+const APP_CONFIG = createToken("APP_CONFIG");
+function provideConfig(config) {
+	return (injector) => {
+		injector.bindValue(APP_CONFIG, config);
 	};
 }
 var HttpBaseError = class HttpBaseError extends Error {
@@ -657,6 +972,12 @@ var HttpClient = class {
 			};
 			return Promise.resolve(cancelledResponse);
 		}
+		if (requestConfig.body instanceof FormData) {
+			const headers = { ...requestConfig.headers };
+			delete headers["Content-Type"];
+			delete headers["content-type"];
+			requestConfig.headers = headers;
+		}
 		if (requestConfig.abortController === void 0) requestConfig.abortController = new AbortController();
 		let response = await this.executeRequest(requestConfig);
 		response = await this.executeResponseInterceptors(response);
@@ -685,6 +1006,7 @@ var HttpClient = class {
 			if (!response.ok) throw new HttpError(`HTTP Error: ${response.status} ${response.statusText}`, httpResponse, config);
 			return httpResponse;
 		}).catch((error) => {
+			if (error instanceof HttpError) throw error;
 			if (error instanceof Error && error.name === "AbortError") throw new AbortError("Request aborted", config);
 			throw new NetworkError((error instanceof Error ? error.message : "Network error") || "Network error", config);
 		});
@@ -1200,6 +1522,7 @@ var RouterService = class RouterService$1 {
 			};
 			this._resolversExecutedForPath = fullPath;
 		}
+		this.setCurrentMatches(matchResult);
 		if (replace) history.replaceState(data, "", fullPath);
 		else history.pushState(data, "", fullPath);
 		this._currentPath = fullPath;
@@ -1318,6 +1641,8 @@ var RouterService = class RouterService$1 {
 			return;
 		}
 		this._currentPath = targetPath;
+		const matchResult = this.matchPath(window.location.pathname);
+		this.setCurrentMatches(matchResult);
 		const navigationEvent = new CustomEvent("NavigationEvent", { detail: routerStateEvent("push", event.state, "", window.location.pathname) });
 		window.dispatchEvent(navigationEvent);
 	}
@@ -1425,8 +1750,8 @@ var TemplateResult = class TemplateResult {
 		for (let i = 1; i < this.strings.length; i++) {
 			const s = this.strings[i];
 			const valueIndex = i - 1;
-			const match = /([@.:]?[\w:-]+)\s*=\s*["']?$/.exec(html$1);
-			const quotedAttrMatch = /([@.:]?[\w:-]+)\s*=\s*(["'])([^"']*)$/.exec(html$1);
+			const match = /([@.:?]?[\w:-]+)\s*=\s*["']?$/.exec(html$1);
+			const quotedAttrMatch = /([@.:?]?[\w:-]+)\s*=\s*(["'])([^"']*)$/.exec(html$1);
 			let attrKey = "___";
 			if (activeAttributeName) html$1 += createAttributeMarker(valueIndex);
 			else {
@@ -1471,6 +1796,7 @@ var TemplateResult = class TemplateResult {
 		const eventPartsByIndex = /* @__PURE__ */ new Map();
 		const propertyPartsByIndex = /* @__PURE__ */ new Map();
 		const actionPartsByIndex = /* @__PURE__ */ new Map();
+		const booleanPartsByIndex = /* @__PURE__ */ new Map();
 		for (const part of parts) switch (part.type) {
 			case "event":
 				eventPartsByIndex.set(part.index, part);
@@ -1480,6 +1806,9 @@ var TemplateResult = class TemplateResult {
 				break;
 			case "action":
 				actionPartsByIndex.set(part.index, part);
+				break;
+			case "boolean-attribute":
+				booleanPartsByIndex.set(part.index, part);
 				break;
 			case "node":
 				nodeParts.push(part);
@@ -1524,6 +1853,15 @@ var TemplateResult = class TemplateResult {
 						if (part) partPaths.push({
 							path: [...path],
 							type: "action",
+							index: part.index,
+							name: part.name
+						});
+					} else if (attr.name.startsWith("__bool-")) {
+						const index = parseInt(attr.name.match(/__bool-(\d+)__/)?.[1] || "0");
+						const part = booleanPartsByIndex.get(index);
+						if (part) partPaths.push({
+							path: [...path],
+							type: "boolean-attribute",
 							index: part.index,
 							name: part.name
 						});
@@ -1596,6 +1934,14 @@ var TemplateResult = class TemplateResult {
 				});
 				return html$1.slice(0, -(match?.[0].length ?? 0)) + `__action-${index}__=""`;
 			},
+			"?": (index, html$1, attrName, match) => {
+				parts.push({
+					type: "boolean-attribute",
+					index,
+					name: attrName?.slice(1)
+				});
+				return html$1.slice(0, -(match?.[0].length ?? 0)) + `__bool-${index}__=""`;
+			},
 			"__": (index, html$1, _) => {
 				return html$1 + createAttributeMarker(index);
 			},
@@ -1651,6 +1997,15 @@ var TemplateResult = class TemplateResult {
 					node: element,
 					staticValue: partPath.staticValue
 				});
+			} else if (partPath.type === "boolean-attribute") {
+				const element = node;
+				element.removeAttribute(`__bool-${partPath.index}__`);
+				parts.push({
+					type: "boolean-attribute",
+					index: partPath.index,
+					name: partPath.name,
+					node: element
+				});
 			} else if (partPath.type === "attribute") {
 				const element = node;
 				element.removeAttribute(partPath.name);
@@ -1700,6 +2055,26 @@ var TemplateResult = class TemplateResult {
 		for (const node of part.renderedNodes) node.parentNode?.removeChild(node);
 		part.renderedNodes = [];
 		part.arrayState = void 0;
+		part.nestedContainer = void 0;
+	}
+	clearDirectiveDOM(part) {
+		const state = part.directiveState;
+		if (!state) return;
+		const startMarker = state.startMarker;
+		const endMarker = state.endMarker;
+		if (startMarker && endMarker && startMarker.parentNode) {
+			const parent = startMarker.parentNode;
+			let node = startMarker.nextSibling;
+			while (node && node !== endMarker) {
+				const next = node.nextSibling;
+				parent.removeChild(node);
+				node = next;
+			}
+			if (part.node) parent.insertBefore(part.node, endMarker);
+			parent.removeChild(startMarker);
+			parent.removeChild(endMarker);
+		}
+		part.directiveState = void 0;
 	}
 	cleanupParts(parts) {
 		for (const part of parts) {
@@ -1715,12 +2090,21 @@ var TemplateResult = class TemplateResult {
 	}
 	renderNestedTemplate(part, template) {
 		this.ensureMarkers(part);
+		if (part.nestedContainer) {
+			if (part.nestedContainer.__templateKey === getTemplateKey(template.strings)) {
+				template.renderInto(part.nestedContainer);
+				return;
+			}
+			const oldParts = part.nestedContainer.__parts;
+			if (oldParts) this.cleanupParts(oldParts);
+		}
 		this.clearRenderedNodes(part);
 		part.node.textContent = "";
-		const fragment = document.createDocumentFragment();
-		template.renderInto(fragment);
-		part.renderedNodes = Array.from(fragment.childNodes);
-		part.endMarker.parentNode.insertBefore(fragment, part.endMarker);
+		const container = document.createDocumentFragment();
+		template.renderInto(container);
+		part.nestedContainer = container;
+		part.renderedNodes = Array.from(container.childNodes);
+		part.endMarker.parentNode.insertBefore(container, part.endMarker);
 	}
 	renderNode(part, node) {
 		this.ensureMarkers(part);
@@ -1841,13 +2225,19 @@ var TemplateResult = class TemplateResult {
 			if (!isCompositeAttribute && !isDirective(value) && part.type !== "action" && part.previousValue === value) continue;
 			switch (part.type) {
 				case "node":
-					if (part.node) if (isDirective(value)) part.directiveState = value.render(part.node, part.directiveState);
-					else if (value instanceof TemplateResult) this.renderNestedTemplate(part, value);
-					else if (value instanceof Node) this.renderNode(part, value);
-					else if (Array.isArray(value)) this.renderArray(part, value);
-					else {
-						this.clearRenderedNodes(part);
-						part.node.textContent = String(value ?? "");
+					if (part.node) {
+						const wasDirective = isDirective(part.previousValue);
+						const nowDirective = isDirective(value);
+						if (wasDirective && !nowDirective && part.directiveState) this.clearDirectiveDOM(part);
+						if (!wasDirective && nowDirective) this.clearRenderedNodes(part);
+						if (nowDirective) part.directiveState = value.render(part.node, part.directiveState);
+						else if (value instanceof TemplateResult) this.renderNestedTemplate(part, value);
+						else if (value instanceof Node) this.renderNode(part, value);
+						else if (Array.isArray(value)) this.renderArray(part, value);
+						else {
+							this.clearRenderedNodes(part);
+							part.node.textContent = String(value ?? "");
+						}
 					}
 					break;
 				case "attribute":
@@ -1870,6 +2260,13 @@ var TemplateResult = class TemplateResult {
 						} else if (value === null || value === void 0 || value === false) element.removeAttribute(part.name);
 						else if (value === true) element.setAttribute(part.name, "");
 						else element.setAttribute(part.name, String(value));
+					}
+					break;
+				case "boolean-attribute":
+					if (part.node && part.name) {
+						const element = part.node;
+						if (value) element.setAttribute(part.name, "");
+						else element.removeAttribute(part.name);
 					}
 					break;
 				case "property":
@@ -2040,6 +2437,16 @@ var RouterOutletComponent = class RouterOutletComponent$1 {
 		if (matchResult.redirectTo) {
 			if (window.location.pathname !== matchResult.redirectTo) this._router.navigate(matchResult.redirectTo, { replace: true });
 			return;
+		}
+		if (matchResult.matches.length > 0) {
+			const guardResult = await this._router.runGuards(matchResult);
+			if (guardResult !== true) {
+				if (typeof guardResult === "string") this._router.navigate(guardResult, {
+					replace: true,
+					skipGuards: true
+				});
+				return;
+			}
 		}
 		if (matchResult.matches.length > 0) {
 			const resolverResult = await this._router.runResolvers(matchResult);
@@ -2316,100 +2723,6 @@ function routerLinkDirective(element, value, _) {
 	});
 }
 registerAttributeDirective("routerLink", routerLinkDirective);
-var activeEffect = null;
-const setActiveEffect = (effect) => {
-	activeEffect = effect;
-};
-const getActiveEffect = () => activeEffect;
-var SignalEffect = class {
-	constructor(execute) {
-		this.execute = execute;
-		this._dependencies = /* @__PURE__ */ new Set();
-		this._isRunning = false;
-		this._needsRerun = false;
-		this.run = () => {
-			if (this._isRunning) {
-				this._needsRerun = true;
-				return;
-			}
-			this._isRunning = true;
-			do {
-				this._needsRerun = false;
-				this._dependencies.forEach((signal$1) => {
-					signal$1.unsubscribe(this.run);
-				});
-				this._dependencies.clear();
-				const prevEffect = getActiveEffect();
-				setActiveEffect(this);
-				this.execute();
-				setActiveEffect(prevEffect);
-			} while (this._needsRerun);
-			this._isRunning = false;
-		};
-	}
-	addDependency(signal$1) {
-		this._dependencies.add(signal$1);
-	}
-	destroy() {
-		this._dependencies.forEach((signal$1) => {
-			signal$1.unsubscribe(this.run);
-		});
-		this._dependencies.clear();
-	}
-};
-function signal(initialValue) {
-	let value = initialValue;
-	const subscribers = /* @__PURE__ */ new Set();
-	const notify = () => {
-		[...subscribers].forEach((subscriber) => subscriber(value));
-	};
-	const read = (() => {
-		const activeEffect$1 = getActiveEffect();
-		if (activeEffect$1) {
-			activeEffect$1.addDependency(read);
-			subscribers.add(activeEffect$1.run);
-		}
-		return value;
-	});
-	read.set = (newValue) => {
-		if (value !== newValue) {
-			value = newValue;
-			notify();
-		}
-	};
-	read.update = (updater) => {
-		read.set(updater(value));
-	};
-	read.subscribe = (subscriber) => {
-		subscribers.add(subscriber);
-		return () => subscribers.delete(subscriber);
-	};
-	read.unsubscribe = (subscriber) => {
-		subscribers.delete(subscriber);
-	};
-	read.destroy = () => {
-		subscribers.clear();
-	};
-	Object.defineProperty(read, SIGNAL_MARKER, {
-		value: true,
-		enumerable: false,
-		configurable: false
-	});
-	return read;
-}
-function computed(computation) {
-	const computedSignal = signal(void 0);
-	const effect = new SignalEffect(() => {
-		computedSignal.set(computation());
-	});
-	effect.run();
-	const originalDestroy = computedSignal.destroy;
-	computedSignal.destroy = () => {
-		effect.destroy();
-		originalDestroy();
-	};
-	return computedSignal;
-}
 const props = () => {
 	return () => ({});
 };
@@ -3182,6 +3495,6 @@ var Directive = class {
 		this.__directive = true;
 	}
 };
-export { AbortError, Binding, ComponentBase, ComponentStateBaseService, Directive, EffectsBase, HttpBaseError, HttpClient, HttpError, Inject, Injectable, InjectionEngine, Injector, MelodicComponent, NetworkError, ROUTE_CONTEXT_EVENT, RX_ACTION_PROVIDERS, RX_EFFECTS_PROVIDERS, RX_INIT_STATE, RX_STATE_DEBUG, RouteContextEvent, RouteContextService, RouteMatcher, RouterLinkComponent, RouterOutletComponent, RouterService, SIGNAL_MARKER, Service, SignalEffect, SignalStoreService, TemplateResult, applyGlobalStyles, bootstrap, buildPathFromRoute, classMap, computed, createAction, createDeactivateGuard, createGuard, createReducer, createResolver, createState, createToken, css, directive, findRouteByName, getActiveEffect, getAttributeDirective, getRegisteredDirectives, getTokenKey, hasAttributeDirective, html, isDirective, isSignal, matchRouteTree, onAction, portalDirective, props, provideHttp, provideRX, registerAttributeDirective, render, repeat, repeatRaw, routerLinkDirective, setActiveEffect, signal, styleMap, unregisterAttributeDirective, unsafeHTML, when };
+export { APP_CONFIG, AbortError, Binding, ComponentBase, ComponentStateBaseService, Directive, EffectsBase, HttpBaseError, HttpClient, HttpError, Inject, Injectable, InjectionEngine, Injector, MelodicComponent, NetworkError, ROUTE_CONTEXT_EVENT, RX_ACTION_PROVIDERS, RX_EFFECTS_PROVIDERS, RX_INIT_STATE, RX_STATE_DEBUG, RouteContextEvent, RouteContextService, RouteMatcher, RouterLinkComponent, RouterOutletComponent, RouterService, SIGNAL_MARKER, Service, SignalEffect, SignalStoreService, TemplateResult, applyGlobalStyles, bootstrap, buildPathFromRoute, classMap, computed, createAction, createDeactivateGuard, createGuard, createReducer, createResolver, createState, createToken, css, defineConfig, directive, environment, findRouteByName, getActiveEffect, getAttributeDirective, getEnvironment, getRegisteredDirectives, getTokenKey, hasAttributeDirective, html, isDirective, isSignal, matchRouteTree, onAction, portalDirective, props, provideConfig, provideHttp, provideRX, registerAttributeDirective, render, repeat, repeatRaw, routerLinkDirective, setActiveEffect, signal, styleMap, unregisterAttributeDirective, unsafeHTML, when };
 
 //# sourceMappingURL=melodic-core.js.map

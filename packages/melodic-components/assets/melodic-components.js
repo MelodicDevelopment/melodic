@@ -315,6 +315,292 @@ var cacheCssSheet = (text) => {
 var hasCachedSheets = () => {
 	return cachedCssSheets.length > 0;
 };
+var activeEffect = null;
+const setActiveEffect = (effect) => {
+	activeEffect = effect;
+};
+const getActiveEffect = () => activeEffect;
+var SignalEffect = class {
+	constructor(execute) {
+		this.execute = execute;
+		this._dependencies = /* @__PURE__ */ new Set();
+		this._isRunning = false;
+		this._needsRerun = false;
+		this.run = () => {
+			if (this._isRunning) {
+				this._needsRerun = true;
+				return;
+			}
+			this._isRunning = true;
+			do {
+				this._needsRerun = false;
+				this._dependencies.forEach((signal$1) => {
+					signal$1.unsubscribe(this.run);
+				});
+				this._dependencies.clear();
+				const prevEffect = getActiveEffect();
+				setActiveEffect(this);
+				this.execute();
+				setActiveEffect(prevEffect);
+			} while (this._needsRerun);
+			this._isRunning = false;
+		};
+	}
+	addDependency(signal$1) {
+		this._dependencies.add(signal$1);
+	}
+	destroy() {
+		this._dependencies.forEach((signal$1) => {
+			signal$1.unsubscribe(this.run);
+		});
+		this._dependencies.clear();
+	}
+};
+function signal(initialValue) {
+	let value = initialValue;
+	const subscribers = /* @__PURE__ */ new Set();
+	const notify = () => {
+		[...subscribers].forEach((subscriber) => subscriber(value));
+	};
+	const read = (() => {
+		const activeEffect$1 = getActiveEffect();
+		if (activeEffect$1) {
+			activeEffect$1.addDependency(read);
+			subscribers.add(activeEffect$1.run);
+		}
+		return value;
+	});
+	read.set = (newValue) => {
+		if (value !== newValue) {
+			value = newValue;
+			notify();
+		}
+	};
+	read.update = (updater) => {
+		read.set(updater(value));
+	};
+	read.subscribe = (subscriber) => {
+		subscribers.add(subscriber);
+		return () => subscribers.delete(subscriber);
+	};
+	read.unsubscribe = (subscriber) => {
+		subscribers.delete(subscriber);
+	};
+	read.destroy = () => {
+		subscribers.clear();
+	};
+	Object.defineProperty(read, SIGNAL_MARKER, {
+		value: true,
+		enumerable: false,
+		configurable: false
+	});
+	return read;
+}
+function computed(computation) {
+	const computedSignal = signal(void 0);
+	const effect = new SignalEffect(() => {
+		computedSignal.set(computation());
+	});
+	effect.run();
+	const originalDestroy = computedSignal.destroy;
+	computedSignal.destroy = () => {
+		effect.destroy();
+		originalDestroy();
+	};
+	return computedSignal;
+}
+var globalMessages = {};
+function registerDefaultMessages(messages) {
+	for (const code of Object.keys(messages)) globalMessages[code] = messages[code];
+}
+function setDefaultMessage(code, message) {
+	globalMessages[code] = message;
+}
+function getGlobalMessage(code) {
+	return globalMessages[code];
+}
+function resolveMessage(message, params) {
+	if (typeof message === "function") return message(params ?? {});
+	return message;
+}
+var AbstractControl = class {
+	constructor(initialValue, options = {}) {
+		this.parent = null;
+		this._validators = [];
+		this._asyncValidators = [];
+		this._touched = signal(false);
+		this._dirty = signal(false);
+		this._pending = signal(false);
+		this._ownDisabled = signal(false);
+		this._asyncValidationId = 0;
+		this.value = signal(initialValue);
+		this.errors = signal(null);
+		this._validators = options.validators ?? [];
+		this._asyncValidators = options.asyncValidators ?? [];
+		this._ownDisabled.set(options.disabled ?? false);
+		this.updateOn = options.updateOn ?? "change";
+		this.messages = options.messages ?? {};
+	}
+	initializeAggregates() {
+		this.dirty = computed(() => this.computeDirty());
+		this.touched = computed(() => this.computeTouched());
+		this.pending = computed(() => this.computePending());
+		this.disabled = computed(() => this.computeDisabled());
+		this.pristine = computed(() => !this.dirty());
+		this.untouched = computed(() => !this.touched());
+		this.enabled = computed(() => !this.disabled());
+		this.invalid = computed(() => this.errors() !== null || this.hasInvalidChild());
+		this.valid = computed(() => !this.invalid() && !this.pending());
+		this.state = computed(() => ({
+			dirty: this.dirty(),
+			touched: this.touched(),
+			pristine: !this.dirty(),
+			untouched: !this.touched(),
+			valid: !this.invalid() && !this.pending(),
+			invalid: this.invalid(),
+			pending: this.pending(),
+			disabled: this.disabled(),
+			enabled: !this.disabled()
+		}));
+	}
+	markAsTouched() {
+		this._touched.set(true);
+		if (this.updateOn === "blur") this.runValidation();
+	}
+	markAsUntouched() {
+		this._touched.set(false);
+	}
+	markAsDirty() {
+		this._dirty.set(true);
+	}
+	markAsPristine() {
+		this._dirty.set(false);
+	}
+	markAllAsTouched() {
+		this.markAsTouched();
+	}
+	markAllAsUntouched() {
+		this.markAsUntouched();
+	}
+	disable() {
+		this._ownDisabled.set(true);
+	}
+	enable() {
+		this._ownDisabled.set(false);
+	}
+	setValidators(validators) {
+		this._validators = validators;
+		this.runValidation();
+	}
+	addValidators(validators) {
+		this._validators = [...this._validators, ...validators];
+		this.runValidation();
+	}
+	removeValidators(validators) {
+		this._validators = this._validators.filter((v) => !validators.includes(v));
+		this.runValidation();
+	}
+	setAsyncValidators(validators) {
+		this._asyncValidators = validators;
+		this.runValidation();
+	}
+	async validate() {
+		await this.runValidation();
+	}
+	getError(code) {
+		return this.errors()?.[code] ?? null;
+	}
+	hasError(code) {
+		return this.errors()?.[code] !== void 0;
+	}
+	getErrorMessage(code) {
+		const error = this.getError(code);
+		if (!error) return "";
+		const params = error.params;
+		const localMessage = this.resolveFromChain(code);
+		if (localMessage !== void 0) return resolveMessage(localMessage, params);
+		const globalMessage = getGlobalMessage(code);
+		if (globalMessage !== void 0) return resolveMessage(globalMessage, params);
+		return code;
+	}
+	getFirstErrorMessage() {
+		const errors = this.errors();
+		if (!errors) return "";
+		const codes = Object.keys(errors);
+		if (codes.length === 0) return "";
+		return this.getErrorMessage(codes[0]);
+	}
+	resolveFromChain(code) {
+		let control = this;
+		while (control !== null) {
+			if (control.messages[code] !== void 0) return control.messages[code];
+			control = control.parent;
+		}
+	}
+	async runValidation() {
+		const value = this.value();
+		let errors = null;
+		for (const validator of this._validators) {
+			const result = validator(value);
+			if (result !== null) errors = {
+				...errors ?? {},
+				...result
+			};
+		}
+		if (errors !== null) {
+			this.errors.set(errors);
+			return;
+		}
+		if (this._asyncValidators.length > 0) {
+			const id = ++this._asyncValidationId;
+			this._pending.set(true);
+			try {
+				const results = await Promise.all(this._asyncValidators.map((v) => v(value)));
+				if (id !== this._asyncValidationId) return;
+				for (const result of results) if (result !== null) errors = {
+					...errors ?? {},
+					...result
+				};
+			} finally {
+				if (id === this._asyncValidationId) this._pending.set(false);
+			}
+		}
+		this.errors.set(errors);
+	}
+	computeDirty() {
+		return this._dirty();
+	}
+	computeTouched() {
+		return this._touched();
+	}
+	computePending() {
+		return this._pending();
+	}
+	computeDisabled() {
+		return this._ownDisabled();
+	}
+	hasInvalidChild() {
+		return false;
+	}
+	destroySignals() {
+		this.value.destroy();
+		this.errors.destroy();
+		this._touched.destroy();
+		this._dirty.destroy();
+		this._pending.destroy();
+		this._ownDisabled.destroy();
+		this.dirty.destroy();
+		this.touched.destroy();
+		this.pristine.destroy();
+		this.untouched.destroy();
+		this.valid.destroy();
+		this.invalid.destroy();
+		this.pending.destroy();
+		this.disabled.destroy();
+		this.enabled.destroy();
+		this.state.destroy();
+	}
+};
 var ComponentBase = class extends HTMLElement {
 	constructor(meta, component) {
 		super();
@@ -398,6 +684,10 @@ var ComponentBase = class extends HTMLElement {
 			if (prop.startsWith("_")) return false;
 			if (isSignal(value)) {
 				this.subscribeToSignal(value);
+				return false;
+			}
+			if (value instanceof AbstractControl) {
+				this.subscribeToSignal(value.state);
 				return false;
 			}
 			if (typeof value === "function") return false;
@@ -2439,100 +2729,6 @@ function routerLinkDirective(element, value, _) {
 	});
 }
 registerAttributeDirective("routerLink", routerLinkDirective);
-var activeEffect = null;
-const setActiveEffect = (effect) => {
-	activeEffect = effect;
-};
-const getActiveEffect = () => activeEffect;
-var SignalEffect = class {
-	constructor(execute) {
-		this.execute = execute;
-		this._dependencies = /* @__PURE__ */ new Set();
-		this._isRunning = false;
-		this._needsRerun = false;
-		this.run = () => {
-			if (this._isRunning) {
-				this._needsRerun = true;
-				return;
-			}
-			this._isRunning = true;
-			do {
-				this._needsRerun = false;
-				this._dependencies.forEach((signal$1) => {
-					signal$1.unsubscribe(this.run);
-				});
-				this._dependencies.clear();
-				const prevEffect = getActiveEffect();
-				setActiveEffect(this);
-				this.execute();
-				setActiveEffect(prevEffect);
-			} while (this._needsRerun);
-			this._isRunning = false;
-		};
-	}
-	addDependency(signal$1) {
-		this._dependencies.add(signal$1);
-	}
-	destroy() {
-		this._dependencies.forEach((signal$1) => {
-			signal$1.unsubscribe(this.run);
-		});
-		this._dependencies.clear();
-	}
-};
-function signal(initialValue) {
-	let value = initialValue;
-	const subscribers = /* @__PURE__ */ new Set();
-	const notify = () => {
-		[...subscribers].forEach((subscriber) => subscriber(value));
-	};
-	const read = (() => {
-		const activeEffect$1 = getActiveEffect();
-		if (activeEffect$1) {
-			activeEffect$1.addDependency(read);
-			subscribers.add(activeEffect$1.run);
-		}
-		return value;
-	});
-	read.set = (newValue) => {
-		if (value !== newValue) {
-			value = newValue;
-			notify();
-		}
-	};
-	read.update = (updater) => {
-		read.set(updater(value));
-	};
-	read.subscribe = (subscriber) => {
-		subscribers.add(subscriber);
-		return () => subscribers.delete(subscriber);
-	};
-	read.unsubscribe = (subscriber) => {
-		subscribers.delete(subscriber);
-	};
-	read.destroy = () => {
-		subscribers.clear();
-	};
-	Object.defineProperty(read, SIGNAL_MARKER, {
-		value: true,
-		enumerable: false,
-		configurable: false
-	});
-	return read;
-}
-function computed(computation) {
-	const computedSignal = signal(void 0);
-	const effect = new SignalEffect(() => {
-		computedSignal.set(computation());
-	});
-	effect.run();
-	const originalDestroy = computedSignal.destroy;
-	computedSignal.destroy = () => {
-		effect.destroy();
-		originalDestroy();
-	};
-	return computedSignal;
-}
 const props = () => {
 	return () => ({});
 };
@@ -3305,53 +3501,23 @@ var Directive = class {
 		this.__directive = true;
 	}
 };
-const FORM_CONTROL_MARKER = Symbol("melodic.formControl");
-var FormControl = class {
+var FormControl = class extends AbstractControl {
 	constructor(initialValue, options = {}) {
-		this[FORM_CONTROL_MARKER] = true;
-		this._validators = [];
-		this._asyncValidators = [];
-		this._touched = signal(false);
-		this._dirty = signal(false);
-		this._pending = signal(false);
-		this._disabled = signal(false);
-		this._asyncValidationId = 0;
+		super(initialValue, options);
 		this.initialValue = initialValue;
-		this.value = signal(initialValue);
-		this.errors = signal(null);
-		this._validators = options.validators ?? [];
-		this._asyncValidators = options.asyncValidators ?? [];
-		this._disabled.set(options.disabled ?? false);
-		this.updateOn = options.updateOn ?? "input";
-		this.dirty = computed(() => this._dirty());
-		this.touched = computed(() => this._touched());
-		this.pristine = computed(() => !this._dirty());
-		this.pending = computed(() => this._pending());
-		this.disabled = computed(() => this._disabled());
-		this.valid = computed(() => this.errors() === null && !this._pending());
-		this.invalid = computed(() => this.errors() !== null);
-		this.state = computed(() => ({
-			dirty: this._dirty(),
-			touched: this._touched(),
-			pristine: !this._dirty(),
-			untouched: !this._touched(),
-			valid: this.errors() === null && !this._pending(),
-			invalid: this.errors() !== null,
-			pending: this._pending(),
-			disabled: this._disabled(),
-			enabled: !this._disabled()
-		}));
+		this.initializeAggregates();
 		this.runValidation();
 	}
 	setValue(value) {
-		if (this._disabled()) return;
+		if (this._ownDisabled()) return;
 		this.value.set(value);
 		this._dirty.set(true);
-		if (this.updateOn === "input") this.runValidation();
+		if (this.updateOn === "change") this.runValidation();
 	}
 	patchValue(value) {
-		if (typeof this.value() === "object" && this.value() !== null) this.setValue({
-			...this.value(),
+		const current = this.value();
+		if (typeof current === "object" && current !== null && !Array.isArray(current)) this.setValue({
+			...current,
 			...value
 		});
 		else this.setValue(value);
@@ -3363,244 +3529,246 @@ var FormControl = class {
 		this.errors.set(null);
 		this.runValidation();
 	}
-	markAsTouched() {
-		this._touched.set(true);
-		if (this.updateOn === "blur") this.runValidation();
-	}
-	markAsUntouched() {
-		this._touched.set(false);
-	}
-	markAsDirty() {
-		this._dirty.set(true);
-	}
-	markAsPristine() {
-		this._dirty.set(false);
-	}
-	disable() {
-		this._disabled.set(true);
-	}
-	enable() {
-		this._disabled.set(false);
-	}
-	setValidators(validators) {
-		this._validators = validators;
-		this.runValidation();
-	}
-	setAsyncValidators(validators) {
-		this._asyncValidators = validators;
-		this.runValidation();
-	}
-	addValidators(validators) {
-		this._validators = [...this._validators, ...validators];
-		this.runValidation();
-	}
-	removeValidators(validators) {
-		this._validators = this._validators.filter((v) => !validators.includes(v));
-		this.runValidation();
-	}
-	async validate() {
-		await this.runValidation();
-	}
-	getError(code) {
-		return this.errors()?.[code] ?? null;
-	}
-	hasError(code) {
-		return this.errors()?.[code] !== void 0;
-	}
 	destroy() {
-		this.value.destroy();
-		this.errors.destroy();
-		this._touched.destroy();
-		this._dirty.destroy();
-		this._pending.destroy();
-		this._disabled.destroy();
-	}
-	async runValidation() {
-		const value = this.value();
-		let errors = null;
-		for (const validator of this._validators) {
-			const result = validator(value);
-			if (result !== null) errors = {
-				...errors ?? {},
-				...result
-			};
-		}
-		if (errors !== null) {
-			this.errors.set(errors);
-			return;
-		}
-		if (this._asyncValidators.length > 0) {
-			const validationId = ++this._asyncValidationId;
-			this._pending.set(true);
-			try {
-				const asyncResults = await Promise.all(this._asyncValidators.map((v) => v(value)));
-				if (validationId !== this._asyncValidationId) return;
-				for (const result of asyncResults) if (result !== null) errors = {
-					...errors ?? {},
-					...result
-				};
-			} finally {
-				if (validationId === this._asyncValidationId) this._pending.set(false);
-			}
-		}
-		this.errors.set(errors);
+		this.destroySignals();
 	}
 };
-const FORM_GROUP_MARKER = Symbol("melodic.formGroup");
-var FormGroup = class {
-	constructor(controls, options = {}) {
-		this[FORM_GROUP_MARKER] = true;
-		this._validators = [];
-		this._asyncValidators = [];
-		this._disabled = signal(false);
-		this._controlEffects = [];
-		this.controls = controls;
-		this._validators = options.validators ?? [];
-		this._asyncValidators = options.asyncValidators ?? [];
-		this._disabled.set(options.disabled ?? false);
-		this.value = computed(() => this.computeValue());
-		this.errors = signal(null);
-		this.setupControlWatchers();
-		this.valid = computed(() => {
-			if (this.errors() !== null) return false;
-			return Object.values(this.controls).every((control) => control.valid());
+var FormGroup = class FormGroup extends AbstractControl {
+	constructor(initialControls, options = {}) {
+		super(FormGroup.computeValue(initialControls), options);
+		this.controls = signal({ ...initialControls });
+		for (const key of Object.keys(initialControls)) initialControls[key].parent = this;
+		this.initializeAggregates();
+		this._childValueEffect = new SignalEffect(() => {
+			const controls = this.controls();
+			for (const key of Object.keys(controls)) controls[key].value();
+			this.value.set(FormGroup.computeValue(controls));
+			this.runValidation();
 		});
-		this.invalid = computed(() => !this.valid());
-		this.pending = computed(() => {
-			return Object.values(this.controls).some((control) => control.pending());
-		});
-		this.dirty = computed(() => {
-			return Object.values(this.controls).some((control) => control.dirty());
-		});
-		this.touched = computed(() => {
-			return Object.values(this.controls).some((control) => control.touched());
-		});
-		this.pristine = computed(() => !this.dirty());
-		this.disabled = computed(() => this._disabled());
-		this.runGroupValidation();
+		this._childValueEffect.run();
 	}
 	get(name) {
-		return this.controls[name];
-	}
-	addControl(name, control) {
-		this.controls[name] = control;
-		this.setupControlWatcher(control);
-	}
-	removeControl(name) {
-		delete this.controls[name];
+		return this.controls()[name];
 	}
 	contains(name) {
-		return name in this.controls;
+		return name in this.controls();
+	}
+	addControl(name, control) {
+		control.parent = this;
+		this.controls.update((current) => ({
+			...current,
+			[name]: control
+		}));
+	}
+	removeControl(name) {
+		const control = this.controls()[name];
+		if (!control) return;
+		control.parent = null;
+		control.destroy();
+		this.controls.update((current) => {
+			const next = { ...current };
+			delete next[name];
+			return next;
+		});
 	}
 	setValue(value) {
-		Object.keys(value).forEach((key) => {
-			const control = this.controls[key];
-			if (control) control.setValue(value[key]);
+		if (this._ownDisabled()) return;
+		const controls = this.controls();
+		for (const key of Object.keys(value)) controls[key]?.setValue(value[key]);
+	}
+	patchValue(value) {
+		if (this._ownDisabled()) return;
+		const controls = this.controls();
+		for (const key of Object.keys(value)) if (value[key] !== void 0) controls[key]?.setValue(value[key]);
+	}
+	reset(value) {
+		const controls = this.controls();
+		for (const key of Object.keys(controls)) {
+			const resetValue = value?.[key];
+			controls[key].reset(resetValue);
+		}
+	}
+	markAllAsTouched() {
+		this._touched.set(true);
+		const controls = this.controls();
+		for (const key of Object.keys(controls)) controls[key].markAllAsTouched();
+	}
+	markAllAsUntouched() {
+		this._touched.set(false);
+		const controls = this.controls();
+		for (const key of Object.keys(controls)) controls[key].markAllAsUntouched();
+	}
+	markAllAsDirty() {
+		this._dirty.set(true);
+		const controls = this.controls();
+		for (const key of Object.keys(controls)) {
+			const child = controls[key];
+			if ("markAllAsDirty" in child && typeof child.markAllAsDirty === "function") child.markAllAsDirty();
+			else child.markAsDirty();
+		}
+	}
+	markAllAsPristine() {
+		this._dirty.set(false);
+		const controls = this.controls();
+		for (const key of Object.keys(controls)) {
+			const child = controls[key];
+			if ("markAllAsPristine" in child && typeof child.markAllAsPristine === "function") child.markAllAsPristine();
+			else child.markAsPristine();
+		}
+	}
+	disable() {
+		this._ownDisabled.set(true);
+		const controls = this.controls();
+		for (const key of Object.keys(controls)) controls[key].disable();
+	}
+	enable() {
+		this._ownDisabled.set(false);
+		const controls = this.controls();
+		for (const key of Object.keys(controls)) controls[key].enable();
+	}
+	async validate() {
+		const controls = this.controls();
+		await Promise.all(Object.keys(controls).map((key) => controls[key].validate()));
+		await this.runValidation();
+	}
+	destroy() {
+		this._childValueEffect.destroy();
+		const controls = this.controls();
+		for (const key of Object.keys(controls)) controls[key].destroy();
+		this.destroySignals();
+		this.controls.destroy();
+	}
+	computeDirty() {
+		if (this._dirty()) return true;
+		const controls = this.controls();
+		return Object.keys(controls).some((key) => controls[key].dirty());
+	}
+	computeTouched() {
+		if (this._touched()) return true;
+		const controls = this.controls();
+		return Object.keys(controls).some((key) => controls[key].touched());
+	}
+	computePending() {
+		if (this._pending()) return true;
+		const controls = this.controls();
+		return Object.keys(controls).some((key) => controls[key].pending());
+	}
+	hasInvalidChild() {
+		const controls = this.controls();
+		return Object.keys(controls).some((key) => controls[key].invalid());
+	}
+	static computeValue(controls) {
+		const result = {};
+		for (const key of Object.keys(controls)) result[key] = controls[key].value();
+		return result;
+	}
+};
+var FormArray = class extends AbstractControl {
+	constructor(initialControls, options = {}) {
+		super(initialControls.map((c) => c.value()), options);
+		this.controls = signal([...initialControls]);
+		for (const control of initialControls) control.parent = this;
+		this.initializeAggregates();
+		this._childValueEffect = new SignalEffect(() => {
+			const controls = this.controls();
+			for (const control of controls) control.value();
+			this.value.set(controls.map((c) => c.value()));
+			this.runValidation();
+		});
+		this._childValueEffect.run();
+	}
+	get length() {
+		return this.controls().length;
+	}
+	at(index) {
+		return this.controls()[index];
+	}
+	push(control) {
+		control.parent = this;
+		this.controls.update((current) => [...current, control]);
+	}
+	insert(index, control) {
+		control.parent = this;
+		this.controls.update((current) => {
+			const next = [...current];
+			next.splice(index, 0, control);
+			return next;
+		});
+	}
+	removeAt(index) {
+		const control = this.controls()[index];
+		if (!control) return;
+		control.parent = null;
+		control.destroy();
+		this.controls.update((current) => current.filter((_, i) => i !== index));
+	}
+	clear() {
+		const controls = this.controls();
+		for (const control of controls) {
+			control.parent = null;
+			control.destroy();
+		}
+		this.controls.set([]);
+	}
+	setValue(value) {
+		if (this._ownDisabled()) return;
+		const controls = this.controls();
+		value.forEach((v, i) => {
+			controls[i]?.setValue(v);
 		});
 	}
 	patchValue(value) {
-		Object.keys(value).forEach((key) => {
-			const control = this.controls[key];
-			if (control && value[key] !== void 0) control.setValue(value[key]);
+		if (this._ownDisabled()) return;
+		const controls = this.controls();
+		value.forEach((v, i) => {
+			if (v !== void 0) controls[i]?.setValue(v);
 		});
 	}
 	reset(value) {
-		Object.keys(this.controls).forEach((key) => {
-			const control = this.controls[key];
-			const resetValue = value?.[key];
-			control.reset(resetValue);
+		this.controls().forEach((control, i) => {
+			control.reset(value?.[i]);
 		});
 	}
 	markAllAsTouched() {
-		Object.values(this.controls).forEach((control) => {
-			control.markAsTouched();
-		});
+		this._touched.set(true);
+		for (const control of this.controls()) control.markAllAsTouched();
 	}
 	markAllAsUntouched() {
-		Object.values(this.controls).forEach((control) => {
-			control.markAsUntouched();
-		});
-	}
-	markAllAsDirty() {
-		Object.values(this.controls).forEach((control) => {
-			control.markAsDirty();
-		});
-	}
-	markAllAsPristine() {
-		Object.values(this.controls).forEach((control) => {
-			control.markAsPristine();
-		});
+		this._touched.set(false);
+		for (const control of this.controls()) control.markAllAsUntouched();
 	}
 	disable() {
-		this._disabled.set(true);
-		Object.values(this.controls).forEach((control) => {
-			control.disable();
-		});
+		this._ownDisabled.set(true);
+		for (const control of this.controls()) control.disable();
 	}
 	enable() {
-		this._disabled.set(false);
-		Object.values(this.controls).forEach((control) => {
-			control.enable();
-		});
+		this._ownDisabled.set(false);
+		for (const control of this.controls()) control.enable();
 	}
 	async validate() {
-		await Promise.all(Object.values(this.controls).map((control) => control.validate()));
-		await this.runGroupValidation();
-	}
-	setValidators(validators) {
-		this._validators = validators;
-		this.runGroupValidation();
-	}
-	getError(code) {
-		return this.errors()?.[code] ?? null;
-	}
-	hasError(code) {
-		return this.errors()?.[code] !== void 0;
+		await Promise.all(this.controls().map((c) => c.validate()));
+		await this.runValidation();
 	}
 	destroy() {
-		this._controlEffects.forEach((effect) => effect.destroy());
-		Object.values(this.controls).forEach((control) => {
-			control.destroy();
-		});
+		this._childValueEffect.destroy();
+		for (const control of this.controls()) control.destroy();
+		this.destroySignals();
+		this.controls.destroy();
 	}
-	computeValue() {
-		const result = {};
-		Object.keys(this.controls).forEach((key) => {
-			result[key] = this.controls[key].value();
-		});
-		return result;
+	computeDirty() {
+		if (this._dirty()) return true;
+		return this.controls().some((c) => c.dirty());
 	}
-	setupControlWatchers() {
-		Object.keys(this.controls).forEach((key) => {
-			this.setupControlWatcher(this.controls[key]);
-		});
+	computeTouched() {
+		if (this._touched()) return true;
+		return this.controls().some((c) => c.touched());
 	}
-	setupControlWatcher(control) {
-		const effect = new SignalEffect(() => {
-			control.value();
-			this.runGroupValidation();
-		});
-		effect.run();
-		this._controlEffects.push(effect);
+	computePending() {
+		if (this._pending()) return true;
+		return this.controls().some((c) => c.pending());
 	}
-	async runGroupValidation() {
-		const value = this.computeValue();
-		let errors = null;
-		for (const validator of this._validators) {
-			const result = validator(value);
-			if (result !== null) errors = {
-				...errors ?? {},
-				...result
-			};
-		}
-		if (this._asyncValidators.length > 0 && errors === null) {
-			const asyncResults = await Promise.all(this._asyncValidators.map((v) => v(value)));
-			for (const result of asyncResults) if (result !== null) errors = {
-				...errors ?? {},
-				...result
-			};
-		}
-		this.errors.set(errors);
+	hasInvalidChild() {
+		return this.controls().some((c) => c.invalid());
 	}
 };
 function createFormControl(initialValue, options) {
@@ -3609,19 +3777,32 @@ function createFormControl(initialValue, options) {
 function createFormGroup(controls, options) {
 	return new FormGroup(controls, options);
 }
+function createFormArray(controls, options) {
+	return new FormArray(controls, options);
+}
+registerDefaultMessages({
+	required: "This field is required",
+	minLength: (params) => `Minimum length is ${params.min} characters`,
+	maxLength: (params) => `Maximum length is ${params.max} characters`,
+	pattern: "Value does not match required pattern",
+	email: "Please enter a valid email address",
+	min: (params) => `Value must be at least ${params.min}`,
+	max: (params) => `Value must be at most ${params.max}`,
+	range: (params) => `Value must be between ${params.min} and ${params.max}`
+});
+var EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+function isEmpty(value) {
+	return value === null || value === void 0 || value === "" || Array.isArray(value) && value.length === 0;
+}
 const Validators = {
-	required: (value) => {
-		return value === null || value === void 0 || value === "" || Array.isArray(value) && value.length === 0 ? { required: {
-			code: "required",
-			message: "This field is required"
-		} } : null;
+	required(value) {
+		return isEmpty(value) ? { required: { code: "required" } } : null;
 	},
-	minLength: (min) => {
+	minLength(min) {
 		return (value) => {
 			if (!value || value.length === 0) return null;
 			return value.length < min ? { minLength: {
 				code: "minLength",
-				message: `Minimum length is ${min} characters`,
 				params: {
 					min,
 					actual: value.length
@@ -3629,12 +3810,11 @@ const Validators = {
 			} } : null;
 		};
 	},
-	maxLength: (max) => {
+	maxLength(max) {
 		return (value) => {
 			if (!value) return null;
 			return value.length > max ? { maxLength: {
 				code: "maxLength",
-				message: `Maximum length is ${max} characters`,
 				params: {
 					max,
 					actual: value.length
@@ -3642,29 +3822,24 @@ const Validators = {
 			} } : null;
 		};
 	},
-	pattern: (regex) => {
+	pattern(regex) {
 		return (value) => {
 			if (!value) return null;
 			return !regex.test(value) ? { pattern: {
 				code: "pattern",
-				message: "Value does not match required pattern",
 				params: { pattern: regex.toString() }
 			} } : null;
 		};
 	},
-	email: (value) => {
+	email(value) {
 		if (!value) return null;
-		return !/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(value) ? { email: {
-			code: "email",
-			message: "Please enter a valid email address"
-		} } : null;
+		return !EMAIL_REGEX.test(value) ? { email: { code: "email" } } : null;
 	},
-	min: (minValue) => {
+	min(minValue) {
 		return (value) => {
 			if (value === null || value === void 0) return null;
 			return value < minValue ? { min: {
 				code: "min",
-				message: `Value must be at least ${minValue}`,
 				params: {
 					min: minValue,
 					actual: value
@@ -3672,12 +3847,11 @@ const Validators = {
 			} } : null;
 		};
 	},
-	max: (maxValue) => {
+	max(maxValue) {
 		return (value) => {
 			if (value === null || value === void 0) return null;
 			return value > maxValue ? { max: {
 				code: "max",
-				message: `Value must be at most ${maxValue}`,
 				params: {
 					max: maxValue,
 					actual: value
@@ -3685,12 +3859,11 @@ const Validators = {
 			} } : null;
 		};
 	},
-	range: (minValue, maxValue) => {
+	range(minValue, maxValue) {
 		return (value) => {
 			if (value === null || value === void 0) return null;
 			if (value < minValue || value > maxValue) return { range: {
 				code: "range",
-				message: `Value must be between ${minValue} and ${maxValue}`,
 				params: {
 					min: minValue,
 					max: maxValue,
@@ -3700,7 +3873,7 @@ const Validators = {
 			return null;
 		};
 	},
-	compose: (...validators) => {
+	compose(...validators) {
 		return (value) => {
 			let errors = null;
 			for (const validator of validators) {
@@ -3713,7 +3886,7 @@ const Validators = {
 			return errors;
 		};
 	},
-	composeAsync: (...validators) => {
+	composeAsync(...validators) {
 		return async (value) => {
 			const results = await Promise.all(validators.map((v) => v(value)));
 			let errors = null;
@@ -3725,56 +3898,99 @@ const Validators = {
 		};
 	}
 };
-function createValidator(code, validationFn, message) {
+function createValidator(code, validationFn, defaultMessage) {
+	if (defaultMessage !== void 0) setDefaultMessage(code, defaultMessage);
 	return (value) => {
 		if (validationFn(value)) return null;
-		return { [code]: {
-			code,
-			message: typeof message === "function" ? message(value) : message
-		} };
+		return { [code]: { code } };
 	};
 }
-function createAsyncValidator(code, validationFn, message) {
+function createAsyncValidator(code, validationFn, defaultMessage) {
+	if (defaultMessage !== void 0) setDefaultMessage(code, defaultMessage);
 	return async (value) => {
 		if (await validationFn(value)) return null;
-		return { [code]: {
-			code,
-			message: typeof message === "function" ? message(value) : message
-		} };
+		return { [code]: { code } };
 	};
 }
-function isFormControl(value) {
-	return value !== null && typeof value === "object" && FORM_CONTROL_MARKER in value;
+var registry = [];
+function registerAdapter(predicate, adapter) {
+	registry.unshift({
+		predicate,
+		adapter
+	});
 }
-function getInputType(element) {
-	const tagName = element.tagName.toLowerCase();
-	if (tagName === "select") return "select";
-	if (tagName === "textarea") return "textarea";
-	if (tagName === "input") {
-		const type = element.type.toLowerCase();
-		if (type === "checkbox") return "checkbox";
-		if (type === "radio") return "radio";
+function getAdapter(element) {
+	for (const entry of registry) if (entry.predicate(element)) return entry.adapter;
+}
+const textAdapter = {
+	inputEvent: "input",
+	blurEvent: "focusout",
+	getValue(element) {
+		return element.value ?? "";
+	},
+	setValue(element, value) {
+		element.value = value !== null && value !== void 0 ? String(value) : "";
+	},
+	setDisabled(element, disabled) {
+		if (disabled) element.setAttribute("disabled", "");
+		else element.removeAttribute("disabled");
 	}
-	return "text";
+};
+const checkboxAdapter = {
+	inputEvent: "change",
+	blurEvent: "focusout",
+	getValue(element) {
+		return element.checked;
+	},
+	setValue(element, value) {
+		element.checked = Boolean(value);
+	},
+	setDisabled(element, disabled) {
+		if (disabled) element.setAttribute("disabled", "");
+		else element.removeAttribute("disabled");
+	}
+};
+const radioAdapter = {
+	inputEvent: "change",
+	blurEvent: "focusout",
+	getValue(element) {
+		const input = element;
+		return input.checked ? input.value : "";
+	},
+	setValue(element, value) {
+		const input = element;
+		input.checked = input.value === value;
+	},
+	setDisabled(element, disabled) {
+		if (disabled) element.setAttribute("disabled", "");
+		else element.removeAttribute("disabled");
+	}
+};
+function registerNativeAdapters() {
+	registerAdapter((el) => el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.tagName === "SELECT", textAdapter);
+	registerAdapter((el) => el.tagName === "INPUT" && el.type === "radio", radioAdapter);
+	registerAdapter((el) => el.tagName === "INPUT" && el.type === "checkbox", checkboxAdapter);
 }
+registerNativeAdapters();
 function formControlDirective(element, value, _) {
-	if (!isFormControl(value)) {
-		console.warn("formControl directive: value must be a FormControl");
+	if (!(value instanceof AbstractControl)) {
+		console.warn("formControl directive: value must be an AbstractControl");
 		return;
 	}
 	const control = value;
-	const inputType = getInputType(element);
+	const adapter = getAdapter(element);
+	if (!adapter) {
+		console.warn(`formControl directive: no adapter registered for <${element.tagName.toLowerCase()}>`);
+		return;
+	}
 	const cleanupFns = [];
-	const setElementValue = (val) => {
-		if (inputType === "checkbox") element.checked = Boolean(val);
-		else if (inputType === "radio") element.checked = element.value === val;
-		else element.value = val !== null && val !== void 0 ? String(val) : "";
+	const syncElementValue = (val) => {
+		adapter.setValue(element, val);
 	};
-	const setElementDisabled = (disabled) => {
-		if (disabled) element.setAttribute("disabled", "");
-		else element.removeAttribute("disabled");
+	const syncDisabled = (disabled) => {
+		adapter.setDisabled?.(element, disabled);
 	};
-	const updateValidationClasses = () => {
+	const syncClasses = () => {
 		element.classList.toggle("mf-valid", control.valid());
 		element.classList.toggle("mf-invalid", control.invalid());
 		element.classList.toggle("mf-dirty", control.dirty());
@@ -3783,40 +3999,38 @@ function formControlDirective(element, value, _) {
 		element.classList.toggle("mf-pending", control.pending());
 		element.classList.toggle("mf-disabled", control.disabled());
 	};
-	const handleInput = (e) => {
-		const target = e.target;
-		if (inputType === "checkbox") control.setValue(target.checked);
-		else if (inputType === "radio") {
-			if (target.checked) control.setValue(target.value);
-		} else control.setValue(target.value);
+	const syncError = () => {
+		if (!control.touched() || !control.errors()) {
+			element.removeAttribute("error");
+			return;
+		}
+		const message = control.getFirstErrorMessage();
+		if (message) element.setAttribute("error", message);
+		else element.removeAttribute("error");
+	};
+	const handleInput = (event) => {
+		const target = event.target;
+		if (target === element || element.contains(target)) control.setValue(adapter.getValue(element));
 	};
 	const handleBlur = () => {
 		control.markAsTouched();
 	};
-	setElementValue(control.value());
-	const unsubscribeValue = control.value.subscribe((newValue) => {
-		setElementValue(newValue);
-	});
-	cleanupFns.push(unsubscribeValue);
-	setElementDisabled(control.disabled());
-	const unsubscribeDisabled = control.disabled.subscribe((disabled) => {
-		setElementDisabled(disabled);
-	});
-	cleanupFns.push(unsubscribeDisabled);
-	const unsubscribeState = control.state.subscribe(() => {
-		updateValidationClasses();
-	});
-	cleanupFns.push(unsubscribeState);
-	updateValidationClasses();
-	const eventType = control.updateOn === "blur" ? "change" : "input";
-	element.addEventListener(eventType, handleInput);
-	element.addEventListener("blur", handleBlur);
+	syncElementValue(control.value());
+	syncDisabled(control.disabled());
+	syncClasses();
+	syncError();
+	cleanupFns.push(control.value.subscribe((v) => syncElementValue(v)));
+	cleanupFns.push(control.disabled.subscribe((d) => syncDisabled(d)));
+	cleanupFns.push(control.state.subscribe(() => syncClasses()));
+	cleanupFns.push(control.state.subscribe(() => syncError()));
+	element.addEventListener(adapter.inputEvent, handleInput);
+	element.addEventListener(adapter.blurEvent, handleBlur);
 	element.setAttribute("data-form-control", "");
 	return () => {
-		element.removeEventListener(eventType, handleInput);
-		element.removeEventListener("blur", handleBlur);
+		element.removeEventListener(adapter.inputEvent, handleInput);
+		element.removeEventListener(adapter.blurEvent, handleBlur);
 		element.removeAttribute("data-form-control");
-		cleanupFns.forEach((fn) => fn());
+		for (const fn of cleanupFns) fn();
 	};
 }
 registerAttributeDirective("formControl", formControlDirective);
@@ -5984,6 +6198,17 @@ const inputStyles = () => css`
 		flex-shrink: 0;
 	}
 `;
+registerAdapter((el) => el.tagName === "ML-INPUT", {
+	inputEvent: "ml:input",
+	blurEvent: "focusout",
+	getValue: (el) => el.value ?? "",
+	setValue: (el, value) => {
+		el.value = value !== null && value !== void 0 ? String(value) : "";
+	},
+	setDisabled: (el, disabled) => {
+		el.disabled = disabled;
+	}
+});
 var InputComponent = class InputComponent$1 {
 	constructor() {
 		this.type = "text";
@@ -6260,6 +6485,17 @@ const textareaStyles = () => css`
 		font-size: var(--ml-text-base);
 	}
 `;
+registerAdapter((el) => el.tagName === "ML-TEXTAREA", {
+	inputEvent: "ml:input",
+	blurEvent: "focusout",
+	getValue: (el) => el.value ?? "",
+	setValue: (el, value) => {
+		el.value = value !== null && value !== void 0 ? String(value) : "";
+	},
+	setDisabled: (el, disabled) => {
+		el.disabled = disabled;
+	}
+});
 var TextareaComponent = class TextareaComponent$1 {
 	constructor() {
 		this.value = "";
@@ -6514,6 +6750,17 @@ const checkboxStyles = () => css`
 		--ml-checkbox-label-line-height: 1.5rem;
 	}
 `;
+registerAdapter((el) => el.tagName === "ML-CHECKBOX", {
+	inputEvent: "ml:change",
+	blurEvent: "focusout",
+	getValue: (el) => Boolean(el.checked),
+	setValue: (el, value) => {
+		el.checked = Boolean(value);
+	},
+	setDisabled: (el, disabled) => {
+		el.disabled = disabled;
+	}
+});
 var CheckboxComponent = class CheckboxComponent$1 {
 	constructor() {
 		this.label = "";
@@ -6858,6 +7105,17 @@ const radioGroupStyles = () => css`
 		color: var(--ml-color-danger);
 	}
 `;
+registerAdapter((el) => el.tagName === "ML-RADIO-GROUP", {
+	inputEvent: "ml:change",
+	blurEvent: "focusout",
+	getValue: (el) => el.value ?? "",
+	setValue: (el, value) => {
+		el.value = value !== null && value !== void 0 ? String(value) : "";
+	},
+	setDisabled: (el, disabled) => {
+		el.disabled = disabled;
+	}
+});
 var RadioGroupComponent = class RadioGroupComponent$1 {
 	constructor() {
 		this.label = "";
@@ -7549,6 +7807,17 @@ const toggleStyles = () => css`
 		line-height: var(--ml-leading-tight);
 	}
 `;
+registerAdapter((el) => el.tagName === "ML-TOGGLE", {
+	inputEvent: "ml:change",
+	blurEvent: "focusout",
+	getValue: (el) => Boolean(el.checked),
+	setValue: (el, value) => {
+		el.checked = Boolean(value);
+	},
+	setDisabled: (el, disabled) => {
+		el.disabled = disabled;
+	}
+});
 var ToggleComponent = class ToggleComponent$1 {
 	constructor() {
 		this.label = "";
@@ -8115,6 +8384,22 @@ const selectStyles = () => css`
 		pointer-events: none;
 	}
 `;
+registerAdapter((el) => el.tagName === "ML-SELECT", {
+	inputEvent: "ml:change",
+	blurEvent: "focusout",
+	getValue: (el) => {
+		const e = el;
+		return e.multiple ? e.values ?? [] : e.value ?? "";
+	},
+	setValue: (el, value) => {
+		const e = el;
+		if (Array.isArray(value)) e.values = value;
+		else e.value = value !== null && value !== void 0 ? String(value) : "";
+	},
+	setDisabled: (el, disabled) => {
+		el.disabled = disabled;
+	}
+});
 var SelectComponent = class SelectComponent$1 {
 	constructor() {
 		this.label = "";
@@ -8687,6 +8972,17 @@ const sliderStyles = () => css`
 		color: var(--ml-slider-error-color);
 	}
 `;
+registerAdapter((el) => el.tagName === "ML-SLIDER", {
+	inputEvent: "ml:input",
+	blurEvent: "focusout",
+	getValue: (el) => Number(el.value) || 0,
+	setValue: (el, value) => {
+		el.value = Number(value) || 0;
+	},
+	setDisabled: (el, disabled) => {
+		el.disabled = disabled;
+	}
+});
 var SliderComponent = class SliderComponent$1 {
 	constructor() {
 		this.label = "";
@@ -10229,6 +10525,17 @@ const datePickerStyles = () => css`
 		color: var(--ml-date-picker-error-color);
 	}
 `;
+registerAdapter((el) => el.tagName === "ML-DATE-PICKER", {
+	inputEvent: "ml:select",
+	blurEvent: "focusout",
+	getValue: (el) => el.value ?? "",
+	setValue: (el, value) => {
+		el.value = value !== null && value !== void 0 ? String(value) : "";
+	},
+	setDisabled: (el, disabled) => {
+		el.disabled = disabled;
+	}
+});
 var DatePickerComponent = class DatePickerComponent$1 {
 	constructor() {
 		this.value = "";
@@ -12023,6 +12330,7 @@ const badgeStyles = () => css`
 
 		/* ── Badge: dot ── */
 		--ml-badge-dot-size: 0.375rem;
+		--ml-badge-dot-size-xs: 0.3125rem;
 		--ml-badge-dot-size-lg: 0.5rem;
 
 		/* ── Badge: secondary variant ── */
@@ -12058,6 +12366,16 @@ const badgeStyles = () => css`
 	.ml-badge--lg .ml-badge__dot {
 		width: var(--ml-badge-dot-size-lg);
 		height: var(--ml-badge-dot-size-lg);
+	}
+
+	.ml-badge--xs .ml-badge__dot {
+		width: var(--ml-badge-dot-size-xs);
+		height: var(--ml-badge-dot-size-xs);
+	}
+
+	.ml-badge--xs {
+		padding: 1px var(--ml-space-1-5);
+		font-size: 0.6875rem;
 	}
 
 	.ml-badge--sm {
@@ -25225,6 +25543,6 @@ DashboardPageComponent = __decorate([MelodicComponent({
 		"layout"
 	]
 })], DashboardPageComponent);
-export { APP_CONFIG, AbortError, ActivityFeedComponent, ActivityFeedItemComponent, AlertComponent, AppShellComponent, AvatarComponent, BadgeComponent, BadgeGroupComponent, Binding, BreadcrumbComponent, BreadcrumbItemComponent, ButtonComponent, ButtonGroupComponent, ButtonGroupItemComponent, CalendarComponent, CalendarViewComponent, CardComponent, CheckboxComponent, ComponentBase, ComponentStateBaseService, ContainerComponent, DashboardPageComponent, DatePickerComponent, DialogComponent, DialogRef, DialogService, Directive, DividerComponent, DrawerComponent, DropdownComponent, DropdownGroupComponent, DropdownItemComponent, DropdownSeparatorComponent, EffectsBase, FORM_CONTROL_MARKER, FORM_GROUP_MARKER, FormControl, FormFieldComponent, FormGroup, HeroSectionComponent, HttpBaseError, HttpClient, HttpError, IconComponent, Inject, Injectable, InjectionEngine, Injector, InputComponent, ListComponent, ListItemComponent, LoginPageComponent, MelodicComponent, NetworkError, PageHeaderComponent, PaginationComponent, PopoverComponent, ProgressComponent, ROUTE_CONTEXT_EVENT, RX_ACTION_PROVIDERS, RX_EFFECTS_PROVIDERS, RX_INIT_STATE, RX_STATE_DEBUG, RadioCardComponent, RadioCardGroupComponent, RadioComponent, RadioGroupComponent, RouteContextEvent, RouteContextService, RouteMatcher, RouterLinkComponent, RouterOutletComponent, RouterService, SIGNAL_MARKER, SelectComponent, Service, SidebarComponent, SidebarGroupComponent, SidebarItemComponent, SignalEffect, SignalStoreService, SignupPageComponent, SliderComponent, SpinnerComponent, StackComponent, StepComponent, StepPanelComponent, StepsComponent, TabComponent, TabPanelComponent, TableComponent, TabsComponent, TagComponent, TemplateResult, TextareaComponent, ToastComponent, ToastContainerComponent, ToastService, ToggleComponent, TooltipComponent, Validators, VirtualScroller, activityFeedItemStyles, activityFeedItemTemplate, activityFeedStyles, activityFeedTemplate, allTokens, announce, appShellStyles, appShellTemplate, applyGlobalStyles, applyTheme, arrow, autoUpdate, baseThemeCss, bootstrap, borderTokens, breadcrumbItemStyles, breadcrumbItemTemplate, breadcrumbStyles, breadcrumbTemplate, breakpointTokens, breakpoints, buildPathFromRoute, calendarViewStyles, calendarViewTemplate, classMap, clickOutside, colorTokens, componentBaseStyles, computePosition, computed, containerStyles, containerTemplate, createAction, createAsyncValidator, createBrandTheme, createDeactivateGuard, createFocusTrap, createFormControl, createFormGroup, createGuard, createLiveRegion, createReducer, createResolver, createState, createTheme, createToken, createValidator, css, darkTheme, darkThemeCss, dashboardPageStyles, dashboardPageTemplate, defineConfig, directive, drawerStyles, drawerTemplate, dropdownGroupStyles, dropdownGroupTemplate, dropdownItemStyles, dropdownItemTemplate, dropdownSeparatorStyles, dropdownSeparatorTemplate, dropdownStyles, dropdownTemplate, environment, findRouteByName, flip, focusFirst, focusLast, focusTrap, focusVisible, formControlDirective, formFieldStyles, formFieldTemplate, getActiveEffect, getAttributeDirective, getEnvironment, getFirstFocusable, getFocusableElements, getLastFocusable, getRegisteredDirectives, getResolvedTheme, getTheme, getTokenKey, hasAttributeDirective, heroSectionStyles, heroSectionTemplate, html, injectTheme, isDirective, isFocusVisible, isSignal, lightTheme, lightThemeCss, listItemStyles, listItemTemplate, listStyles, listTemplate, loginPageStyles, loginPageTemplate, matchRouteTree, newID, offset, onAction, onThemeChange, pageHeaderStyles, pageHeaderTemplate, paginationStyles, paginationTemplate, portalDirective, primitiveColors, progressStyles, progressTemplate, props, provideConfig, provideHttp, provideRX, registerAttributeDirective, render, repeat, repeatRaw, resetStyles, routerLinkDirective, selectStyles, selectTemplate, setActiveEffect, shadowTokens, shift, sidebarGroupStyles, sidebarGroupTemplate, sidebarItemStyles, sidebarItemTemplate, sidebarStyles, sidebarTemplate, signal, signupPageStyles, signupPageTemplate, sliderStyles, sliderTemplate, spacingTokens, stepPanelStyles, stepPanelTemplate, stepStyles, stepTemplate, stepsStyles, stepsTemplate, styleMap, tabPanelStyles, tabPanelTemplate, tabStyles, tabTemplate, tableStyles, tableTemplate, tabsStyles, tabsTemplate, toastContainerStyles, toastContainerTemplate, toastStyles, toastTemplate, toggleTheme, tokensToCss, tooltipDirective, transitionTokens, typographyTokens, unregisterAttributeDirective, unsafeHTML, visuallyHiddenStyles, when };
+export { APP_CONFIG, AbortError, AbstractControl, ActivityFeedComponent, ActivityFeedItemComponent, AlertComponent, AppShellComponent, AvatarComponent, BadgeComponent, BadgeGroupComponent, Binding, BreadcrumbComponent, BreadcrumbItemComponent, ButtonComponent, ButtonGroupComponent, ButtonGroupItemComponent, CalendarComponent, CalendarViewComponent, CardComponent, CheckboxComponent, ComponentBase, ComponentStateBaseService, ContainerComponent, DashboardPageComponent, DatePickerComponent, DialogComponent, DialogRef, DialogService, Directive, DividerComponent, DrawerComponent, DropdownComponent, DropdownGroupComponent, DropdownItemComponent, DropdownSeparatorComponent, EffectsBase, FormArray, FormControl, FormFieldComponent, FormGroup, HeroSectionComponent, HttpBaseError, HttpClient, HttpError, IconComponent, Inject, Injectable, InjectionEngine, Injector, InputComponent, ListComponent, ListItemComponent, LoginPageComponent, MelodicComponent, NetworkError, PageHeaderComponent, PaginationComponent, PopoverComponent, ProgressComponent, ROUTE_CONTEXT_EVENT, RX_ACTION_PROVIDERS, RX_EFFECTS_PROVIDERS, RX_INIT_STATE, RX_STATE_DEBUG, RadioCardComponent, RadioCardGroupComponent, RadioComponent, RadioGroupComponent, RouteContextEvent, RouteContextService, RouteMatcher, RouterLinkComponent, RouterOutletComponent, RouterService, SIGNAL_MARKER, SelectComponent, Service, SidebarComponent, SidebarGroupComponent, SidebarItemComponent, SignalEffect, SignalStoreService, SignupPageComponent, SliderComponent, SpinnerComponent, StackComponent, StepComponent, StepPanelComponent, StepsComponent, TabComponent, TabPanelComponent, TableComponent, TabsComponent, TagComponent, TemplateResult, TextareaComponent, ToastComponent, ToastContainerComponent, ToastService, ToggleComponent, TooltipComponent, Validators, VirtualScroller, activityFeedItemStyles, activityFeedItemTemplate, activityFeedStyles, activityFeedTemplate, allTokens, announce, appShellStyles, appShellTemplate, applyGlobalStyles, applyTheme, arrow, autoUpdate, baseThemeCss, bootstrap, borderTokens, breadcrumbItemStyles, breadcrumbItemTemplate, breadcrumbStyles, breadcrumbTemplate, breakpointTokens, breakpoints, buildPathFromRoute, calendarViewStyles, calendarViewTemplate, checkboxAdapter, classMap, clickOutside, colorTokens, componentBaseStyles, computePosition, computed, containerStyles, containerTemplate, createAction, createAsyncValidator, createBrandTheme, createDeactivateGuard, createFocusTrap, createFormArray, createFormControl, createFormGroup, createGuard, createLiveRegion, createReducer, createResolver, createState, createTheme, createToken, createValidator, css, darkTheme, darkThemeCss, dashboardPageStyles, dashboardPageTemplate, defineConfig, directive, drawerStyles, drawerTemplate, dropdownGroupStyles, dropdownGroupTemplate, dropdownItemStyles, dropdownItemTemplate, dropdownSeparatorStyles, dropdownSeparatorTemplate, dropdownStyles, dropdownTemplate, environment, findRouteByName, flip, focusFirst, focusLast, focusTrap, focusVisible, formControlDirective, formFieldStyles, formFieldTemplate, getActiveEffect, getAdapter, getAttributeDirective, getEnvironment, getFirstFocusable, getFocusableElements, getGlobalMessage, getLastFocusable, getRegisteredDirectives, getResolvedTheme, getTheme, getTokenKey, hasAttributeDirective, heroSectionStyles, heroSectionTemplate, html, injectTheme, isDirective, isFocusVisible, isSignal, lightTheme, lightThemeCss, listItemStyles, listItemTemplate, listStyles, listTemplate, loginPageStyles, loginPageTemplate, matchRouteTree, newID, offset, onAction, onThemeChange, pageHeaderStyles, pageHeaderTemplate, paginationStyles, paginationTemplate, portalDirective, primitiveColors, progressStyles, progressTemplate, props, provideConfig, provideHttp, provideRX, radioAdapter, registerAdapter, registerAttributeDirective, registerDefaultMessages, render, repeat, repeatRaw, resetStyles, resolveMessage, routerLinkDirective, selectStyles, selectTemplate, setActiveEffect, setDefaultMessage, shadowTokens, shift, sidebarGroupStyles, sidebarGroupTemplate, sidebarItemStyles, sidebarItemTemplate, sidebarStyles, sidebarTemplate, signal, signupPageStyles, signupPageTemplate, sliderStyles, sliderTemplate, spacingTokens, stepPanelStyles, stepPanelTemplate, stepStyles, stepTemplate, stepsStyles, stepsTemplate, styleMap, tabPanelStyles, tabPanelTemplate, tabStyles, tabTemplate, tableStyles, tableTemplate, tabsStyles, tabsTemplate, textAdapter, toastContainerStyles, toastContainerTemplate, toastStyles, toastTemplate, toggleTheme, tokensToCss, tooltipDirective, transitionTokens, typographyTokens, unregisterAttributeDirective, unsafeHTML, visuallyHiddenStyles, when };
 
 //# sourceMappingURL=melodic-components.js.map

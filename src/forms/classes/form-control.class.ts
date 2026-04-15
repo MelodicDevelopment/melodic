@@ -1,85 +1,31 @@
-import { signal, computed } from '../../signals';
-import type { Signal } from '../../signals';
-import type { IFormControl, FormControlOptions, FormControlState } from '../types/form-control.types';
-import type { ValidatorFn, AsyncValidatorFn, ValidationErrors, ValidationError } from '../types/validation.types';
+import type { ControlOptions } from '../types/control.types';
+import { AbstractControl } from './abstract-control.class';
 
-export const FORM_CONTROL_MARKER = Symbol('melodic.formControl');
-
-export class FormControl<T = unknown> implements IFormControl<T> {
-	public readonly [FORM_CONTROL_MARKER] = true;
-
-	public readonly value: Signal<T>;
+export class FormControl<T = unknown> extends AbstractControl<T> {
 	public readonly initialValue: T;
-	public readonly errors: Signal<ValidationErrors | null>;
-	public readonly updateOn: 'input' | 'blur' | 'submit';
 
-	private _validators: ValidatorFn<T>[] = [];
-	private _asyncValidators: AsyncValidatorFn<T>[] = [];
-	private readonly _touched = signal<boolean>(false);
-	private readonly _dirty = signal<boolean>(false);
-	private readonly _pending = signal<boolean>(false);
-	private readonly _disabled = signal<boolean>(false);
-	private _asyncValidationId = 0;
-
-	public readonly dirty: Signal<boolean>;
-	public readonly touched: Signal<boolean>;
-	public readonly pristine: Signal<boolean>;
-	public readonly valid: Signal<boolean>;
-	public readonly invalid: Signal<boolean>;
-	public readonly pending: Signal<boolean>;
-	public readonly disabled: Signal<boolean>;
-	public readonly state: Signal<FormControlState>;
-
-	constructor(initialValue: T, options: FormControlOptions<T> = {}) {
+	constructor(initialValue: T, options: ControlOptions<T> = {}) {
+		super(initialValue, options);
 		this.initialValue = initialValue;
-		this.value = signal<T>(initialValue);
-		this.errors = signal<ValidationErrors | null>(null);
-
-		this._validators = options.validators ?? [];
-		this._asyncValidators = options.asyncValidators ?? [];
-		this._disabled.set(options.disabled ?? false);
-		this.updateOn = options.updateOn ?? 'input';
-
-		// Computed state signals
-		this.dirty = computed(() => this._dirty());
-		this.touched = computed(() => this._touched());
-		this.pristine = computed(() => !this._dirty());
-		this.pending = computed(() => this._pending());
-		this.disabled = computed(() => this._disabled());
-
-		this.valid = computed(() => this.errors() === null && !this._pending());
-		this.invalid = computed(() => this.errors() !== null);
-
-		this.state = computed<FormControlState>(() => ({
-			dirty: this._dirty(),
-			touched: this._touched(),
-			pristine: !this._dirty(),
-			untouched: !this._touched(),
-			valid: this.errors() === null && !this._pending(),
-			invalid: this.errors() !== null,
-			pending: this._pending(),
-			disabled: this._disabled(),
-			enabled: !this._disabled()
-		}));
-
-		// Run initial validation
-		this.runValidation();
+		this.initializeAggregates();
+		void this.runValidation();
 	}
 
 	public setValue(value: T): void {
-		if (this._disabled()) return;
+		if (this._ownDisabled()) return;
 
 		this.value.set(value);
 		this._dirty.set(true);
 
-		if (this.updateOn === 'input') {
-			this.runValidation();
+		if (this.updateOn === 'change') {
+			void this.runValidation();
 		}
 	}
 
 	public patchValue(value: Partial<T>): void {
-		if (typeof this.value() === 'object' && this.value() !== null) {
-			this.setValue({ ...this.value(), ...value });
+		const current = this.value();
+		if (typeof current === 'object' && current !== null && !Array.isArray(current)) {
+			this.setValue({ ...current, ...value } as T);
 		} else {
 			this.setValue(value as T);
 		}
@@ -90,122 +36,10 @@ export class FormControl<T = unknown> implements IFormControl<T> {
 		this._dirty.set(false);
 		this._touched.set(false);
 		this.errors.set(null);
-		this.runValidation();
-	}
-
-	public markAsTouched(): void {
-		this._touched.set(true);
-
-		if (this.updateOn === 'blur') {
-			this.runValidation();
-		}
-	}
-
-	public markAsUntouched(): void {
-		this._touched.set(false);
-	}
-
-	public markAsDirty(): void {
-		this._dirty.set(true);
-	}
-
-	public markAsPristine(): void {
-		this._dirty.set(false);
-	}
-
-	public disable(): void {
-		this._disabled.set(true);
-	}
-
-	public enable(): void {
-		this._disabled.set(false);
-	}
-
-	public setValidators(validators: ValidatorFn<T>[]): void {
-		this._validators = validators;
-		this.runValidation();
-	}
-
-	public setAsyncValidators(validators: AsyncValidatorFn<T>[]): void {
-		this._asyncValidators = validators;
-		this.runValidation();
-	}
-
-	public addValidators(validators: ValidatorFn<T>[]): void {
-		this._validators = [...this._validators, ...validators];
-		this.runValidation();
-	}
-
-	public removeValidators(validators: ValidatorFn<T>[]): void {
-		this._validators = this._validators.filter((v) => !validators.includes(v));
-		this.runValidation();
-	}
-
-	public async validate(): Promise<void> {
-		await this.runValidation();
-	}
-
-	public getError(code: string): ValidationError | null {
-		return this.errors()?.[code] ?? null;
-	}
-
-	public hasError(code: string): boolean {
-		return this.errors()?.[code] !== undefined;
+		void this.runValidation();
 	}
 
 	public destroy(): void {
-		this.value.destroy();
-		this.errors.destroy();
-		this._touched.destroy();
-		this._dirty.destroy();
-		this._pending.destroy();
-		this._disabled.destroy();
-	}
-
-	private async runValidation(): Promise<void> {
-		const value = this.value();
-
-		// Run sync validators
-		let errors: ValidationErrors | null = null;
-
-		for (const validator of this._validators) {
-			const result = validator(value);
-			if (result !== null) {
-				errors = { ...(errors ?? {}), ...result };
-			}
-		}
-
-		// If sync validation fails, set errors and skip async
-		if (errors !== null) {
-			this.errors.set(errors);
-			return;
-		}
-
-		// Run async validators if any
-		if (this._asyncValidators.length > 0) {
-			const validationId = ++this._asyncValidationId;
-			this._pending.set(true);
-
-			try {
-				const asyncResults = await Promise.all(this._asyncValidators.map((v) => v(value)));
-
-				// Check if this is still the latest validation
-				if (validationId !== this._asyncValidationId) {
-					return;
-				}
-
-				for (const result of asyncResults) {
-					if (result !== null) {
-						errors = { ...(errors ?? {}), ...result };
-					}
-				}
-			} finally {
-				if (validationId === this._asyncValidationId) {
-					this._pending.set(false);
-				}
-			}
-		}
-
-		this.errors.set(errors);
+		this.destroySignals();
 	}
 }

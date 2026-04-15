@@ -1,225 +1,199 @@
-import { signal, computed, SignalEffect } from '../../signals';
+import { signal, SignalEffect } from '../../signals';
 import type { Signal } from '../../signals';
-import type { IFormGroup, FormGroupControls, FormGroupValue, FormGroupOptions } from '../types/form-group.types';
-import type { IFormControl } from '../types/form-control.types';
-import type { ValidatorFn, AsyncValidatorFn, ValidationErrors, ValidationError } from '../types/validation.types';
+import type { ControlOptions } from '../types/control.types';
+import { AbstractControl } from './abstract-control.class';
 
-export const FORM_GROUP_MARKER = Symbol('melodic.formGroup');
+export type FormGroupControls<T> = {
+	[K in keyof T]: AbstractControl<T[K]>;
+};
 
-export class FormGroup<T extends Record<string, unknown> = Record<string, unknown>> implements IFormGroup<T> {
-	public readonly [FORM_GROUP_MARKER] = true;
+export type FormGroupValue<T> = {
+	[K in keyof T]: T[K];
+};
 
-	public readonly controls: FormGroupControls<T>;
-	public readonly value: Signal<FormGroupValue<T>>;
-	public readonly errors: Signal<ValidationErrors | null>;
+export class FormGroup<T = Record<string, unknown>> extends AbstractControl<FormGroupValue<T>> {
+	public readonly controls: Signal<FormGroupControls<T>>;
 
-	private _validators: ValidatorFn<FormGroupValue<T>>[] = [];
-	private readonly _asyncValidators: AsyncValidatorFn<FormGroupValue<T>>[] = [];
-	private readonly _disabled = signal<boolean>(false);
-	private readonly _controlEffects: SignalEffect[] = [];
+	private readonly _childValueEffect: SignalEffect;
 
-	public readonly valid: Signal<boolean>;
-	public readonly invalid: Signal<boolean>;
-	public readonly pending: Signal<boolean>;
-	public readonly dirty: Signal<boolean>;
-	public readonly touched: Signal<boolean>;
-	public readonly pristine: Signal<boolean>;
-	public readonly disabled: Signal<boolean>;
+	constructor(initialControls: FormGroupControls<T>, options: ControlOptions<FormGroupValue<T>> = {}) {
+		super(FormGroup.computeValue(initialControls), options);
 
-	constructor(controls: FormGroupControls<T>, options: FormGroupOptions<T> = {}) {
-		this.controls = controls;
-		this._validators = options.validators ?? [];
-		this._asyncValidators = options.asyncValidators ?? [];
-		this._disabled.set(options.disabled ?? false);
+		this.controls = signal<FormGroupControls<T>>({ ...initialControls });
 
-		// Create value signal that computes from all controls
-		this.value = computed(() => this.computeValue());
-		this.errors = signal<ValidationErrors | null>(null);
+		for (const key of Object.keys(initialControls)) {
+			initialControls[key as keyof T].parent = this;
+		}
 
-		// Setup child control watchers
-		this.setupControlWatchers();
+		this.initializeAggregates();
 
-		// Computed aggregate state
-		this.valid = computed(() => {
-			const groupErrors = this.errors();
-			if (groupErrors !== null) return false;
-
-			return Object.values(this.controls).every((control) => (control as IFormControl).valid());
+		this._childValueEffect = new SignalEffect(() => {
+			const controls = this.controls();
+			for (const key of Object.keys(controls)) {
+				controls[key as keyof T].value();
+			}
+			this.value.set(FormGroup.computeValue(controls));
+			void this.runValidation();
 		});
-
-		this.invalid = computed(() => !this.valid());
-
-		this.pending = computed(() => {
-			return Object.values(this.controls).some((control) => (control as IFormControl).pending());
-		});
-
-		this.dirty = computed(() => {
-			return Object.values(this.controls).some((control) => (control as IFormControl).dirty());
-		});
-
-		this.touched = computed(() => {
-			return Object.values(this.controls).some((control) => (control as IFormControl).touched());
-		});
-
-		this.pristine = computed(() => !this.dirty());
-		this.disabled = computed(() => this._disabled());
-
-		// Run initial validation
-		this.runGroupValidation();
+		this._childValueEffect.run();
 	}
 
-	public get<K extends keyof T>(name: K): IFormControl<T[K]> {
-		return this.controls[name];
-	}
-
-	public addControl<K extends string, V>(name: K, control: IFormControl<V>): void {
-		(this.controls as Record<string, IFormControl<unknown>>)[name] = control;
-		this.setupControlWatcher(control);
-	}
-
-	public removeControl<K extends keyof T>(name: K): void {
-		delete (this.controls as Record<string, IFormControl<unknown>>)[name as string];
+	public get<K extends keyof T>(name: K): AbstractControl<T[K]> {
+		return this.controls()[name];
 	}
 
 	public contains<K extends keyof T>(name: K): boolean {
-		return name in this.controls;
+		return name in this.controls();
+	}
+
+	public addControl<K extends string, V>(name: K, control: AbstractControl<V>): void {
+		control.parent = this;
+		this.controls.update((current) => ({ ...current, [name]: control }) as FormGroupControls<T>);
+	}
+
+	public removeControl<K extends keyof T>(name: K): void {
+		const controls = this.controls();
+		const control = controls[name];
+		if (!control) return;
+
+		control.parent = null;
+		control.destroy();
+
+		this.controls.update((current) => {
+			const next = { ...current };
+			delete next[name];
+			return next;
+		});
 	}
 
 	public setValue(value: FormGroupValue<T>): void {
-		Object.keys(value).forEach((key) => {
-			const control = this.controls[key as keyof T];
-			if (control) {
-				control.setValue(value[key as keyof T]);
-			}
-		});
+		if (this._ownDisabled()) return;
+		const controls = this.controls();
+		for (const key of Object.keys(value)) {
+			controls[key as keyof T]?.setValue(value[key as keyof T]);
+		}
 	}
 
 	public patchValue(value: Partial<FormGroupValue<T>>): void {
-		Object.keys(value).forEach((key) => {
-			const control = this.controls[key as keyof T];
-			if (control && value[key as keyof T] !== undefined) {
-				control.setValue(value[key as keyof T]!);
+		if (this._ownDisabled()) return;
+		const controls = this.controls();
+		for (const key of Object.keys(value)) {
+			if (value[key as keyof T] !== undefined) {
+				controls[key as keyof T]?.setValue(value[key as keyof T] as T[keyof T]);
 			}
-		});
+		}
 	}
 
 	public reset(value?: Partial<FormGroupValue<T>>): void {
-		Object.keys(this.controls).forEach((key) => {
-			const control = this.controls[key as keyof T];
+		const controls = this.controls();
+		for (const key of Object.keys(controls)) {
 			const resetValue = value?.[key as keyof T];
-			control.reset(resetValue);
-		});
+			controls[key as keyof T].reset(resetValue as T[keyof T]);
+		}
 	}
 
 	public markAllAsTouched(): void {
-		Object.values(this.controls).forEach((control) => {
-			(control as IFormControl).markAsTouched();
-		});
+		this._touched.set(true);
+		const controls = this.controls();
+		for (const key of Object.keys(controls)) {
+			controls[key as keyof T].markAllAsTouched();
+		}
 	}
 
 	public markAllAsUntouched(): void {
-		Object.values(this.controls).forEach((control) => {
-			(control as IFormControl).markAsUntouched();
-		});
+		this._touched.set(false);
+		const controls = this.controls();
+		for (const key of Object.keys(controls)) {
+			controls[key as keyof T].markAllAsUntouched();
+		}
 	}
 
 	public markAllAsDirty(): void {
-		Object.values(this.controls).forEach((control) => {
-			(control as IFormControl).markAsDirty();
-		});
+		this._dirty.set(true);
+		const controls = this.controls();
+		for (const key of Object.keys(controls)) {
+			const child = controls[key as keyof T];
+			if ('markAllAsDirty' in child && typeof (child as { markAllAsDirty?: () => void }).markAllAsDirty === 'function') {
+				(child as unknown as { markAllAsDirty: () => void }).markAllAsDirty();
+			} else {
+				child.markAsDirty();
+			}
+		}
 	}
 
 	public markAllAsPristine(): void {
-		Object.values(this.controls).forEach((control) => {
-			(control as IFormControl).markAsPristine();
-		});
+		this._dirty.set(false);
+		const controls = this.controls();
+		for (const key of Object.keys(controls)) {
+			const child = controls[key as keyof T];
+			if ('markAllAsPristine' in child && typeof (child as { markAllAsPristine?: () => void }).markAllAsPristine === 'function') {
+				(child as unknown as { markAllAsPristine: () => void }).markAllAsPristine();
+			} else {
+				child.markAsPristine();
+			}
+		}
 	}
 
 	public disable(): void {
-		this._disabled.set(true);
-		Object.values(this.controls).forEach((control) => {
-			(control as IFormControl).disable();
-		});
+		this._ownDisabled.set(true);
+		const controls = this.controls();
+		for (const key of Object.keys(controls)) {
+			controls[key as keyof T].disable();
+		}
 	}
 
 	public enable(): void {
-		this._disabled.set(false);
-		Object.values(this.controls).forEach((control) => {
-			(control as IFormControl).enable();
-		});
+		this._ownDisabled.set(false);
+		const controls = this.controls();
+		for (const key of Object.keys(controls)) {
+			controls[key as keyof T].enable();
+		}
 	}
 
 	public async validate(): Promise<void> {
-		await Promise.all(Object.values(this.controls).map((control) => (control as IFormControl).validate()));
-		await this.runGroupValidation();
-	}
-
-	public setValidators(validators: ValidatorFn<FormGroupValue<T>>[]): void {
-		this._validators = validators;
-		this.runGroupValidation();
-	}
-
-	public getError(code: string): ValidationError | null {
-		return this.errors()?.[code] ?? null;
-	}
-
-	public hasError(code: string): boolean {
-		return this.errors()?.[code] !== undefined;
+		const controls = this.controls();
+		await Promise.all(Object.keys(controls).map((key) => controls[key as keyof T].validate()));
+		await this.runValidation();
 	}
 
 	public destroy(): void {
-		this._controlEffects.forEach((effect) => effect.destroy());
-		Object.values(this.controls).forEach((control) => {
-			(control as IFormControl).destroy();
-		});
+		this._childValueEffect.destroy();
+		const controls = this.controls();
+		for (const key of Object.keys(controls)) {
+			controls[key as keyof T].destroy();
+		}
+		this.destroySignals();
+		this.controls.destroy();
 	}
 
-	private computeValue(): FormGroupValue<T> {
+	protected override computeDirty(): boolean {
+		if (this._dirty()) return true;
+		const controls = this.controls();
+		return Object.keys(controls).some((key) => controls[key as keyof T].dirty());
+	}
+
+	protected override computeTouched(): boolean {
+		if (this._touched()) return true;
+		const controls = this.controls();
+		return Object.keys(controls).some((key) => controls[key as keyof T].touched());
+	}
+
+	protected override computePending(): boolean {
+		if (this._pending()) return true;
+		const controls = this.controls();
+		return Object.keys(controls).some((key) => controls[key as keyof T].pending());
+	}
+
+	protected override hasInvalidChild(): boolean {
+		const controls = this.controls();
+		return Object.keys(controls).some((key) => controls[key as keyof T].invalid());
+	}
+
+	private static computeValue<T>(controls: FormGroupControls<T>): FormGroupValue<T> {
 		const result: Partial<FormGroupValue<T>> = {};
-		Object.keys(this.controls).forEach((key) => {
-			const control = this.controls[key as keyof T];
-			result[key as keyof T] = control.value();
-		});
+		for (const key of Object.keys(controls) as (keyof T)[]) {
+			result[key] = controls[key].value();
+		}
 		return result as FormGroupValue<T>;
-	}
-
-	private setupControlWatchers(): void {
-		Object.keys(this.controls).forEach((key) => {
-			this.setupControlWatcher(this.controls[key as keyof T]);
-		});
-	}
-
-	private setupControlWatcher(control: IFormControl<unknown>): void {
-		const effect = new SignalEffect(() => {
-			control.value();
-			this.runGroupValidation();
-		});
-		effect.run();
-		this._controlEffects.push(effect);
-	}
-
-	private async runGroupValidation(): Promise<void> {
-		const value = this.computeValue();
-		let errors: ValidationErrors | null = null;
-
-		for (const validator of this._validators) {
-			const result = validator(value);
-			if (result !== null) {
-				errors = { ...(errors ?? {}), ...result };
-			}
-		}
-
-		// Run async group validators
-		if (this._asyncValidators.length > 0 && errors === null) {
-			const asyncResults = await Promise.all(this._asyncValidators.map((v) => v(value)));
-
-			for (const result of asyncResults) {
-				if (result !== null) {
-					errors = { ...(errors ?? {}), ...result };
-				}
-			}
-		}
-
-		this.errors.set(errors);
 	}
 }

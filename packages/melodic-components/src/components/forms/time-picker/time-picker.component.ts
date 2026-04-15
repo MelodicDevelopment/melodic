@@ -1,8 +1,17 @@
 import { MelodicComponent } from '@melodicdev/core';
 import type { IElementRef, OnCreate, OnDestroy } from '@melodicdev/core';
+import { registerAdapter } from '@melodicdev/core/forms';
 import { computePosition, autoUpdate, offset, flip, shift } from '../../../utils/positioning/index.js';
 import { timePickerTemplate } from './time-picker.template.js';
 import { timePickerStyles } from './time-picker.styles.js';
+
+registerAdapter<string>((el) => el.tagName === 'ML-TIME-PICKER', {
+	inputEvent: 'ml:change',
+	blurEvent: 'focusout',
+	getValue: (el) => (el as unknown as { value: string }).value ?? '',
+	setValue: (el, value) => { (el as unknown as { value: string }).value = value !== null && value !== undefined ? String(value) : ''; },
+	setDisabled: (el, disabled) => { (el as unknown as { disabled: boolean }).disabled = disabled; }
+});
 
 function pad(n: number): string {
 	return String(n).padStart(2, '0');

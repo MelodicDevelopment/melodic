@@ -14,6 +14,18 @@
 - [ml-date-picker](#ml-date-picker)
 - [ml-form-field](#ml-form-field)
 
+## FormControl integration
+
+Every error-bearing form component (`ml-input`, `ml-textarea`, `ml-select`, `ml-autocomplete`, `ml-checkbox`, `ml-toggle`, `ml-radio-group`, `ml-slider`, `ml-date-picker`, `ml-time-picker`, `ml-date-time-picker`) registers an adapter at import time and works with the `:formControl` directive from `@melodicdev/core/forms`.
+
+```ts
+html`<ml-input label="Email" :formControl=${form.get('email')}></ml-input>`;
+```
+
+When the bound control is touched and invalid, the resolved validator message is written to the host's `error` attribute automatically — no per-field `error=${...}` binding required. Setting `error` manually still works for non-FormControl usage.
+
+See `docs/FORMS.md` in the core for the full forms guide (validators, message overrides, FormGroup/FormArray, custom adapters).
+
 ---
 
 ## ml-button

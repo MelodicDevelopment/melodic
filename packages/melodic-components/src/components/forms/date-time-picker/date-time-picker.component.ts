@@ -1,7 +1,16 @@
 import { MelodicComponent } from '@melodicdev/core';
 import type { IElementRef, OnCreate, OnDestroy } from '@melodicdev/core';
+import { registerAdapter } from '@melodicdev/core/forms';
 import { dateTimePickerTemplate } from './date-time-picker.template.js';
 import { dateTimePickerStyles } from './date-time-picker.styles.js';
+
+registerAdapter<string>((el) => el.tagName === 'ML-DATE-TIME-PICKER', {
+	inputEvent: 'ml:change',
+	blurEvent: 'focusout',
+	getValue: (el) => (el as unknown as { value: string }).value ?? '',
+	setValue: (el, value) => { (el as unknown as { value: string }).value = value !== null && value !== undefined ? String(value) : ''; },
+	setDisabled: (el, disabled) => { (el as unknown as { disabled: boolean }).disabled = disabled; }
+});
 
 // Ensure sub-components are registered
 import '../date-picker/date-picker.component.js';
