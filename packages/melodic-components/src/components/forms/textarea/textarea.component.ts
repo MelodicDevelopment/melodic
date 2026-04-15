@@ -1,8 +1,17 @@
 import { MelodicComponent } from '@melodicdev/core';
 import type { IElementRef, OnInit } from '@melodicdev/core';
+import { registerAdapter } from '@melodicdev/core/forms';
 import type { Size } from '../../../types/index.js';
 import { textareaTemplate } from './textarea.template.js';
 import { textareaStyles } from './textarea.styles.js';
+
+registerAdapter<string>((el) => el.tagName === 'ML-TEXTAREA', {
+	inputEvent: 'ml:input',
+	blurEvent: 'focusout',
+	getValue: (el) => (el as unknown as { value: string }).value ?? '',
+	setValue: (el, value) => { (el as unknown as { value: string }).value = value !== null && value !== undefined ? String(value) : ''; },
+	setDisabled: (el, disabled) => { (el as unknown as { disabled: boolean }).disabled = disabled; }
+});
 
 /**
  * ml-textarea - Multi-line text input component

@@ -1,8 +1,17 @@
 import { MelodicComponent } from '@melodicdev/core';
 import type { IElementRef, OnCreate, OnDestroy } from '@melodicdev/core';
+import { registerAdapter } from '@melodicdev/core/forms';
 import { computePosition, autoUpdate, offset, flip, shift } from '../../../utils/positioning/index.js';
 import { datePickerTemplate } from './date-picker.template.js';
 import { datePickerStyles } from './date-picker.styles.js';
+
+registerAdapter<string>((el) => el.tagName === 'ML-DATE-PICKER', {
+	inputEvent: 'ml:select',
+	blurEvent: 'focusout',
+	getValue: (el) => (el as unknown as { value: string }).value ?? '',
+	setValue: (el, value) => { (el as unknown as { value: string }).value = value !== null && value !== undefined ? String(value) : ''; },
+	setDisabled: (el, disabled) => { (el as unknown as { disabled: boolean }).disabled = disabled; }
+});
 
 /**
  * ml-date-picker - Date input with calendar dropdown

@@ -532,13 +532,14 @@ effect.destroy();  // Unsubscribes from all dependencies
 The `observe()` method in `ComponentBase` sets up reactivity via `Object.defineProperty`:
 
 1. Collects all own properties from the component instance and prototype chain
-2. **Skips**: `_`-prefixed properties, `Signal` instances, functions, `elementRef`, `constructor`
+2. **Skips**: `_`-prefixed properties, `Signal` instances, `AbstractControl` instances, functions, `elementRef`, `constructor`
 3. For each property: defines getter/setter on both the component and the HTMLElement wrapper
    - **Setter**: calls `onPropertyChange(prop, oldVal, newVal)` if changed, updates value, calls `scheduleRender()`
    - **Getter**: returns cached value (or calls original getter if one existed)
 4. For `Signal`-typed properties: subscribes to the signal → `scheduleRender()` on change
+5. For `AbstractControl`-typed properties (FormControl, FormGroup, FormArray): subscribes to the control's `state` signal → `scheduleRender()` on change. Form controls aren't mirrored on the wrapper element.
 
-**Properties are mirrored** on both the component instance and the HTMLElement wrapper, enabling `.property=${value}` bindings.
+**Properties are mirrored** on both the component instance and the HTMLElement wrapper, enabling `.property=${value}` bindings. Forms are excluded from mirroring since they're typically owned by the component, not passed in.
 
 ### Render Batching
 
@@ -1231,14 +1232,18 @@ try {
 
 ## Forms
 
-Source: `src/forms/`
+Source: `src/forms/`. See `docs/FORMS.md` for the full guide.
+
+### AbstractControl
+
+The base class for `FormControl`, `FormGroup`, and `FormArray`. Components that hold an `AbstractControl` instance as a property are automatically subscribed to its `state` signal — no manual `SignalEffect` is required.
 
 ### FormControl
 
 ```typescript
 import { createFormControl, Validators } from '@melodicdev/core/forms';
 
-const email = createFormControl('', {
+const email = createFormControl<string>('', {
   validators: [Validators.required, Validators.email],
   updateOn: 'blur'
 });
@@ -1255,13 +1260,13 @@ email.dirty();   // true (Signal)
 | Property | Type | Description |
 |----------|------|-------------|
 | `value` | `Signal<T>` | Current value |
-| `errors` | `Signal<ValidationErrors \| null>` | Current errors |
-| `valid` / `invalid` | `Signal<boolean>` | Validity state |
-| `dirty` / `pristine` | `Signal<boolean>` | Changed state |
-| `touched` | `Signal<boolean>` | Touched state |
+| `errors` | `Signal<ValidationErrors \| null>` | Current errors at this level |
+| `valid` / `invalid` | `Signal<boolean>` | Validity state (cascades from children for groups/arrays) |
+| `dirty` / `pristine` | `Signal<boolean>` | Changed state (aggregated from children) |
+| `touched` / `untouched` | `Signal<boolean>` | Touched state (aggregated from children) |
 | `pending` | `Signal<boolean>` | True during async validation |
-| `disabled` | `Signal<boolean>` | Disabled state |
-| `state` | `Signal<FormControlState>` | Composite state object |
+| `disabled` / `enabled` | `Signal<boolean>` | Disabled state |
+| `state` | `Signal<ControlState>` | Composite state object — recommended subscription point |
 
 #### Methods
 
@@ -1281,14 +1286,15 @@ email.dirty();   // true (Signal)
 | `hasError(code)` / `getError(code)` | Check/get specific error |
 | `destroy()` | Clean up signals |
 
-#### `FormControlOptions`
+#### `ControlOptions`
 
 ```typescript
-type FormControlOptions<T> = {
+type ControlOptions<T> = {
   validators?: ValidatorFn<T>[];
   asyncValidators?: AsyncValidatorFn<T>[];
   disabled?: boolean;
-  updateOn?: 'input' | 'blur' | 'submit';  // default: 'input'
+  updateOn?: 'change' | 'blur' | 'submit';  // default: 'change'
+  messages?: Record<string, string | ((params) => string)>;  // per-control message overrides
 };
 ```
 
@@ -1311,17 +1317,11 @@ form.valid();    // false (includes group-level validation)
 form.get('email').setValue('user@example.com');
 ```
 
-#### `FormGroupOptions`
+FormGroup uses the same `ControlOptions<T>` as FormControl, where `T` is the aggregate value object type. Group-level validators receive the entire group value object and can validate cross-field constraints (e.g., password confirmation matching). Group `valid` state requires both all children valid AND group-level errors null. The `controls` property is a `Signal` — adding/removing controls automatically re-aggregates state.
 
-```typescript
-type FormGroupOptions<T> = {
-  validators?: ValidatorFn<FormGroupValue<T>>[];       // Group-level sync validators
-  asyncValidators?: AsyncValidatorFn<FormGroupValue<T>>[];  // Group-level async validators
-  disabled?: boolean;
-};
-```
+### FormArray
 
-Group-level validators receive the entire group value object and can validate cross-field constraints (e.g., password confirmation matching). Group `valid` state requires both all children valid AND group-level errors null.
+Ordered list of controls with `push`, `insert`, `removeAt`, `clear`, `at(index)`, `length`. Same aggregate signal contract as FormGroup. Typically used for repeating control sets (e.g., a list of addresses).
 
 #### Methods
 
@@ -1341,7 +1341,7 @@ Group-level validators receive the entire group value object and can validate cr
 
 ### Validators
 
-All return `ValidationErrors | null`. `null` = valid.
+All return `ValidationErrors | null`. `null` = valid. Errors are shaped `{ code: string, params?: Record<string, unknown> }` — display messages are resolved separately via the message registry.
 
 | Validator | Signature | Error Code |
 |-----------|-----------|------------|
@@ -1382,22 +1382,61 @@ const uniqueEmail = createAsyncValidator<string>(
 );
 ```
 
-### Form Directive
+### Messages
 
-Auto-registered attribute directive for two-way binding:
+Validators return `{ code, params? }`; display messages are resolved separately in this order:
+
+1. Per-control `messages` option
+2. Walk parent chain checking `messages` on each parent group/array
+3. Global default registered via `registerDefaultMessages` or implicitly by `createValidator`
+4. Fallback to the `code` string
+
+```typescript
+import { registerDefaultMessages } from '@melodicdev/core/forms';
+
+registerDefaultMessages({
+  required: 'This is required',
+  minLength: ({ min }) => `Must be at least ${min} characters`
+});
+
+control.getErrorMessage('required');
+control.getFirstErrorMessage();
+```
+
+### `:formControl` Directive
+
+Auto-registered attribute directive for two-way binding to any `AbstractControl`. Uses a registered adapter to read/write the bound element.
 
 ```html
 <input type="text" :formControl=${this.nameControl} />
-<input type="checkbox" :formControl=${this.acceptedControl} />
 <select :formControl=${this.countryControl}>...</select>
+<ml-input :formControl=${this.emailControl}></ml-input>
 ```
 
 **Behavior:**
-- Detects element type (checkbox, radio, select, textarea, text)
-- Pushes control value → DOM element (via signal subscription)
-- Pushes DOM input → control value (via event listener)
+- Resolves an adapter for the element (native input/checkbox/radio/select/textarea pre-registered; ml-* components register their own at import time)
+- Pushes control value → element via adapter
+- Pushes element input → control value (listens to adapter's `inputEvent`)
+- Marks touched on `focusout` (bubbles + composed, so works for both native and custom elements through shadow DOM)
 - Toggles CSS classes: `mf-valid`, `mf-invalid`, `mf-dirty`, `mf-pristine`, `mf-touched`, `mf-pending`, `mf-disabled`
-- Respects `updateOn` setting (`'input'` listens to `input` event, `'blur'` listens to `change` event)
+- Sets `error` attribute on host with the resolved validator message when control is touched + invalid
+
+### Adapter System
+
+Register custom adapters for any form-bearing element:
+
+```typescript
+import { registerAdapter } from '@melodicdev/core/forms';
+
+registerAdapter((el) => el.tagName === 'MY-PICKER', {
+  inputEvent: 'my-change',
+  blurEvent: 'focusout',
+  getValue: (el) => (el as MyPicker).value,
+  setValue: (el, value) => { (el as MyPicker).value = value; }
+});
+```
+
+Predicates check in reverse registration order (latest wins).
 
 ---
 
@@ -1503,6 +1542,6 @@ Source: `docs/CODING_PRACTICES.md`
 | `@melodicdev/core/template` | `html`, `css`, `render`, all directives, `TemplateResult`, directive registry functions |
 | `@melodicdev/core/routing` | `RouterService`, `RouteContextService`, `RouterOutletComponent`, `RouterLinkComponent`, guards, resolvers, `RouteMatcher` |
 | `@melodicdev/core/http` | `HttpClient`, `provideHttp`, error classes, `RequestManager` |
-| `@melodicdev/core/forms` | `createFormControl`, `createFormGroup`, `FormControl`, `FormGroup`, `Validators`, `formControlDirective` |
+| `@melodicdev/core/forms` | `AbstractControl`, `FormControl`, `FormGroup`, `FormArray`, `createFormControl`, `createFormGroup`, `createFormArray`, `Validators`, `createValidator`, `createAsyncValidator`, `registerAdapter`, `getAdapter`, `registerDefaultMessages`, `formControlDirective` |
 | `@melodicdev/core/state` | `createState`, `createAction`, `createReducer`, `onAction`, `provideRX`, `SignalStoreService`, `ComponentStateBaseService`, `EffectsBase` |
 | `@melodicdev/core/interfaces` | `INewable<T>` |

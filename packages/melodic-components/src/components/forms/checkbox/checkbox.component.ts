@@ -1,8 +1,17 @@
 import { MelodicComponent } from '@melodicdev/core';
 import type { IElementRef } from '@melodicdev/core';
+import { registerAdapter } from '@melodicdev/core/forms';
 import type { Size } from '../../../types/index.js';
 import { checkboxTemplate } from './checkbox.template.js';
 import { checkboxStyles } from './checkbox.styles.js';
+
+registerAdapter<boolean>((el) => el.tagName === 'ML-CHECKBOX', {
+	inputEvent: 'ml:change',
+	blurEvent: 'focusout',
+	getValue: (el) => Boolean((el as unknown as { checked: boolean }).checked),
+	setValue: (el, value) => { (el as unknown as { checked: boolean }).checked = Boolean(value); },
+	setDisabled: (el, disabled) => { (el as unknown as { disabled: boolean }).disabled = disabled; }
+});
 
 /**
  * ml-checkbox - Checkbox input component

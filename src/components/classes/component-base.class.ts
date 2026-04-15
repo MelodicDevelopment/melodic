@@ -6,6 +6,7 @@ import type { Signal } from '../../signals/types/signal.type';
 import { isSignal } from '../../signals/functions/is-signal.function';
 import type { ITemplatePart } from '../../template/interfaces/itemplate-part.interface';
 import { applyGlobalStyles } from '../styles/apply-global-styles.function';
+import { AbstractControl } from '../../forms/classes/abstract-control.class';
 
 export abstract class ComponentBase extends HTMLElement {
 	private readonly _meta: ComponentMeta;
@@ -155,6 +156,11 @@ export abstract class ComponentBase extends HTMLElement {
 
 			if (isSignal(value)) {
 				this.subscribeToSignal(value);
+				return false;
+			}
+
+			if (value instanceof AbstractControl) {
+				this.subscribeToSignal(value.state);
 				return false;
 			}
 

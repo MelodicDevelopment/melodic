@@ -15,6 +15,7 @@ export const badgeStyles = () => css`
 
 		/* ── Badge: dot ── */
 		--ml-badge-dot-size: 0.375rem;
+		--ml-badge-dot-size-xs: 0.3125rem;
 		--ml-badge-dot-size-lg: 0.5rem;
 
 		/* ── Badge: secondary variant ── */
@@ -50,6 +51,16 @@ export const badgeStyles = () => css`
 	.ml-badge--lg .ml-badge__dot {
 		width: var(--ml-badge-dot-size-lg);
 		height: var(--ml-badge-dot-size-lg);
+	}
+
+	.ml-badge--xs .ml-badge__dot {
+		width: var(--ml-badge-dot-size-xs);
+		height: var(--ml-badge-dot-size-xs);
+	}
+
+	.ml-badge--xs {
+		padding: 1px var(--ml-space-1-5);
+		font-size: 0.6875rem;
 	}
 
 	.ml-badge--sm {

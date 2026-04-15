@@ -1,10 +1,26 @@
 import { MelodicComponent } from '@melodicdev/core';
 import type { IElementRef, OnCreate, OnDestroy } from '@melodicdev/core';
+import { registerAdapter } from '@melodicdev/core/forms';
 import type { Size } from '../../../types/index.js';
 import type { SelectOption } from './select.types.js';
 import { computePosition, offset, flip, shift } from '../../../utils/positioning/index.js';
 import { selectTemplate } from './select.template.js';
 import { selectStyles } from './select.styles.js';
+
+registerAdapter<string | string[]>((el) => el.tagName === 'ML-SELECT', {
+	inputEvent: 'ml:change',
+	blurEvent: 'focusout',
+	getValue: (el) => {
+		const e = el as unknown as { value: string; values?: string[]; multiple?: boolean };
+		return e.multiple ? (e.values ?? []) : (e.value ?? '');
+	},
+	setValue: (el, value) => {
+		const e = el as unknown as { value: string; values?: string[]; multiple?: boolean };
+		if (Array.isArray(value)) e.values = value;
+		else e.value = value !== null && value !== undefined ? String(value) : '';
+	},
+	setDisabled: (el, disabled) => { (el as unknown as { disabled: boolean }).disabled = disabled; }
+});
 
 /**
  * ml-select - Custom select/dropdown component

@@ -118,16 +118,18 @@ Use `exactMatch` to require exact path matching:
 
 ### formControl
 
-The `formControl` directive binds a `FormControl` instance to a native input element.
+The `formControl` directive binds an `AbstractControl` (FormControl, FormGroup, FormArray) to any element with a registered adapter — native form elements and Melodic form components are supported out of the box.
 
 ```html
 <input type="text" :formControl=${nameControl} />
 <input type="checkbox" :formControl=${acceptedControl} />
 <select :formControl=${countryControl}></select>
+<ml-input :formControl=${emailControl}></ml-input>
 ```
 
-It keeps the control and DOM in sync and applies CSS state classes such as `mf-valid`, `mf-invalid`, `mf-dirty`, and `mf-touched`.
-See `docs/FORMS.md` for full usage.
+It keeps the control and DOM in sync, applies CSS state classes (`mf-valid`, `mf-invalid`, `mf-dirty`, `mf-pristine`, `mf-touched`, `mf-pending`, `mf-disabled`), and writes the resolved validator message to the host's `error` attribute when touched + invalid.
+
+Custom elements can register their own adapter via `registerAdapter` from `@melodicdev/core/forms`. See `docs/FORMS.md` for full usage.
 
 ### portal
 

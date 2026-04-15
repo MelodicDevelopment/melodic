@@ -36,8 +36,8 @@ melodic/
 
 | Package | Version | Description |
 |---------|---------|-------------|
-| `@melodicdev/core` | 1.4.7 | Core framework |
-| `@melodicdev/components` | 1.5.3 | Themeable UI component library |
+| `@melodicdev/core` | 1.5.0 | Core framework |
+| `@melodicdev/components` | 1.6.0 | Themeable UI component library |
 | `@melodicdev/cli` | 1.3.0 | CLI scaffolding tool |
 
 ## Build Commands
@@ -163,21 +163,28 @@ router.navigate('/users/123', { scrollToTop: true });
 
 ### Forms System (`src/forms/`)
 
-Reactive forms with validation:
+Reactive forms built on a single `AbstractControl` base. Concrete classes: `FormControl`, `FormGroup`, `FormArray`. Components that hold an `AbstractControl` field auto-subscribe to its `state` signal — no manual `SignalEffect` wiring.
 
 ```typescript
 import { createFormControl, createFormGroup, Validators } from '@melodicdev/core/forms';
 
-const email = createFormControl('', [Validators.required, Validators.email]);
 const form = createFormGroup({
-  email: createFormControl(''),
-  password: createFormControl('')
+  email: createFormControl<string>('', { validators: [Validators.required, Validators.email] }),
+  password: createFormControl<string>('', { validators: [Validators.required] })
 });
 
-form.value;      // { email: '', password: '' }
-form.valid;      // boolean
-form.errors;     // validation errors
+form.value();    // { email: '', password: '' } (Signal)
+form.valid();    // boolean (Signal)
+form.errors();   // group-level validation errors (Signal)
 ```
+
+Bind controls to elements with `:formControl`. Validator messages auto-populate the `error` attribute on form components when touched + invalid:
+
+```typescript
+html`<ml-input label="Email" :formControl=${form.get('email')}></ml-input>`;
+```
+
+See `docs/FORMS.md` for the full guide (validators, message overrides, FormArray, adapters).
 
 ### HTTP Module (`src/http/`)
 

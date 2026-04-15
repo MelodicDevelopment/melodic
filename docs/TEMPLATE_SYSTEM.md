@@ -270,7 +270,7 @@ html`<a :routerLink=${{ href: '/about', exactMatch: true }}>About</a>`
 
 **Built-in directives:**
 - `routerLink` - Router navigation with active state management
-- `formControl` - Bind a FormControl to a native input element
+- `formControl` - Bind an AbstractControl (FormControl/FormGroup/FormArray) to any element with a registered adapter
 - `portal` - Teleport an element to another DOM container
 
 **Creating custom directives:**

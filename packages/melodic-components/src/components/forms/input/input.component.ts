@@ -1,9 +1,18 @@
 import { MelodicComponent } from '@melodicdev/core';
 import type { IElementRef, OnInit } from '@melodicdev/core';
+import { registerAdapter } from '@melodicdev/core/forms';
 import type { Size } from '../../../types/index.js';
 import type { InputType } from './input.types.js';
 import { inputTemplate } from './input.template.js';
 import { inputStyles } from './input.styles.js';
+
+registerAdapter<string>((el) => el.tagName === 'ML-INPUT', {
+	inputEvent: 'ml:input',
+	blurEvent: 'focusout',
+	getValue: (el) => (el as unknown as { value: string }).value ?? '',
+	setValue: (el, value) => { (el as unknown as { value: string }).value = value !== null && value !== undefined ? String(value) : ''; },
+	setDisabled: (el, disabled) => { (el as unknown as { disabled: boolean }).disabled = disabled; }
+});
 
 /**
  * ml-input - Text input component with label, hint, and error states

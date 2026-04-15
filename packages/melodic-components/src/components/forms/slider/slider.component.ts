@@ -1,8 +1,17 @@
 import { MelodicComponent } from '@melodicdev/core';
 import type { IElementRef } from '@melodicdev/core';
+import { registerAdapter } from '@melodicdev/core/forms';
 import type { Size } from '../../../types/index.js';
 import { sliderTemplate } from './slider.template.js';
 import { sliderStyles } from './slider.styles.js';
+
+registerAdapter<number>((el) => el.tagName === 'ML-SLIDER', {
+	inputEvent: 'ml:input',
+	blurEvent: 'focusout',
+	getValue: (el) => Number((el as unknown as { value: number | string }).value) || 0,
+	setValue: (el, value) => { (el as unknown as { value: number }).value = Number(value) || 0; },
+	setDisabled: (el, disabled) => { (el as unknown as { disabled: boolean }).disabled = disabled; }
+});
 
 /**
  * ml-slider - Range slider input
