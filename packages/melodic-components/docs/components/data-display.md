@@ -455,7 +455,11 @@ interface TableColumn {
 | Property | Default | Description |
 |----------|---------|-------------|
 | `--ml-table-bg` | `var(--ml-color-surface)` | Table background |
-| `--ml-table-border-color` | `var(--ml-color-border)` | Border color |
+| `--ml-table-container-border-width` | `var(--ml-border)` | Outer container border width (set to `0` to remove) |
+| `--ml-table-container-border-color` | `var(--ml-color-border)` | Outer container border color |
+| `--ml-table-container-radius` | `var(--ml-radius-lg)` | Outer container corner radius |
+| `--ml-table-divider-width` | `var(--ml-border)` | Internal header/row/footer separator width |
+| `--ml-table-divider-color` | `var(--ml-color-border)` | Internal header/row/footer separator color |
 | `--ml-table-header-bg` | `var(--ml-color-surface-sunken)` | Column header background |
 | `--ml-table-row-hover-bg` | `var(--ml-color-surface-sunken)` | Row hover background |
 | `--ml-table-row-hover-border-left-width` | `0` | Left border width on row hover (bookmark accent) |

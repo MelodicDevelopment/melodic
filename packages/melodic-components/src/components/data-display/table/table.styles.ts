@@ -6,10 +6,21 @@ export const tableStyles = () => css`
 
 		/* ── Table: surface ── */
 		--ml-table-bg: var(--ml-color-surface);
+		--ml-table-font: var(--ml-font-sans);
+
+		/* Deprecated aliases — prefer container-* and divider-* tokens below */
 		--ml-table-border-width: var(--ml-border);
 		--ml-table-border-color: var(--ml-color-border);
 		--ml-table-radius: var(--ml-radius-lg);
-		--ml-table-font: var(--ml-font-sans);
+
+		/* ── Table: container chrome (outer border + radius) ── */
+		--ml-table-container-border-width: var(--ml-table-border-width);
+		--ml-table-container-border-color: var(--ml-table-border-color);
+		--ml-table-container-radius: var(--ml-table-radius);
+
+		/* ── Table: internal dividers (header/row/footer separators) ── */
+		--ml-table-divider-width: var(--ml-table-border-width);
+		--ml-table-divider-color: var(--ml-table-border-color);
 
 		/* ── Table: header section ── */
 		--ml-table-title-color: var(--ml-color-text);
@@ -43,8 +54,8 @@ export const tableStyles = () => css`
 	}
 
 	.ml-table {
-		border: var(--ml-table-border-width) solid var(--ml-table-border-color);
-		border-radius: var(--ml-table-radius);
+		border: var(--ml-table-container-border-width) solid var(--ml-table-container-border-color);
+		border-radius: var(--ml-table-container-radius);
 		background-color: var(--ml-table-bg);
 		overflow: hidden;
 		font-family: var(--ml-table-font);
@@ -57,7 +68,7 @@ export const tableStyles = () => css`
 		justify-content: space-between;
 		gap: var(--ml-space-4);
 		padding: var(--ml-space-5) var(--ml-space-6);
-		border-bottom: var(--ml-table-border-width) solid var(--ml-table-border-color);
+		border-bottom: var(--ml-table-divider-width) solid var(--ml-table-divider-color);
 	}
 
 	.ml-table__header-text {
@@ -104,7 +115,7 @@ export const tableStyles = () => css`
 	}
 
 	thead tr {
-		border-bottom: var(--ml-table-border-width) solid var(--ml-table-border-color);
+		border-bottom: var(--ml-table-divider-width) solid var(--ml-table-divider-color);
 	}
 
 	.ml-table__th {
@@ -158,7 +169,7 @@ export const tableStyles = () => css`
 
 	/* ── Body rows ── */
 	.ml-table__row {
-		border-bottom: var(--ml-table-border-width) solid var(--ml-table-border-color);
+		border-bottom: var(--ml-table-divider-width) solid var(--ml-table-divider-color);
 		transition: background-color var(--ml-duration-150) var(--ml-ease-in-out);
 	}
 
@@ -278,7 +289,7 @@ export const tableStyles = () => css`
 		align-items: center;
 		justify-content: space-between;
 		padding: var(--ml-space-3) var(--ml-space-6);
-		border-top: var(--ml-table-border-width) solid var(--ml-table-border-color);
+		border-top: var(--ml-table-divider-width) solid var(--ml-table-divider-color);
 	}
 
 	.ml-table--sm .ml-table__footer--visible {

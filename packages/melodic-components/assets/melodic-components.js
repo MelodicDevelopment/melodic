@@ -482,6 +482,12 @@ var AbstractControl = class {
 	markAllAsUntouched() {
 		this.markAsUntouched();
 	}
+	markAllAsDirty() {
+		this.markAsDirty();
+	}
+	markAllAsPristine() {
+		this.markAsPristine();
+	}
 	disable() {
 		this._ownDisabled.set(true);
 	}
@@ -901,6 +907,7 @@ var RequestManager = class {
 		return hash;
 	}
 };
+var MAX_RETRIES = 3;
 var HttpClient = class {
 	constructor(config) {
 		this._requestManager = new RequestManager();
@@ -961,6 +968,7 @@ var HttpClient = class {
 		});
 	}
 	async internalRequest(config) {
+		const originalConfig = config;
 		let requestConfig = this.mergeConfig(config);
 		requestConfig = await this.executeRequestInterceptors(requestConfig);
 		if (requestConfig.cancel?.cancelled) {
@@ -983,11 +991,56 @@ var HttpClient = class {
 			delete headers["Content-Type"];
 			delete headers["content-type"];
 			requestConfig.headers = headers;
+		} else if (this.shouldDefaultJsonContentType(requestConfig.body)) {
+			const headers = { ...requestConfig.headers };
+			if (!Object.keys(headers).some((k) => k.toLowerCase() === "content-type")) {
+				headers["Content-Type"] = "application/json";
+				requestConfig.headers = headers;
+			}
 		}
 		if (requestConfig.abortController === void 0) requestConfig.abortController = new AbortController();
-		let response = await this.executeRequest(requestConfig);
-		response = await this.executeResponseInterceptors(response);
-		return response;
+		try {
+			const response = await this.executeRequest(requestConfig);
+			return await this.executeResponseInterceptors(response, 0);
+		} catch (error) {
+			return this.handleResponseError(error, originalConfig);
+		}
+	}
+	async handleResponseError(error, originalConfig) {
+		const retryCount = originalConfig._retryCount ?? 0;
+		for (let i = 0; i < this._interceptors.response.length; i++) {
+			const interceptor = this._interceptors.response[i];
+			if (!interceptor.error) continue;
+			let retryCalled = false;
+			const retry = async () => {
+				if (retryCalled) throw new Error("[HttpClient] retry() may only be called once per error handler invocation");
+				retryCalled = true;
+				if (retryCount >= MAX_RETRIES) throw new Error(`[HttpClient] Max retries (${MAX_RETRIES}) exceeded`);
+				return this.internalRequest({
+					...originalConfig,
+					_retryCount: retryCount + 1,
+					abortController: void 0
+				});
+			};
+			const context = {
+				retry,
+				retryCount
+			};
+			try {
+				const result = await interceptor.error(error, context);
+				if (this.isHttpResponse(result)) return this.executeResponseInterceptors(result, i + 1);
+			} catch {}
+		}
+		throw error;
+	}
+	isHttpResponse(value) {
+		return !!value && typeof value === "object" && "data" in value && "status" in value && "headers" in value && "config" in value;
+	}
+	shouldDefaultJsonContentType(body) {
+		if (body === null || body === void 0) return false;
+		if (typeof body === "string") return false;
+		if (body instanceof FormData || body instanceof Blob || body instanceof ArrayBuffer || body instanceof URLSearchParams || body instanceof ReadableStream) return false;
+		return typeof body === "object";
 	}
 	async executeRequest(config) {
 		if (config.deduplicate === true) {
@@ -1029,13 +1082,8 @@ var HttpClient = class {
 		}
 		return config;
 	}
-	async executeResponseInterceptors(response) {
-		for (const interceptor of this._interceptors.response) try {
-			response = await interceptor.intercept(response);
-		} catch (error) {
-			if (interceptor.error) await interceptor.error(error);
-			throw error;
-		}
+	async executeResponseInterceptors(response, startIndex) {
+		for (let i = startIndex; i < this._interceptors.response.length; i++) response = await this._interceptors.response[i].intercept(response);
 		return response;
 	}
 	mergeConfig(config) {
@@ -3341,15 +3389,20 @@ function when(condition, template, falseTemplate) {
 			parent.insertBefore(endMarker, startMarker.nextSibling);
 			const state = {
 				condition: false,
-				template: template(),
-				falseTemplate: falseTemplate ? falseTemplate() : null,
+				template: null,
+				falseTemplate: null,
 				container: null,
 				startMarker,
 				endMarker,
 				nodes: []
 			};
-			if (condition) renderContent(state, true);
-			else if (state.falseTemplate) renderContent(state, false);
+			if (condition) {
+				state.template = template();
+				renderContent(state, true);
+			} else if (falseTemplate) {
+				state.falseTemplate = falseTemplate();
+				renderContent(state, false);
+			}
 			state.condition = condition;
 			return state;
 		}
@@ -3508,19 +3561,19 @@ var FormControl = class extends AbstractControl {
 		this.initializeAggregates();
 		this.runValidation();
 	}
-	setValue(value) {
+	setValue(value, options) {
 		if (this._ownDisabled()) return;
 		this.value.set(value);
-		this._dirty.set(true);
+		this._dirty.set(!options?.markAsPristine);
 		if (this.updateOn === "change") this.runValidation();
 	}
-	patchValue(value) {
+	patchValue(value, options) {
 		const current = this.value();
 		if (typeof current === "object" && current !== null && !Array.isArray(current)) this.setValue({
 			...current,
 			...value
-		});
-		else this.setValue(value);
+		}, options);
+		else this.setValue(value, options);
 	}
 	reset(value) {
 		this.value.set(value ?? this.initialValue);
@@ -3571,15 +3624,17 @@ var FormGroup = class FormGroup extends AbstractControl {
 			return next;
 		});
 	}
-	setValue(value) {
+	setValue(value, options) {
 		if (this._ownDisabled()) return;
 		const controls = this.controls();
-		for (const key of Object.keys(value)) controls[key]?.setValue(value[key]);
+		for (const key of Object.keys(value)) controls[key]?.setValue(value[key], options);
+		if (options?.markAsPristine) this._dirty.set(false);
 	}
-	patchValue(value) {
+	patchValue(value, options) {
 		if (this._ownDisabled()) return;
 		const controls = this.controls();
-		for (const key of Object.keys(value)) if (value[key] !== void 0) controls[key]?.setValue(value[key]);
+		for (const key of Object.keys(value)) if (value[key] !== void 0) controls[key]?.setValue(value[key], options);
+		if (options?.markAsPristine) this._dirty.set(false);
 	}
 	reset(value) {
 		const controls = this.controls();
@@ -3601,20 +3656,12 @@ var FormGroup = class FormGroup extends AbstractControl {
 	markAllAsDirty() {
 		this._dirty.set(true);
 		const controls = this.controls();
-		for (const key of Object.keys(controls)) {
-			const child = controls[key];
-			if ("markAllAsDirty" in child && typeof child.markAllAsDirty === "function") child.markAllAsDirty();
-			else child.markAsDirty();
-		}
+		for (const key of Object.keys(controls)) controls[key].markAllAsDirty();
 	}
 	markAllAsPristine() {
 		this._dirty.set(false);
 		const controls = this.controls();
-		for (const key of Object.keys(controls)) {
-			const child = controls[key];
-			if ("markAllAsPristine" in child && typeof child.markAllAsPristine === "function") child.markAllAsPristine();
-			else child.markAsPristine();
-		}
+		for (const key of Object.keys(controls)) controls[key].markAllAsPristine();
 	}
 	disable() {
 		this._ownDisabled.set(true);
@@ -3710,19 +3757,21 @@ var FormArray = class extends AbstractControl {
 		}
 		this.controls.set([]);
 	}
-	setValue(value) {
+	setValue(value, options) {
 		if (this._ownDisabled()) return;
 		const controls = this.controls();
 		value.forEach((v, i) => {
-			controls[i]?.setValue(v);
+			controls[i]?.setValue(v, options);
 		});
+		if (options?.markAsPristine) this._dirty.set(false);
 	}
-	patchValue(value) {
+	patchValue(value, options) {
 		if (this._ownDisabled()) return;
 		const controls = this.controls();
 		value.forEach((v, i) => {
-			if (v !== void 0) controls[i]?.setValue(v);
+			if (v !== void 0) controls[i]?.setValue(v, options);
 		});
+		if (options?.markAsPristine) this._dirty.set(false);
 	}
 	reset(value) {
 		this.controls().forEach((control, i) => {
@@ -3736,6 +3785,14 @@ var FormArray = class extends AbstractControl {
 	markAllAsUntouched() {
 		this._touched.set(false);
 		for (const control of this.controls()) control.markAllAsUntouched();
+	}
+	markAllAsDirty() {
+		this._dirty.set(true);
+		for (const control of this.controls()) control.markAllAsDirty();
+	}
+	markAllAsPristine() {
+		this._dirty.set(false);
+		for (const control of this.controls()) control.markAllAsPristine();
 	}
 	disable() {
 		this._ownDisabled.set(true);
@@ -13621,10 +13678,21 @@ const tableStyles = () => css`
 
 		/* ── Table: surface ── */
 		--ml-table-bg: var(--ml-color-surface);
+		--ml-table-font: var(--ml-font-sans);
+
+		/* Deprecated aliases — prefer container-* and divider-* tokens below */
 		--ml-table-border-width: var(--ml-border);
 		--ml-table-border-color: var(--ml-color-border);
 		--ml-table-radius: var(--ml-radius-lg);
-		--ml-table-font: var(--ml-font-sans);
+
+		/* ── Table: container chrome (outer border + radius) ── */
+		--ml-table-container-border-width: var(--ml-table-border-width);
+		--ml-table-container-border-color: var(--ml-table-border-color);
+		--ml-table-container-radius: var(--ml-table-radius);
+
+		/* ── Table: internal dividers (header/row/footer separators) ── */
+		--ml-table-divider-width: var(--ml-table-border-width);
+		--ml-table-divider-color: var(--ml-table-border-color);
 
 		/* ── Table: header section ── */
 		--ml-table-title-color: var(--ml-color-text);
@@ -13658,8 +13726,8 @@ const tableStyles = () => css`
 	}
 
 	.ml-table {
-		border: var(--ml-table-border-width) solid var(--ml-table-border-color);
-		border-radius: var(--ml-table-radius);
+		border: var(--ml-table-container-border-width) solid var(--ml-table-container-border-color);
+		border-radius: var(--ml-table-container-radius);
 		background-color: var(--ml-table-bg);
 		overflow: hidden;
 		font-family: var(--ml-table-font);
@@ -13672,7 +13740,7 @@ const tableStyles = () => css`
 		justify-content: space-between;
 		gap: var(--ml-space-4);
 		padding: var(--ml-space-5) var(--ml-space-6);
-		border-bottom: var(--ml-table-border-width) solid var(--ml-table-border-color);
+		border-bottom: var(--ml-table-divider-width) solid var(--ml-table-divider-color);
 	}
 
 	.ml-table__header-text {
@@ -13719,7 +13787,7 @@ const tableStyles = () => css`
 	}
 
 	thead tr {
-		border-bottom: var(--ml-table-border-width) solid var(--ml-table-border-color);
+		border-bottom: var(--ml-table-divider-width) solid var(--ml-table-divider-color);
 	}
 
 	.ml-table__th {
@@ -13773,7 +13841,7 @@ const tableStyles = () => css`
 
 	/* ── Body rows ── */
 	.ml-table__row {
-		border-bottom: var(--ml-table-border-width) solid var(--ml-table-border-color);
+		border-bottom: var(--ml-table-divider-width) solid var(--ml-table-divider-color);
 		transition: background-color var(--ml-duration-150) var(--ml-ease-in-out);
 	}
 
@@ -13893,7 +13961,7 @@ const tableStyles = () => css`
 		align-items: center;
 		justify-content: space-between;
 		padding: var(--ml-space-3) var(--ml-space-6);
-		border-top: var(--ml-table-border-width) solid var(--ml-table-border-color);
+		border-top: var(--ml-table-divider-width) solid var(--ml-table-divider-color);
 	}
 
 	.ml-table--sm .ml-table__footer--visible {
