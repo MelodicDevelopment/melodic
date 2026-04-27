@@ -48,6 +48,16 @@ export const tableStyles = () => css`
 
 		/* ── Table: cells ── */
 		--ml-table-cell-color: var(--ml-color-text);
+		--ml-table-cell-padding-y: var(--ml-space-4);
+		--ml-table-cell-padding-x: var(--ml-space-6);
+		--ml-table-cell-padding-y-sm: var(--ml-space-2-5);
+		--ml-table-cell-padding-x-sm: var(--ml-space-4);
+
+		/* ── Table: header cells ── */
+		--ml-table-header-padding-y: var(--ml-space-3);
+		--ml-table-header-padding-x: var(--ml-space-6);
+		--ml-table-header-padding-y-sm: var(--ml-space-2);
+		--ml-table-header-padding-x-sm: var(--ml-space-4);
 
 		/* ── Table: checkbox ── */
 		--ml-table-checkbox-accent: var(--ml-color-primary);
@@ -119,7 +129,7 @@ export const tableStyles = () => css`
 	}
 
 	.ml-table__th {
-		padding: var(--ml-space-3) var(--ml-space-6);
+		padding: var(--ml-table-header-padding-y) var(--ml-table-header-padding-x);
 		font-size: var(--ml-text-xs);
 		font-weight: var(--ml-font-medium);
 		color: var(--ml-table-header-color);
@@ -131,7 +141,7 @@ export const tableStyles = () => css`
 	}
 
 	.ml-table--sm .ml-table__th {
-		padding: var(--ml-space-2) var(--ml-space-4);
+		padding: var(--ml-table-header-padding-y-sm) var(--ml-table-header-padding-x-sm);
 	}
 
 	.ml-table__th--center { text-align: center; }
@@ -209,14 +219,14 @@ export const tableStyles = () => css`
 
 	/* ── Body cells ── */
 	.ml-table__td {
-		padding: var(--ml-space-4) var(--ml-space-6);
+		padding: var(--ml-table-cell-padding-y) var(--ml-table-cell-padding-x);
 		font-size: var(--ml-text-sm);
 		color: var(--ml-table-cell-color);
 		vertical-align: middle;
 	}
 
 	.ml-table--sm .ml-table__td {
-		padding: var(--ml-space-2-5) var(--ml-space-4);
+		padding: var(--ml-table-cell-padding-y-sm) var(--ml-table-cell-padding-x-sm);
 		font-size: var(--ml-text-xs);
 	}
 

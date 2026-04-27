@@ -48,6 +48,7 @@ export function tableTemplate(c: TableComponent) {
 							`)}
 							${repeat(c.columns, (col: TableColumn) => col.key, (col: TableColumn) => html`
 								<th
+									part="header-cell"
 									class=${classMap({
 										'ml-table__th': true,
 										'ml-table__th--sortable': !!col.sortable,
@@ -85,6 +86,7 @@ export function tableTemplate(c: TableComponent) {
 							const absoluteIndex = c.startIndex + i;
 							return html`
 								<tr
+									part="row"
 									class=${classMap({
 										'ml-table__row': true,
 										'ml-table__row--selected': c.isRowSelected(absoluteIndex)
@@ -104,10 +106,13 @@ export function tableTemplate(c: TableComponent) {
 										</td>
 									`)}
 									${repeat(c.columns, (col: TableColumn) => col.key, (col: TableColumn) => html`
-										<td class=${classMap({
-											'ml-table__td': true,
-											[`ml-table__td--${col.align ?? 'left'}`]: true
-										})}>
+										<td
+											part="cell"
+											class=${classMap({
+												'ml-table__td': true,
+												[`ml-table__td--${col.align ?? 'left'}`]: true
+											})}
+										>
 											${renderCell(col, row, absoluteIndex)}
 										</td>
 									`)}
