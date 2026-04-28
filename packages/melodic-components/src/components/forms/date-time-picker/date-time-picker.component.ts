@@ -249,9 +249,15 @@ export class DateTimePickerComponent implements IElementRef, OnCreate, OnDestroy
 	}
 
 	public onPropertyChange(name: string, _oldVal: unknown, _newVal: unknown): void {
-		if (name === 'value' || name === 'timezone') {
-			// Re-derive internal date/time when the inbound value (or its
-			// anchor zone) changes from outside the component.
+		if (name === 'timezone') {
+			// A zone change re-interprets the meaning of a naive value, so
+			// the cache guard must be bypassed even if `value` itself is
+			// unchanged (e.g. consumer hydrates value first, zone second).
+			this._lastSyncedValue = '';
+			queueMicrotask(() => this.syncFromValue());
+			return;
+		}
+		if (name === 'value') {
 			queueMicrotask(() => this.syncFromValue());
 		}
 	}
@@ -288,6 +294,16 @@ export class DateTimePickerComponent implements IElementRef, OnCreate, OnDestroy
 		const [datePart, timePart] = incoming.split('T');
 		if (datePart) this.dateValue = datePart;
 		if (timePart) this.timeValue = timePart;
+
+		// Auto-surface the UTC equivalent when a naive value is seeded under
+		// an active timezone — otherwise consumers binding to e.detail.valueUtc
+		// never receive the conversion and silently submit a drifted value.
+		// Recursion is blocked by the _lastSyncedValue guard above: emitChange
+		// re-assigns this.value to the same naive string, which the framework
+		// setter no-ops for equal values.
+		if (this.timezone && timePart) {
+			this.emitChange();
+		}
 	}
 
 	private attachChildListeners(): void {

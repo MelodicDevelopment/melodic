@@ -242,4 +242,103 @@ describe('ml-date-time-picker', () => {
 		await flush();
 		expect(shadowQuery(el, '.ml-date-time-picker__tz-label')).toBeNull();
 	});
+
+	// --- Auto-emit on naive seed (bug-fix coverage) ---------------------
+
+	function countEvents(target: HTMLElement, eventName: string): { count: number; last?: CustomEvent } {
+		const ref = { count: 0, last: undefined as CustomEvent | undefined };
+		target.addEventListener(eventName, (e) => {
+			ref.count += 1;
+			ref.last = e as CustomEvent;
+		});
+		return ref;
+	}
+
+	it('auto-emits ml:change with valueUtc when naive value + timezone are seeded together', async () => {
+		el = document.createElement('ml-date-time-picker') as DateTimePickerEl;
+		document.body.appendChild(el);
+		const events = countEvents(el, 'ml:change');
+
+		(el as DateTimePickerEl).value = '2026-04-30T09:00';
+		(el as DateTimePickerEl).timezone = 'America/New_York';
+		await flush();
+		await flush();
+
+		expect(events.count).toBe(1);
+		expect(events.last!.detail.value).toBe('2026-04-30T09:00');
+		expect(events.last!.detail.timezone).toBe('America/New_York');
+		// 09:00 EDT (UTC-4) → 13:00 UTC
+		expect(events.last!.detail.valueUtc).toBe('2026-04-30T13:00:00.000Z');
+	});
+
+	it('does not auto-emit when seeded with a UTC ISO value (no normalization needed)', async () => {
+		el = document.createElement('ml-date-time-picker') as DateTimePickerEl;
+		document.body.appendChild(el);
+		const events = countEvents(el, 'ml:change');
+
+		(el as DateTimePickerEl).value = '2026-04-30T13:00:00Z';
+		(el as DateTimePickerEl).timezone = 'America/New_York';
+		await flush();
+		await flush();
+
+		expect(events.count).toBe(0);
+	});
+
+	it('does not auto-emit when a naive value is seeded without a timezone', async () => {
+		el = document.createElement('ml-date-time-picker') as DateTimePickerEl;
+		document.body.appendChild(el);
+		const events = countEvents(el, 'ml:change');
+
+		(el as DateTimePickerEl).value = '2026-04-30T09:00';
+		await flush();
+		await flush();
+
+		expect(events.count).toBe(0);
+	});
+
+	// REGRESSION: race when value hydrates before timezone (common in async stores)
+	it('auto-emits exactly once when value is set first and timezone arrives later', async () => {
+		el = document.createElement('ml-date-time-picker') as DateTimePickerEl;
+		document.body.appendChild(el);
+		const events = countEvents(el, 'ml:change');
+
+		(el as DateTimePickerEl).value = '2026-04-30T09:00';
+		await flush();
+		expect(events.count).toBe(0);
+
+		(el as DateTimePickerEl).timezone = 'America/New_York';
+		await flush();
+		await flush();
+
+		expect(events.count).toBe(1);
+		expect(events.last!.detail.valueUtc).toBe('2026-04-30T13:00:00.000Z');
+	});
+
+	it('does not re-emit when timezone is set to the value it already has', async () => {
+		el = document.createElement('ml-date-time-picker') as DateTimePickerEl;
+		document.body.appendChild(el);
+		(el as DateTimePickerEl).value = '2026-04-30T09:00';
+		(el as DateTimePickerEl).timezone = 'America/New_York';
+		await flush();
+		await flush();
+
+		const events = countEvents(el, 'ml:change');
+		(el as DateTimePickerEl).timezone = 'America/New_York';
+		await flush();
+		await flush();
+
+		expect(events.count).toBe(0);
+	});
+
+	it('does not auto-emit when value is empty even with a timezone set', async () => {
+		el = document.createElement('ml-date-time-picker') as DateTimePickerEl;
+		document.body.appendChild(el);
+		const events = countEvents(el, 'ml:change');
+
+		(el as DateTimePickerEl).timezone = 'America/New_York';
+		await flush();
+		await flush();
+
+		expect(events.count).toBe(0);
+	});
 });
