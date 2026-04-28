@@ -12,6 +12,7 @@
 - [ml-autocomplete](#ml-autocomplete)
 - [ml-slider](#ml-slider)
 - [ml-date-picker](#ml-date-picker)
+- [ml-date-time-picker](#ml-date-time-picker)
 - [ml-form-field](#ml-form-field)
 
 ## FormControl integration
@@ -579,6 +580,71 @@ import '@melodicdev/components/date-picker';
 **Events:** `ml:change` `{ value: string }` — emitted with the ISO date string when a date is selected
 
 Keyboard support: `Enter` / `Space` / `ArrowDown` opens the calendar, `Escape` closes it.
+
+---
+
+## ml-date-time-picker
+
+Combined date + time input. Without the `timezone` attribute it works exactly like an unzoned `YYYY-MM-DDTHH:mm` field. With `timezone` set to an IANA name, it anchors the wall-clock the user types to that zone and exposes the equivalent UTC instant on the `ml:change` event detail — useful for multi-tenant SaaS, calendar apps, and anything that stores datetimes server-side as UTC.
+
+```ts
+import '@melodicdev/components/date-time-picker';
+```
+
+**Naive (default — unchanged):**
+
+```html
+<ml-date-time-picker
+  label="Event start"
+  value="2026-02-08T09:30"
+></ml-date-time-picker>
+```
+
+**Timezone-anchored:**
+
+```html
+<ml-date-time-picker
+  label="Event start"
+  timezone="America/Detroit"
+  value="2026-04-27T13:00:00Z"
+  timezone-label="short"
+  viewer-hint
+></ml-date-time-picker>
+```
+
+```ts
+picker.addEventListener('ml:change', (e) => {
+  // e.detail.value    — naive wall-clock the user sees: "2026-04-27T09:00"
+  // e.detail.valueUtc — real UTC instant: "2026-04-27T13:00:00.000Z"
+  // e.detail.timezone — "America/Detroit"
+  fetch('/api/events', {
+    method: 'POST',
+    body: JSON.stringify({ startsAt: e.detail.valueUtc })
+  });
+});
+```
+
+| Property | Type | Default | Description |
+|----------|------|---------|-------------|
+| `value` | `string` | `''` | When `timezone` is unset: naive `YYYY-MM-DDTHH:mm`. When set: either a UTC ISO (`...Z` / `±HH:MM`) parsed as a real instant, or a naive string interpreted as wall-clock in `timezone`. |
+| `timezone` | `string` | `''` | IANA zone name (e.g. `America/Detroit`). When set, the picker anchors values to this zone and emits `valueUtc`. |
+| `timezone-label` | `'short' \| 'long' \| 'offset' \| 'none'` | `'short'` | How to render the trailing zone label: `EDT`, `Eastern Daylight Time`, `GMT-4`, or hidden. |
+| `viewer-hint` | `boolean` | `false` | When the browser's UTC offset differs from `timezone` at the current value's instant, show a small subdued line below the input with the equivalent wall-clock in the viewer's zone. |
+| `placeholder` | `string` | `'Select date and time'` | Placeholder text |
+| `label` | `string` | `''` | Field label |
+| `hint` | `string` | `''` | Hint text |
+| `error` | `string` | `''` | Error message |
+| `size` | `'sm' \| 'md' \| 'lg'` | `'md'` | Input size |
+| `disabled` | `boolean` | `false` | Disabled state |
+| `required` | `boolean` | `false` | Required indicator |
+| `min-date` / `max-date` | `string` | `''` | Earliest / latest selectable date (`YYYY-MM-DD`) |
+| `min-time` / `max-time` | `string` | `''` | Earliest / latest selectable time (`HH:mm`) |
+| `step` | `number` | `15` | Time step in minutes |
+| `twelve-hour` | `boolean` | `true` | Use 12-hour time format |
+
+**Events:** `ml:change` — `{ value, date, time, valueUtc?, timezone? }`. `valueUtc` and `timezone` are present only when the `timezone` attribute is set.
+
+**DST policy:** Spring-forward gaps (e.g. `2026-03-08T02:30:00` in `America/Detroit`) are interpreted as the post-jump wall clock (i.e. `03:30 EDT`). Fall-back ambiguities (e.g. `2026-11-01T01:30:00`) resolve to the FIRST occurrence (still-DST). This matches major calendar apps and RFC 5545 VTIMEZONE behavior.
 
 ---
 

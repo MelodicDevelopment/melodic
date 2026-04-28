@@ -226,6 +226,14 @@ export class DemoApp implements IElementRef {
 		this.dateTimePickerError = (date && time) ? '' : 'Date and time required';
 	};
 
+	/** Timezone demo state */
+	tzDemoValue = '2026-04-27T13:00:00Z';
+	tzDemoEmittedUtc = '2026-04-27T13:00:00.000Z';
+
+	handleTzPickerChange = (event: CustomEvent): void => {
+		this.tzDemoEmittedUtc = event.detail.valueUtc ?? '(no valueUtc — timezone unset)';
+	};
+
 	/** Table demo data */
 	teamColumns: TableColumn[] = [
 		{

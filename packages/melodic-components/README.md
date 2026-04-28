@@ -231,6 +231,12 @@ type ThemeMode = 'light' | 'dark' | 'system';
 
 ---
 
+## Working with timezones
+
+For datetime fields that need to round-trip a real UTC instant — multi-tenant SaaS, calendar/scheduling apps, anything stored as UTC server-side — use [`<ml-date-time-picker>`](./docs/components/forms.md#ml-date-time-picker) with its `timezone` attribute. The picker anchors the wall-clock the user types to the named IANA zone, surfaces a `valueUtc` field on the `ml:change` event detail, and renders a trailing zone label so users know what zone they're entering. Without `timezone`, the component is a plain naive datetime input — no behavior change for existing consumers. Elsewhere in the app, the right primitive for displaying the same instant in another zone is `Intl.DateTimeFormat(..., { timeZone })`.
+
+---
+
 ## Theme System
 
 Override tokens globally via CSS:

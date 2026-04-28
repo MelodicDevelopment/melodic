@@ -39,7 +39,15 @@ export function dateTimePickerTemplate(c: DateTimePickerComponent) {
 					.twelveHour=${c.use12Hour}
 					placeholder="Select time"
 				></ml-time-picker>
+
+				${when(!!c.tzLabelText, () => html`
+					<span class="ml-date-time-picker__tz-label" aria-label="Timezone">${c.tzLabelText}</span>
+				`)}
 			</div>
+
+			${when(c.showViewerHint, () => html`
+				<span class="ml-date-time-picker__viewer-hint">${c.viewerHintText}</span>
+			`)}
 
 			${when(
 				!!c.error,

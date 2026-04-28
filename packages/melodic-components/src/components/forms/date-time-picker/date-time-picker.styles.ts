@@ -40,6 +40,17 @@ export const dateTimePickerStyles = () => css`
 		--ml-date-time-picker-hint-color: var(--ml-color-text-muted);
 		--ml-date-time-picker-hint-font-size: var(--ml-text-sm);
 
+		/* --- Timezone label --- */
+		--ml-date-time-picker-tz-label-color: var(--ml-color-text-muted);
+		--ml-date-time-picker-tz-label-font-size: var(--ml-text-sm);
+		--ml-date-time-picker-tz-label-font-weight: var(--ml-font-medium);
+		--ml-date-time-picker-tz-label-padding-x: var(--ml-space-2-5);
+
+		/* --- Viewer hint (subdued line below input) --- */
+		--ml-date-time-picker-viewer-hint-color: var(--ml-color-text-muted);
+		--ml-date-time-picker-viewer-hint-font-size: var(--ml-text-xs);
+		--ml-date-time-picker-viewer-hint-margin-top: var(--ml-space-1);
+
 		/* --- Transition --- */
 		--ml-date-time-picker-transition-duration: var(--ml-duration-150);
 		--ml-date-time-picker-transition-easing: var(--ml-ease-in-out);
@@ -103,6 +114,27 @@ export const dateTimePickerStyles = () => css`
 		background-color: var(--ml-date-time-picker-divider-color);
 		margin: var(--ml-space-1-5) 0;
 		flex-shrink: 0;
+	}
+
+	/* Timezone label (e.g. EDT) trailing the inputs */
+	.ml-date-time-picker__tz-label {
+		display: inline-flex;
+		align-items: center;
+		padding: 0 var(--ml-date-time-picker-tz-label-padding-x);
+		font-size: var(--ml-date-time-picker-tz-label-font-size);
+		font-weight: var(--ml-date-time-picker-tz-label-font-weight);
+		color: var(--ml-date-time-picker-tz-label-color);
+		flex-shrink: 0;
+		user-select: none;
+	}
+
+	/* Viewer-hint line: shows the same instant in the viewer's local zone */
+	.ml-date-time-picker__viewer-hint {
+		display: block;
+		margin-top: var(--ml-date-time-picker-viewer-hint-margin-top);
+		font-size: var(--ml-date-time-picker-viewer-hint-font-size);
+		color: var(--ml-date-time-picker-viewer-hint-color);
+		line-height: var(--ml-date-time-picker-label-line-height);
 	}
 
 	/* Disabled */

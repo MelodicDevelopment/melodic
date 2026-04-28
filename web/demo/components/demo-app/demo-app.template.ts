@@ -922,6 +922,51 @@ export const demoAppTemplate = (c: DemoApp) => {
 								<ml-date-time-picker label="Disabled" value="2026-02-08T09:30" disabled></ml-date-time-picker>
 							</div>
 						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>Timezone-anchored</h3>
+								<span class="demo-card__badge">UTC round-trip</span>
+							</div>
+							<p>Pass an IANA <code>timezone</code> attr and the picker anchors the wall-clock to that zone, surfaces a trailing label, and emits <code>e.detail.valueUtc</code> on every change. Try it from a non-Eastern machine to see the <code>viewer-hint</code> line.</p>
+							<ml-stack gap="4">
+								<ml-date-time-picker
+									label="Service start (Detroit)"
+									timezone="America/Detroit"
+									.value=${c.tzDemoValue}
+									timezone-label="short"
+									viewer-hint
+									@ml:change=${c.handleTzPickerChange}
+								></ml-date-time-picker>
+								<div>
+									<strong>Last <code>valueUtc</code>:</strong>
+									<code>${c.tzDemoEmittedUtc}</code>
+								</div>
+							</ml-stack>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>Timezone label formats</h3>
+							</div>
+							<ml-stack gap="4">
+								<ml-date-time-picker label="Short (default)" timezone="America/Detroit" value="2026-07-15T17:00:00Z" timezone-label="short"></ml-date-time-picker>
+								<ml-date-time-picker label="Long" timezone="America/Detroit" value="2026-07-15T17:00:00Z" timezone-label="long"></ml-date-time-picker>
+								<ml-date-time-picker label="Offset" timezone="America/Detroit" value="2026-07-15T17:00:00Z" timezone-label="offset"></ml-date-time-picker>
+								<ml-date-time-picker label="None (hidden)" timezone="America/Detroit" value="2026-07-15T17:00:00Z" timezone-label="none"></ml-date-time-picker>
+							</ml-stack>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
+								<h3>Other zones</h3>
+							</div>
+							<ml-stack gap="4">
+								<ml-date-time-picker label="London" timezone="Europe/London" value="2026-07-15T12:00:00Z" viewer-hint></ml-date-time-picker>
+								<ml-date-time-picker label="Tokyo" timezone="Asia/Tokyo" value="2026-07-15T12:00:00Z" viewer-hint></ml-date-time-picker>
+								<ml-date-time-picker label="Karachi" timezone="Asia/Karachi" value="2026-07-15T12:00:00Z" viewer-hint></ml-date-time-picker>
+							</ml-stack>
+						</div>
 					</section>
 
 					<!-- File Upload Section -->
