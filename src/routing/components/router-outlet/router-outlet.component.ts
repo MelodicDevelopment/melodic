@@ -286,10 +286,8 @@ export class RouterOutletComponent {
 		const matchResult = matchRouteTree(this.routes, remainingPath, this._context.basePath);
 
 		if (matchResult.redirectTo) {
-			const fullRedirect = this._context.basePath ? `/${this._context.basePath}/${matchResult.redirectTo}`.replace(/\/+/g, '/') : matchResult.redirectTo;
-
-			if (window.location.pathname !== fullRedirect) {
-				this._router.navigate(fullRedirect, { replace: true });
+			if (window.location.pathname !== matchResult.redirectTo) {
+				this._router.navigate(matchResult.redirectTo, { replace: true });
 			}
 
 			return;

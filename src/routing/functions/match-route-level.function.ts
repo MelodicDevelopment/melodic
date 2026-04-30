@@ -3,6 +3,14 @@ import type { IRouteMatchResult } from '../interfaces/iroute-match-result.interf
 import type { IRouteMatch } from '../interfaces/iroute-match.interface';
 import type { IRoute } from '../interfaces/iroute.interface';
 
+function resolveRedirectTarget(redirectTo: string, basePath: string): string {
+	if (redirectTo.startsWith('/')) {
+		return redirectTo;
+	}
+
+	return basePath ? `/${basePath}/${redirectTo}` : `/${redirectTo}`;
+}
+
 export function matchRouteLevel(
 	routes: IRoute[],
 	remainingPath: string,
@@ -18,18 +26,19 @@ export function matchRouteLevel(
 				matches: accumulatedMatches,
 				params: accumulatedParams,
 				isExactMatch: false,
-				redirectTo: route.redirectTo
+				redirectTo: resolveRedirectTarget(route.redirectTo, basePath)
 			};
 		}
 
 		const exactMatch = matcher.parse(remainingPath);
 
 		if (exactMatch !== null) {
-			const fullPath = basePath ? `${basePath}/${route.path}` : route.path;
+			const matchedPath = remainingPath;
+			const fullPath = basePath ? `${basePath}/${matchedPath}` : matchedPath;
 			const match: IRouteMatch = {
 				route,
 				params: exactMatch,
-				matchedPath: route.path,
+				matchedPath,
 				remainingPath: '',
 				fullPath,
 				children: route.children
@@ -37,6 +46,18 @@ export function matchRouteLevel(
 
 			Object.assign(accumulatedParams, exactMatch);
 			accumulatedMatches.push(match);
+
+			if (route.children) {
+				const emptyRedirect = route.children.find(child => child.path === '' && child.redirectTo);
+				if (emptyRedirect && emptyRedirect.redirectTo) {
+					return {
+						matches: accumulatedMatches,
+						params: accumulatedParams,
+						isExactMatch: false,
+						redirectTo: resolveRedirectTarget(emptyRedirect.redirectTo, fullPath)
+					};
+				}
+			}
 
 			return {
 				matches: accumulatedMatches,

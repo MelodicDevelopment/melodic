@@ -52,6 +52,59 @@ describe('router service', () => {
 		expect(redirectMatch.redirectTo).toBe('/new');
 	});
 
+	it('substitutes parent params into a relative child redirect', () => {
+		const router = new RouterService();
+		router.setRoutes([
+			{
+				path: 'people/:id',
+				children: [
+					{ path: '', redirectTo: 'activity' },
+					{ path: 'activity' }
+				]
+			}
+		]);
+
+		const match = router.matchPath('/people/69');
+		expect(match.redirectTo).toBe('/people/69/activity');
+	});
+
+	it('substitutes parent params into a multi-segment relative redirect', () => {
+		const router = new RouterService();
+		router.setRoutes([
+			{
+				path: 'people/:id',
+				children: [
+					{ path: '', redirectTo: 'tabs/main' },
+					{ path: 'tabs/main' }
+				]
+			}
+		]);
+
+		const match = router.matchPath('/people/69');
+		expect(match.redirectTo).toBe('/people/69/tabs/main');
+	});
+
+	it('substitutes multiple parent params into a relative redirect', () => {
+		const router = new RouterService();
+		router.setRoutes([
+			{
+				path: 'users/:userId',
+				children: [
+					{
+						path: 'posts/:postId',
+						children: [
+							{ path: '', redirectTo: 'view' },
+							{ path: 'view' }
+						]
+					}
+				]
+			}
+		]);
+
+		const match = router.matchPath('/users/12/posts/34');
+		expect(match.redirectTo).toBe('/users/12/posts/34/view');
+	});
+
 	it('getParam returns updated params during NavigationEvent', async () => {
 		const router = new RouterService();
 		router.setRoutes([{ path: 'events/:id' }]);
