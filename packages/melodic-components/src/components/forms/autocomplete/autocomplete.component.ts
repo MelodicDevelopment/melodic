@@ -52,7 +52,7 @@ registerAdapter<string | string[]>((el) => el.tagName === 'ML-AUTOCOMPLETE', {
 	selector: 'ml-autocomplete',
 	template: autocompleteTemplate,
 	styles: autocompleteStyles,
-	attributes: ['label', 'placeholder', 'hint', 'error', 'size', 'disabled', 'required', 'value', 'multiple']
+	attributes: ['label', 'placeholder', 'hint', 'error', 'size', 'disabled', 'required', 'value', 'multiple', 'open-on-focus']
 })
 export class AutocompleteComponent implements IElementRef, OnCreate, OnDestroy {
 	public elementRef!: HTMLElement;
@@ -98,6 +98,9 @@ export class AutocompleteComponent implements IElementRef, OnCreate, OnDestroy {
 
 	/** Min chars before searching (0 = show on focus) */
 	public minChars = 0;
+
+	/** Open the dropdown when the input gains focus */
+	public openOnFocus = true;
 
 	/** Show search icon */
 	public showIcon = true;
@@ -352,6 +355,7 @@ export class AutocompleteComponent implements IElementRef, OnCreate, OnDestroy {
 	/** Handle input focus */
 	public handleFocus = (): void => {
 		if (this.disabled) return;
+		if (!this.openOnFocus) return;
 
 		if (this.minChars === 0) {
 			if (this.searchFn && this.asyncOptions.length === 0) {

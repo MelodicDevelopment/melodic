@@ -1245,6 +1245,10 @@ var RouteContextEvent = class extends CustomEvent {
 		});
 	}
 };
+function resolveRedirectTarget(redirectTo, basePath) {
+	if (redirectTo.startsWith("/")) return redirectTo;
+	return basePath ? `/${basePath}/${redirectTo}` : `/${redirectTo}`;
+}
 function matchRouteLevel(routes, remainingPath, basePath, accumulatedMatches, accumulatedParams) {
 	for (const route of routes) {
 		const matcher = new RouteMatcher(route.path);
@@ -1252,21 +1256,31 @@ function matchRouteLevel(routes, remainingPath, basePath, accumulatedMatches, ac
 			matches: accumulatedMatches,
 			params: accumulatedParams,
 			isExactMatch: false,
-			redirectTo: route.redirectTo
+			redirectTo: resolveRedirectTarget(route.redirectTo, basePath)
 		};
 		const exactMatch = matcher.parse(remainingPath);
 		if (exactMatch !== null) {
-			const fullPath = basePath ? `${basePath}/${route.path}` : route.path;
+			const matchedPath = remainingPath;
+			const fullPath = basePath ? `${basePath}/${matchedPath}` : matchedPath;
 			const match = {
 				route,
 				params: exactMatch,
-				matchedPath: route.path,
+				matchedPath,
 				remainingPath: "",
 				fullPath,
 				children: route.children
 			};
 			Object.assign(accumulatedParams, exactMatch);
 			accumulatedMatches.push(match);
+			if (route.children) {
+				const emptyRedirect = route.children.find((child) => child.path === "" && child.redirectTo);
+				if (emptyRedirect && emptyRedirect.redirectTo) return {
+					matches: accumulatedMatches,
+					params: accumulatedParams,
+					isExactMatch: false,
+					redirectTo: resolveRedirectTarget(emptyRedirect.redirectTo, fullPath)
+				};
+			}
 			return {
 				matches: accumulatedMatches,
 				params: accumulatedParams,
@@ -2531,8 +2545,7 @@ var RouterOutletComponent = class RouterOutletComponent$1 {
 		const remainingPath = this._context.remainingPath;
 		const matchResult = matchRouteTree(this.routes, remainingPath, this._context.basePath);
 		if (matchResult.redirectTo) {
-			const fullRedirect = this._context.basePath ? `/${this._context.basePath}/${matchResult.redirectTo}`.replace(/\/+/g, "/") : matchResult.redirectTo;
-			if (window.location.pathname !== fullRedirect) this._router.navigate(fullRedirect, { replace: true });
+			if (window.location.pathname !== matchResult.redirectTo) this._router.navigate(matchResult.redirectTo, { replace: true });
 			return;
 		}
 		if (matchResult.matches.length > 0) {

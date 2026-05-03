@@ -579,6 +579,13 @@ export const demoAppTemplate = (c: DemoApp) => {
 								.initialOption=${{ value: 'melodic', label: 'Melodic', subtitle: 'Lightweight web component framework', icon: 'music-notes' }}
 								hint="Pre-set value resolves label via initialOption before async loads"
 							></ml-autocomplete>
+							<ml-autocomplete
+								label="No Open On Focus"
+								placeholder="Click or type to open..."
+								.options=${c.countryOptions}
+								open-on-focus="false"
+								hint="Dropdown stays closed when the input is focused programmatically"
+							></ml-autocomplete>
 							<ml-autocomplete label="Disabled" placeholder="Cannot search" .options=${c.countryOptions} disabled></ml-autocomplete>
 						</div>
 					</section>
