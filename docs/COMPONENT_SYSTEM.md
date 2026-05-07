@@ -388,6 +388,22 @@ export class MyComponent {
 }
 ```
 
+`onDestroy` runs **before** disposables registered with the host component are destroyed, so you can still read signals (`form.value()`, computeds returned by `select()`, etc.) inside the hook.
+
+### Registering Disposables
+
+Anything resembling `{ destroy(): void }` can be tied to the component's lifetime:
+
+```typescript
+import { getActiveComponent } from '@melodicdev/core/components';
+
+// Inside any code that runs during template render, onCreate, or class-field init:
+const consumer = getActiveComponent();
+consumer?.registerDisposable({ destroy: () => /* cleanup */ });
+```
+
+Disposables registered this way are destroyed (in registration order) on `disconnectedCallback`, after the user's `onDestroy` runs. `select()` and `AbstractControl` use this hook internally; you only need to call `registerDisposable` for raw `SignalEffect`s or other custom resources you create yourself.
+
 ### `onAttributeChange()`
 
 ```typescript

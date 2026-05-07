@@ -40,6 +40,8 @@ export class FormControl<T = unknown> extends AbstractControl<T> {
 	}
 
 	public destroy(): void {
+		if (this._destroyed) return;
+		this._destroyed = true;
 		this.destroySignals();
 	}
 }

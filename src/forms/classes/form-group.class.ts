@@ -153,6 +153,8 @@ export class FormGroup<T = Record<string, unknown>> extends AbstractControl<Form
 	}
 
 	public destroy(): void {
+		if (this._destroyed) return;
+		this._destroyed = true;
 		this._childValueEffect.destroy();
 		const controls = this.controls();
 		for (const key of Object.keys(controls)) {

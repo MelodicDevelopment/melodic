@@ -245,10 +245,6 @@ export class SignupFormComponent {
         if (this.form.invalid()) return;
         // submit ...
     }
-
-    onDestroy(): void {
-        this.form.destroy();
-    }
 }
 ```
 
@@ -256,4 +252,10 @@ The component re-renders automatically on any form state change. Errors appear u
 
 ### Lifecycle
 
-`AbstractControl.destroy()` cleans up internal signals and (for groups/arrays) destroys all child controls recursively. Call it from `onDestroy()` for components that own a form. Auto-destroy is intentionally not built into ComponentBase since a control may outlive the component (e.g., a shared form service).
+Controls created inside a component scope (template render, `onCreate`, or a class-field initializer like `readonly form = createFormGroup(...)`) auto-register with the host component and are destroyed on `disconnectedCallback`. You don't need to call `this.form.destroy()` from `onDestroy()` — it happens for you.
+
+`AbstractControl.destroy()` is idempotent and recursive: it cleans up internal signals and (for groups/arrays) destroys all child controls. Calling it manually before disconnect is still supported and safe; the auto-destroy at disconnect becomes a no-op.
+
+If you create a control **outside** any active component (e.g., in a shared service that outlives any one component), no auto-registration happens — the caller owns the lifetime and must call `.destroy()` explicitly when done.
+
+After destruction, accessing any of a control's signals (`form.value()`, `form.state()`, etc.) throws a clear error. Don't hold references to a destroyed control.

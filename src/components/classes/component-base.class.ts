@@ -7,6 +7,12 @@ import { isSignal } from '../../signals/functions/is-signal.function';
 import type { ITemplatePart } from '../../template/interfaces/itemplate-part.interface';
 import { applyGlobalStyles } from '../styles/apply-global-styles.function';
 import { AbstractControl } from '../../forms/classes/abstract-control.class';
+import { getActiveComponent, setActiveComponent } from '../functions/active-component.functions';
+
+export interface PendingComponentScope {
+	disposables: Set<{ destroy(): void }>;
+	selectCache: Map<string, Signal<unknown>>;
+}
 
 export abstract class ComponentBase extends HTMLElement {
 	private readonly _meta: ComponentMeta;
@@ -16,13 +22,19 @@ export abstract class ComponentBase extends HTMLElement {
 	private _unsubscribers: Array<Unsubscriber> = [];
 	private _renderScheduled = false;
 	private readonly _booleanProperties: Set<string> = new Set();
+	private readonly _disposables: Set<{ destroy(): void }>;
+	private readonly _selectCache: Map<string, Signal<unknown>>;
 
-	constructor(meta: ComponentMeta, component: Component) {
+	constructor(meta: ComponentMeta, component: Component, pending?: PendingComponentScope) {
 		super();
 
 		this._meta = meta;
 		this._component = component;
 		this._component.elementRef = this;
+		// Adopt the same Set/Map the decorator used during Reflect.construct so
+		// disposables and cache entries from class-field initializers belong to us.
+		this._disposables = pending?.disposables ?? new Set();
+		this._selectCache = pending?.selectCache ?? new Map();
 		this._root = this.attachShadow({ mode: 'open' });
 		applyGlobalStyles(this._root);
 		this._style = this.renderStyles();
@@ -38,11 +50,25 @@ export abstract class ComponentBase extends HTMLElement {
 		return this._component;
 	}
 
+	public registerDisposable(d: { destroy(): void }): void {
+		this._disposables.add(d);
+	}
+
+	public getSelectCache(): Map<string, Signal<unknown>> {
+		return this._selectCache;
+	}
+
 	public async connectedCallback(): Promise<void> {
 		this.render();
 
 		if (this._component.onCreate !== undefined) {
-			this._component.onCreate();
+			const prev = getActiveComponent();
+			setActiveComponent(this);
+			try {
+				this._component.onCreate();
+			} finally {
+				setActiveComponent(prev);
+			}
 		}
 	}
 
@@ -65,9 +91,20 @@ export abstract class ComponentBase extends HTMLElement {
 			}
 		}
 
+		// User's onDestroy runs first so user code can still reference signals before they're destroyed.
 		if (this._component.onDestroy !== undefined) {
 			this._component.onDestroy();
 		}
+
+		for (const d of this._disposables) {
+			try {
+				d.destroy();
+			} catch (error) {
+				console.error('Disposable cleanup failed:', error);
+			}
+		}
+		this._disposables.clear();
+		this._selectCache.clear();
 	}
 
 	public attributeChangedCallback(attribute: string, oldVal: unknown, newVal: unknown): void {
@@ -103,17 +140,23 @@ export abstract class ComponentBase extends HTMLElement {
 	}
 
 	private render(): void {
-		if (this._meta.template) {
-			const templateResult = this._meta.template(this._component, this.getAttributeValues());
-			render(templateResult, this._root);
+		const prev = getActiveComponent();
+		setActiveComponent(this);
+		try {
+			if (this._meta.template) {
+				const templateResult = this._meta.template(this._component, this.getAttributeValues());
+				render(templateResult, this._root);
 
-			if (this._style.parentNode !== this._root) {
-				this._root.appendChild(this._style);
+				if (this._style.parentNode !== this._root) {
+					this._root.appendChild(this._style);
+				}
 			}
-		}
 
-		if (this._component.onRender !== undefined) {
-			this._component.onRender();
+			if (this._component.onRender !== undefined) {
+				this._component.onRender();
+			}
+		} finally {
+			setActiveComponent(prev);
 		}
 	}
 

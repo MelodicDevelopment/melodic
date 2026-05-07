@@ -3,6 +3,7 @@ import type { Signal } from '../../signals';
 import type { ValidatorFn, AsyncValidatorFn, ValidationErrors, ValidationError, MessageMap, MessageValue } from '../types/validation.types';
 import type { ControlState, ControlOptions, SetValueOptions, UpdateOn } from '../types/control.types';
 import { getGlobalMessage, resolveMessage } from '../messages/messages-registry';
+import { getActiveComponent } from '../../components/functions/active-component.functions';
 
 export abstract class AbstractControl<T = unknown> {
 	public readonly value: Signal<T>;
@@ -31,6 +32,7 @@ export abstract class AbstractControl<T = unknown> {
 	protected readonly _pending = signal<boolean>(false);
 	protected readonly _ownDisabled = signal<boolean>(false);
 	protected _asyncValidationId = 0;
+	protected _destroyed = false;
 
 	constructor(initialValue: T, options: ControlOptions<T> = {}) {
 		this.value = signal<T>(initialValue);
@@ -41,6 +43,14 @@ export abstract class AbstractControl<T = unknown> {
 		this._ownDisabled.set(options.disabled ?? false);
 		this.updateOn = options.updateOn ?? 'change';
 		this.messages = options.messages ?? {};
+
+		// Auto-register with the active component so the control's signals/effects
+		// are torn down on disconnect even if the user doesn't call .destroy()
+		// explicitly. Idempotency is handled by the _destroyed flag in subclasses.
+		const consumer = getActiveComponent();
+		if (consumer) {
+			consumer.registerDisposable(this as { destroy(): void });
+		}
 	}
 
 	protected initializeAggregates(): void {

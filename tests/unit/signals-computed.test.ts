@@ -21,14 +21,25 @@ describe('computed signals', () => {
 		expect(value()).toBe(3);
 	});
 
-	it('stops reacting after destroy', () => {
+	it('throws on read after destroy and stops reacting to upstream changes', () => {
 		const count = signal(1);
 		const doubled = computed(() => count() * 2);
 
 		expect(doubled()).toBe(2);
 		doubled.destroy();
 
+		// Upstream changes are no longer propagated (effect is destroyed) and
+		// reading the destroyed computed throws so a stale-reference bug surfaces
+		// at the access site instead of returning silently-stale data.
 		count.set(5);
-		expect(doubled()).toBe(2);
+		expect(() => doubled()).toThrow(/destruction/);
+	});
+
+	it('destroy is idempotent', () => {
+		const count = signal(1);
+		const doubled = computed(() => count() * 2);
+
+		doubled.destroy();
+		expect(() => doubled.destroy()).not.toThrow();
 	});
 });

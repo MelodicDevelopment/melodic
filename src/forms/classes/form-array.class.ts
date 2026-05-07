@@ -151,6 +151,8 @@ export class FormArray<T = unknown> extends AbstractControl<T[]> {
 	}
 
 	public destroy(): void {
+		if (this._destroyed) return;
+		this._destroyed = true;
 		this._childValueEffect.destroy();
 		for (const control of this.controls()) {
 			control.destroy();

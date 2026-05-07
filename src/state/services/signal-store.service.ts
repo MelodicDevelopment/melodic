@@ -6,6 +6,7 @@ import { RX_INIT_STATE, RX_ACTION_PROVIDERS, RX_EFFECTS_PROVIDERS, RX_STATE_DEBU
 import type { ActionReducer } from '../types/action-reducer.type';
 import { Injectable, Injector, Service } from '../../injection';
 import { type Signal, computed } from '../../signals';
+import { getActiveComponent } from '../../components/functions/active-component.functions';
 
 @Injectable()
 export class SignalStoreService<S> {
@@ -20,10 +21,47 @@ export class SignalStoreService<S> {
 		}
 	}
 
-	public select<T, K extends keyof S>(key: K, selectFn: (state: S[K]) => T): Signal<T> {
-		return computed(() => {
-			return selectFn(this._state[key]());
-		});
+	/**
+	 * Returns a Signal that projects a slice of state[key] through selectFn.
+	 *
+	 * When called inside an active component (during template render or onCreate),
+	 * the returned signal is cached for the component's lifetime and destroyed when
+	 * the component unmounts. By default the cache key is `selectFn.toString()`,
+	 * which works for pure projections like `s => s.account`.
+	 *
+	 * If your selector captures a variable that affects its return value
+	 * (e.g., `s => s.account?.permissions?.includes(perm)`), pass an explicit
+	 * `cacheKey` to discriminate calls:
+	 *
+	 *     store.select('accountState',
+	 *         s => s.account?.permissions?.includes(perm),
+	 *         `perm:${perm}`)
+	 *
+	 * Outside an active component (guards, services, app boot), no caching
+	 * happens; the caller owns the returned signal's lifetime.
+	 */
+	public select<T, K extends keyof S>(
+		key: K,
+		selectFn: (state: S[K]) => T,
+		cacheKey?: string
+	): Signal<T> {
+		const consumer = getActiveComponent();
+
+		if (consumer) {
+			const cache = consumer.getSelectCache();
+			const fullKey = `${String(key)}::${cacheKey ?? selectFn.toString()}`;
+			const cached = cache.get(fullKey) as Signal<T> | undefined;
+			if (cached) {
+				return cached;
+			}
+
+			const sig = computed(() => selectFn(this._state[key]()));
+			cache.set(fullKey, sig as Signal<unknown>);
+			consumer.registerDisposable(sig as unknown as { destroy(): void });
+			return sig;
+		}
+
+		return computed(() => selectFn(this._state[key]()));
 	}
 
 	public logState(): void {

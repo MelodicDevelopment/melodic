@@ -19,6 +19,24 @@ describe('signals', () => {
 		expect(latest).toBe(2);
 	});
 
+	it('throws on read/set/update/subscribe after destroy', () => {
+		const s = signal(0);
+		s.destroy();
+
+		expect(() => s()).toThrow(/destruction/);
+		expect(() => s.set(1)).toThrow(/destruction/);
+		expect(() => s.update((v) => (v ?? 0) + 1)).toThrow(/destruction/);
+		expect(() => s.subscribe(() => {})).toThrow(/destruction/);
+	});
+
+	it('unsubscribers returned before destroy are safe to call after destroy', () => {
+		const s = signal(0);
+		const unsub = s.subscribe(() => {});
+		s.destroy();
+		expect(() => unsub()).not.toThrow();
+		expect(() => s.unsubscribe(() => {})).not.toThrow();
+	});
+
 	it('computed tracks dependencies', () => {
 		const a = signal(2);
 		const b = signal(3);

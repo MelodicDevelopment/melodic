@@ -11,6 +11,7 @@ Melodic includes a Redux-inspired state layer built on signals. It gives you act
 - [Effects](#effects)
 - [Providing the Store](#providing-the-store)
 - [Using the Store in Components](#using-the-store-in-components)
+- [Selectors and Lifetime](#selectors-and-lifetime)
 
 ## Overview
 
@@ -143,3 +144,47 @@ export class TodoListComponent {
 	}
 }
 ```
+
+## Selectors and Lifetime
+
+`select(key, selectFn, cacheKey?)` is component-scope-aware. When called from a component (template render, `onCreate`, or a class-field initializer), the returned signal is:
+
+- **Cached** for the component's lifetime, keyed by `(key, cacheKey ?? selectFn.toString())`. Repeated calls with the same key + selector source return the same `Signal` reference.
+- **Auto-destroyed** on `disconnectedCallback`, so the underlying `SignalEffect` unsubscribes from upstream state and the dependency graph shrinks back. No manual cleanup required.
+
+This means the common pattern below is safe: every render reads the getter, but only one computed exists per `(key, selector)` per component, and it dies with the component.
+
+```typescript
+get account() {
+	return this.store.select('accountState', (s) => s.account)();
+}
+```
+
+### Closure-capture caveat
+
+The default cache key is `selectFn.toString()`. If your selector captures a variable that affects its return value, two calls with different captured values will hash to the same key and collide:
+
+```typescript
+// BAD — `perm` is captured; toString() ignores it, second call returns the cached signal for the first `perm`.
+const has = this.store.select('account', (s) => s.permissions?.includes(perm))();
+```
+
+Pass an explicit `cacheKey` to discriminate:
+
+```typescript
+// GOOD — cacheKey distinguishes calls for different `perm` values.
+const has = this.store.select('account', (s) => s.permissions?.includes(perm), `perm:${perm}`)();
+```
+
+Or keep selectors pure and parameterize in the consumer:
+
+```typescript
+const perms = this.store.select('account', (s) => s.permissions)();
+const has = perms?.includes(perm) ?? false;
+```
+
+### Outside a component
+
+Calling `select()` from a guard, service, or app boot path (anywhere with no active component) returns a fresh computed each call and does not auto-clean. The caller owns the lifetime — store the result and call `.destroy()` when done.
+
+`ComponentStateBaseService.select(selectFn, cacheKey?)` follows the same contract; cache keys are scoped per service instance, so two services don't collide.

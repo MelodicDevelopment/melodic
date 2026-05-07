@@ -10,6 +10,7 @@ Signals are Melodic's fine-grained reactive primitives. They store a value, noti
 - [Computed Signals](#computed-signals)
 - [Signal Effects](#signal-effects)
 - [Using Signals in Components](#using-signals-in-components)
+- [Destruction](#destruction)
 
 ## Overview
 
@@ -100,4 +101,21 @@ import { MelodicComponent, html, signal } from '@melodicdev/core';
 export class CounterViewComponent {
 	count = signal(0);
 }
+```
+
+## Destruction
+
+`signal.destroy()` clears subscribers and marks the signal destroyed. After that:
+
+- `signal()`, `signal.set(...)`, `signal.update(...)`, and `signal.subscribe(...)` **throw**.
+- `signal.destroy()` and `signal.unsubscribe(...)` are idempotent — safe to call any number of times.
+- Unsubscribers returned before destroy can still be invoked safely.
+
+Throwing on access after destroy is intentional. It surfaces stale-reference bugs at the access site rather than silently returning the last-known value. Most signals in a component are destroyed automatically (computeds returned by `select()`, signals owned by `AbstractControl`); if you create raw signals or computeds yourself in long-lived code, call `.destroy()` when you're done with them and don't hold the reference afterwards.
+
+```typescript
+const c = signal(0);
+c.destroy();
+c();          // throws
+c.destroy();  // idempotent, no error
 ```
