@@ -1,7 +1,16 @@
 import { MelodicComponent } from '@melodicdev/core';
 import type { IElementRef, OnCreate, OnDestroy } from '@melodicdev/core';
+import { registerAdapter } from '@melodicdev/core/forms';
 import { radioCardGroupTemplate } from './radio-card-group.template.js';
 import { radioCardGroupStyles } from './radio-card-group.styles.js';
+
+registerAdapter<string>((el) => el.tagName === 'ML-RADIO-CARD-GROUP', {
+	inputEvent: 'ml:change',
+	blurEvent: 'focusout',
+	getValue: (el) => (el as unknown as { value: string }).value ?? '',
+	setValue: (el, value) => { (el as unknown as { value: string }).value = value !== null && value !== undefined ? String(value) : ''; },
+	setDisabled: (el, disabled) => { (el as unknown as { disabled: boolean }).disabled = disabled; }
+});
 
 /**
  * ml-radio-card-group - A group of selectable card-style radio options

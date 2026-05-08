@@ -356,13 +356,16 @@ var SignalEffect = class {
 		this._dependencies.clear();
 	}
 };
+var DESTROYED_MESSAGE = "Signal accessed after destruction. Holding a signal beyond its owning component (e.g. cached on a long-lived service) is a bug — the signal is destroyed when its component disconnects.";
 function signal(initialValue) {
 	let value = initialValue;
+	let destroyed = false;
 	const subscribers = /* @__PURE__ */ new Set();
 	const notify = () => {
 		[...subscribers].forEach((subscriber) => subscriber(value));
 	};
 	const read = (() => {
+		if (destroyed) throw new Error(DESTROYED_MESSAGE);
 		const activeEffect$1 = getActiveEffect();
 		if (activeEffect$1) {
 			activeEffect$1.addDependency(read);
@@ -371,15 +374,18 @@ function signal(initialValue) {
 		return value;
 	});
 	read.set = (newValue) => {
+		if (destroyed) throw new Error(DESTROYED_MESSAGE);
 		if (value !== newValue) {
 			value = newValue;
 			notify();
 		}
 	};
 	read.update = (updater) => {
+		if (destroyed) throw new Error(DESTROYED_MESSAGE);
 		read.set(updater(value));
 	};
 	read.subscribe = (subscriber) => {
+		if (destroyed) throw new Error(DESTROYED_MESSAGE);
 		subscribers.add(subscriber);
 		return () => subscribers.delete(subscriber);
 	};
@@ -387,6 +393,8 @@ function signal(initialValue) {
 		subscribers.delete(subscriber);
 	};
 	read.destroy = () => {
+		if (destroyed) return;
+		destroyed = true;
 		subscribers.clear();
 	};
 	Object.defineProperty(read, SIGNAL_MARKER, {
@@ -423,6 +431,11 @@ function resolveMessage(message, params) {
 	if (typeof message === "function") return message(params ?? {});
 	return message;
 }
+var activeComponent = null;
+const setActiveComponent = (component) => {
+	activeComponent = component;
+};
+const getActiveComponent = () => activeComponent;
 var AbstractControl = class {
 	constructor(initialValue, options = {}) {
 		this.parent = null;
@@ -433,6 +446,7 @@ var AbstractControl = class {
 		this._pending = signal(false);
 		this._ownDisabled = signal(false);
 		this._asyncValidationId = 0;
+		this._destroyed = false;
 		this.value = signal(initialValue);
 		this.errors = signal(null);
 		this._validators = options.validators ?? [];
@@ -440,6 +454,8 @@ var AbstractControl = class {
 		this._ownDisabled.set(options.disabled ?? false);
 		this.updateOn = options.updateOn ?? "change";
 		this.messages = options.messages ?? {};
+		const consumer = getActiveComponent();
+		if (consumer) consumer.registerDisposable(this);
 	}
 	initializeAggregates() {
 		this.dirty = computed(() => this.computeDirty());
@@ -608,7 +624,7 @@ var AbstractControl = class {
 	}
 };
 var ComponentBase = class extends HTMLElement {
-	constructor(meta, component) {
+	constructor(meta, component, pending) {
 		super();
 		this._unsubscribers = [];
 		this._renderScheduled = false;
@@ -616,6 +632,8 @@ var ComponentBase = class extends HTMLElement {
 		this._meta = meta;
 		this._component = component;
 		this._component.elementRef = this;
+		this._disposables = pending?.disposables ?? /* @__PURE__ */ new Set();
+		this._selectCache = pending?.selectCache ?? /* @__PURE__ */ new Map();
 		this._root = this.attachShadow({ mode: "open" });
 		applyGlobalStyles(this._root);
 		this._style = this.renderStyles();
@@ -625,9 +643,23 @@ var ComponentBase = class extends HTMLElement {
 	get component() {
 		return this._component;
 	}
+	registerDisposable(d) {
+		this._disposables.add(d);
+	}
+	getSelectCache() {
+		return this._selectCache;
+	}
 	async connectedCallback() {
 		this.render();
-		if (this._component.onCreate !== void 0) this._component.onCreate();
+		if (this._component.onCreate !== void 0) {
+			const prev = getActiveComponent();
+			setActiveComponent(this);
+			try {
+				this._component.onCreate();
+			} finally {
+				setActiveComponent(prev);
+			}
+		}
 	}
 	disconnectedCallback() {
 		this._unsubscribers.forEach((unsubscribe) => unsubscribe());
@@ -643,6 +675,13 @@ var ComponentBase = class extends HTMLElement {
 			}
 		}
 		if (this._component.onDestroy !== void 0) this._component.onDestroy();
+		for (const d of this._disposables) try {
+			d.destroy();
+		} catch (error) {
+			console.error("Disposable cleanup failed:", error);
+		}
+		this._disposables.clear();
+		this._selectCache.clear();
 	}
 	attributeChangedCallback(attribute, oldVal, newVal) {
 		const prop = attribute.replace(/-([a-z])/g, (_, ch) => ch.toUpperCase());
@@ -660,11 +699,17 @@ var ComponentBase = class extends HTMLElement {
 		return this._root.appendChild(styleNode);
 	}
 	render() {
-		if (this._meta.template) {
-			render(this._meta.template(this._component, this.getAttributeValues()), this._root);
-			if (this._style.parentNode !== this._root) this._root.appendChild(this._style);
+		const prev = getActiveComponent();
+		setActiveComponent(this);
+		try {
+			if (this._meta.template) {
+				render(this._meta.template(this._component, this.getAttributeValues()), this._root);
+				if (this._style.parentNode !== this._root) this._root.appendChild(this._style);
+			}
+			if (this._component.onRender !== void 0) this._component.onRender();
+		} finally {
+			setActiveComponent(prev);
 		}
-		if (this._component.onRender !== void 0) this._component.onRender();
 	}
 	scheduleRender() {
 		if (this._renderScheduled) return;
@@ -770,7 +815,26 @@ function MelodicComponent(meta) {
 						if (param && typeof param === "object" && param.__injectionToken) dependencies.push(Injector.get(param.__injectionToken));
 						else dependencies.push(void 0);
 					}
-					super(meta, Reflect.construct(component, dependencies));
+					const disposables = /* @__PURE__ */ new Set();
+					const selectCache = /* @__PURE__ */ new Map();
+					const placeholder = {
+						getSelectCache: () => selectCache,
+						registerDisposable: (d) => {
+							disposables.add(d);
+						}
+					};
+					const prevActive = getActiveComponent();
+					setActiveComponent(placeholder);
+					let userInstance;
+					try {
+						userInstance = Reflect.construct(component, dependencies);
+					} finally {
+						setActiveComponent(prevActive);
+					}
+					super(meta, userInstance, {
+						disposables,
+						selectCache
+					});
 				}
 				static #_ = this.observedAttributes = meta.attributes ?? [];
 			};
@@ -2833,12 +2897,14 @@ var EffectsBase = class {
 		return this._effects;
 	}
 };
+var nextInstanceId = 0;
 var ComponentStateBaseService = class extends EffectsBase {
 	constructor(_initState, _reducerConfig = { reducers: [] }, _debug = false) {
 		super();
 		this._initState = _initState;
 		this._reducerConfig = _reducerConfig;
 		this._debug = _debug;
+		this._instanceId = ++nextInstanceId;
 		this._state = signal(_initState);
 	}
 	get state() {
@@ -2847,7 +2913,18 @@ var ComponentStateBaseService = class extends EffectsBase {
 	resetState() {
 		this._state.set(this._initState);
 	}
-	select(selectFn) {
+	select(selectFn, cacheKey) {
+		const consumer = getActiveComponent();
+		if (consumer) {
+			const cache = consumer.getSelectCache();
+			const fullKey = `cs:${this._instanceId}::${cacheKey ?? selectFn.toString()}`;
+			const cached = cache.get(fullKey);
+			if (cached) return cached;
+			const sig = computed(() => selectFn(this._state()));
+			cache.set(fullKey, sig);
+			consumer.registerDisposable(sig);
+			return sig;
+		}
 		return computed(() => selectFn(this._state()));
 	}
 	dispatch(action) {
@@ -2882,10 +2959,19 @@ var SignalStoreService = class SignalStoreService$1 {
 	constructor() {
 		if (this._debug) console.info("RX State Debugging: Enabled");
 	}
-	select(key, selectFn) {
-		return computed(() => {
-			return selectFn(this._state[key]());
-		});
+	select(key, selectFn, cacheKey) {
+		const consumer = getActiveComponent();
+		if (consumer) {
+			const cache = consumer.getSelectCache();
+			const fullKey = `${String(key)}::${cacheKey ?? selectFn.toString()}`;
+			const cached = cache.get(fullKey);
+			if (cached) return cached;
+			const sig = computed(() => selectFn(this._state[key]()));
+			cache.set(fullKey, sig);
+			consumer.registerDisposable(sig);
+			return sig;
+		}
+		return computed(() => selectFn(this._state[key]()));
 	}
 	logState() {
 		console.log(this.getCurrentState());
@@ -3596,6 +3682,8 @@ var FormControl = class extends AbstractControl {
 		this.runValidation();
 	}
 	destroy() {
+		if (this._destroyed) return;
+		this._destroyed = true;
 		this.destroySignals();
 	}
 };
@@ -3692,6 +3780,8 @@ var FormGroup = class FormGroup extends AbstractControl {
 		await this.runValidation();
 	}
 	destroy() {
+		if (this._destroyed) return;
+		this._destroyed = true;
 		this._childValueEffect.destroy();
 		const controls = this.controls();
 		for (const key of Object.keys(controls)) controls[key].destroy();
@@ -3820,6 +3910,8 @@ var FormArray = class extends AbstractControl {
 		await this.runValidation();
 	}
 	destroy() {
+		if (this._destroyed) return;
+		this._destroyed = true;
 		this._childValueEffect.destroy();
 		for (const control of this.controls()) control.destroy();
 		this.destroySignals();
@@ -5820,6 +5912,22 @@ const buttonGroupStyles = () => css`
 		margin-left: 0;
 	}
 `;
+registerAdapter((el) => el.tagName === "ML-BUTTON-GROUP", {
+	inputEvent: "ml:change",
+	blurEvent: "focusout",
+	getValue: (el) => {
+		const e = el;
+		return e.multiple ? e.values ?? [] : e.value ?? "";
+	},
+	setValue: (el, value) => {
+		const e = el;
+		if (Array.isArray(value)) e.values = value;
+		else e.value = value !== null && value !== void 0 ? String(value) : "";
+	},
+	setDisabled: (el, disabled) => {
+		el.disabled = disabled;
+	}
+});
 var ButtonGroupComponent = class ButtonGroupComponent$1 {
 	constructor() {
 		this.value = "";
@@ -7360,6 +7468,17 @@ const radioCardGroupStyles = () => css`
 		color: var(--ml-radio-card-group-error-color);
 	}
 `;
+registerAdapter((el) => el.tagName === "ML-RADIO-CARD-GROUP", {
+	inputEvent: "ml:change",
+	blurEvent: "focusout",
+	getValue: (el) => el.value ?? "",
+	setValue: (el, value) => {
+		el.value = value !== null && value !== void 0 ? String(value) : "";
+	},
+	setDisabled: (el, disabled) => {
+		el.disabled = disabled;
+	}
+});
 var RadioCardGroupComponent = class RadioCardGroupComponent$1 {
 	constructor() {
 		this.value = "";
@@ -10596,7 +10715,7 @@ const datePickerStyles = () => css`
 	}
 `;
 registerAdapter((el) => el.tagName === "ML-DATE-PICKER", {
-	inputEvent: "ml:select",
+	inputEvent: "ml:change",
 	blurEvent: "focusout",
 	getValue: (el) => el.value ?? "",
 	setValue: (el, value) => {
@@ -25639,6 +25758,6 @@ DashboardPageComponent = __decorate([MelodicComponent({
 		"layout"
 	]
 })], DashboardPageComponent);
-export { APP_CONFIG, AbortError, AbstractControl, ActivityFeedComponent, ActivityFeedItemComponent, AlertComponent, AppShellComponent, AvatarComponent, BadgeComponent, BadgeGroupComponent, Binding, BreadcrumbComponent, BreadcrumbItemComponent, ButtonComponent, ButtonGroupComponent, ButtonGroupItemComponent, CalendarComponent, CalendarViewComponent, CardComponent, CheckboxComponent, ComponentBase, ComponentStateBaseService, ContainerComponent, DashboardPageComponent, DatePickerComponent, DialogComponent, DialogRef, DialogService, Directive, DividerComponent, DrawerComponent, DropdownComponent, DropdownGroupComponent, DropdownItemComponent, DropdownSeparatorComponent, EffectsBase, FormArray, FormControl, FormFieldComponent, FormGroup, HeroSectionComponent, HttpBaseError, HttpClient, HttpError, IconComponent, Inject, Injectable, InjectionEngine, Injector, InputComponent, ListComponent, ListItemComponent, LoginPageComponent, MelodicComponent, NetworkError, PageHeaderComponent, PaginationComponent, PopoverComponent, ProgressComponent, ROUTE_CONTEXT_EVENT, RX_ACTION_PROVIDERS, RX_EFFECTS_PROVIDERS, RX_INIT_STATE, RX_STATE_DEBUG, RadioCardComponent, RadioCardGroupComponent, RadioComponent, RadioGroupComponent, RouteContextEvent, RouteContextService, RouteMatcher, RouterLinkComponent, RouterOutletComponent, RouterService, SIGNAL_MARKER, SelectComponent, Service, SidebarComponent, SidebarGroupComponent, SidebarItemComponent, SignalEffect, SignalStoreService, SignupPageComponent, SliderComponent, SpinnerComponent, StackComponent, StepComponent, StepPanelComponent, StepsComponent, TabComponent, TabPanelComponent, TableComponent, TabsComponent, TagComponent, TemplateResult, TextareaComponent, ToastComponent, ToastContainerComponent, ToastService, ToggleComponent, TooltipComponent, Validators, VirtualScroller, activityFeedItemStyles, activityFeedItemTemplate, activityFeedStyles, activityFeedTemplate, allTokens, announce, appShellStyles, appShellTemplate, applyGlobalStyles, applyTheme, arrow, autoUpdate, baseThemeCss, bootstrap, borderTokens, breadcrumbItemStyles, breadcrumbItemTemplate, breadcrumbStyles, breadcrumbTemplate, breakpointTokens, breakpoints, buildPathFromRoute, calendarViewStyles, calendarViewTemplate, checkboxAdapter, classMap, clickOutside, colorTokens, componentBaseStyles, computePosition, computed, containerStyles, containerTemplate, createAction, createAsyncValidator, createBrandTheme, createDeactivateGuard, createFocusTrap, createFormArray, createFormControl, createFormGroup, createGuard, createLiveRegion, createReducer, createResolver, createState, createTheme, createToken, createValidator, css, darkTheme, darkThemeCss, dashboardPageStyles, dashboardPageTemplate, defineConfig, directive, drawerStyles, drawerTemplate, dropdownGroupStyles, dropdownGroupTemplate, dropdownItemStyles, dropdownItemTemplate, dropdownSeparatorStyles, dropdownSeparatorTemplate, dropdownStyles, dropdownTemplate, environment, findRouteByName, flip, focusFirst, focusLast, focusTrap, focusVisible, formControlDirective, formFieldStyles, formFieldTemplate, getActiveEffect, getAdapter, getAttributeDirective, getEnvironment, getFirstFocusable, getFocusableElements, getGlobalMessage, getLastFocusable, getRegisteredDirectives, getResolvedTheme, getTheme, getTokenKey, hasAttributeDirective, heroSectionStyles, heroSectionTemplate, html, injectTheme, isDirective, isFocusVisible, isSignal, lightTheme, lightThemeCss, listItemStyles, listItemTemplate, listStyles, listTemplate, loginPageStyles, loginPageTemplate, matchRouteTree, newID, offset, onAction, onThemeChange, pageHeaderStyles, pageHeaderTemplate, paginationStyles, paginationTemplate, portalDirective, primitiveColors, progressStyles, progressTemplate, props, provideConfig, provideHttp, provideRX, radioAdapter, registerAdapter, registerAttributeDirective, registerDefaultMessages, render, repeat, repeatRaw, resetStyles, resolveMessage, routerLinkDirective, selectStyles, selectTemplate, setActiveEffect, setDefaultMessage, shadowTokens, shift, sidebarGroupStyles, sidebarGroupTemplate, sidebarItemStyles, sidebarItemTemplate, sidebarStyles, sidebarTemplate, signal, signupPageStyles, signupPageTemplate, sliderStyles, sliderTemplate, spacingTokens, stepPanelStyles, stepPanelTemplate, stepStyles, stepTemplate, stepsStyles, stepsTemplate, styleMap, tabPanelStyles, tabPanelTemplate, tabStyles, tabTemplate, tableStyles, tableTemplate, tabsStyles, tabsTemplate, textAdapter, toastContainerStyles, toastContainerTemplate, toastStyles, toastTemplate, toggleTheme, tokensToCss, tooltipDirective, transitionTokens, typographyTokens, unregisterAttributeDirective, unsafeHTML, visuallyHiddenStyles, when };
+export { APP_CONFIG, AbortError, AbstractControl, ActivityFeedComponent, ActivityFeedItemComponent, AlertComponent, AppShellComponent, AvatarComponent, BadgeComponent, BadgeGroupComponent, Binding, BreadcrumbComponent, BreadcrumbItemComponent, ButtonComponent, ButtonGroupComponent, ButtonGroupItemComponent, CalendarComponent, CalendarViewComponent, CardComponent, CheckboxComponent, ComponentBase, ComponentStateBaseService, ContainerComponent, DashboardPageComponent, DatePickerComponent, DialogComponent, DialogRef, DialogService, Directive, DividerComponent, DrawerComponent, DropdownComponent, DropdownGroupComponent, DropdownItemComponent, DropdownSeparatorComponent, EffectsBase, FormArray, FormControl, FormFieldComponent, FormGroup, HeroSectionComponent, HttpBaseError, HttpClient, HttpError, IconComponent, Inject, Injectable, InjectionEngine, Injector, InputComponent, ListComponent, ListItemComponent, LoginPageComponent, MelodicComponent, NetworkError, PageHeaderComponent, PaginationComponent, PopoverComponent, ProgressComponent, ROUTE_CONTEXT_EVENT, RX_ACTION_PROVIDERS, RX_EFFECTS_PROVIDERS, RX_INIT_STATE, RX_STATE_DEBUG, RadioCardComponent, RadioCardGroupComponent, RadioComponent, RadioGroupComponent, RouteContextEvent, RouteContextService, RouteMatcher, RouterLinkComponent, RouterOutletComponent, RouterService, SIGNAL_MARKER, SelectComponent, Service, SidebarComponent, SidebarGroupComponent, SidebarItemComponent, SignalEffect, SignalStoreService, SignupPageComponent, SliderComponent, SpinnerComponent, StackComponent, StepComponent, StepPanelComponent, StepsComponent, TabComponent, TabPanelComponent, TableComponent, TabsComponent, TagComponent, TemplateResult, TextareaComponent, ToastComponent, ToastContainerComponent, ToastService, ToggleComponent, TooltipComponent, Validators, VirtualScroller, activityFeedItemStyles, activityFeedItemTemplate, activityFeedStyles, activityFeedTemplate, allTokens, announce, appShellStyles, appShellTemplate, applyGlobalStyles, applyTheme, arrow, autoUpdate, baseThemeCss, bootstrap, borderTokens, breadcrumbItemStyles, breadcrumbItemTemplate, breadcrumbStyles, breadcrumbTemplate, breakpointTokens, breakpoints, buildPathFromRoute, calendarViewStyles, calendarViewTemplate, checkboxAdapter, classMap, clickOutside, colorTokens, componentBaseStyles, computePosition, computed, containerStyles, containerTemplate, createAction, createAsyncValidator, createBrandTheme, createDeactivateGuard, createFocusTrap, createFormArray, createFormControl, createFormGroup, createGuard, createLiveRegion, createReducer, createResolver, createState, createTheme, createToken, createValidator, css, darkTheme, darkThemeCss, dashboardPageStyles, dashboardPageTemplate, defineConfig, directive, drawerStyles, drawerTemplate, dropdownGroupStyles, dropdownGroupTemplate, dropdownItemStyles, dropdownItemTemplate, dropdownSeparatorStyles, dropdownSeparatorTemplate, dropdownStyles, dropdownTemplate, environment, findRouteByName, flip, focusFirst, focusLast, focusTrap, focusVisible, formControlDirective, formFieldStyles, formFieldTemplate, getActiveComponent, getActiveEffect, getAdapter, getAttributeDirective, getEnvironment, getFirstFocusable, getFocusableElements, getGlobalMessage, getLastFocusable, getRegisteredDirectives, getResolvedTheme, getTheme, getTokenKey, hasAttributeDirective, heroSectionStyles, heroSectionTemplate, html, injectTheme, isDirective, isFocusVisible, isSignal, lightTheme, lightThemeCss, listItemStyles, listItemTemplate, listStyles, listTemplate, loginPageStyles, loginPageTemplate, matchRouteTree, newID, offset, onAction, onThemeChange, pageHeaderStyles, pageHeaderTemplate, paginationStyles, paginationTemplate, portalDirective, primitiveColors, progressStyles, progressTemplate, props, provideConfig, provideHttp, provideRX, radioAdapter, registerAdapter, registerAttributeDirective, registerDefaultMessages, render, repeat, repeatRaw, resetStyles, resolveMessage, routerLinkDirective, selectStyles, selectTemplate, setActiveComponent, setActiveEffect, setDefaultMessage, shadowTokens, shift, sidebarGroupStyles, sidebarGroupTemplate, sidebarItemStyles, sidebarItemTemplate, sidebarStyles, sidebarTemplate, signal, signupPageStyles, signupPageTemplate, sliderStyles, sliderTemplate, spacingTokens, stepPanelStyles, stepPanelTemplate, stepStyles, stepTemplate, stepsStyles, stepsTemplate, styleMap, tabPanelStyles, tabPanelTemplate, tabStyles, tabTemplate, tableStyles, tableTemplate, tabsStyles, tabsTemplate, textAdapter, toastContainerStyles, toastContainerTemplate, toastStyles, toastTemplate, toggleTheme, tokensToCss, tooltipDirective, transitionTokens, typographyTokens, unregisterAttributeDirective, unsafeHTML, visuallyHiddenStyles, when };
 
 //# sourceMappingURL=melodic-components.js.map

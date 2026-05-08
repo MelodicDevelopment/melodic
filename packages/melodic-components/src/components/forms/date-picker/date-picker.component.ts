@@ -6,7 +6,7 @@ import { datePickerTemplate } from './date-picker.template.js';
 import { datePickerStyles } from './date-picker.styles.js';
 
 registerAdapter<string>((el) => el.tagName === 'ML-DATE-PICKER', {
-	inputEvent: 'ml:select',
+	inputEvent: 'ml:change',
 	blurEvent: 'focusout',
 	getValue: (el) => (el as unknown as { value: string }).value ?? '',
 	setValue: (el, value) => { (el as unknown as { value: string }).value = value !== null && value !== undefined ? String(value) : ''; },
