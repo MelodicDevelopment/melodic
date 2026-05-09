@@ -60,6 +60,7 @@ export class DialogRef<TResult = unknown, TData = unknown> {
 	}
 
 	public close(result?: TResult): void {
+		this._dismissDescendantPopovers(this._dialogEl);
 		this._dialogEl.close();
 		this._afterClosedCallback?.(result);
 	}
@@ -82,5 +83,21 @@ export class DialogRef<TResult = unknown, TData = unknown> {
 		if (event.target === this._dialogEl && !this._disableClose) {
 			this.close();
 		}
+	}
+
+	private _dismissDescendantPopovers(root: Element | ShadowRoot): void {
+		const children = root.querySelectorAll('*');
+		children.forEach((el) => {
+			if (el.hasAttribute('popover')) {
+				try {
+					(el as HTMLElement).hidePopover();
+				} catch {
+					// Not currently in the top layer — safe to ignore
+				}
+			}
+			if (el.shadowRoot) {
+				this._dismissDescendantPopovers(el.shadowRoot);
+			}
+		});
 	}
 }

@@ -22807,6 +22807,7 @@ var DialogRef = class {
 		this._afterOpenedCallback?.();
 	}
 	close(result) {
+		this._dismissDescendantPopovers(this._dialogEl);
 		this._dialogEl.close();
 		this._afterClosedCallback?.(result);
 	}
@@ -22821,6 +22822,14 @@ var DialogRef = class {
 	}
 	onBackdropClick(event) {
 		if (event.target === this._dialogEl && !this._disableClose) this.close();
+	}
+	_dismissDescendantPopovers(root) {
+		root.querySelectorAll("*").forEach((el) => {
+			if (el.hasAttribute("popover")) try {
+				el.hidePopover();
+			} catch {}
+			if (el.shadowRoot) this._dismissDescendantPopovers(el.shadowRoot);
+		});
 	}
 };
 var DialogService = class DialogService$1 {
