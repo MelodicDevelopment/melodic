@@ -23,6 +23,16 @@ EventTarget.prototype.addEventListener = function (type: string, listener: Event
  * @example
  * ```html
  * <ml-table .columns=${columns} .rows=${rows} striped hoverable></ml-table>
+ *
+ * <!-- Server-paginated: parent handles ordering -->
+ * <ml-table
+ *     manual-sort
+ *     .columns=${columns}
+ *     .rows=${pageRows}
+ *     .sortKey=${sortKey}
+ *     .sortDirection=${sortDirection}
+ *     @ml:sort=${handleSort}
+ * ></ml-table>
  * ```
  *
  * @fires ml:sort - Emitted when a sortable column header is clicked. Detail: { key, direction }
@@ -36,7 +46,7 @@ EventTarget.prototype.addEventListener = function (type: string, listener: Event
 	selector: 'ml-table',
 	template: tableTemplate,
 	styles: tableStyles,
-	attributes: ['selectable', 'striped', 'hoverable', 'size', 'table-title', 'description', 'sticky-header', 'virtual']
+	attributes: ['selectable', 'striped', 'hoverable', 'size', 'table-title', 'description', 'sticky-header', 'virtual', 'manual-sort']
 })
 export class TableComponent implements IElementRef, OnCreate, OnDestroy, OnRender, OnPropertyChange {
 	public elementRef!: HTMLElement;
@@ -73,6 +83,14 @@ export class TableComponent implements IElementRef, OnCreate, OnDestroy, OnRende
 
 	/** Enable virtual scrolling (renders only visible rows) */
 	public virtual = false;
+
+	/**
+	 * Opt out of client-side row sorting. When true, `rows` is rendered in the
+	 * order provided and `sortedRows` returns it untouched, but `sortKey` /
+	 * `sortDirection` still update on header clicks and `ml:sort` still fires
+	 * so the consumer can re-query the server with the new ordering.
+	 */
+	public manualSort = false;
 
 	/** Column definitions */
 	public columns: TableColumn[] = [];
@@ -175,7 +193,7 @@ export class TableComponent implements IElementRef, OnCreate, OnDestroy, OnRende
 
 	/** Rows sorted by current sort key/direction */
 	public get sortedRows(): Record<string, unknown>[] {
-		if (!this.sortKey) return this.rows;
+		if (this.manualSort || !this.sortKey) return this.rows;
 		const key = this.sortKey;
 		const dir = this.sortDirection === 'asc' ? 1 : -1;
 		return [...this.rows].sort((a, b) => {

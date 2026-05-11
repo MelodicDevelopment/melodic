@@ -14134,6 +14134,7 @@ var TableComponent = class TableComponent$1 {
 		this.tableTitle = "";
 		this.description = "";
 		this.virtual = false;
+		this.manualSort = false;
 		this.columns = [];
 		this.rows = [];
 		this.sortKey = "";
@@ -14239,7 +14240,7 @@ var TableComponent = class TableComponent$1 {
 		});
 	}
 	get sortedRows() {
-		if (!this.sortKey) return this.rows;
+		if (this.manualSort || !this.sortKey) return this.rows;
 		const key = this.sortKey;
 		const dir = this.sortDirection === "asc" ? 1 : -1;
 		return [...this.rows].sort((a, b) => {
@@ -14294,7 +14295,8 @@ TableComponent = __decorate([MelodicComponent({
 		"table-title",
 		"description",
 		"sticky-header",
-		"virtual"
+		"virtual",
+		"manual-sort"
 	]
 })], TableComponent);
 function renderCell(col, row, index) {
