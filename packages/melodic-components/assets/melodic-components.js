@@ -22601,7 +22601,7 @@ const dialogStyles = () => css`
 	/* Dialog base */
 	dialog.ml-dialog {
 		position: fixed;
-		display: flex;
+		display: none;
 		flex-direction: column;
 		width: 100%;
 		max-width: var(--ml-dialog-max-width);
@@ -22624,6 +22624,7 @@ const dialogStyles = () => css`
 	}
 
 	dialog.ml-dialog[open] {
+		display: flex;
 		transform: scale(1) translateY(0);
 		opacity: 1;
 	}
