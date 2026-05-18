@@ -308,6 +308,33 @@ export class DataGridComponent implements IElementRef, OnCreate, OnDestroy, OnRe
 		return 0;
 	}
 
+	public getPinnedRightOffset(key: string): number {
+		let offset = 0;
+		for (let i = this.orderedColumns.length - 1; i >= 0; i--) {
+			const col = this.orderedColumns[i];
+			if (col.key === key) return offset;
+			if (col.pinned === 'right') {
+				offset += this.columnWidths[col.key] ?? 150;
+			}
+		}
+		return 0;
+	}
+
+	public get lastLeftPinnedKey(): string | null {
+		let key: string | null = null;
+		for (const col of this.orderedColumns) {
+			if (col.pinned === 'left') key = col.key;
+		}
+		return key;
+	}
+
+	public get firstRightPinnedKey(): string | null {
+		for (const col of this.orderedColumns) {
+			if (col.pinned === 'right') return col.key;
+		}
+		return null;
+	}
+
 	public get topSpacerHeight(): number {
 		return this.virtual ? this.startIndex * this.rowHeight : 0;
 	}

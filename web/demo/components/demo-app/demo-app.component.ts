@@ -555,6 +555,36 @@ export class DemoApp implements IElementRef {
 		{ key: 'ts', label: 'Timestamp', width: 200 }
 	];
 
+	/** Budget-style grid with two right-pinned columns (numeric total + actions) */
+	gridBudgetColumns: DataGridColumn[] = [
+		{ key: 'category', label: 'Category', width: 200, pinned: 'left', sortable: true },
+		{ key: 'q1', label: 'Q1', width: 110, align: 'right', sortable: true, render: (v) => `$${(v as number).toLocaleString()}` },
+		{ key: 'q2', label: 'Q2', width: 110, align: 'right', sortable: true, render: (v) => `$${(v as number).toLocaleString()}` },
+		{ key: 'q3', label: 'Q3', width: 110, align: 'right', sortable: true, render: (v) => `$${(v as number).toLocaleString()}` },
+		{ key: 'q4', label: 'Q4', width: 110, align: 'right', sortable: true, render: (v) => `$${(v as number).toLocaleString()}` },
+		{ key: 'year', label: 'Year', width: 120, align: 'right', sortable: true, pinned: 'right', render: (v) => `$${(v as number).toLocaleString()}` },
+		{
+			key: 'actions',
+			label: '',
+			width: 56,
+			pinned: 'right',
+			resizable: false,
+			reorderable: false,
+			render: () => html`<ml-icon icon="dots-three-vertical" size="sm"></ml-icon>`
+		}
+	];
+
+	gridBudgetRows: Record<string, unknown>[] = [
+		{ category: 'Engineering', q1: 240000, q2: 260000, q3: 275000, q4: 290000, year: 1065000 },
+		{ category: 'Design', q1: 95000, q2: 102000, q3: 108000, q4: 115000, year: 420000 },
+		{ category: 'Product', q1: 80000, q2: 85000, q3: 90000, q4: 95000, year: 350000 },
+		{ category: 'Marketing', q1: 120000, q2: 140000, q3: 130000, q4: 150000, year: 540000 },
+		{ category: 'Sales', q1: 150000, q2: 165000, q3: 175000, q4: 190000, year: 680000 },
+		{ category: 'Finance', q1: 60000, q2: 62000, q3: 65000, q4: 68000, year: 255000 },
+		{ category: 'HR', q1: 45000, q2: 47000, q3: 49000, q4: 52000, year: 193000 },
+		{ category: 'Operations', q1: 70000, q2: 72000, q3: 75000, q4: 78000, year: 295000 }
+	];
+
 	gridServerRows: Record<string, unknown>[] = [
 		{ id: 1, name: 'alice@example.com', event: 'User login', status: 'Success', ts: '2026-02-22 09:01:00' },
 		{ id: 2, name: 'bob@example.com', event: 'Password reset', status: 'Success', ts: '2026-02-22 09:03:22' },

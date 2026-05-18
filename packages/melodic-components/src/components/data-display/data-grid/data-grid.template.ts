@@ -8,6 +8,12 @@ function renderCell(col: DataGridColumn, row: Record<string, unknown>, index: nu
 	return val == null ? '' : val;
 }
 
+function pinStyle(c: DataGridComponent, col: DataGridColumn): string {
+	if (col.pinned === 'left') return `left: ${c.getPinnedLeftOffset(col.key)}px`;
+	if (col.pinned === 'right') return `right: ${c.getPinnedRightOffset(col.key)}px`;
+	return '';
+}
+
 export function dataGridTemplate(c: DataGridComponent) {
 	const gtc = c.gridTemplateColumns;
 	const totalW = c.totalGridWidth;
@@ -58,11 +64,13 @@ export function dataGridTemplate(c: DataGridComponent) {
 									'ml-data-grid__th--sorted': c.sortKey === col.key,
 									'ml-data-grid__th--pinned-left': col.pinned === 'left',
 									'ml-data-grid__th--pinned-right': col.pinned === 'right',
+									'ml-data-grid__th--pinned-left-edge': col.key === c.lastLeftPinnedKey,
+									'ml-data-grid__th--pinned-right-edge': col.key === c.firstRightPinnedKey,
 									'ml-data-grid__th--drag-over': c.dragOverKey === col.key,
 									'ml-data-grid__th--dragging': c.draggingKey === col.key,
 									'ml-data-grid__th--resizing': c.resizingKey === col.key
 								})}
-								style=${col.pinned === 'left' ? `left: ${c.getPinnedLeftOffset(col.key)}px` : ''}
+								style=${pinStyle(c, col)}
 								draggable=${col.reorderable !== false ? 'true' : 'false'}
 								@dragstart=${(e: DragEvent) => c.handleDragStart(col.key, e)}
 								@dragover=${(e: DragEvent) => c.handleDragOver(col.key, e)}
@@ -108,9 +116,10 @@ export function dataGridTemplate(c: DataGridComponent) {
 								<div
 									class=${classMap({
 										'ml-data-grid__filter-cell': true,
-										'ml-data-grid__filter-cell--pinned-left': col.pinned === 'left'
+										'ml-data-grid__filter-cell--pinned-left': col.pinned === 'left',
+										'ml-data-grid__filter-cell--pinned-right': col.pinned === 'right'
 									})}
-									style=${col.pinned === 'left' ? `left: ${c.getPinnedLeftOffset(col.key)}px` : ''}
+									style=${pinStyle(c, col)}
 								>
 									${when(!!col.filterable, () => html`
 										<input
@@ -163,9 +172,11 @@ export function dataGridTemplate(c: DataGridComponent) {
 											'ml-data-grid__td': true,
 											[`ml-data-grid__td--${col.align ?? 'left'}`]: true,
 											'ml-data-grid__td--pinned-left': col.pinned === 'left',
-											'ml-data-grid__td--pinned-right': col.pinned === 'right'
+											'ml-data-grid__td--pinned-right': col.pinned === 'right',
+											'ml-data-grid__td--pinned-left-edge': col.key === c.lastLeftPinnedKey,
+											'ml-data-grid__td--pinned-right-edge': col.key === c.firstRightPinnedKey
 										})}
-										style=${col.pinned === 'left' ? `left: ${c.getPinnedLeftOffset(col.key)}px` : ''}
+										style=${pinStyle(c, col)}
 									>
 										${renderCell(col, row, c.startIndex + i)}
 									</div>

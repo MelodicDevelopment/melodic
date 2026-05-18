@@ -260,7 +260,8 @@ export const dataGridStyles = () => css`
 		position: relative;
 	}
 
-	.ml-data-grid__filter-cell--pinned-left {
+	.ml-data-grid__filter-cell--pinned-left,
+	.ml-data-grid__filter-cell--pinned-right {
 		position: sticky;
 		z-index: 3;
 		background: var(--ml-data-grid-bg);
@@ -395,9 +396,9 @@ export const dataGridStyles = () => css`
 		background: var(--ml-data-grid-header-bg);
 	}
 
-	/* Pinned left shadow */
-	.ml-data-grid__th--pinned-left::after,
-	.ml-data-grid__td--pinned-left::after {
+	/* Pinned left shadow — renders only on the rightmost (boundary) left-pinned cell */
+	.ml-data-grid__th--pinned-left-edge::after,
+	.ml-data-grid__td--pinned-left-edge::after {
 		content: '';
 		position: absolute;
 		top: 0;
@@ -411,7 +412,6 @@ export const dataGridStyles = () => css`
 	.ml-data-grid__th--pinned-right,
 	.ml-data-grid__td--pinned-right {
 		position: sticky;
-		right: 0;
 		z-index: 1;
 		background: var(--ml-data-grid-bg);
 	}
@@ -421,9 +421,9 @@ export const dataGridStyles = () => css`
 		background: var(--ml-data-grid-header-bg);
 	}
 
-	/* Pinned right shadow */
-	.ml-data-grid__th--pinned-right::before,
-	.ml-data-grid__td--pinned-right::before {
+	/* Pinned right shadow — renders only on the leftmost (boundary) right-pinned cell */
+	.ml-data-grid__th--pinned-right-edge::before,
+	.ml-data-grid__td--pinned-right-edge::before {
 		content: '';
 		position: absolute;
 		top: 0;

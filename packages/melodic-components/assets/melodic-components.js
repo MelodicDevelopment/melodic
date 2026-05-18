@@ -14304,6 +14304,11 @@ function renderCell(col, row, index) {
 	const val = row[col.key];
 	return val == null ? "" : val;
 }
+function pinStyle(c, col) {
+	if (col.pinned === "left") return `left: ${c.getPinnedLeftOffset(col.key)}px`;
+	if (col.pinned === "right") return `right: ${c.getPinnedRightOffset(col.key)}px`;
+	return "";
+}
 function dataGridTemplate(c) {
 	const gtc = c.gridTemplateColumns;
 	const totalW = c.totalGridWidth;
@@ -14353,11 +14358,13 @@ function dataGridTemplate(c) {
 		"ml-data-grid__th--sorted": c.sortKey === col.key,
 		"ml-data-grid__th--pinned-left": col.pinned === "left",
 		"ml-data-grid__th--pinned-right": col.pinned === "right",
+		"ml-data-grid__th--pinned-left-edge": col.key === c.lastLeftPinnedKey,
+		"ml-data-grid__th--pinned-right-edge": col.key === c.firstRightPinnedKey,
 		"ml-data-grid__th--drag-over": c.dragOverKey === col.key,
 		"ml-data-grid__th--dragging": c.draggingKey === col.key,
 		"ml-data-grid__th--resizing": c.resizingKey === col.key
 	})}
-								style=${col.pinned === "left" ? `left: ${c.getPinnedLeftOffset(col.key)}px` : ""}
+								style=${pinStyle(c, col)}
 								draggable=${col.reorderable !== false ? "true" : "false"}
 								@dragstart=${(e) => c.handleDragStart(col.key, e)}
 								@dragover=${(e) => c.handleDragOver(col.key, e)}
@@ -14396,9 +14403,10 @@ function dataGridTemplate(c) {
 								<div
 									class=${classMap({
 		"ml-data-grid__filter-cell": true,
-		"ml-data-grid__filter-cell--pinned-left": col.pinned === "left"
+		"ml-data-grid__filter-cell--pinned-left": col.pinned === "left",
+		"ml-data-grid__filter-cell--pinned-right": col.pinned === "right"
 	})}
-									style=${col.pinned === "left" ? `left: ${c.getPinnedLeftOffset(col.key)}px` : ""}
+									style=${pinStyle(c, col)}
 								>
 									${when(!!col.filterable, () => html`
 										<input
@@ -14448,9 +14456,11 @@ function dataGridTemplate(c) {
 		"ml-data-grid__td": true,
 		[`ml-data-grid__td--${col.align ?? "left"}`]: true,
 		"ml-data-grid__td--pinned-left": col.pinned === "left",
-		"ml-data-grid__td--pinned-right": col.pinned === "right"
+		"ml-data-grid__td--pinned-right": col.pinned === "right",
+		"ml-data-grid__td--pinned-left-edge": col.key === c.lastLeftPinnedKey,
+		"ml-data-grid__td--pinned-right-edge": col.key === c.firstRightPinnedKey
 	})}
-										style=${col.pinned === "left" ? `left: ${c.getPinnedLeftOffset(col.key)}px` : ""}
+										style=${pinStyle(c, col)}
 									>
 										${renderCell(col, row, c.startIndex + i)}
 									</div>
@@ -14767,7 +14777,8 @@ const dataGridStyles = () => css`
 		position: relative;
 	}
 
-	.ml-data-grid__filter-cell--pinned-left {
+	.ml-data-grid__filter-cell--pinned-left,
+	.ml-data-grid__filter-cell--pinned-right {
 		position: sticky;
 		z-index: 3;
 		background: var(--ml-data-grid-bg);
@@ -14902,9 +14913,9 @@ const dataGridStyles = () => css`
 		background: var(--ml-data-grid-header-bg);
 	}
 
-	/* Pinned left shadow */
-	.ml-data-grid__th--pinned-left::after,
-	.ml-data-grid__td--pinned-left::after {
+	/* Pinned left shadow — renders only on the rightmost (boundary) left-pinned cell */
+	.ml-data-grid__th--pinned-left-edge::after,
+	.ml-data-grid__td--pinned-left-edge::after {
 		content: '';
 		position: absolute;
 		top: 0;
@@ -14918,7 +14929,6 @@ const dataGridStyles = () => css`
 	.ml-data-grid__th--pinned-right,
 	.ml-data-grid__td--pinned-right {
 		position: sticky;
-		right: 0;
 		z-index: 1;
 		background: var(--ml-data-grid-bg);
 	}
@@ -14928,9 +14938,9 @@ const dataGridStyles = () => css`
 		background: var(--ml-data-grid-header-bg);
 	}
 
-	/* Pinned right shadow */
-	.ml-data-grid__th--pinned-right::before,
-	.ml-data-grid__td--pinned-right::before {
+	/* Pinned right shadow — renders only on the leftmost (boundary) right-pinned cell */
+	.ml-data-grid__th--pinned-right-edge::before,
+	.ml-data-grid__td--pinned-right-edge::before {
 		content: '';
 		position: absolute;
 		top: 0;
@@ -15330,6 +15340,24 @@ var DataGridComponent = class DataGridComponent$1 {
 			if (col.pinned === "left") offset$1 += this.columnWidths[col.key] ?? 150;
 		}
 		return 0;
+	}
+	getPinnedRightOffset(key) {
+		let offset$1 = 0;
+		for (let i = this.orderedColumns.length - 1; i >= 0; i--) {
+			const col = this.orderedColumns[i];
+			if (col.key === key) return offset$1;
+			if (col.pinned === "right") offset$1 += this.columnWidths[col.key] ?? 150;
+		}
+		return 0;
+	}
+	get lastLeftPinnedKey() {
+		let key = null;
+		for (const col of this.orderedColumns) if (col.pinned === "left") key = col.key;
+		return key;
+	}
+	get firstRightPinnedKey() {
+		for (const col of this.orderedColumns) if (col.pinned === "right") return col.key;
+		return null;
 	}
 	get topSpacerHeight() {
 		return this.virtual ? this.startIndex * this.rowHeight : 0;

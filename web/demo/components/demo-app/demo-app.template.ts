@@ -1237,6 +1237,22 @@ export const demoAppTemplate = (c: DemoApp) => {
 
 						<div class="demo-card">
 							<div class="demo-card__header">
+								<h3>Multiple Right-Pinned Columns</h3>
+								<span class="demo-card__badge">Two right-pinned columns · Sticky boundaries</span>
+							</div>
+							<div style="height: 360px;">
+								<ml-data-grid
+									grid-title="Department Budget"
+									description="Category is pinned left; Year total and Actions are both pinned right and sit side-by-side flush with the right edge."
+									.columns=${c.gridBudgetColumns}
+									.rows=${c.gridBudgetRows}
+									virtual
+								></ml-data-grid>
+							</div>
+						</div>
+
+						<div class="demo-card">
+							<div class="demo-card__header">
 								<h3>Server-Side Mode</h3>
 								<span class="demo-card__badge">server-side · External data control</span>
 							</div>
