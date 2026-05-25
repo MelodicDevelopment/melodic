@@ -411,14 +411,6 @@ import '@melodicdev/components/table';
 <div style="height: 500px">
   <ml-table .columns=${columns} .rows=${largeDataset} virtual sticky-header></ml-table>
 </div>
-
-<!-- Navigable rows: SPA navigation on click + native right-click "Open in New Tab",
-     cmd/middle-click, hover URL preview. No @ml:row-click wiring needed. -->
-<ml-table
-  .columns=${columns}
-  .rows=${rows}
-  .rowHref=${(row) => `/people/${row.personID}`}
-></ml-table>
 ```
 
 **TableColumn interface:**
@@ -440,7 +432,6 @@ interface TableColumn {
 |----------|------|---------|-------------|
 | `columns` | `TableColumn[]` | `[]` | Column definitions (property) |
 | `rows` | `Record<string, unknown>[]` | `[]` | Row data (property) |
-| `rowHref` | `(row, index) => string` | `undefined` | Optional row → URL mapper. When set, each row renders a hidden overlay anchor so the browser's native link affordances work: right-click "Open in New Tab", cmd/ctrl-click, middle-click, hover URL preview. **On plain left-click, the component calls `history.pushState`** — the Melodic router picks this up and re-renders, so no `@ml:row-click` wiring is needed for navigation. `ml:row-click` still fires on plain click for side effects (analytics, etc.) and is suppressed on modifier-clicks. External URLs (different origin, `mailto:`, etc.) fall through to the anchor's native navigation. |
 | `selectable` | `boolean` | `false` | Row checkboxes |
 | `striped` | `boolean` | `false` | Alternating row backgrounds |
 | `hoverable` | `boolean` | `true` | Row highlight on hover |

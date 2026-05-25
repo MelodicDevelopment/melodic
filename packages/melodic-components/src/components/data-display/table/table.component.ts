@@ -33,22 +33,11 @@ EventTarget.prototype.addEventListener = function (type: string, listener: Event
  *     .sortDirection=${sortDirection}
  *     @ml:sort=${handleSort}
  * ></ml-table>
- *
- * <!-- Navigable rows: SPA navigation on click, native right-click "Open in New Tab",
- *      cmd/middle-click new tab. ml:row-click handler is optional. -->
- * <ml-table
- *     .columns=${columns}
- *     .rows=${rows}
- *     .rowHref=${(row) => `/people/${row.personID}`}
- * ></ml-table>
  * ```
  *
  * @fires ml:sort - Emitted when a sortable column header is clicked. Detail: { key, direction }
  * @fires ml:select - Emitted when row selection changes. Detail: { selectedRows, allSelected }
- * @fires ml:row-click - Emitted on plain left-click of a row. Detail: { row, index }. When `rowHref`
- *                      is set, this is still fired on plain left-click for side-effect consumers
- *                      (analytics, selection toggling) but suppressed on modifier-clicks
- *                      (cmd/ctrl/shift/middle) so the browser handles the new-tab navigation natively.
+ * @fires ml:row-click - Emitted when a row is clicked. Detail: { row, index }
  *
  * @slot footer - Content for the table footer area (e.g. pagination)
  * @slot header-actions - Actions placed in the header next to title/description
@@ -117,28 +106,6 @@ export class TableComponent implements IElementRef, OnCreate, OnDestroy, OnRende
 
 	/** Indices of selected rows */
 	public selectedIndices: number[] = [];
-
-	/**
-	 * Optional row → URL mapper. When set, each row renders a hidden overlay
-	 * anchor so the browser's native link affordances work: right-click
-	 * "Open in new tab", cmd/ctrl-click, middle-click, hover URL preview.
-	 *
-	 * **Navigation**: on plain left-click, the component calls `history.pushState`
-	 * with the same-origin URL. Melodic's RouterService monkey-patches `pushState`
-	 * to fire a `NavigationEvent`, so the router and `RouterOutlet` pick it up and
-	 * re-render — no extra wiring required. External URLs (different origin,
-	 * `mailto:`, etc.) fall through to the anchor's native navigation.
-	 *
-	 * `ml:row-click` is **not required for navigation**. It still fires on plain
-	 * left-click as a side-effect hook (analytics, selection toggling, opening a
-	 * side panel) and is suppressed on modifier-clicks so it doesn't double-fire
-	 * alongside the browser's native new-tab behavior.
-	 *
-	 * @example
-	 *   <ml-table .columns=${cols} .rows=${rows}
-	 *             .rowHref=${(row) => `/people/${row.personID}`}></ml-table>
-	 */
-	public rowHref: ((row: Record<string, unknown>, index: number) => string) | undefined = undefined;
 
 	// ── Virtual scroll state ─────────────────────────────────────────────────────
 
