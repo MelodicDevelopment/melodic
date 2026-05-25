@@ -17,6 +17,7 @@ export function tableTemplate(c: TableComponent) {
 			'ml-table--striped': c.striped,
 			'ml-table--hoverable': c.hoverable,
 			'ml-table--row-clickable': c._rowClickable,
+			'ml-table--row-linkable': !!c.rowHref,
 			'ml-table--sticky-header': c.stickyHeader,
 			'ml-table--virtual': c.virtual
 		})}>
@@ -93,6 +94,42 @@ export function tableTemplate(c: TableComponent) {
 									})}
 									@click=${() => c.handleRowClick(row, absoluteIndex)}
 								>
+									${when(!!c.rowHref, () => {
+										const href = c.rowHref!(row, absoluteIndex);
+										return html`
+											<td class="ml-table__row-link-cell" aria-hidden="true">
+												<a
+													class="ml-table__row-link"
+													href=${href}
+													tabindex="-1"
+													aria-hidden="true"
+													@click=${(e: Event) => {
+														const me = e as MouseEvent;
+														// Modifier-click → browser handles new tab/window; suppress row click so ml:row-click doesn't double-fire.
+														if (me.metaKey || me.ctrlKey || me.shiftKey) {
+															e.stopPropagation();
+															return;
+														}
+														// Plain left-click: for same-origin URLs, push to history. Melodic's RouterService
+														// monkey-patches pushState to fire NavigationEvent, which RouterOutlet picks up and
+														// re-renders. External / non-http URLs (mailto:, https://other-site, etc.) fall
+														// through to the anchor's native navigation. ml:row-click still fires via bubble
+														// for side effects (analytics, etc.).
+														let url: URL;
+														try {
+															url = new URL(href, window.location.origin);
+														} catch {
+															return;
+														}
+														if (url.origin === window.location.origin) {
+															e.preventDefault();
+															window.history.pushState({}, '', url.pathname + url.search + url.hash);
+														}
+													}}
+												></a>
+											</td>
+										`;
+									})}
 									${when(c.selectable, () => html`
 										<td class="ml-table__check-cell">
 											<input

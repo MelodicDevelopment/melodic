@@ -13694,6 +13694,7 @@ function tableTemplate(c) {
 		"ml-table--striped": c.striped,
 		"ml-table--hoverable": c.hoverable,
 		"ml-table--row-clickable": c._rowClickable,
+		"ml-table--row-linkable": !!c.rowHref,
 		"ml-table--sticky-header": c.stickyHeader,
 		"ml-table--virtual": c.virtual
 	})}>
@@ -13765,6 +13766,36 @@ function tableTemplate(c) {
 		})}
 									@click=${() => c.handleRowClick(row, absoluteIndex)}
 								>
+									${when(!!c.rowHref, () => {
+			const href = c.rowHref(row, absoluteIndex);
+			return html`
+											<td class="ml-table__row-link-cell" aria-hidden="true">
+												<a
+													class="ml-table__row-link"
+													href=${href}
+													tabindex="-1"
+													aria-hidden="true"
+													@click=${(e) => {
+				const me = e;
+				if (me.metaKey || me.ctrlKey || me.shiftKey) {
+					e.stopPropagation();
+					return;
+				}
+				let url;
+				try {
+					url = new URL(href, window.location.origin);
+				} catch {
+					return;
+				}
+				if (url.origin === window.location.origin) {
+					e.preventDefault();
+					window.history.pushState({}, "", url.pathname + url.search + url.hash);
+				}
+			}}
+												></a>
+											</td>
+										`;
+		})}
 									${when(c.selectable, () => html`
 										<td class="ml-table__check-cell">
 											<input
@@ -13988,6 +14019,8 @@ const tableStyles = () => css`
 
 	/* ── Body rows ── */
 	.ml-table__row {
+		/* Positioning context for the overlay anchor used by rowHref */
+		position: relative;
 		border-bottom: var(--ml-table-divider-width) solid var(--ml-table-divider-color);
 		transition: background-color var(--ml-duration-150) var(--ml-ease-in-out);
 	}
@@ -14005,8 +14038,51 @@ const tableStyles = () => css`
 		border-left-color: var(--ml-table-row-hover-border-left-color);
 	}
 
-	.ml-table--row-clickable .ml-table__row {
+	.ml-table--row-clickable .ml-table__row,
+	.ml-table--row-linkable .ml-table__row {
 		cursor: pointer;
+	}
+
+	/* ── Row link overlay (rowHref) ──────────────────────────────────────────────
+	   When rowHref is set, each row renders a hidden <a href> overlay so the
+	   browser's native link affordances kick in (right-click → Open in New Tab,
+	   cmd/middle-click → new tab, hover URL preview). Interactive cell content
+	   sits above the overlay via z-index so buttons/checkboxes still receive
+	   their own clicks. */
+	.ml-table__row-link-cell {
+		padding: 0;
+		width: 0;
+		border: none;
+	}
+
+	.ml-table__row-link {
+		position: absolute;
+		inset: 0;
+		z-index: 0;
+		/* No visual styling — invisible by design. Browser still shows the
+		   destination URL in the status bar on hover. */
+	}
+
+	.ml-table__td > a,
+	.ml-table__td > button,
+	.ml-table__td > input,
+	.ml-table__td > select,
+	.ml-table__td > textarea,
+	.ml-table__td > [tabindex],
+	.ml-table__td ml-button,
+	.ml-table__td ml-icon-button,
+	.ml-table__td ml-popover,
+	.ml-table__td ml-dropdown,
+	.ml-table__td ml-checkbox,
+	.ml-table__td ml-toggle,
+	.ml-table__td ml-tag {
+		position: relative;
+		z-index: 1;
+	}
+
+	.ml-table__check-cell > .ml-table__checkbox {
+		position: relative;
+		z-index: 1;
 	}
 
 	.ml-table__row--selected {
@@ -14140,6 +14216,7 @@ var TableComponent = class TableComponent$1 {
 		this.sortKey = "";
 		this.sortDirection = "asc";
 		this.selectedIndices = [];
+		this.rowHref = void 0;
 		this.startIndex = 0;
 		this.endIndex = 50;
 		this._scroller = new VirtualScroller();
