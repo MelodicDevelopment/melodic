@@ -145,4 +145,33 @@ describe('router service', () => {
 		expect(result.success).toBe(false);
 		expect(window.location.pathname).toBe('/page');
 	});
+
+	it('redirected navigation preserves the previous history entry', async () => {
+		// Regression: a default-child redirect (e.g. `/people/:id` →
+		// `/people/:id/activity`) used to force `replace: true` on the
+		// recursive navigate call. Because the source URL was never pushed,
+		// that replaceState landed on the CURRENT entry — the page the user
+		// came from — erasing it from history. Hitting Back then skipped
+		// straight past the previous page.
+		const router = new RouterService();
+		router.setRoutes([
+			{ path: 'list' },
+			{
+				path: 'detail/:id',
+				children: [
+					{ path: '', redirectTo: 'tab' },
+					{ path: 'tab' }
+				]
+			}
+		]);
+
+		await router.navigate('/list');
+		const lengthAfterList = history.length;
+
+		await router.navigate('/detail/42');
+
+		expect(window.location.pathname).toBe('/detail/42/tab');
+		// The redirect must push a new entry, not replace the /list entry.
+		expect(history.length).toBe(lengthAfterList + 1);
+	});
 });

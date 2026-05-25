@@ -162,7 +162,13 @@ export class RouterService {
 		const matchResult = this.matchPath(path);
 
 		if (matchResult.redirectTo) {
-			return this.navigate(matchResult.redirectTo, { ...options, replace: true });
+			// Honor the caller's original push/replace intent. Forcing
+			// `replace: true` here would erase the previous unrelated history
+			// entry: the source URL never gets pushed (this call returns
+			// before reaching pushState below), so a replaceState on the
+			// redirect target lands on whichever entry was current — i.e. the
+			// page the user just came from — instead of becoming a new entry.
+			return this.navigate(matchResult.redirectTo, options);
 		}
 
 		if (!skipGuards && matchResult.matches.length > 0) {
