@@ -1,6 +1,7 @@
 import { SIGNAL_MARKER, type Signal } from '../types/signal.type';
 import type { Subscriber } from '../types/subscriber.type';
 import { getActiveEffect } from './active-effect.functions';
+import { isBatching, scheduleNotify } from './batch.function';
 
 const DESTROYED_MESSAGE =
 	'Signal accessed after destruction. Holding a signal beyond its owning component (e.g. cached on a long-lived service) is a bug — the signal is destroyed when its component disconnects.';
@@ -13,6 +14,11 @@ export function signal<T>(initialValue?: T): Signal<T | undefined> {
 	const subscribers = new Set<Subscriber<T | undefined>>();
 
 	const notify = (): void => {
+		// Inside a batch, defer (and de-duplicate) notification until it flushes.
+		if (isBatching()) {
+			scheduleNotify(notify);
+			return;
+		}
 		const subscribersToNotify = [...subscribers];
 		subscribersToNotify.forEach((subscriber) => subscriber(value));
 	};
@@ -34,7 +40,7 @@ export function signal<T>(initialValue?: T): Signal<T | undefined> {
 		if (destroyed) {
 			throw new Error(DESTROYED_MESSAGE);
 		}
-		if (value !== newValue) {
+		if (!Object.is(value, newValue)) {
 			value = newValue;
 			notify();
 		}

@@ -35,6 +35,19 @@ describe('template attributes', () => {
 		expect(button?.hasAttribute('disabled')).toBe(false);
 	});
 
+	it('renders ARIA boolean attributes as the literal strings "true"/"false"', () => {
+		render(html`<div role="button" aria-expanded=${true} aria-disabled=${false}></div>`, container);
+		const el = container.querySelector('div');
+		// ARIA state attributes never use present/absent semantics.
+		expect(el?.getAttribute('aria-expanded')).toBe('true');
+		expect(el?.getAttribute('aria-disabled')).toBe('false');
+
+		render(html`<div role="button" aria-expanded=${false} aria-disabled=${true}></div>`, container);
+		const updated = container.querySelector('div');
+		expect(updated?.getAttribute('aria-expanded')).toBe('false');
+		expect(updated?.getAttribute('aria-disabled')).toBe('true');
+	});
+
 	it('runs action directives and cleans up on updates', () => {
 		let calls = 0;
 		let cleanups = 0;

@@ -55,4 +55,31 @@ describe('repeat directive', () => {
 		const labels = Array.from(container.querySelectorAll('li')).map((li) => li.textContent?.trim());
 		expect(labels).toEqual(['Three', 'Two', 'One']);
 	});
+
+	it('updates item content in place when keys and order are unchanged', () => {
+		const render1 = [
+			{ id: 1, label: 'A' },
+			{ id: 2, label: 'B' }
+		];
+
+		render(
+			html`<ul>${repeat(render1, (item) => item.id, (item) => html`<li>${item.label}</li>`)}</ul>`,
+			container
+		);
+		expect(Array.from(container.querySelectorAll('li')).map((li) => li.textContent?.trim())).toEqual(['A', 'B']);
+
+		// Same keys, same order, changed content — must reflect in the live DOM.
+		const render2 = [
+			{ id: 1, label: 'A-updated' },
+			{ id: 2, label: 'B-updated' }
+		];
+		render(
+			html`<ul>${repeat(render2, (item) => item.id, (item) => html`<li>${item.label}</li>`)}</ul>`,
+			container
+		);
+		expect(Array.from(container.querySelectorAll('li')).map((li) => li.textContent?.trim())).toEqual([
+			'A-updated',
+			'B-updated'
+		]);
+	});
 });

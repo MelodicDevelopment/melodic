@@ -859,6 +859,10 @@ export class TemplateResult {
 
 							part.previousValue = composed;
 							continue;
+						} else if (typeof value === 'boolean' && part.name.startsWith('aria-')) {
+							// ARIA state attributes use the literal strings "true"/"false",
+							// never HTML boolean-attribute (present/absent) semantics.
+							element.setAttribute(part.name, String(value));
 						} else if (value === null || value === undefined || value === false) {
 							// Remove attribute for null, undefined, or false (boolean attributes)
 							element.removeAttribute(part.name);

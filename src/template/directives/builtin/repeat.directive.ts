@@ -3,7 +3,6 @@
  */
 
 import type { TemplateResult } from '../../classes/template-result.class';
-import { CompiledTemplate } from '../../classes/compiled-template.class';
 import { directive } from '../functions/directive.function';
 import type { IDirectiveResult } from '../interfaces/idirective-result.interface';
 
@@ -12,8 +11,6 @@ interface RepeatState {
 	items: RepeatItem[];
 	startMarker: Comment;
 	endMarker: Comment;
-	compiledTemplate?: CompiledTemplate;
-	useCompiledPath?: boolean;
 }
 
 interface RepeatItem {
@@ -108,16 +105,6 @@ function updateList<T>(
 		}
 	}
 
-	// On first render, check if we can use compiled fast path
-	if (state.useCompiledPath === undefined && newItems.length > 0) {
-		const sampleTemplate = template(newItems[0], 0);
-		const compiled = CompiledTemplate.compile(sampleTemplate.strings);
-		state.useCompiledPath = compiled.canUseFastPath();
-		if (state.useCompiledPath) {
-			state.compiledTemplate = compiled;
-		}
-	}
-
 	// Track old items by key so we can reuse and remove efficiently
 	const oldItemsByKey = new Map<unknown, RepeatItem>();
 	const oldIndexByKey = new Map<unknown, number>();
@@ -147,7 +134,7 @@ function updateList<T>(
 			});
 		} else {
 			// Create new item
-			const repeatItem = createRepeatItem(item, i, key, template, state);
+			const repeatItem = createRepeatItem(item, i, key, template);
 			newEntries.push({
 				item: repeatItem,
 				oldIndex: -1,
@@ -186,29 +173,16 @@ function updateList<T>(
 	state.items = newEntries.map((entry) => entry.item);
 }
 
-function createRepeatItem<T>(item: T, index: number, key: unknown, template: (item: T, index: number) => TemplateResult, state: RepeatState): RepeatItem {
+function createRepeatItem<T>(item: T, index: number, key: unknown, template: (item: T, index: number) => TemplateResult): RepeatItem {
 	const templateResult = template(item, index);
 
-	let nodes: Node[];
-	let container: DocumentFragment;
-
-	// Use compiled fast path if available
-	if (state.useCompiledPath && state.compiledTemplate) {
-		// Fast path: directly create element without DocumentFragment overhead
-		const node = state.compiledTemplate.createDirect(templateResult.values);
-		if (node) {
-			nodes = [node];
-			container = document.createDocumentFragment();
-			container.appendChild(node);
-		} else {
-			// Fallback if createDirect fails
-			container = document.createDocumentFragment();
-			nodes = templateResult.renderOnce(container);
-		}
-	} else {
-		container = document.createDocumentFragment();
-		nodes = templateResult.renderOnce(container);
-	}
+	// Always render via renderOnce so the item's container retains its update
+	// parts. This lets same-key items update their content in place on re-render
+	// (renderInto diffs against the stored parts). A previous "compiled fast
+	// path" using createDirect() produced no parts and silently dropped in-place
+	// updates — correctness over the micro-optimization.
+	const container = document.createDocumentFragment();
+	const nodes = templateResult.renderOnce(container);
 
 	return {
 		key,
