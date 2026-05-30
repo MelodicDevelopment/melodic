@@ -83,6 +83,20 @@ export abstract class AbstractControl<T = unknown> {
 	public abstract reset(value?: T): void;
 	public abstract destroy(): void;
 
+	/** True once destroy() has run. Guards consumers against reading dead signals. */
+	public get destroyed(): boolean {
+		return this._destroyed;
+	}
+
+	/**
+	 * The control's value including disabled controls. For a plain control this is
+	 * just its value; aggregates (FormGroup/FormArray) override to include disabled
+	 * children that are excluded from `value()`.
+	 */
+	public getRawValue(): T {
+		return this.value();
+	}
+
 	public markAsTouched(): void {
 		this._touched.set(true);
 		if (this.updateOn === 'blur') {
@@ -197,6 +211,9 @@ export abstract class AbstractControl<T = unknown> {
 	}
 
 	protected async runValidation(): Promise<void> {
+		// Claim this run up front so a newer run deterministically cancels any
+		// in-flight async pass (and the stale `pending` it would otherwise leave).
+		const id = ++this._asyncValidationId;
 		const value = this.value();
 		let errors: ValidationErrors | null = null;
 
@@ -208,17 +225,20 @@ export abstract class AbstractControl<T = unknown> {
 		}
 
 		if (errors !== null) {
+			// Sync failure: clear any pending left by a now-superseded async run.
+			this._pending.set(false);
 			this.errors.set(errors);
 			return;
 		}
 
 		if (this._asyncValidators.length > 0) {
-			const id = ++this._asyncValidationId;
 			this._pending.set(true);
 
 			try {
 				const results = await Promise.all(this._asyncValidators.map((v) => v(value)));
-				if (id !== this._asyncValidationId) return;
+				if (id !== this._asyncValidationId) {
+					return;
+				}
 
 				for (const result of results) {
 					if (result !== null) {
@@ -232,7 +252,9 @@ export abstract class AbstractControl<T = unknown> {
 			}
 		}
 
-		this.errors.set(errors);
+		if (id === this._asyncValidationId) {
+			this.errors.set(errors);
+		}
 	}
 
 	protected computeDirty(): boolean {

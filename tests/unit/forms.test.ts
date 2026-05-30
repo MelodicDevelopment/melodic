@@ -32,12 +32,17 @@ describe('AbstractControl behavior', () => {
 		expect(state.untouched).toBe(true);
 	});
 
-	it('marks dirty on setValue and touched on markAsTouched', () => {
+	it('does not dirty on programmatic setValue; markAsDirty/markAsTouched do', () => {
 		const c = createFormControl<string>('hello');
 		expect(c.dirty()).toBe(false);
 		expect(c.touched()).toBe(false);
 
+		// Programmatic setValue updates the value but does NOT dirty (Angular semantics).
 		c.setValue('world');
+		expect(c.value()).toBe('world');
+		expect(c.dirty()).toBe(false);
+
+		c.markAsDirty();
 		expect(c.dirty()).toBe(true);
 
 		c.markAsTouched();
@@ -47,6 +52,7 @@ describe('AbstractControl behavior', () => {
 	it('reset clears value, dirty, touched, errors', () => {
 		const c = createFormControl<string>('initial', { validators: [Validators.required] });
 		c.setValue('changed');
+		c.markAsDirty();
 		c.markAsTouched();
 		expect(c.dirty()).toBe(true);
 		expect(c.touched()).toBe(true);
@@ -141,6 +147,7 @@ describe('FormGroup', () => {
 
 		expect(group.dirty()).toBe(false);
 		group.get('a').setValue('hi');
+		group.get('a').markAsDirty();
 		expect(group.dirty()).toBe(true);
 	});
 
@@ -274,15 +281,16 @@ describe('setValue / patchValue { markAsPristine }', () => {
 		expect(c.pristine()).toBe(true);
 	});
 
-	it('FormControl: setValue still flips to dirty by default', () => {
+	it('FormControl: programmatic setValue stays pristine by default', () => {
 		const c = createFormControl<string>('initial');
 		c.setValue('changed');
-		expect(c.dirty()).toBe(true);
+		// Programmatic setValue no longer auto-dirties (Angular semantics).
+		expect(c.dirty()).toBe(false);
 	});
 
 	it('FormControl: markAsPristine clears existing dirty state after update', () => {
 		const c = createFormControl<string>('initial');
-		c.setValue('typed by user');
+		c.markAsDirty();
 		expect(c.dirty()).toBe(true);
 		c.setValue('server value', { markAsPristine: true });
 		expect(c.dirty()).toBe(false);
@@ -308,7 +316,7 @@ describe('setValue / patchValue { markAsPristine }', () => {
 			name: createFormControl<string>('')
 		});
 
-		form.get('name').setValue('user typed'); // dirty
+		form.get('name').markAsDirty(); // user-typed → dirty
 
 		form.patchValue({ email: 'new@example.com' }, { markAsPristine: true });
 
@@ -546,5 +554,95 @@ describe(':formControl directive', () => {
 
 		// After disconnect, control updates should not throw or affect anything
 		expect(() => ctrl.setValue('after-disconnect')).not.toThrow();
+	});
+});
+
+describe('standard reactive-forms semantics (2.0)', () => {
+	it('excludes disabled controls from value() but includes them in getRawValue()', () => {
+		const form = createFormGroup<{ a: string; b: string }>({
+			a: createFormControl<string>('A'),
+			b: createFormControl<string>('B', { disabled: true })
+		});
+
+		expect(form.value()).toEqual({ a: 'A' });
+		expect(form.getRawValue()).toEqual({ a: 'A', b: 'B' });
+
+		form.get('b').enable();
+		expect(form.value()).toEqual({ a: 'A', b: 'B' });
+	});
+
+	it('FormArray excludes disabled controls from value() but not getRawValue()', () => {
+		const arr = createFormArray<string>([
+			createFormControl<string>('x'),
+			createFormControl<string>('y', { disabled: true })
+		]);
+
+		expect(arr.value()).toEqual(['x']);
+		expect(arr.getRawValue()).toEqual(['x', 'y']);
+	});
+
+	it('FormGroup.setValue throws on unknown or missing keys', () => {
+		const form = createFormGroup<{ a: string; b: string }>({
+			a: createFormControl<string>(''),
+			b: createFormControl<string>('')
+		});
+
+		// Missing key
+		expect(() => form.setValue({ a: 'only-a' } as never)).toThrow(/missing value/i);
+		// Unknown key
+		expect(() => form.setValue({ a: '1', b: '2', c: '3' } as never)).toThrow(/unknown control/i);
+		// Exact shape is accepted
+		expect(() => form.setValue({ a: '1', b: '2' })).not.toThrow();
+		expect(form.value()).toEqual({ a: '1', b: '2' });
+	});
+
+	it('FormArray.setValue throws on a length mismatch', () => {
+		const arr = createFormArray<string>([createFormControl<string>(''), createFormControl<string>('')]);
+		expect(() => arr.setValue(['only-one'])).toThrow(/expected 2/i);
+		expect(() => arr.setValue(['a', 'b'])).not.toThrow();
+	});
+
+	it('removeControl / removeAt do not throw and keep the aggregate correct', () => {
+		const form = createFormGroup<{ a: string; b: string }>({
+			a: createFormControl<string>('A'),
+			b: createFormControl<string>('B')
+		});
+		expect(() => form.removeControl('b')).not.toThrow();
+		expect(form.value()).toEqual({ a: 'A' });
+
+		const arr = createFormArray<string>([
+			createFormControl<string>('x'),
+			createFormControl<string>('y'),
+			createFormControl<string>('z')
+		]);
+		expect(() => arr.removeAt(1)).not.toThrow();
+		expect(arr.value()).toEqual(['x', 'z']);
+		expect(() => arr.clear()).not.toThrow();
+		expect(arr.value()).toEqual([]);
+	});
+
+	it('a newer validation run cancels an in-flight async pass (no stuck pending)', async () => {
+		let resolveSlow: (v: null) => void = () => {};
+		const slowAsync = () =>
+			new Promise<null>((resolve) => {
+				resolveSlow = resolve;
+			});
+
+		const c = createFormControl<string>('', { asyncValidators: [slowAsync] });
+		// Trigger the slow async pass.
+		c.setValue('first');
+		await Promise.resolve();
+		expect(c.pending()).toBe(true);
+
+		// A synchronous-failing run supersedes the in-flight async pass.
+		c.setValidators([Validators.required]);
+		c.setValue('');
+		expect(c.hasError('required')).toBe(true);
+		expect(c.pending()).toBe(false);
+
+		// Resolving the old async pass must not revive pending or clobber errors.
+		resolveSlow(null);
+		await Promise.resolve();
+		expect(c.pending()).toBe(false);
 	});
 });

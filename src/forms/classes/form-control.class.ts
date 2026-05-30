@@ -15,7 +15,12 @@ export class FormControl<T = unknown> extends AbstractControl<T> {
 		if (this._ownDisabled()) return;
 
 		this.value.set(value);
-		this._dirty.set(!options?.markAsPristine);
+
+		// Programmatic setValue does not dirty the control (Angular semantics).
+		// User input dirties via the form-control directive's input handler.
+		if (options?.markAsPristine) {
+			this._dirty.set(false);
+		}
 
 		if (this.updateOn === 'change') {
 			void this.runValidation();
@@ -35,7 +40,8 @@ export class FormControl<T = unknown> extends AbstractControl<T> {
 		this.value.set(value ?? this.initialValue);
 		this._dirty.set(false);
 		this._touched.set(false);
-		this.errors.set(null);
+		// runValidation recomputes errors from the reset value, so an explicit
+		// errors.set(null) here would just be overwritten.
 		void this.runValidation();
 	}
 

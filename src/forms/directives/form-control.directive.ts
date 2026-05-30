@@ -20,14 +20,17 @@ function formControlDirective(element: Element, value: unknown, _: string): Attr
 	const cleanupFns: (() => void)[] = [];
 
 	const syncElementValue = (val: unknown): void => {
+		if (control.destroyed) return;
 		adapter.setValue(element, val);
 	};
 
 	const syncDisabled = (disabled: boolean): void => {
+		if (control.destroyed) return;
 		adapter.setDisabled?.(element, disabled);
 	};
 
 	const syncClasses = (): void => {
+		if (control.destroyed) return;
 		element.classList.toggle('mf-valid', control.valid());
 		element.classList.toggle('mf-invalid', control.invalid());
 		element.classList.toggle('mf-dirty', control.dirty());
@@ -38,6 +41,7 @@ function formControlDirective(element: Element, value: unknown, _: string): Attr
 	};
 
 	const syncError = (): void => {
+		if (control.destroyed) return;
 		if (!control.touched() || !control.errors()) {
 			element.removeAttribute('error');
 			return;
@@ -54,7 +58,9 @@ function formControlDirective(element: Element, value: unknown, _: string): Attr
 	const handleInput = (event: Event): void => {
 		const target = event.target as Element;
 		if (target === element || element.contains(target)) {
+			// User input dirties the control; setValue itself no longer auto-dirties.
 			control.setValue(adapter.getValue(element));
+			control.markAsDirty();
 		}
 	};
 

@@ -57,24 +57,50 @@ export class FormGroup<T = Record<string, unknown>> extends AbstractControl<Form
 		if (!control) return;
 
 		control.parent = null;
-		control.destroy();
 
+		// Update the controls signal FIRST so the value effect drops its
+		// dependency on this control, then destroy it — otherwise the effect
+		// could read the control's already-destroyed signals.
 		this.controls.update((current) => {
 			const next = { ...current };
 			delete next[name];
 			return next;
 		});
+
+		control.destroy();
 	}
 
 	public setValue(value: FormGroupValue<T>, options?: SetValueOptions): void {
 		if (this._ownDisabled()) return;
 		const controls = this.controls();
-		for (const key of Object.keys(value)) {
-			controls[key as keyof T]?.setValue(value[key as keyof T], options);
+		const controlKeys = Object.keys(controls);
+		const valueKeys = Object.keys(value as Record<string, unknown>);
+
+		// Strict: setValue replaces the whole group. Reject unknown/missing keys
+		// so a wrong-shaped value can't silently leave stale data (use patchValue
+		// for partial updates).
+		for (const key of valueKeys) {
+			if (!(key in controls)) {
+				throw new Error(`FormGroup.setValue: unknown control name '${key}'. Use patchValue() for partial updates.`);
+			}
+		}
+		for (const key of controlKeys) {
+			if (!(key in (value as Record<string, unknown>))) {
+				throw new Error(`FormGroup.setValue: missing value for control name '${key}'. Use patchValue() for partial updates.`);
+			}
+		}
+
+		for (const key of controlKeys) {
+			controls[key as keyof T].setValue(value[key as keyof T], options);
 		}
 		if (options?.markAsPristine) {
 			this._dirty.set(false);
 		}
+	}
+
+	/** Value including disabled controls (which `value()` omits). */
+	public override getRawValue(): FormGroupValue<T> {
+		return FormGroup.computeValue(this.controls(), true);
 	}
 
 	public patchValue(value: Partial<FormGroupValue<T>>, options?: SetValueOptions): void {
@@ -187,10 +213,16 @@ export class FormGroup<T = Record<string, unknown>> extends AbstractControl<Form
 		return Object.keys(controls).some((key) => controls[key as keyof T].invalid());
 	}
 
-	private static computeValue<T>(controls: FormGroupControls<T>): FormGroupValue<T> {
+	private static computeValue<T>(controls: FormGroupControls<T>, includeDisabled = false): FormGroupValue<T> {
 		const result: Partial<FormGroupValue<T>> = {};
 		for (const key of Object.keys(controls) as (keyof T)[]) {
-			result[key] = controls[key].value();
+			const control = controls[key];
+			// Disabled controls are excluded from value() (Angular semantics);
+			// getRawValue() passes includeDisabled to get the full set.
+			if (!includeDisabled && control.disabled()) {
+				continue;
+			}
+			result[key] = includeDisabled ? control.getRawValue() : control.value();
 		}
 		return result as FormGroupValue<T>;
 	}

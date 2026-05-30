@@ -255,6 +255,10 @@ export abstract class ComponentBase extends HTMLElement {
 			}
 
 			if (value instanceof AbstractControl) {
+				// Re-render when either the control's value OR its status (state)
+				// changes, so templates reading control.value() stay in sync even
+				// when the value change doesn't alter dirty/touched/validity.
+				this._reactiveSources.push(value.value as Signal<unknown>);
 				this._reactiveSources.push(value.state as Signal<unknown>);
 				return false;
 			}

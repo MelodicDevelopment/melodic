@@ -24,7 +24,8 @@ export class FormArray<T = unknown> extends AbstractControl<T[]> {
 			for (const control of controls) {
 				control.value();
 			}
-			this.value.set(controls.map((c) => c.value()));
+			// Disabled controls are excluded from value() (Angular semantics).
+			this.value.set(controls.filter((c) => !c.disabled()).map((c) => c.value()));
 			void this.runValidation();
 		});
 		this._childValueEffect.run();
@@ -58,29 +59,49 @@ export class FormArray<T = unknown> extends AbstractControl<T[]> {
 		if (!control) return;
 
 		control.parent = null;
-		control.destroy();
 
+		// Update the controls signal FIRST so the value effect drops its
+		// dependency on this control, then destroy it.
 		this.controls.update((current) => current.filter((_, i) => i !== index));
+
+		control.destroy();
 	}
 
 	public clear(): void {
 		const controls = this.controls();
 		for (const control of controls) {
 			control.parent = null;
+		}
+		// Drop all controls from the signal before destroying them, so the value
+		// effect re-runs against the empty list and never reads a dead signal.
+		this.controls.set([]);
+		for (const control of controls) {
 			control.destroy();
 		}
-		this.controls.set([]);
 	}
 
 	public setValue(value: T[], options?: SetValueOptions): void {
 		if (this._ownDisabled()) return;
 		const controls = this.controls();
+
+		// Strict: setValue replaces the whole array, so lengths must match.
+		if (value.length !== controls.length) {
+			throw new Error(
+				`FormArray.setValue: expected ${controls.length} value(s) but received ${value.length}. Use patchValue() for partial updates.`
+			);
+		}
+
 		value.forEach((v, i) => {
-			controls[i]?.setValue(v, options);
+			controls[i].setValue(v, options);
 		});
 		if (options?.markAsPristine) {
 			this._dirty.set(false);
 		}
+	}
+
+	/** Value including disabled controls (which `value()` omits). */
+	public override getRawValue(): T[] {
+		return this.controls().map((c) => c.getRawValue());
 	}
 
 	public patchValue(value: T[], options?: SetValueOptions): void {

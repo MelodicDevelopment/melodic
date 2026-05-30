@@ -43,9 +43,16 @@ All control types extend `AbstractControl<T>`. It exposes:
 | `disabled`, `enabled` | `Signal<boolean>` | |
 | `state` | `Signal<ControlState>` | Composite of all the above — recommended subscription point |
 
-Common methods: `setValue`, `patchValue`, `reset`, `markAsTouched`, `markAsUntouched`, `markAsDirty`, `markAsPristine`, `markAllAsTouched`, `markAllAsUntouched`, `disable`, `enable`, `validate`, `setValidators`, `addValidators`, `removeValidators`, `setAsyncValidators`, `getError(code)`, `hasError(code)`, `getErrorMessage(code)`, `getFirstErrorMessage()`, `destroy`.
+Common methods: `setValue`, `patchValue`, `reset`, `getRawValue`, `markAsTouched`, `markAsUntouched`, `markAsDirty`, `markAsPristine`, `markAllAsTouched`, `markAllAsUntouched`, `disable`, `enable`, `validate`, `setValidators`, `addValidators`, `removeValidators`, `setAsyncValidators`, `getError(code)`, `hasError(code)`, `getErrorMessage(code)`, `getFirstErrorMessage()`, `destroy`.
 
 Each control has an optional `parent` reference. Adding a control to a group/array sets it; removing clears it. The parent chain is walked when resolving error messages.
+
+### Semantics (standard, Angular-aligned)
+
+- **Disabled controls are excluded from `value()`.** Use `getRawValue()` to get the full value including disabled controls.
+- **`setValue` is strict; `patchValue` is lenient.** On a `FormGroup`, `setValue` throws if the supplied object's keys don't exactly match the controls (use `patchValue` for partial updates). On a `FormArray`, `setValue` requires a matching length.
+- **Programmatic `setValue` does not mark the control dirty.** User input dirties via the `:formControl` directive; call `markAsDirty()` explicitly for programmatic dirtying. Pass `{ markAsPristine: true }` to keep it pristine when hydrating.
+- **`markAsTouched()` touches only that control; `markAllAsTouched()` cascades to children.** To show all errors on submit, call `form.markAllAsTouched()` (not `markAsTouched()`).
 
 ## FormControl
 
@@ -56,7 +63,7 @@ const username = createFormControl<string>('', {
 });
 
 username.value();             // ''
-username.setValue('melodic'); // marks dirty, runs validation if updateOn is 'change'
+username.setValue('melodic'); // updates value, runs validation if updateOn is 'change' (does not dirty)
 username.errors();            // ValidationErrors | null
 username.markAsTouched();     // also runs validation if updateOn is 'blur'
 ```
