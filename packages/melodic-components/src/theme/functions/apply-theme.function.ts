@@ -18,6 +18,9 @@ export function getTheme(): ThemeMode {
  */
 export function getResolvedTheme(): 'light' | 'dark' {
 	if (currentTheme === 'system') {
+		if (typeof window === 'undefined' || !window.matchMedia) {
+			return 'light';
+		}
 		return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
 	}
 	return currentTheme;
@@ -35,6 +38,12 @@ export function applyTheme(theme: ThemeMode): void {
 	}
 
 	currentTheme = theme;
+
+	// No-op in non-browser environments (SSR / tests without a DOM).
+	if (typeof document === 'undefined' || typeof window === 'undefined' || !window.matchMedia) {
+		notifyListeners(theme, theme === 'dark' ? 'dark' : 'light');
+		return;
+	}
 
 	if (theme === 'system') {
 		// Listen for system preference changes

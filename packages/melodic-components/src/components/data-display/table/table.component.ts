@@ -5,18 +5,6 @@ import { tableTemplate } from './table.template.js';
 import { tableStyles } from './table.styles.js';
 import { VirtualScroller } from '../../../utils/virtual-scroll/index.js';
 
-// Track elements that receive ml:row-click listeners before custom element upgrade.
-// The template engine adds event listeners via addEventListener on un-upgraded elements
-// (before the constructor runs), so we intercept at the prototype level to catch them.
-const _rowClickTargets = new WeakSet<EventTarget>();
-const _origAddEventListener = EventTarget.prototype.addEventListener;
-EventTarget.prototype.addEventListener = function (type: string, listener: EventListenerOrEventListenerObject | null, options?: boolean | AddEventListenerOptions): void {
-	if (type === 'ml:row-click') {
-		_rowClickTargets.add(this);
-	}
-	_origAddEventListener.call(this, type, listener, options);
-};
-
 /**
  * ml-table - Data table with sorting, selection, and custom cell rendering
  *
@@ -46,13 +34,17 @@ EventTarget.prototype.addEventListener = function (type: string, listener: Event
 	selector: 'ml-table',
 	template: tableTemplate,
 	styles: tableStyles,
-	attributes: ['selectable', 'striped', 'hoverable', 'size', 'table-title', 'description', 'sticky-header', 'virtual', 'manual-sort']
+	attributes: ['selectable', 'striped', 'hoverable', 'size', 'table-title', 'description', 'sticky-header', 'virtual', 'manual-sort', 'clickable-rows']
 })
 export class TableComponent implements IElementRef, OnCreate, OnDestroy, OnRender, OnPropertyChange {
 	public elementRef!: HTMLElement;
 
-	/** Whether a row-click listener is attached (auto-detected) */
-	public _rowClickable = false;
+	/**
+	 * Apply the clickable-row affordance (pointer cursor + hover highlight).
+	 * Set this when you also listen for `ml:row-click`. Replaces the previous
+	 * auto-detection that globally patched EventTarget.prototype.addEventListener.
+	 */
+	public clickableRows = false;
 
 	/** Whether the footer slot has content */
 	public hasFooter = false;
@@ -129,10 +121,6 @@ export class TableComponent implements IElementRef, OnCreate, OnDestroy, OnRende
 		if (name === 'rows' || name === 'columns') {
 			this._scroller.invalidate();
 		}
-	}
-
-	public onInit(): void {
-		this._rowClickable = _rowClickTargets.has(this.elementRef);
 	}
 
 	public onCreate(): void {

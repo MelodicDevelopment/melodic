@@ -52,6 +52,9 @@ export class PopoverComponent implements IElementRef, OnCreate, OnDestroy {
 	public isOpen = false;
 
 	private _cleanupAutoUpdate: (() => void) | null = null;
+	// Set when the popover light-dismisses, consumed by the next toggle() so a
+	// click on the trigger that just dismissed it doesn't immediately reopen it.
+	private _justDismissed = false;
 
 	public onCreate(): void {
 		const popoverEl = this.getPopoverEl();
@@ -86,6 +89,12 @@ export class PopoverComponent implements IElementRef, OnCreate, OnDestroy {
 
 	/** Toggle the popover */
 	public toggle = (): void => {
+		// Swallow the click that just light-dismissed the open popover, so the
+		// trigger doesn't immediately reopen it.
+		if (this._justDismissed) {
+			this._justDismissed = false;
+			return;
+		}
 		const popoverEl = this.getPopoverEl();
 		if (popoverEl) {
 			popoverEl.togglePopover();
@@ -99,6 +108,8 @@ export class PopoverComponent implements IElementRef, OnCreate, OnDestroy {
 			this.startPositioning();
 		} else {
 			this.isOpen = false;
+			this._justDismissed = true;
+			setTimeout(() => { this._justDismissed = false; }, 0);
 			this._cleanupAutoUpdate?.();
 			this._cleanupAutoUpdate = null;
 		}

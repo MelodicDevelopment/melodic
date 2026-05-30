@@ -47,6 +47,9 @@ export class DropdownComponent implements IElementRef, OnCreate, OnDestroy {
 
 	private _focusedIndex = -1;
 	private _cleanupAutoUpdate: (() => void) | null = null;
+	// Set when the popover light-dismisses, consumed by the next toggle() so a
+	// click on the trigger that just dismissed the menu doesn't immediately reopen it.
+	private _justDismissed = false;
 
 	public onCreate(): void {
 		const menuEl = this.getMenuEl();
@@ -86,6 +89,12 @@ export class DropdownComponent implements IElementRef, OnCreate, OnDestroy {
 
 	/** Toggle the menu */
 	public toggle = (): void => {
+		// A click on the trigger that just light-dismissed the open menu would
+		// otherwise reopen it. Swallow that one toggle.
+		if (this._justDismissed) {
+			this._justDismissed = false;
+			return;
+		}
 		const menuEl = this.getMenuEl();
 		if (menuEl) {
 			menuEl.togglePopover();
@@ -103,6 +112,10 @@ export class DropdownComponent implements IElementRef, OnCreate, OnDestroy {
 			);
 		} else {
 			this.isOpen = false;
+			// Guard the immediately-following trigger click (if this dismiss was
+			// caused by clicking the trigger). Cleared next macrotask otherwise.
+			this._justDismissed = true;
+			setTimeout(() => { this._justDismissed = false; }, 0);
 			this.clearFocus();
 			this._cleanupAutoUpdate?.();
 			this._cleanupAutoUpdate = null;

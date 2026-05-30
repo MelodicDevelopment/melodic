@@ -62,8 +62,18 @@ export class RadioGroupComponent implements IElementRef, OnInit {
 	public onInit(): void {
 		// Listen for changes from child radios
 		this.elementRef.addEventListener('ml:change', this.handleChildChange as EventListener);
+	}
 
-		// Set initial name on child radios
+	public onCreate(): void {
+		// Re-sync when slotted radios are added/removed.
+		const slot = this.elementRef.shadowRoot?.querySelector('slot');
+		slot?.addEventListener('slotchange', () => this.updateChildRadios());
+	}
+
+	public onRender(): void {
+		// Sync child radios after every render (post-commit), so programmatic
+		// value/disabled changes — e.g. from a :formControl binding, setValue, or
+		// reset — are reflected on the slotted radios.
 		this.updateChildRadios();
 	}
 

@@ -6,8 +6,10 @@ export const tooltipStyles = () => css`
 		--ml-tooltip-max-width: 320px;
 		--ml-tooltip-padding-y: var(--ml-space-2);
 		--ml-tooltip-padding-x: var(--ml-space-3);
-		--ml-tooltip-bg: var(--ml-tooltip-bg);
-		--ml-tooltip-color: var(--ml-tooltip-text);
+		/* bg/color derive from the global tooltip theme tokens; referencing
+		   --ml-tooltip-bg here would be self-referential (invalid → transparent). */
+		--ml-tooltip-bg: var(--ml-color-neutral-900, var(--ml-gray-900));
+		--ml-tooltip-color: var(--ml-tooltip-text, var(--ml-white));
 		--ml-tooltip-font-size: var(--ml-text-xs);
 		--ml-tooltip-font-weight: var(--ml-font-medium);
 		--ml-tooltip-line-height: var(--ml-leading-snug);

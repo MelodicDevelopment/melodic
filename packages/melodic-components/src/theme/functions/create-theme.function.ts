@@ -21,6 +21,10 @@ export function createTheme(name: string, overrides: TokenOverrides): string {
  * @returns Style element that was injected (can be removed to unload theme)
  */
 export function injectTheme(name: string, overrides: TokenOverrides): HTMLStyleElement {
+	if (typeof document === 'undefined') {
+		throw new Error('injectTheme requires a DOM (document is undefined).');
+	}
+
 	const css = createTheme(name, overrides);
 	const style = document.createElement('style');
 	style.id = `ml-theme-${name}`;
@@ -37,8 +41,21 @@ export function injectTheme(name: string, overrides: TokenOverrides): HTMLStyleE
 }
 
 /**
- * Create a brand theme with a primary color
- * Automatically generates color variations
+ * Emit a base semantic color plus its -hover / -active / -subtle variants, so a
+ * brand theme stays visually consistent (components reference the variants for
+ * interaction states, not just the base).
+ */
+function setColorWithVariants(overrides: TokenOverrides, token: string, color: string): void {
+	overrides[token] = color;
+	overrides[`${token}-hover`] = `color-mix(in srgb, ${color}, black 12%)`;
+	overrides[`${token}-active`] = `color-mix(in srgb, ${color}, black 22%)`;
+	overrides[`${token}-subtle`] = `color-mix(in srgb, ${color}, white 88%)`;
+}
+
+/**
+ * Create a brand theme from semantic colors. Each color also generates matching
+ * hover/active/subtle variants so interaction states aren't left at the default
+ * (e.g. a purple primary no longer hovers blue).
  */
 export function createBrandTheme(
 	name: string,
@@ -53,19 +70,19 @@ export function createBrandTheme(
 	const overrides: TokenOverrides = {};
 
 	if (options.primary) {
-		overrides['--ml-color-primary'] = options.primary;
+		setColorWithVariants(overrides, '--ml-color-primary', options.primary);
 	}
 	if (options.secondary) {
-		overrides['--ml-color-secondary'] = options.secondary;
+		setColorWithVariants(overrides, '--ml-color-secondary', options.secondary);
 	}
 	if (options.success) {
-		overrides['--ml-color-success'] = options.success;
+		setColorWithVariants(overrides, '--ml-color-success', options.success);
 	}
 	if (options.warning) {
-		overrides['--ml-color-warning'] = options.warning;
+		setColorWithVariants(overrides, '--ml-color-warning', options.warning);
 	}
 	if (options.danger) {
-		overrides['--ml-color-danger'] = options.danger;
+		setColorWithVariants(overrides, '--ml-color-danger', options.danger);
 	}
 
 	return createTheme(name, overrides);

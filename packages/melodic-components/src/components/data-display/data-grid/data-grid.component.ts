@@ -148,6 +148,14 @@ export class DataGridComponent implements IElementRef, OnCreate, OnDestroy, OnRe
 		if (name === 'columns' && Array.isArray(newVal)) {
 			this._syncColumnState(newVal as DataGridColumn[]);
 		}
+
+		if (name === 'rows') {
+			// Selection is positional; a new dataset invalidates it. Recompute the
+			// virtual window after the new value commits (onPropertyChange fires
+			// before the assignment), matching ml-table's behavior.
+			this.selectedIndices = [];
+			queueMicrotask(() => this._scroller.invalidate());
+		}
 	}
 
 	public onCreate(): void {
@@ -367,6 +375,9 @@ export class DataGridComponent implements IElementRef, OnCreate, OnDestroy, OnRe
 			this.sortDirection = 'asc';
 		}
 		this.currentPage = 1;
+		// Selection is positional; sorting reorders rows, so clear it (otherwise
+		// the same indices would point at different rows).
+		this.selectedIndices = [];
 		this._scroller.invalidate();
 		this.elementRef.dispatchEvent(
 			new CustomEvent('ml:sort', {
@@ -381,6 +392,8 @@ export class DataGridComponent implements IElementRef, OnCreate, OnDestroy, OnRe
 		const val = (e.target as HTMLInputElement).value;
 		this.filters = { ...this.filters, [key]: val };
 		this.currentPage = 1;
+		// Filtering changes which rows are present; positional selection no longer applies.
+		this.selectedIndices = [];
 		this._scroller.invalidate();
 		this.elementRef.dispatchEvent(
 			new CustomEvent('ml:filter', {
@@ -490,6 +503,9 @@ export class DataGridComponent implements IElementRef, OnCreate, OnDestroy, OnRe
 	public goToPage = (page: number): void => {
 		if (page < 1 || page > this.totalPages) return;
 		this.currentPage = page;
+		// Selection indices are page-relative; clear on page change so the header
+		// checkbox and ml:select don't report rows from the previous page.
+		this.selectedIndices = [];
 		if (this._viewport) this._viewport.scrollTop = 0;
 		this._scroller.invalidate();
 		this.elementRef.dispatchEvent(

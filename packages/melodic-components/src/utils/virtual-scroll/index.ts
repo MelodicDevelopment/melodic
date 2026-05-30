@@ -21,10 +21,12 @@ export class VirtualScroller {
 		this._viewport = viewport;
 		this._options = options;
 
-		this._resizeObserver = new ResizeObserver(entries => {
-			for (const entry of entries) {
-				this._compute(entry.contentRect.height);
-			}
+		// Recompute on resize. We deliberately read clientHeight inside _compute
+		// (not entry.contentRect.height) so resize, scroll, and invalidate all use
+		// the same height definition — contentRect excludes padding, clientHeight
+		// includes it, and mixing them shifted the visible range by a row.
+		this._resizeObserver = new ResizeObserver(() => {
+			this._compute();
 		});
 		this._resizeObserver.observe(viewport);
 		viewport.addEventListener('scroll', this._handleScroll);
@@ -43,15 +45,14 @@ export class VirtualScroller {
 
 	/** Call after item count or row height changes (e.g. after sort/filter/page change) */
 	public invalidate(): void {
-		if (!this._viewport) return;
-		this._compute(this._viewport.clientHeight);
+		this._compute();
 	}
 
 	private _handleScroll = (): void => {
-		this._compute(this._viewport!.clientHeight);
+		this._compute();
 	};
 
-	private _compute(viewportHeight: number): void {
+	private _compute(): void {
 		if (!this._viewport || !this._options) return;
 		const { rowHeight, itemCount, onUpdate, enabled, buffer = 3 } = this._options;
 
@@ -62,6 +63,7 @@ export class VirtualScroller {
 			return;
 		}
 
+		const viewportHeight = this._viewport.clientHeight;
 		const scrollTop = this._viewport.scrollTop;
 		const rowH = rowHeight();
 		const newStart = Math.max(0, Math.floor(scrollTop / rowH) - buffer);

@@ -57,6 +57,14 @@ export class RadioCardGroupComponent implements IElementRef, OnCreate, OnDestroy
 
 	public onCreate(): void {
 		this.elementRef.addEventListener('ml:card-select', this._handleCardSelect as EventListener);
+		// Re-sync when slotted cards are added/removed.
+		this.elementRef.shadowRoot?.querySelector('slot')?.addEventListener('slotchange', this.handleSlotChange);
+	}
+
+	public onRender(): void {
+		// Sync cards after every render (post-commit), so programmatic value/
+		// disabled changes — e.g. from a :formControl binding, setValue, or reset —
+		// are reflected on the slotted cards.
 		this.syncCards();
 	}
 

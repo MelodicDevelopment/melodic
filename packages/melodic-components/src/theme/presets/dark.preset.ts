@@ -112,7 +112,7 @@ export const darkThemeCss = `[data-theme="dark"] {
 }
 
 @media (prefers-color-scheme: dark) {
-	:root:not([data-theme="light"]) {
+	:root:not([data-theme]) {
 		${Object.entries(darkTheme)
 			.map(([key, value]) => `${key}: ${value};`)
 			.join('\n\t\t')}
