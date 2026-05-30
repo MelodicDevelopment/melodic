@@ -9,6 +9,7 @@ interface IPendingRequest<T = any> {
 
 export class RequestManager {
 	private _pendingRequests = new Map<string, IPendingRequest>();
+	private _opaqueCounter = 0;
 
 	public generateRequestKey(method: string, url: string, body?: HttpRequestBody): string {
 		let key = `${method}:${url}`;
@@ -75,16 +76,21 @@ export class RequestManager {
 	}
 
 	private hashBody(body: HttpRequestBody): string {
-		let str: string;
+		// Opaque bodies (FormData/Blob/ArrayBuffer/ReadableStream) can't be cheaply
+		// compared, and merging two distinct uploads to the same URL would be a
+		// correctness bug. Give each a unique key so they are never deduplicated.
+		if (
+			body instanceof FormData ||
+			body instanceof Blob ||
+			body instanceof ArrayBuffer ||
+			body instanceof ReadableStream
+		) {
+			return `opaque:${++this._opaqueCounter}`;
+		}
 
+		let str: string;
 		if (typeof body === 'string') {
 			str = body;
-		} else if (body instanceof FormData) {
-			str = '[FormData]';
-		} else if (body instanceof Blob) {
-			str = `[Blob:${body.size}]`;
-		} else if (body instanceof ArrayBuffer) {
-			str = `[ArrayBuffer:${body.byteLength}]`;
 		} else if (body instanceof URLSearchParams) {
 			str = body.toString();
 		} else if (typeof body === 'object' && body !== null) {

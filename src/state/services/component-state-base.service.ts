@@ -90,14 +90,21 @@ export abstract class ComponentStateBaseService<S extends object> extends Effect
 		const actionEffects: ActionEffect[] = this.getEffects().filter((effect) => effect.actions.some((a) => a().type === action.type));
 
 		actionEffects.forEach((effect) => {
-			effect.effect(action).then((newAction) => {
-				if (newAction === undefined) {
-					return;
-				}
+			effect
+				.effect(action)
+				.then((newAction) => {
+					if (newAction === undefined) {
+						return;
+					}
 
-				const actions = Array.isArray(newAction) ? newAction : [newAction];
-				actions.forEach((na) => this.dispatch(na as TypedAction<T, P>));
-			});
+					const actions = Array.isArray(newAction) ? newAction : [newAction];
+					actions.forEach((na) => this.dispatch(na as TypedAction<T, P>));
+				})
+				.catch((error) => {
+					// A rejected effect must not become an unhandled rejection — surface
+					// it with the triggering action so failures are diagnosable.
+					console.error(`[ComponentState] Effect for action '${action.type}' failed:`, error);
+				});
 		});
 	}
 }

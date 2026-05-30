@@ -67,10 +67,6 @@ export class HttpClient {
 		requestConfig = await this.executeRequestInterceptors(requestConfig);
 
 		if (requestConfig.cancel?.cancelled) {
-			if (requestConfig.cancel.cancelReason) {
-				console.log('[HttpClient] Request cancelled:', requestConfig.cancel.cancelReason);
-			}
-
 			let cancelledResponse: IHttpResponse<T> = {
 				data: null as any,
 				status: 0,
@@ -117,6 +113,9 @@ export class HttpClient {
 
 	private async handleResponseError<T>(error: Error, originalConfig: IRequestConfig): Promise<IHttpResponse<T>> {
 		const retryCount = originalConfig._retryCount ?? 0;
+		// One retry per error pass, across ALL interceptors — otherwise N error
+		// handlers could each fan out a retry at the same depth.
+		let retryInitiated = false;
 
 		for (let i = 0; i < this._interceptors.response.length; i++) {
 			const interceptor = this._interceptors.response[i];
@@ -125,13 +124,12 @@ export class HttpClient {
 				continue;
 			}
 
-			let retryCalled = false;
 			const retry = async (): Promise<IHttpResponse<T>> => {
-				if (retryCalled) {
-					throw new Error('[HttpClient] retry() may only be called once per error handler invocation');
+				if (retryInitiated) {
+					throw new Error('[HttpClient] retry() may only be called once per error pass');
 				}
 
-				retryCalled = true;
+				retryInitiated = true;
 
 				if (retryCount >= MAX_RETRIES) {
 					throw new Error(`[HttpClient] Max retries (${MAX_RETRIES}) exceeded`);
@@ -154,6 +152,12 @@ export class HttpClient {
 				}
 			} catch {
 				// Fall through to the next interceptor's error handler.
+			}
+
+			// A retry was initiated but didn't yield a response we returned above
+			// (e.g. it threw). Stop — don't let later handlers retry again.
+			if (retryInitiated) {
+				break;
 			}
 		}
 
@@ -202,6 +206,15 @@ export class HttpClient {
 			}
 		}
 
+		// Abort the request after `timeout` ms (combined with any caller abort).
+		let timeoutId: ReturnType<typeof setTimeout> | undefined;
+		if (config.timeout && config.timeout > 0 && config.abortController) {
+			const controller = config.abortController;
+			timeoutId = setTimeout(() => {
+				controller.abort(new DOMException('Request timed out', 'TimeoutError'));
+			}, config.timeout);
+		}
+
 		const fetchPromise = fetch(config.url!, {
 			method: config.method,
 			headers: config.headers,
@@ -231,11 +244,16 @@ export class HttpClient {
 				if (error instanceof HttpError) {
 					throw error;
 				}
-				if (error instanceof Error && error.name === 'AbortError') {
-					throw new AbortError('Request aborted', config);
+				if (error instanceof Error && (error.name === 'AbortError' || error.name === 'TimeoutError')) {
+					throw new AbortError(error.name === 'TimeoutError' ? 'Request timed out' : 'Request aborted', config);
 				}
 				const message = error instanceof Error ? error.message : 'Network error';
 				throw new NetworkError(message || 'Network error', config);
+			})
+			.finally(() => {
+				if (timeoutId !== undefined) {
+					clearTimeout(timeoutId);
+				}
 			});
 
 		if (config.deduplicate === true) {
@@ -284,15 +302,36 @@ export class HttpClient {
 		};
 	}
 
-	private buildUrl(url: string, params?: Record<string, string | number | boolean>): string {
+	private buildUrl(url: string, params?: IRequestConfig['params']): string {
 		const baseUrl: string = this._clientConfig.baseURL || '';
-		let fullUrl = `${baseUrl}${url}`;
+
+		// Absolute URLs are used as-is; otherwise join base and path with exactly
+		// one slash (no double slashes, no missing slash).
+		let fullUrl: string;
+		if (!baseUrl || /^[a-z][a-z\d+\-.]*:\/\//i.test(url)) {
+			fullUrl = url;
+		} else {
+			fullUrl = `${baseUrl.replace(/\/+$/, '')}/${url.replace(/^\/+/, '')}`;
+		}
 
 		if (params) {
-			const queryString = Object.entries(params)
-				.map(([key, value]) => `${encodeURIComponent(key)}=${encodeURIComponent(String(value))}`)
-				.join('&');
-			fullUrl += `${fullUrl.includes('?') ? '&' : '?'}${queryString}`;
+			const pairs: string[] = [];
+			for (const [key, value] of Object.entries(params)) {
+				if (value === null || value === undefined) {
+					continue;
+				}
+				const values = Array.isArray(value) ? value : [value];
+				for (const v of values) {
+					if (v === null || v === undefined) {
+						continue;
+					}
+					pairs.push(`${encodeURIComponent(key)}=${encodeURIComponent(String(v))}`);
+				}
+			}
+
+			if (pairs.length > 0) {
+				fullUrl += `${fullUrl.includes('?') ? '&' : '?'}${pairs.join('&')}`;
+			}
 		}
 
 		return fullUrl;
@@ -346,24 +385,39 @@ export class HttpClient {
 
 			if (contentType.includes('application/json')) {
 				const text = await blob.text();
-				return JSON.parse(text);
+				return (text ? JSON.parse(text) : null) as T;
 			}
 
 			return blob as T;
 		}
 
 		if (contentType.includes('application/json')) {
-			return (await response.json()) as T;
+			// Empty bodies are common on 201/204/200 (POST/PUT/DELETE). Parsing
+			// an empty string would throw and surface a success as a NetworkError.
+			const text = await response.text();
+			return (text ? JSON.parse(text) : null) as T;
 		}
 
 		if (contentType.includes('text/')) {
 			return (await response.text()) as T;
 		}
 
-		if (contentType.includes('application/octet-stream') || contentType.includes('image/')) {
+		if (this.isBinaryContentType(contentType)) {
 			return (await response.blob()) as T;
 		}
 
 		return (await response.text()) as T;
+	}
+
+	private isBinaryContentType(contentType: string): boolean {
+		return (
+			contentType.includes('application/octet-stream') ||
+			contentType.includes('application/pdf') ||
+			contentType.includes('application/zip') ||
+			contentType.startsWith('image/') ||
+			contentType.startsWith('audio/') ||
+			contentType.startsWith('video/') ||
+			contentType.startsWith('font/')
+		);
 	}
 }

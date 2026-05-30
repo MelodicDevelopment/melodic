@@ -106,19 +106,26 @@ export class SignalStoreService<S> {
 
 		const actionEffects: ActionEffect[] = this.getEffectsForAction(key, action);
 		actionEffects.forEach((effect) => {
-			effect.effect(action).then((newAction) => {
-				if (newAction === undefined) {
-					return;
-				}
+			effect
+				.effect(action)
+				.then((newAction) => {
+					if (newAction === undefined) {
+						return;
+					}
 
-				if (!Array.isArray(newAction)) {
-					newAction = [newAction];
-				}
+					if (!Array.isArray(newAction)) {
+						newAction = [newAction];
+					}
 
-				newAction.forEach((na) => {
-					this.dispatch(na as TypedAction<T, P>);
+					newAction.forEach((na) => {
+						this.dispatch(na as TypedAction<T, P>);
+					});
+				})
+				.catch((error) => {
+					// A rejected effect must not become an unhandled rejection — surface
+					// it with the triggering action so failures are diagnosable.
+					console.error(`[SignalStore] Effect for action '${action.type}' failed:`, error);
 				});
-			});
 		});
 	}
 

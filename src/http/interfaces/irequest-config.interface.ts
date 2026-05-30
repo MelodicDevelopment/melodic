@@ -8,8 +8,9 @@ export interface IRequestConfig {
 	method?: HttpMethod;
 	headers?: Record<string, string>;
 	body?: HttpRequestBody;
-	params?: Record<string, string | number | boolean>;
-	//timeout?: number;
+	params?: Record<string, string | number | boolean | null | undefined | Array<string | number | boolean>>;
+	/** Abort the request after this many milliseconds. */
+	timeout?: number;
 	//cache?: CacheStrategy;
 	//cacheTTL?: number;
 	//retry?: RetryConfig;

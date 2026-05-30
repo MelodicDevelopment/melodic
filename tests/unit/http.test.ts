@@ -217,6 +217,109 @@ describe('http client', () => {
 		expect(fetchMock).toHaveBeenCalledTimes(4);
 	});
 
+	it('resolves an empty JSON body to null instead of throwing', async () => {
+		// 204/201 with an application/json content-type but no body.
+		const fetchMock = vi.fn().mockResolvedValue(
+			new Response('', {
+				status: 204,
+				headers: { 'content-type': 'application/json' }
+			})
+		);
+		vi.stubGlobal('fetch', fetchMock);
+
+		const client = new HttpClient();
+		const response = await client.post('/items', { name: 'x' });
+		// Regression: this used to throw on JSON.parse('') and surface as NetworkError.
+		expect(response.status).toBe(204);
+		expect(response.data).toBeNull();
+	});
+
+	it('joins base URL and path with exactly one slash', async () => {
+		const fetchMock = vi.fn().mockResolvedValue(
+			new Response('{}', { status: 200, headers: { 'content-type': 'application/json' } })
+		);
+		vi.stubGlobal('fetch', fetchMock);
+
+		const client = new HttpClient({ baseURL: 'https://api.test/' });
+		await client.get('/users', { deduplicate: false });
+		expect(fetchMock.mock.calls[0]?.[0]).toBe('https://api.test/users');
+	});
+
+	it('skips null/undefined params and expands array params', async () => {
+		const fetchMock = vi.fn().mockResolvedValue(
+			new Response('{}', { status: 200, headers: { 'content-type': 'application/json' } })
+		);
+		vi.stubGlobal('fetch', fetchMock);
+
+		const client = new HttpClient();
+		await client.get('/search', {
+			deduplicate: false,
+			params: { q: 'x', skip: undefined, tags: ['a', 'b'] }
+		});
+
+		const url = fetchMock.mock.calls[0]?.[0] as string;
+		expect(url).toContain('q=x');
+		expect(url).not.toContain('skip');
+		expect(url).toContain('tags=a');
+		expect(url).toContain('tags=b');
+	});
+
+	it('does not fan out retries when multiple error handlers each call retry()', async () => {
+		const fetchMock = vi.fn().mockImplementation(
+			async () =>
+				new Response(JSON.stringify({ message: 'fail' }), {
+					status: 500,
+					headers: { 'content-type': 'application/json' }
+				})
+		);
+		vi.stubGlobal('fetch', fetchMock);
+
+		const client = new HttpClient();
+		client.interceptors.response({ intercept: async (r) => r, error: async (_e, ctx) => await ctx.retry() });
+		client.interceptors.response({ intercept: async (r) => r, error: async (_e, ctx) => await ctx.retry() });
+
+		await expect(client.get('/x', { deduplicate: false })).rejects.toThrow();
+		// One retry per error pass, chained to MAX_RETRIES: initial + 3 = 4.
+		// The old per-handler guard let both handlers retry each pass (7+ fetches).
+		expect(fetchMock).toHaveBeenCalledTimes(4);
+	});
+
+	it('aborts a request that exceeds its timeout', async () => {
+		const fetchMock = vi.fn().mockImplementation((_url: string, init: RequestInit) => {
+			return new Promise((_resolve, reject) => {
+				init.signal?.addEventListener('abort', () => {
+					const reason = (init.signal as AbortSignal).reason;
+					reject(reason instanceof Error ? reason : new DOMException('Aborted', 'AbortError'));
+				});
+			});
+		});
+		vi.stubGlobal('fetch', fetchMock);
+
+		const client = new HttpClient();
+		await expect(client.get('/slow', { deduplicate: false, timeout: 10 })).rejects.toThrow(/timed out/i);
+	});
+
+	it('does not deduplicate distinct FormData uploads', async () => {
+		const fetchMock = vi.fn().mockImplementation(
+			async () => new Response('{}', { status: 200, headers: { 'content-type': 'application/json' } })
+		);
+		vi.stubGlobal('fetch', fetchMock);
+
+		const client = new HttpClient();
+		const a = new FormData();
+		a.append('file', 'one');
+		const b = new FormData();
+		b.append('file', 'two');
+
+		await Promise.all([
+			client.post('/upload', a, { deduplicate: true }),
+			client.post('/upload', b, { deduplicate: true })
+		]);
+
+		// Two distinct uploads must both go out, not be merged into one.
+		expect(fetchMock).toHaveBeenCalledTimes(2);
+	});
+
 	it('deduplicates in-flight requests with the same key', async () => {
 		let resolveFetch: (value: Response) => void;
 		const fetchPromise = new Promise<Response>((resolve) => {
