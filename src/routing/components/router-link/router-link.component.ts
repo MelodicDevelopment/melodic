@@ -26,6 +26,7 @@ export class RouterLinkComponent {
 
 	private _anchorElement: HTMLAnchorElement | null = null;
 	private _navigationCleanup: (() => void) | null = null;
+	private _clickCleanup: (() => void) | null = null;
 
 	public href: string = '';
 	public data: unknown = null;
@@ -50,21 +51,19 @@ export class RouterLinkComponent {
 
 		this.updateAnchorHref();
 
-		this.elementRef.addEventListener(
-			'click',
-			(e: MouseEvent) => {
-				e.preventDefault();
+		const clickHandler = (e: MouseEvent): void => {
+			e.preventDefault();
 
-				// Don't navigate if modifier keys are pressed (allow new tab, etc.)
-				if (e.ctrlKey || e.metaKey || e.shiftKey) {
-					window.open(this.buildFullPath(), '_blank');
-					return;
-				}
+			// Don't navigate if modifier keys are pressed (allow new tab, etc.)
+			if (e.ctrlKey || e.metaKey || e.shiftKey) {
+				window.open(this.buildFullPath(), '_blank');
+				return;
+			}
 
-				this.navigate();
-			},
-			false
-		);
+			this.navigate();
+		};
+		this.elementRef.addEventListener('click', clickHandler as EventListener, false);
+		this._clickCleanup = () => this.elementRef.removeEventListener('click', clickHandler as EventListener, false);
 
 		const handler = () => this.updateActiveState();
 		window.addEventListener('NavigationEvent', handler);
@@ -75,6 +74,7 @@ export class RouterLinkComponent {
 
 	public onDestroy(): void {
 		this._navigationCleanup?.();
+		this._clickCleanup?.();
 	}
 
 	public onAttributeChange(attribute: string, _: unknown, newVal: unknown): void {

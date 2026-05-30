@@ -62,6 +62,13 @@ export class RouterService {
 	private _currentMatches: IRouteMatch[] = [];
 	private _resolversExecutedForPath: string | null = null;
 	private _currentPath: string = `${window.location.pathname}${window.location.search}`;
+	// Monotonic id so a slower navigation can detect it was superseded by a newer
+	// one after an await (guards/resolvers) and bail before committing.
+	private _navigationId = 0;
+	// The target of the in-flight programmatic navigation, used to build accurate
+	// guard/resolver contexts before history is updated. Null during popstate
+	// (where window.location is already the target) and when idle.
+	private _pendingTarget: { pathname: string; queryParams: URLSearchParams } | null = null;
 
 	constructor() {
 		this._contextService = new RouteContextService();
@@ -100,7 +107,7 @@ export class RouterService {
 	}
 
 	public getQueryParams(): URLSearchParams {
-		return new URLSearchParams(window.location.search);
+		return this.targetQueryParams();
 	}
 
 	public getCurrentMatches(): IRouteMatch[] {
@@ -116,7 +123,34 @@ export class RouterService {
 	}
 
 	public matchPath(path: string): IRouteMatchResult {
-		return matchRouteTree(this._routes, path);
+		return matchRouteTree(this._routes, this.normalizePath(path));
+	}
+
+	/** Split a URL into its pathname / search / hash parts. */
+	private parseUrl(url: string): { pathname: string; search: string; hash: string } {
+		const hashIndex = url.indexOf('#');
+		const hash = hashIndex >= 0 ? url.slice(hashIndex) : '';
+		const withoutHash = hashIndex >= 0 ? url.slice(0, hashIndex) : url;
+
+		const queryIndex = withoutHash.indexOf('?');
+		const search = queryIndex >= 0 ? withoutHash.slice(queryIndex) : '';
+		const pathname = queryIndex >= 0 ? withoutHash.slice(0, queryIndex) : withoutHash;
+
+		return { pathname, search, hash };
+	}
+
+	/** Matchable pathname: query and hash stripped, trailing slash collapsed. */
+	private normalizePath(url: string): string {
+		const { pathname } = this.parseUrl(url);
+		return pathname.length > 1 ? pathname.replace(/\/+$/, '') : pathname;
+	}
+
+	private targetPathname(): string {
+		return this._pendingTarget ? this._pendingTarget.pathname : window.location.pathname;
+	}
+
+	private targetQueryParams(): URLSearchParams {
+		return new URLSearchParams(this._pendingTarget ? this._pendingTarget.queryParams : window.location.search);
 	}
 
 	public setCurrentMatches(result: IRouteMatchResult): void {
@@ -146,83 +180,97 @@ export class RouterService {
 			fullPath = `${path}?${params.toString()}`;
 		}
 
-		if (!skipGuards && this._currentMatches.length > 0) {
-			const deactivateResult = await this.runDeactivationGuards(fullPath);
-			if (deactivateResult !== true) {
-				if (typeof deactivateResult === 'string') {
-					return this.navigate(deactivateResult, { ...options, skipGuards: true });
+		// Claim this navigation. Any newer navigate() bumps the id, letting this
+		// one detect it was superseded after an await and bail before committing.
+		const navId = ++this._navigationId;
+		const { pathname, search } = this.parseUrl(fullPath);
+		this._pendingTarget = { pathname, queryParams: new URLSearchParams(search) };
+
+		const superseded = (): INavigationResult => ({ success: false, error: 'Navigation superseded' });
+
+		try {
+			if (!skipGuards && this._currentMatches.length > 0) {
+				const deactivateResult = await this.runDeactivationGuards(fullPath);
+				if (this._navigationId !== navId) {
+					return superseded();
 				}
-				return {
-					success: false,
-					error: 'Navigation blocked by guard'
-				};
-			}
-		}
-
-		const matchResult = this.matchPath(path);
-
-		if (matchResult.redirectTo) {
-			// Honor the caller's original push/replace intent. Forcing
-			// `replace: true` here would erase the previous unrelated history
-			// entry: the source URL never gets pushed (this call returns
-			// before reaching pushState below), so a replaceState on the
-			// redirect target lands on whichever entry was current — i.e. the
-			// page the user just came from — instead of becoming a new entry.
-			return this.navigate(matchResult.redirectTo, options);
-		}
-
-		if (!skipGuards && matchResult.matches.length > 0) {
-			const guardResult = await this.runGuards(matchResult);
-
-			if (guardResult !== true) {
-				if (typeof guardResult === 'string') {
-					return this.navigate(guardResult, { ...options, skipGuards: true });
+				if (deactivateResult !== true) {
+					if (typeof deactivateResult === 'string') {
+						return this.navigate(deactivateResult, { ...options, skipGuards: true });
+					}
+					return { success: false, error: 'Navigation blocked by guard' };
 				}
-				return {
-					success: false,
-					error: 'Navigation blocked by guard'
-				};
-			}
-		}
-
-		if (!skipResolvers && matchResult.matches.length > 0) {
-			const resolverResult = await this.runResolversInternal(matchResult);
-
-			if (!resolverResult.success) {
-				return {
-					success: false,
-					error: resolverResult.error ?? 'Navigation blocked by resolver'
-				};
 			}
 
-			this._resolversExecutedForPath = fullPath;
-		}
+			const matchResult = this.matchPath(path);
 
-		this.setCurrentMatches(matchResult);
+			if (matchResult.redirectTo) {
+				// Honor the caller's original push/replace intent. Forcing
+				// `replace: true` here would erase the previous unrelated history
+				// entry: the source URL never gets pushed (this call returns
+				// before reaching pushState below), so a replaceState on the
+				// redirect target lands on whichever entry was current — i.e. the
+				// page the user just came from — instead of becoming a new entry.
+				return this.navigate(matchResult.redirectTo, options);
+			}
 
-		if (replace) {
-			history.replaceState(data, '', fullPath);
-		} else {
-			history.pushState(data, '', fullPath);
-		}
-		this._currentPath = fullPath;
-
-		if (scrollToTop) {
-			const hash = fullPath.includes('#') ? fullPath.split('#')[1] : null;
-			if (hash) {
-				const element = document.getElementById(hash);
-				if (element) {
-					element.scrollIntoView();
+			if (!skipGuards && matchResult.matches.length > 0) {
+				const guardResult = await this.runGuards(matchResult);
+				if (this._navigationId !== navId) {
+					return superseded();
 				}
+				if (guardResult !== true) {
+					if (typeof guardResult === 'string') {
+						return this.navigate(guardResult, { ...options, skipGuards: true });
+					}
+					return { success: false, error: 'Navigation blocked by guard' };
+				}
+			}
+
+			if (!skipResolvers && matchResult.matches.length > 0) {
+				const resolverResult = await this.runResolversInternal(matchResult);
+				if (this._navigationId !== navId) {
+					return superseded();
+				}
+				if (!resolverResult.success) {
+					return { success: false, error: resolverResult.error ?? 'Navigation blocked by resolver' };
+				}
+
+				this._resolversExecutedForPath = fullPath;
+			}
+
+			this.setCurrentMatches(matchResult);
+
+			if (replace) {
+				history.replaceState(data, '', fullPath);
 			} else {
-				window.scrollTo(0, 0);
+				history.pushState(data, '', fullPath);
+			}
+			this._currentPath = fullPath;
+
+			if (scrollToTop) {
+				const hash = fullPath.includes('#') ? fullPath.split('#')[1] : null;
+				if (hash) {
+					const element = document.getElementById(hash);
+					if (element) {
+						element.scrollIntoView();
+					}
+				} else {
+					window.scrollTo(0, 0);
+				}
+			}
+
+			return {
+				success: true,
+				url: fullPath
+			};
+		} finally {
+			// Only clear if we're still the latest navigation, so a newer navigate
+			// that set its own pending target isn't wiped by an older one finishing.
+			if (this._navigationId === navId) {
+				this._pendingTarget = null;
 			}
 		}
-
-		return {
-			success: true,
-			url: fullPath
-		};
 	}
 
 	public async navigateByName(name: string, params: Record<string, string> = {}, options: INavigationOptions = {}): Promise<INavigationResult> {
@@ -315,8 +363,10 @@ export class RouterService {
 			route: match,
 			matchedRoutes: matchResult.matches,
 			params: matchResult.params,
-			queryParams: new URLSearchParams(window.location.search),
-			targetPath: window.location.pathname,
+			// Reflect the navigation TARGET (history isn't updated until after
+			// guards/resolvers run), not the current location.
+			queryParams: this.targetQueryParams(),
+			targetPath: this.targetPathname(),
 			currentPath: window.location.pathname,
 			data: match.route.data
 		};
@@ -388,8 +438,9 @@ export class RouterService {
 			route: match,
 			matchedRoutes: matchResult.matches,
 			params: matchResult.params,
-			queryParams: new URLSearchParams(window.location.search),
-			targetPath: window.location.pathname
+			// Reflect the navigation TARGET, not the current location.
+			queryParams: this.targetQueryParams(),
+			targetPath: this.targetPathname()
 		};
 	}
 }

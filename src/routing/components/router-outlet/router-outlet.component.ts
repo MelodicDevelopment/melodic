@@ -36,6 +36,10 @@ export class RouterOutletComponent {
 	private _parentOutlet: RouterOutletComponent | null = null;
 	private _initialized = false;
 	private _navigationCleanup: (() => void) | null = null;
+	// Bumped on each render attempt so a slower one (after awaiting guards/
+	// resolvers/lazy loads) can detect it was superseded and stop before
+	// rendering a stale component over a newer navigation.
+	private _renderToken = 0;
 
 	public routes: IRoute[] = [];
 	public name: string = 'primary';
@@ -214,6 +218,7 @@ export class RouterOutletComponent {
 	 * Match the current path and render (root outlet only).
 	 */
 	private async matchAndRender(fullPath: string): Promise<void> {
+		const token = ++this._renderToken;
 		const routes = this.routes.length > 0 ? this.routes : this._router.getRoutes();
 
 		if (routes.length === 0) {
@@ -233,6 +238,9 @@ export class RouterOutletComponent {
 		// Run guards before rendering (for initial page load)
 		if (matchResult.matches.length > 0) {
 			const guardResult = await this._router.runGuards(matchResult);
+			if (token !== this._renderToken) {
+				return;
+			}
 
 			if (guardResult !== true) {
 				if (typeof guardResult === 'string') {
@@ -246,6 +254,9 @@ export class RouterOutletComponent {
 		// Run resolvers before rendering (for initial page load)
 		if (matchResult.matches.length > 0) {
 			const resolverResult = await this._router.runResolvers(matchResult);
+			if (token !== this._renderToken) {
+				return;
+			}
 			if (!resolverResult.success) {
 				console.error('Resolver failed:', resolverResult.error);
 				await this.render404();

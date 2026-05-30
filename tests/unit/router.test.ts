@@ -146,6 +146,61 @@ describe('router service', () => {
 		expect(window.location.pathname).toBe('/page');
 	});
 
+	it('matches the ** catch-all route without throwing', () => {
+		const router = new RouterService();
+		router.setRoutes([{ path: 'home' }, { path: '**' }]);
+
+		// Regression: `**` used to build `new RegExp('^**$')` and throw on first match.
+		expect(() => router.matchPath('/anything/here')).not.toThrow();
+		const match = router.matchPath('/totally/unknown/path');
+		expect(match.isExactMatch).toBe(true);
+		expect(match.matches[0]?.route.path).toBe('**');
+	});
+
+	it('matches a bare * wildcard and a named *splat', () => {
+		const router = new RouterService();
+		router.setRoutes([{ path: 'files/*path' }]);
+
+		const match = router.matchPath('/files/a/b/c.txt');
+		expect(match.isExactMatch).toBe(true);
+		expect(match.params.path).toBe('a/b/c.txt');
+	});
+
+	it('URL-decodes route params', () => {
+		const router = new RouterService();
+		router.setRoutes([{ path: 'users/:name' }]);
+
+		const match = router.matchPath('/users/hello%20world');
+		expect(match.params).toEqual({ name: 'hello world' });
+	});
+
+	it('strips the query string before matching', () => {
+		const router = new RouterService();
+		router.setRoutes([{ path: 'list' }]);
+
+		// Regression: an inline query string used to be matched against `^list$`
+		// (as `list?page=2`) and fail → 404.
+		const match = router.matchPath('/list?page=2');
+		expect(match.isExactMatch).toBe(true);
+		expect(match.matches[0]?.route.path).toBe('list');
+	});
+
+	it('gives guards the target query params, not the previous URL', async () => {
+		let seenQuery: string | null = null;
+		const guard: IRouteGuard = {
+			canActivate: (context) => {
+				seenQuery = context.queryParams.get('tab');
+				return true;
+			}
+		};
+		const router = new RouterService();
+		router.setRoutes([{ path: 'dash', canActivate: [guard] }]);
+
+		// History still points at '/'; the guard must see the TARGET's query.
+		await router.navigate('/dash', { queryParams: { tab: 'reports' } });
+		expect(seenQuery).toBe('reports');
+	});
+
 	it('redirected navigation preserves the previous history entry', async () => {
 		// Regression: a default-child redirect (e.g. `/people/:id` →
 		// `/people/:id/activity`) used to force `replace: true` on the
@@ -173,5 +228,42 @@ describe('router service', () => {
 		expect(window.location.pathname).toBe('/detail/42/tab');
 		// The redirect must push a new entry, not replace the /list entry.
 		expect(history.length).toBe(lengthAfterList + 1);
+	});
+
+	it('supersedes an older navigation when a newer one starts mid-flight', async () => {
+		let releaseSlowGuard: () => void = () => {};
+		const slowGate = new Promise<void>((resolve) => {
+			releaseSlowGuard = resolve;
+		});
+
+		const slowGuard: IRouteGuard = {
+			canActivate: async () => {
+				await slowGate;
+				return true;
+			}
+		};
+
+		const router = new RouterService();
+		router.setRoutes([{ path: 'slow', canActivate: [slowGuard] }, { path: 'fast' }]);
+
+		const slowNav = router.navigate('/slow'); // parks in the async guard
+		await Promise.resolve();
+		const fastNav = router.navigate('/fast'); // newer navigation supersedes it
+
+		const fastResult = await fastNav;
+		releaseSlowGuard();
+		const slowResult = await slowNav;
+
+		expect(fastResult.success).toBe(true);
+		expect(slowResult.success).toBe(false);
+		expect(window.location.pathname).toBe('/fast');
+	});
+
+	it('navigateByName collapses empty segments from unfilled params', async () => {
+		const router = new RouterService();
+		router.setRoutes([{ path: 'items/:a/:b', name: 'item' }]);
+
+		const result = await router.navigateByName('item', { b: '5' });
+		expect(result.url).not.toContain('//');
 	});
 });

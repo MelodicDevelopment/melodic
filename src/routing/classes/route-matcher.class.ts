@@ -4,7 +4,9 @@ type Rules = { [key: string]: Rule };
 type RouteMatchParams = { [key: string]: string } | null;
 
 export class RouteMatcher {
-	private _reEscape: RegExp = /[-[\]{}()+?.,\\^$|#\s]/g;
+	private _reEscape: RegExp = /[-[\]{}()+?.,\\^$|#\s*]/g;
+	// Matches, in priority order: ** (catch-all), :name, *name (named splat), * (bare splat).
+	private _reToken: RegExp = /(\*\*)|:(\w+)|\*(\w+)|(\*)/g;
 	private _reParam: RegExp = /([:*])(\w+)/g;
 	private _names: string[] = [];
 	private _route: string;
@@ -18,14 +20,55 @@ export class RouteMatcher {
 		this._rules = rules;
 		this._isWildcard = route.includes('*');
 
-		let escapedRoute = this._route.replace(this._reEscape, '\\$&');
-		escapedRoute = escapedRoute.replace(this._reParam, (_, mode: string, name: string) => {
-			this._names.push(name);
-			return mode === ':' ? '([^/]*)' : '(.*)';
-		});
+		const escapedRoute = this.buildPattern(route);
 
 		this._routeRegex = new RegExp('^' + escapedRoute + '$');
 		this._prefixRegex = new RegExp('^' + escapedRoute + '(?:/|$)');
+	}
+
+	/**
+	 * Translate a route pattern into a regex source. Param/wildcard tokens become
+	 * capture groups; everything else is escaped literally. `*` is escaped in the
+	 * literal segments too, so a standalone `*`/`**` can never leak through and
+	 * produce an invalid pattern like `/^**$/`.
+	 */
+	private buildPattern(route: string): string {
+		this._reToken.lastIndex = 0;
+		let pattern = '';
+		let lastIndex = 0;
+		let anonCount = 0;
+		let match: RegExpExecArray | null;
+
+		while ((match = this._reToken.exec(route)) !== null) {
+			pattern += route.slice(lastIndex, match.index).replace(this._reEscape, '\\$&');
+
+			if (match[1] || match[4]) {
+				// ** or bare * — anonymous catch-all
+				this._names.push(`_wildcard${anonCount++}`);
+				pattern += '(.*)';
+			} else if (match[2]) {
+				// :name — single path segment
+				this._names.push(match[2]);
+				pattern += '([^/]*)';
+			} else if (match[3]) {
+				// *name — named catch-all
+				this._names.push(match[3]);
+				pattern += '(.*)';
+			}
+
+			lastIndex = this._reToken.lastIndex;
+		}
+
+		pattern += route.slice(lastIndex).replace(this._reEscape, '\\$&');
+		return pattern;
+	}
+
+	private decode(value: string): string {
+		try {
+			return decodeURIComponent(value);
+		} catch {
+			return value;
+		}
 	}
 
 	public parse(url: string): RouteMatchParams {
@@ -41,7 +84,7 @@ export class RouteMatcher {
 
 		while (i < this._names.length) {
 			param = this._names[i++];
-			value = matches[i];
+			value = this.decode(matches[i]);
 
 			if (this._rules && param in this._rules && !this.validateRule(this._rules[param], value)) {
 				return null;
@@ -70,7 +113,7 @@ export class RouteMatcher {
 		const params: RouteMatchParams = {};
 		for (let i = 0; i < this._names.length; i++) {
 			const name = this._names[i];
-			const value = matches[i + 1];
+			const value = this.decode(matches[i + 1]);
 
 			if (this._rules && name in this._rules && !this.validateRule(this._rules[name], value)) {
 				return null;
@@ -94,7 +137,8 @@ export class RouteMatcher {
 			result = result.replace(re, params[param]);
 		}
 
-		return result.replace(this._reParam, '');
+		// Strip any unfilled :name/*name params and standalone */** wildcards.
+		return result.replace(this._reParam, '').replace(/\*+/g, '');
 	}
 
 	private calculateMatchedPath(url: string): string {

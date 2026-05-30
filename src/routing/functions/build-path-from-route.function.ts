@@ -26,7 +26,10 @@ export function buildPathFromRoute(routes: IRoute[], name: string, params: Recor
 	}
 
 	if (findAndBuildPath(routes, name)) {
-		return '/' + pathParts.filter(Boolean).join('/');
+		// Collapse empty segments produced by unfilled params (e.g. a route
+		// `items/:a/:b` given only `b` yields `items//x`), not just empty parts.
+		const segments = pathParts.join('/').split('/').filter(Boolean);
+		return '/' + segments.join('/');
 	}
 
 	return null;
