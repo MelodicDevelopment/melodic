@@ -25,6 +25,15 @@ export abstract class ComponentBase extends HTMLElement {
 	private readonly _disposables: Set<{ destroy(): void }>;
 	private readonly _selectCache: Map<string, Signal<unknown>>;
 
+	// Reactive signal/control sources discovered during observe(). Subscribed on
+	// every connect and torn down on every disconnect, so reactivity survives the
+	// element being moved in the DOM.
+	private readonly _reactiveSources: Array<Signal<unknown>> = [];
+
+	private _created = false;
+	private _destroyed = false;
+	private _teardownScheduled = false;
+
 	constructor(meta: ComponentMeta, component: Component, pending?: PendingComponentScope) {
 		super();
 
@@ -58,24 +67,77 @@ export abstract class ComponentBase extends HTMLElement {
 		return this._selectCache;
 	}
 
-	public async connectedCallback(): Promise<void> {
+	public connectedCallback(): void {
+		// A reconnect cancels any pending teardown from a just-prior disconnect,
+		// so moving the element in the DOM does not destroy its state.
+		this._teardownScheduled = false;
+
+		this.subscribeReactiveSources();
 		this.render();
 
-		if (this._component.onCreate !== undefined) {
-			const prev = getActiveComponent();
-			setActiveComponent(this);
-			try {
-				this._component.onCreate();
-			} finally {
-				setActiveComponent(prev);
+		const prev = getActiveComponent();
+		setActiveComponent(this);
+		try {
+			// onCreate fires exactly once, the first time the element enters the DOM.
+			if (!this._created) {
+				this._created = true;
+				this._component.onCreate?.();
 			}
+			// onConnect fires on every connect (including the first).
+			this._component.onConnect?.();
+		} finally {
+			setActiveComponent(prev);
 		}
 	}
 
 	public disconnectedCallback(): void {
+		// Tear down reactive subscriptions immediately so a detached element stops
+		// reacting; they are re-established on the next connect.
 		this._unsubscribers.forEach((unsubscribe) => unsubscribe());
 		this._unsubscribers = [];
 
+		this._component.onDisconnect?.();
+
+		// Defer destruction of owned resources (forms/signals/directives) to a
+		// microtask. A transient move (remove + re-add) reconnects first and
+		// cancels this, so re-parenting preserves component state.
+		if (!this._teardownScheduled && !this._destroyed) {
+			this._teardownScheduled = true;
+			queueMicrotask(() => {
+				this._teardownScheduled = false;
+				if (!this.isConnected && !this._destroyed) {
+					this.teardown();
+				}
+			});
+		}
+	}
+
+	public attributeChangedCallback(attribute: string, oldVal: unknown, newVal: unknown): void {
+		const prop = attribute.replace(/-([a-z])/g, (_, ch: string) => ch.toUpperCase());
+
+		if ((this._component as any)[prop] !== undefined) {
+			let value = newVal;
+
+			// Convert boolean attributes: present (any value including "") = true, null/absent = false
+			if (this._booleanProperties.has(prop)) {
+				value = newVal !== null && newVal !== 'false';
+			}
+
+			(this._component as any)[prop] = value;
+		}
+
+		this.scheduleRender();
+
+		if (this._component.onAttributeChange !== undefined) {
+			this._component.onAttributeChange(attribute, oldVal, newVal);
+		}
+	}
+
+	/** Final destruction — runs once when the element is permanently removed. */
+	private teardown(): void {
+		this._destroyed = true;
+
+		// Run action-directive cleanups (e.g. clickOutside document listeners).
 		const parts = (this._root as any).__parts as ITemplatePart[] | undefined;
 		if (parts) {
 			for (const part of parts) {
@@ -105,27 +167,6 @@ export abstract class ComponentBase extends HTMLElement {
 		}
 		this._disposables.clear();
 		this._selectCache.clear();
-	}
-
-	public attributeChangedCallback(attribute: string, oldVal: unknown, newVal: unknown): void {
-		const prop = attribute.replace(/-([a-z])/g, (_, ch: string) => ch.toUpperCase());
-
-		if ((this._component as any)[prop] !== undefined) {
-			let value = newVal;
-
-			// Convert boolean attributes: present (any value including "") = true, null/absent = false
-			if (this._booleanProperties.has(prop)) {
-				value = newVal !== null && newVal !== 'false';
-			}
-
-			(this._component as any)[prop] = value;
-		}
-
-		this.scheduleRender();
-
-		if (this._component.onAttributeChange !== undefined) {
-			this._component.onAttributeChange(attribute, oldVal, newVal);
-		}
 	}
 
 	private renderStyles(): HTMLStyleElement {
@@ -190,20 +231,31 @@ export abstract class ComponentBase extends HTMLElement {
 		}
 
 		const filtered = properties.filter((prop) => {
-			const value = (this._component as any)[prop];
-
-			// Skip private properties (convention)
-			if (prop.startsWith('_')) {
+			// Skip private properties (convention) and framework-internal fields.
+			if (prop.startsWith('_') || prop === 'elementRef' || prop === 'constructor') {
 				return false;
 			}
 
+			const descriptor = this.getPropertyDescriptor(this._component, prop);
+
+			// Skip getter-only accessors (e.g. @Service fields): leave their lazy,
+			// per-instance-cached getter intact rather than eagerly reading it and
+			// reifying it as a reactive data property.
+			if (descriptor && descriptor.get && !descriptor.set) {
+				return false;
+			}
+
+			const value = (this._component as any)[prop];
+
+			// Signals and form controls are reactive sources, not reactive data —
+			// collect them to subscribe on connect, but don't wrap them.
 			if (isSignal(value)) {
-				this.subscribeToSignal(value);
+				this._reactiveSources.push(value as Signal<unknown>);
 				return false;
 			}
 
 			if (value instanceof AbstractControl) {
-				this.subscribeToSignal(value.state);
+				this._reactiveSources.push(value.state as Signal<unknown>);
 				return false;
 			}
 
@@ -211,7 +263,7 @@ export abstract class ComponentBase extends HTMLElement {
 				return false;
 			}
 
-			return prop !== 'elementRef' && prop !== 'constructor';
+			return true;
 		});
 
 		for (const prop of filtered) {
@@ -229,17 +281,18 @@ export abstract class ComponentBase extends HTMLElement {
 			// Build getter/setter for the component's property
 			let componentGetter = () => value;
 			let componentSetter = (newVal: unknown) => {
-				if (value !== newVal) {
+				if (!Object.is(value, newVal)) {
 					this._component.onPropertyChange?.(prop, value, newVal);
 					value = newVal;
 					this.scheduleRender();
 				}
 			};
 
-			// Preserve existing getters
+			// Preserve existing getters — return the real getter result (including
+			// legitimate falsy values like 0, '', false, null).
 			if (descriptor?.get) {
 				const originalGetter = descriptor.get;
-				componentGetter = () => originalGetter.call(this._component) ?? value;
+				componentGetter = () => originalGetter.call(this._component);
 			}
 
 			// Preserve existing setters
@@ -293,8 +346,13 @@ export abstract class ComponentBase extends HTMLElement {
 		return attributes;
 	}
 
-	private subscribeToSignal<T>(signal: Signal<T>): void {
-		const unsubscriber = signal.subscribe(() => this.scheduleRender());
-		this._unsubscribers.push(unsubscriber);
+	private subscribeReactiveSources(): void {
+		if (this._destroyed) {
+			return;
+		}
+
+		for (const source of this._reactiveSources) {
+			this._unsubscribers.push(source.subscribe(() => this.scheduleRender()));
+		}
 	}
 }

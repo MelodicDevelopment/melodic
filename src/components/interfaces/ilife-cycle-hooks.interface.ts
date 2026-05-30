@@ -6,6 +6,14 @@ export interface OnCreate {
 	onCreate: () => void;
 }
 
+export interface OnConnect {
+	onConnect: () => void;
+}
+
+export interface OnDisconnect {
+	onDisconnect: () => void;
+}
+
 export interface OnRender {
 	onRender: () => void;
 }
@@ -25,6 +33,8 @@ export interface OnPropertyChange {
 export interface ILifeCycleHooks
 	extends Partial<OnInit>,
 		Partial<OnCreate>,
+		Partial<OnConnect>,
+		Partial<OnDisconnect>,
 		Partial<OnRender>,
 		Partial<OnDestroy>,
 		Partial<OnAttributeChange>,

@@ -1,13 +1,14 @@
 import type { INewable } from '../../interfaces';
-import type { Token } from '../types/token.type';
+import type { Token, TokenKey } from '../types/token.type';
 import { Binding } from './binding.class';
-import { getTokenKey } from '../function/get-token-key.function';
+import { getTokenKey, describeToken } from '../function/get-token-key.function';
+import { resolveInjectedParams } from '../function/resolve-injected-params.function';
 import type { IClassBindingOptions } from '../interfaces/iclass-binding-options.interface';
 import type { IFactoryBindingOptions } from '../interfaces/ifactory-binding-options.interface';
 
 export class InjectionEngine {
-	private _bindings: Map<string, Binding<unknown>> = new Map();
-	private _constructionStack: Set<string> = new Set();
+	private _bindings: Map<TokenKey, Binding<unknown>> = new Map();
+	private _constructionStack: Set<TokenKey> = new Set();
 
 	/**
 	 * Bind a class to the injector
@@ -86,7 +87,7 @@ export class InjectionEngine {
 		const binding = this._bindings.get(key) as Binding<T> | undefined;
 
 		if (!binding) {
-			throw new Error(`Dependency could not be found: ${key}`);
+			throw new Error(`Dependency could not be found: ${describeToken(key)}`);
 		}
 
 		return this.resolve(binding, key);
@@ -111,7 +112,7 @@ export class InjectionEngine {
 		this._bindings.clear();
 	}
 
-	private resolve<T>(binding: Binding<T>, key: string): T {
+	private resolve<T>(binding: Binding<T>, key: TokenKey): T {
 		if (binding.type === 'value') {
 			return binding.getInstance()!;
 		}
@@ -123,7 +124,7 @@ export class InjectionEngine {
 
 		// Circular dependency detection
 		if (this._constructionStack.has(key)) {
-			const chain = Array.from(this._constructionStack).join(' -> ') + ` -> ${key}`;
+			const chain = [...this._constructionStack, key].map(describeToken).join(' -> ');
 			throw new Error(`Circular dependency detected: ${chain}`);
 		}
 
@@ -148,40 +149,28 @@ export class InjectionEngine {
 		}
 	}
 
-	private construct<T>(binding: Binding<T>, currentToken: string): T {
+	private construct<T>(binding: Binding<T>, currentToken: TokenKey): T {
 		const cls = binding.targetClass!;
 		let dependencies: unknown[] = [];
 
-		// Check for @Inject decorated parameters
-		const paramTokens = (cls as any).params;
+		const resolveDependency = (depKey: TokenKey): unknown => {
+			const depBinding = this._bindings.get(depKey);
 
-		if (paramTokens && Array.isArray(paramTokens)) {
-			for (let i = 0; i < paramTokens.length; i++) {
-				const param = paramTokens[i];
-				if (param && typeof param === 'object' && param.__injectionToken) {
-					const depKey = param.__injectionToken;
-					const depBinding = this._bindings.get(depKey);
-
-					if (!depBinding) {
-						throw new Error(`Dependency '${depKey}' not found (required by '${currentToken}')`);
-					}
-
-					dependencies.push(this.resolve(depBinding as Binding<unknown>, depKey));
-				} else {
-					dependencies.push(undefined);
-				}
+			if (!depBinding) {
+				throw new Error(`Dependency '${describeToken(depKey)}' not found (required by '${describeToken(currentToken)}')`);
 			}
+
+			return this.resolve(depBinding as Binding<unknown>, depKey);
+		};
+
+		// Check for @Inject decorated parameters
+		const paramTokens = (cls as { params?: unknown[] }).params;
+
+		if (Array.isArray(paramTokens) && paramTokens.length > 0) {
+			dependencies = resolveInjectedParams(cls, resolveDependency);
 		} else if (binding.dependencies.length > 0) {
 			// Legacy token-based dependency resolution
-			for (const depKey of binding.dependencies) {
-				const depBinding = this._bindings.get(depKey);
-
-				if (!depBinding) {
-					throw new Error(`Dependency '${depKey}' not found (required by '${currentToken}')`);
-				}
-
-				dependencies.push(this.resolve(depBinding as Binding<unknown>, depKey));
-			}
+			dependencies = binding.dependencies.map(resolveDependency);
 		}
 
 		if (binding.args.length > 0) {

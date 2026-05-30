@@ -3,6 +3,7 @@ import { ComponentBase } from '../classes/component-base.class';
 import type { TypedComponentMeta } from '../types/component-meta.type';
 import type { Component } from '../types/component.type';
 import { Injector } from '../../injection/classes/injection-engine.class';
+import { resolveInjectedParams } from '../../injection/function/resolve-injected-params.function';
 import { getActiveComponent, setActiveComponent } from '../functions/active-component.functions';
 import type { Signal } from '../../signals/types/signal.type';
 
@@ -11,19 +12,9 @@ export function MelodicComponent<C extends Component>(meta: TypedComponentMeta<C
 		if (customElements.get(meta.selector) === undefined) {
 			const webComponent = class extends ComponentBase {
 				constructor() {
-					const dependencies: unknown[] = [];
-					const paramTokens = (component as any).params;
-
-					if (paramTokens && Array.isArray(paramTokens)) {
-						for (const i of paramTokens) {
-							const param = paramTokens[i];
-							if (param && typeof param === 'object' && param.__injectionToken) {
-								dependencies.push(Injector.get(param.__injectionToken));
-							} else {
-								dependencies.push(undefined);
-							}
-						}
-					}
+					// Resolve constructor dependencies declared via @Inject. Uses the
+					// same iteration as the injector engine (one implementation).
+					const dependencies = resolveInjectedParams(component, (token) => Injector.get(token));
 
 					// Establish a scope for class-field initializers (e.g. `x = this._store.select(...)`)
 					// before Reflect.construct runs the user's constructor. The placeholder exposes

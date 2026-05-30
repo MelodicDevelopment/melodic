@@ -67,6 +67,7 @@ describe('active-component context', () => {
 		expect((element as { getSelectCache(): Map<string, unknown> }).getSelectCache().size).toBe(1);
 
 		document.body.removeChild(element);
+		await flushMicrotasks();
 
 		expect(destroyed.sort()).toEqual(['a', 'b']);
 		expect((element as { getSelectCache(): Map<string, unknown> }).getSelectCache().size).toBe(0);
@@ -97,6 +98,7 @@ describe('active-component context', () => {
 		document.body.appendChild(element);
 		await flushMicrotasks();
 		document.body.removeChild(element);
+		await flushMicrotasks();
 
 		expect(order).toEqual(['onDestroy', 'disposable']);
 	});
@@ -128,6 +130,7 @@ describe('active-component context', () => {
 		// What matters: ComponentBase adopts the same Set, so the disposable is destroyed on disconnect.
 
 		document.body.removeChild(element);
+		await flushMicrotasks();
 		expect(destroyed).toEqual(['field-init']);
 	});
 

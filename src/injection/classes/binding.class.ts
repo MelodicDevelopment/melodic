@@ -1,10 +1,10 @@
 import type { INewable } from '../../interfaces';
 import type { BindingType } from '../types/binding-type.type';
-import type { Token } from '../types/token.type';
+import type { Token, TokenKey } from '../types/token.type';
 import { getTokenKey } from '../function/get-token-key.function';
 
 export class Binding<T> {
-	public readonly key: string;
+	public readonly key: TokenKey;
 	public readonly token: Token<T>;
 	public readonly type: BindingType;
 
@@ -12,11 +12,11 @@ export class Binding<T> {
 	private _factory?: () => T;
 	private _instance?: T;
 	private _singleton: boolean = true;
-	private _dependencies: string[] = [];
+	private _dependencies: TokenKey[] = [];
 	private _args: unknown[] = [];
 	private _resolved: boolean = false;
 
-	constructor(key: string, token: Token<T>, type: BindingType) {
+	constructor(key: TokenKey, token: Token<T>, type: BindingType) {
 		this.key = key;
 		this.token = token;
 		this.type = type;
@@ -30,7 +30,7 @@ export class Binding<T> {
 		return this._resolved;
 	}
 
-	public get dependencies(): string[] {
+	public get dependencies(): TokenKey[] {
 		return this._dependencies;
 	}
 

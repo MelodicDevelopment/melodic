@@ -35,8 +35,52 @@ describe('form auto-cleanup on component disconnect', () => {
 
 		document.body.removeChild(element);
 
-		// After disconnect, the control's signals are destroyed → reads throw.
+		// Destruction is deferred to a microtask so transient DOM moves don't
+		// destroy state; immediately after removal the control is still alive.
+		expect(captured!.value()).toBe('initial');
+
+		await flushMicrotasks();
+
+		// Once the element stays removed past the microtask, it is destroyed.
 		expect(() => captured!.value()).toThrow(/destruction/);
+	});
+
+	it('does NOT destroy a form when the element is moved (remove + re-add)', async () => {
+		let captured: FormControl<string> | null = null;
+
+		class MovableHostComponent {
+			public readonly email = createFormControl<string>('keep');
+
+			constructor() {
+				captured = this.email;
+			}
+		}
+
+		MelodicComponent({
+			selector: 'test-movable-host',
+			template: () => html`<div></div>`
+		})(MovableHostComponent);
+
+		const parentA = document.createElement('div');
+		const parentB = document.createElement('div');
+		document.body.append(parentA, parentB);
+
+		const element = document.createElement('test-movable-host');
+		parentA.appendChild(element);
+		await flushMicrotasks();
+
+		// Move synchronously (remove + re-add before the teardown microtask runs).
+		parentA.removeChild(element);
+		parentB.appendChild(element);
+		await flushMicrotasks();
+
+		// The control survived the move and remains reactive.
+		expect(captured!.value()).toBe('keep');
+		captured!.setValue('changed');
+		expect(captured!.value()).toBe('changed');
+
+		document.body.removeChild(parentA);
+		document.body.removeChild(parentB);
 	});
 
 	it('FormGroup and its children are destroyed on disconnect', async () => {
@@ -66,6 +110,7 @@ describe('form auto-cleanup on component disconnect', () => {
 		expect(captured!.value()).toEqual({ email: 'a@b.c', password: 'hunter2' });
 
 		document.body.removeChild(element);
+		await flushMicrotasks();
 
 		expect(() => captured!.value()).toThrow(/destruction/);
 		// The group's children are also destroyed (group.destroy iterates them).
@@ -99,6 +144,7 @@ describe('form auto-cleanup on component disconnect', () => {
 		expect(captured!.length).toBe(2);
 
 		document.body.removeChild(element);
+		await flushMicrotasks();
 
 		expect(() => captured!.value()).toThrow(/destruction/);
 	});
@@ -139,8 +185,9 @@ describe('form auto-cleanup on component disconnect', () => {
 		await flushMicrotasks();
 
 		expect(() => captured!.value()).toThrow(/destruction/);
-		// Disconnect should NOT throw even though disposable runs destroy() on the
-		// already-destroyed control.
+		// Disconnect + deferred teardown should NOT throw even though it runs
+		// destroy() on the already-destroyed control (destroy is idempotent).
 		expect(() => document.body.removeChild(element)).not.toThrow();
+		await expect(flushMicrotasks()).resolves.not.toThrow();
 	});
 });
