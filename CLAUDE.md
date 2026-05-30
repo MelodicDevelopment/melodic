@@ -36,8 +36,8 @@ melodic/
 
 | Package | Version | Description |
 |---------|---------|-------------|
-| `@melodicdev/core` | 1.6.0 | Core framework |
-| `@melodicdev/components` | 1.6.4 | Themeable UI component library |
+| `@melodicdev/core` | 2.0.0 | Core framework |
+| `@melodicdev/components` | 2.0.0 | Themeable UI component library |
 | `@melodicdev/cli` | 1.3.0 | CLI scaffolding tool |
 
 ## Build Commands
@@ -188,15 +188,25 @@ See `docs/FORMS.md` for the full guide (validators, message overrides, FormArray
 
 ### HTTP Module (`src/http/`)
 
-HTTP client with interceptors:
+HTTP client with interceptors. Register a shared `HttpClient` via `provideHttp` in bootstrap, then inject it with `@Service(HttpClient)`:
 
 ```typescript
-import { RequestManager } from '@melodicdev/core/http';
+import { provideHttp, HttpClient } from '@melodicdev/core/http';
 
-const http = new RequestManager();
-http.addInterceptor(authInterceptor);
+// bootstrap
+await bootstrap({
+  providers: [
+    provideHttp({ baseURL: '/api' }, {
+      request: [authInterceptor],
+      response: [errorInterceptor]
+    })
+  ]
+});
 
-const data = await http.get<User[]>('/api/users');
+// in a component/service
+@Service(HttpClient) private _http!: HttpClient;
+const response = await this._http.get<User[]>('/users');
+const users = response.data;
 ```
 
 ### Dependency Injection (`src/injection/`)
@@ -212,15 +222,20 @@ class MyService {
 
 ### State Management (`src/state/`)
 
-Centralized state with signals:
+Redux-style state with signals. Register state, reducers, and effects via `provideRX` in bootstrap, then inject `SignalStoreService` to dispatch/select:
 
 ```typescript
-import { createStore } from '@melodicdev/core/state';
+import { provideRX, SignalStoreService, createAction, createReducer, createState } from '@melodicdev/core/state';
 
-const store = createStore({
-  count: 0,
-  user: null
+// bootstrap
+await bootstrap({
+  providers: [provideRX(appState, appReducers, appEffects, /* debug */ false)]
 });
+
+// in a component
+@Service(SignalStoreService) private _store!: SignalStoreService<AppState>;
+const count = this._store.select((s) => s.count); // Signal
+this._store.dispatch(increment());
 ```
 
 ## Template System (`src/template/`)
