@@ -471,7 +471,7 @@
 }
 
 @media (prefers-color-scheme: dark) {
-	:root:not([data-theme="light"]) {
+	:root:not([data-theme]) {
 		--ml-color-background: var(--ml-gray-950);
 		--ml-color-surface: var(--ml-gray-900);
 		--ml-color-surface-raised: var(--ml-gray-800);

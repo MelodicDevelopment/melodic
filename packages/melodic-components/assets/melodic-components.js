@@ -1,7 +1,8 @@
-const getTokenKey = (token) => {
-	if (typeof token === "string") return token;
-	if (typeof token === "symbol") return token.toString();
-	return token.name;
+const getTokenKey = (token) => token;
+const describeToken = (key) => {
+	if (typeof key === "string") return key;
+	if (typeof key === "symbol") return key.toString();
+	return key.name || "AnonymousToken";
 };
 function Inject(token) {
 	return function(target, _, index) {
@@ -82,6 +83,22 @@ var Binding = class {
 		return this;
 	}
 };
+function resolveInjectedParams(target, resolve) {
+	const paramTokens = target?.params;
+	const dependencies = [];
+	if (!Array.isArray(paramTokens)) return dependencies;
+	for (let i = 0; i < paramTokens.length; i++) {
+		const param = paramTokens[i];
+		if (param && typeof param === "object" && param.__injectionToken !== void 0) dependencies.push(resolve(param.__injectionToken));
+		else dependencies.push(void 0);
+	}
+	return dependencies;
+}
+var activeComponent = null;
+const setActiveComponent = (component) => {
+	activeComponent = component;
+};
+const getActiveComponent = () => activeComponent;
 var InjectionEngine = class {
 	constructor() {
 		this._bindings = /* @__PURE__ */ new Map();
@@ -128,7 +145,7 @@ var InjectionEngine = class {
 	get(token) {
 		const key = getTokenKey(token);
 		const binding = this._bindings.get(key);
-		if (!binding) throw new Error(`Dependency could not be found: ${key}`);
+		if (!binding) throw new Error(`Dependency could not be found: ${describeToken(key)}`);
 		return this.resolve(binding, key);
 	}
 	has(token) {
@@ -151,7 +168,7 @@ var InjectionEngine = class {
 		const existing = binding.getInstance();
 		if (existing !== void 0 && binding.isSingleton) return existing;
 		if (this._constructionStack.has(key)) {
-			const chain = Array.from(this._constructionStack).join(" -> ") + ` -> ${key}`;
+			const chain = [...this._constructionStack, key].map(describeToken).join(" -> ");
 			throw new Error(`Circular dependency detected: ${chain}`);
 		}
 		this._constructionStack.add(key);
@@ -168,23 +185,22 @@ var InjectionEngine = class {
 	construct(binding, currentToken) {
 		const cls = binding.targetClass;
 		let dependencies = [];
-		const paramTokens = cls.params;
-		if (paramTokens && Array.isArray(paramTokens)) for (let i = 0; i < paramTokens.length; i++) {
-			const param = paramTokens[i];
-			if (param && typeof param === "object" && param.__injectionToken) {
-				const depKey = param.__injectionToken;
-				const depBinding = this._bindings.get(depKey);
-				if (!depBinding) throw new Error(`Dependency '${depKey}' not found (required by '${currentToken}')`);
-				dependencies.push(this.resolve(depBinding, depKey));
-			} else dependencies.push(void 0);
-		}
-		else if (binding.dependencies.length > 0) for (const depKey of binding.dependencies) {
+		const resolveDependency = (depKey) => {
 			const depBinding = this._bindings.get(depKey);
-			if (!depBinding) throw new Error(`Dependency '${depKey}' not found (required by '${currentToken}')`);
-			dependencies.push(this.resolve(depBinding, depKey));
-		}
+			if (!depBinding) throw new Error(`Dependency '${describeToken(depKey)}' not found (required by '${describeToken(currentToken)}')`);
+			return this.resolve(depBinding, depKey);
+		};
+		const paramTokens = cls.params;
+		if (Array.isArray(paramTokens) && paramTokens.length > 0) dependencies = resolveInjectedParams(cls, resolveDependency);
+		else if (binding.dependencies.length > 0) dependencies = binding.dependencies.map(resolveDependency);
 		if (binding.args.length > 0) dependencies = dependencies.concat(binding.args);
-		return Reflect.construct(cls, dependencies);
+		const prevActive = getActiveComponent();
+		setActiveComponent(null);
+		try {
+			return Reflect.construct(cls, dependencies);
+		} finally {
+			setActiveComponent(prevActive);
+		}
 	}
 };
 const Injector = new InjectionEngine();
@@ -320,6 +336,51 @@ const setActiveEffect = (effect) => {
 	activeEffect = effect;
 };
 const getActiveEffect = () => activeEffect;
+var batchDepth = 0;
+var flushing = false;
+var pendingNotifications = /* @__PURE__ */ new Set();
+var pendingEffects = /* @__PURE__ */ new Set();
+function isBatching() {
+	return batchDepth > 0;
+}
+function isCoalescingEffects() {
+	return batchDepth > 0 || flushing;
+}
+function scheduleNotify(notify) {
+	pendingNotifications.add(notify);
+}
+function scheduleEffect(effect) {
+	pendingEffects.add(effect);
+}
+function flushBatch() {
+	flushing = true;
+	try {
+		while (pendingNotifications.size > 0 || pendingEffects.size > 0) {
+			if (pendingNotifications.size > 0) {
+				const notifications = [...pendingNotifications];
+				pendingNotifications.clear();
+				for (const notify of notifications) notify();
+			}
+			if (pendingEffects.size > 0) {
+				const effects = [...pendingEffects];
+				pendingEffects.clear();
+				for (const effect of effects) effect.runNow();
+			}
+		}
+	} finally {
+		flushing = false;
+	}
+}
+function batch(fn) {
+	batchDepth++;
+	try {
+		return fn();
+	} finally {
+		batchDepth--;
+		if (batchDepth === 0) flushBatch();
+	}
+}
+var MAX_EFFECT_ITERATIONS = 100;
 var SignalEffect = class {
 	constructor(execute) {
 		this.execute = execute;
@@ -327,24 +388,37 @@ var SignalEffect = class {
 		this._isRunning = false;
 		this._needsRerun = false;
 		this.run = () => {
-			if (this._isRunning) {
-				this._needsRerun = true;
+			if (isCoalescingEffects()) {
+				scheduleEffect(this);
 				return;
 			}
-			this._isRunning = true;
-			do {
-				this._needsRerun = false;
-				this._dependencies.forEach((signal$1) => {
-					signal$1.unsubscribe(this.run);
-				});
-				this._dependencies.clear();
-				const prevEffect = getActiveEffect();
-				setActiveEffect(this);
-				this.execute();
-				setActiveEffect(prevEffect);
-			} while (this._needsRerun);
-			this._isRunning = false;
+			this.runNow();
 		};
+	}
+	runNow() {
+		if (this._isRunning) {
+			this._needsRerun = true;
+			return;
+		}
+		this._isRunning = true;
+		let iterations = 0;
+		do {
+			if (++iterations > MAX_EFFECT_ITERATIONS) {
+				this._isRunning = false;
+				this._needsRerun = false;
+				throw new Error(`Circular dependency detected in effect: exceeded ${MAX_EFFECT_ITERATIONS} synchronous re-runs. An effect is repeatedly writing to a signal it also reads.`);
+			}
+			this._needsRerun = false;
+			this._dependencies.forEach((signal$1) => {
+				signal$1.unsubscribe(this.run);
+			});
+			this._dependencies.clear();
+			const prevEffect = getActiveEffect();
+			setActiveEffect(this);
+			this.execute();
+			setActiveEffect(prevEffect);
+		} while (this._needsRerun);
+		this._isRunning = false;
 	}
 	addDependency(signal$1) {
 		this._dependencies.add(signal$1);
@@ -362,6 +436,10 @@ function signal(initialValue) {
 	let destroyed = false;
 	const subscribers = /* @__PURE__ */ new Set();
 	const notify = () => {
+		if (isBatching()) {
+			scheduleNotify(notify);
+			return;
+		}
 		[...subscribers].forEach((subscriber) => subscriber(value));
 	};
 	const read = (() => {
@@ -375,7 +453,7 @@ function signal(initialValue) {
 	});
 	read.set = (newValue) => {
 		if (destroyed) throw new Error(DESTROYED_MESSAGE);
-		if (value !== newValue) {
+		if (!Object.is(value, newValue)) {
 			value = newValue;
 			notify();
 		}
@@ -415,6 +493,7 @@ function computed(computation) {
 		effect.destroy();
 		originalDestroy();
 	};
+	getActiveComponent()?.registerDisposable(computedSignal);
 	return computedSignal;
 }
 var globalMessages = {};
@@ -431,11 +510,6 @@ function resolveMessage(message, params) {
 	if (typeof message === "function") return message(params ?? {});
 	return message;
 }
-var activeComponent = null;
-const setActiveComponent = (component) => {
-	activeComponent = component;
-};
-const getActiveComponent = () => activeComponent;
 var AbstractControl = class {
 	constructor(initialValue, options = {}) {
 		this.parent = null;
@@ -478,6 +552,12 @@ var AbstractControl = class {
 			disabled: this.disabled(),
 			enabled: !this.disabled()
 		}));
+	}
+	get destroyed() {
+		return this._destroyed;
+	}
+	getRawValue() {
+		return this.value();
 	}
 	markAsTouched() {
 		this._touched.set(true);
@@ -560,6 +640,7 @@ var AbstractControl = class {
 		}
 	}
 	async runValidation() {
+		const id = ++this._asyncValidationId;
 		const value = this.value();
 		let errors = null;
 		for (const validator of this._validators) {
@@ -570,11 +651,11 @@ var AbstractControl = class {
 			};
 		}
 		if (errors !== null) {
+			this._pending.set(false);
 			this.errors.set(errors);
 			return;
 		}
 		if (this._asyncValidators.length > 0) {
-			const id = ++this._asyncValidationId;
 			this._pending.set(true);
 			try {
 				const results = await Promise.all(this._asyncValidators.map((v) => v(value)));
@@ -587,7 +668,7 @@ var AbstractControl = class {
 				if (id === this._asyncValidationId) this._pending.set(false);
 			}
 		}
-		this.errors.set(errors);
+		if (id === this._asyncValidationId) this.errors.set(errors);
 	}
 	computeDirty() {
 		return this._dirty();
@@ -629,6 +710,10 @@ var ComponentBase = class extends HTMLElement {
 		this._unsubscribers = [];
 		this._renderScheduled = false;
 		this._booleanProperties = /* @__PURE__ */ new Set();
+		this._reactiveSources = [];
+		this._created = false;
+		this._destroyed = false;
+		this._teardownScheduled = false;
 		this._meta = meta;
 		this._component = component;
 		this._component.elementRef = this;
@@ -649,21 +734,46 @@ var ComponentBase = class extends HTMLElement {
 	getSelectCache() {
 		return this._selectCache;
 	}
-	async connectedCallback() {
+	connectedCallback() {
+		this._teardownScheduled = false;
+		this.subscribeReactiveSources();
 		this.render();
-		if (this._component.onCreate !== void 0) {
-			const prev = getActiveComponent();
-			setActiveComponent(this);
-			try {
-				this._component.onCreate();
-			} finally {
-				setActiveComponent(prev);
+		const prev = getActiveComponent();
+		setActiveComponent(this);
+		try {
+			if (!this._created) {
+				this._created = true;
+				this._component.onCreate?.();
 			}
+			this._component.onConnect?.();
+		} finally {
+			setActiveComponent(prev);
 		}
 	}
 	disconnectedCallback() {
 		this._unsubscribers.forEach((unsubscribe) => unsubscribe());
 		this._unsubscribers = [];
+		this._component.onDisconnect?.();
+		if (!this._teardownScheduled && !this._destroyed) {
+			this._teardownScheduled = true;
+			queueMicrotask(() => {
+				this._teardownScheduled = false;
+				if (!this.isConnected && !this._destroyed) this.teardown();
+			});
+		}
+	}
+	attributeChangedCallback(attribute, oldVal, newVal) {
+		const prop = attribute.replace(/-([a-z])/g, (_, ch) => ch.toUpperCase());
+		if (this._component[prop] !== void 0) {
+			let value = newVal;
+			if (this._booleanProperties.has(prop)) value = newVal !== null && newVal !== "false";
+			this._component[prop] = value;
+		}
+		this.scheduleRender();
+		if (this._component.onAttributeChange !== void 0) this._component.onAttributeChange(attribute, oldVal, newVal);
+	}
+	teardown() {
+		this._destroyed = true;
 		const parts = this._root.__parts;
 		if (parts) {
 			for (const part of parts) if (part.actionCleanup) try {
@@ -682,16 +792,6 @@ var ComponentBase = class extends HTMLElement {
 		}
 		this._disposables.clear();
 		this._selectCache.clear();
-	}
-	attributeChangedCallback(attribute, oldVal, newVal) {
-		const prop = attribute.replace(/-([a-z])/g, (_, ch) => ch.toUpperCase());
-		if (this._component[prop] !== void 0) {
-			let value = newVal;
-			if (this._booleanProperties.has(prop)) value = newVal !== null && newVal !== "false";
-			this._component[prop] = value;
-		}
-		this.scheduleRender();
-		if (this._component.onAttributeChange !== void 0) this._component.onAttributeChange(attribute, oldVal, newVal);
 	}
 	renderStyles() {
 		const styleNode = document.createElement("style");
@@ -731,18 +831,21 @@ var ComponentBase = class extends HTMLElement {
 			proto = Object.getPrototypeOf(proto);
 		}
 		const filtered = properties.filter((prop) => {
+			if (prop.startsWith("_") || prop === "elementRef" || prop === "constructor") return false;
+			const descriptor = this.getPropertyDescriptor(this._component, prop);
+			if (descriptor && descriptor.get && !descriptor.set) return false;
 			const value = this._component[prop];
-			if (prop.startsWith("_")) return false;
 			if (isSignal(value)) {
-				this.subscribeToSignal(value);
+				this._reactiveSources.push(value);
 				return false;
 			}
 			if (value instanceof AbstractControl) {
-				this.subscribeToSignal(value.state);
+				this._reactiveSources.push(value.value);
+				this._reactiveSources.push(value.state);
 				return false;
 			}
 			if (typeof value === "function") return false;
-			return prop !== "elementRef" && prop !== "constructor";
+			return true;
 		});
 		for (const prop of filtered) {
 			const descriptor = this.getPropertyDescriptor(this._component, prop);
@@ -751,7 +854,7 @@ var ComponentBase = class extends HTMLElement {
 			if (typeof value === "boolean") this._booleanProperties.add(prop);
 			let componentGetter = () => value;
 			let componentSetter = (newVal) => {
-				if (value !== newVal) {
+				if (!Object.is(value, newVal)) {
 					this._component.onPropertyChange?.(prop, value, newVal);
 					value = newVal;
 					this.scheduleRender();
@@ -759,7 +862,7 @@ var ComponentBase = class extends HTMLElement {
 			};
 			if (descriptor?.get) {
 				const originalGetter = descriptor.get;
-				componentGetter = () => originalGetter.call(this._component) ?? value;
+				componentGetter = () => originalGetter.call(this._component);
 			}
 			if (descriptor?.set) {
 				const originalSetter = descriptor.set;
@@ -798,9 +901,9 @@ var ComponentBase = class extends HTMLElement {
 		});
 		return attributes;
 	}
-	subscribeToSignal(signal$1) {
-		const unsubscriber = signal$1.subscribe(() => this.scheduleRender());
-		this._unsubscribers.push(unsubscriber);
+	subscribeReactiveSources() {
+		if (this._destroyed) return;
+		for (const source of this._reactiveSources) this._unsubscribers.push(source.subscribe(() => this.scheduleRender()));
 	}
 };
 function MelodicComponent(meta) {
@@ -808,13 +911,7 @@ function MelodicComponent(meta) {
 		if (customElements.get(meta.selector) === void 0) {
 			const webComponent = class extends ComponentBase {
 				constructor() {
-					const dependencies = [];
-					const paramTokens = component.params;
-					if (paramTokens && Array.isArray(paramTokens)) for (const i of paramTokens) {
-						const param = paramTokens[i];
-						if (param && typeof param === "object" && param.__injectionToken) dependencies.push(Injector.get(param.__injectionToken));
-						else dependencies.push(void 0);
-					}
+					const dependencies = resolveInjectedParams(component, (token) => Injector.get(token));
 					const disposables = /* @__PURE__ */ new Set();
 					const selectCache = /* @__PURE__ */ new Map();
 					const placeholder = {
@@ -909,6 +1006,7 @@ var AbortError = class AbortError extends HttpBaseError {
 var RequestManager = class {
 	constructor() {
 		this._pendingRequests = /* @__PURE__ */ new Map();
+		this._opaqueCounter = 0;
 	}
 	generateRequestKey(method, url, body) {
 		let key = `${method}:${url}`;
@@ -951,11 +1049,9 @@ var RequestManager = class {
 		this._pendingRequests.delete(key);
 	}
 	hashBody(body) {
+		if (body instanceof FormData || body instanceof Blob || body instanceof ArrayBuffer || body instanceof ReadableStream) return `opaque:${++this._opaqueCounter}`;
 		let str;
 		if (typeof body === "string") str = body;
-		else if (body instanceof FormData) str = "[FormData]";
-		else if (body instanceof Blob) str = `[Blob:${body.size}]`;
-		else if (body instanceof ArrayBuffer) str = `[ArrayBuffer:${body.byteLength}]`;
 		else if (body instanceof URLSearchParams) str = body.toString();
 		else if (typeof body === "object" && body !== null) str = JSON.stringify(body);
 		else str = String(body);
@@ -1036,7 +1132,6 @@ var HttpClient = class {
 		let requestConfig = this.mergeConfig(config);
 		requestConfig = await this.executeRequestInterceptors(requestConfig);
 		if (requestConfig.cancel?.cancelled) {
-			if (requestConfig.cancel.cancelReason) console.log("[HttpClient] Request cancelled:", requestConfig.cancel.cancelReason);
 			let cancelledResponse = {
 				data: null,
 				status: 0,
@@ -1072,13 +1167,13 @@ var HttpClient = class {
 	}
 	async handleResponseError(error, originalConfig) {
 		const retryCount = originalConfig._retryCount ?? 0;
+		let retryInitiated = false;
 		for (let i = 0; i < this._interceptors.response.length; i++) {
 			const interceptor = this._interceptors.response[i];
 			if (!interceptor.error) continue;
-			let retryCalled = false;
 			const retry = async () => {
-				if (retryCalled) throw new Error("[HttpClient] retry() may only be called once per error handler invocation");
-				retryCalled = true;
+				if (retryInitiated) throw new Error("[HttpClient] retry() may only be called once per error pass");
+				retryInitiated = true;
 				if (retryCount >= MAX_RETRIES) throw new Error(`[HttpClient] Max retries (${MAX_RETRIES}) exceeded`);
 				return this.internalRequest({
 					...originalConfig,
@@ -1094,6 +1189,7 @@ var HttpClient = class {
 				const result = await interceptor.error(error, context);
 				if (this.isHttpResponse(result)) return this.executeResponseInterceptors(result, i + 1);
 			} catch {}
+			if (retryInitiated) break;
 		}
 		throw error;
 	}
@@ -1110,6 +1206,13 @@ var HttpClient = class {
 		if (config.deduplicate === true) {
 			const requestKey = this._requestManager.generateRequestKey(config.method, config.url, config.body);
 			if (this._requestManager.hasPendingRequest(requestKey)) return this._requestManager.getPendingRequest(requestKey);
+		}
+		let timeoutId;
+		if (config.timeout && config.timeout > 0 && config.abortController) {
+			const controller = config.abortController;
+			timeoutId = setTimeout(() => {
+				controller.abort(new DOMException("Request timed out", "TimeoutError"));
+			}, config.timeout);
 		}
 		const fetchPromise = fetch(config.url, {
 			method: config.method,
@@ -1130,8 +1233,10 @@ var HttpClient = class {
 			return httpResponse;
 		}).catch((error) => {
 			if (error instanceof HttpError) throw error;
-			if (error instanceof Error && error.name === "AbortError") throw new AbortError("Request aborted", config);
+			if (error instanceof Error && (error.name === "AbortError" || error.name === "TimeoutError")) throw new AbortError(error.name === "TimeoutError" ? "Request timed out" : "Request aborted", config);
 			throw new NetworkError((error instanceof Error ? error.message : "Network error") || "Network error", config);
+		}).finally(() => {
+			if (timeoutId !== void 0) clearTimeout(timeoutId);
 		});
 		if (config.deduplicate === true) this._requestManager.addPendingRequest(config, fetchPromise);
 		return await fetchPromise;
@@ -1162,10 +1267,21 @@ var HttpClient = class {
 		};
 	}
 	buildUrl(url, params) {
-		let fullUrl = `${this._clientConfig.baseURL || ""}${url}`;
+		const baseUrl = this._clientConfig.baseURL || "";
+		let fullUrl;
+		if (!baseUrl || /^[a-z][a-z\d+\-.]*:\/\//i.test(url)) fullUrl = url;
+		else fullUrl = `${baseUrl.replace(/\/+$/, "")}/${url.replace(/^\/+/, "")}`;
 		if (params) {
-			const queryString = Object.entries(params).map(([key, value]) => `${encodeURIComponent(key)}=${encodeURIComponent(String(value))}`).join("&");
-			fullUrl += `${fullUrl.includes("?") ? "&" : "?"}${queryString}`;
+			const pairs = [];
+			for (const [key, value] of Object.entries(params)) {
+				if (value === null || value === void 0) continue;
+				const values = Array.isArray(value) ? value : [value];
+				for (const v of values) {
+					if (v === null || v === void 0) continue;
+					pairs.push(`${encodeURIComponent(key)}=${encodeURIComponent(String(v))}`);
+				}
+			}
+			if (pairs.length > 0) fullUrl += `${fullUrl.includes("?") ? "&" : "?"}${pairs.join("&")}`;
 		}
 		return fullUrl;
 	}
@@ -1195,14 +1311,20 @@ var HttpClient = class {
 			const blob = new Blob(chunks);
 			if (contentType.includes("application/json")) {
 				const text = await blob.text();
-				return JSON.parse(text);
+				return text ? JSON.parse(text) : null;
 			}
 			return blob;
 		}
-		if (contentType.includes("application/json")) return await response.json();
+		if (contentType.includes("application/json")) {
+			const text = await response.text();
+			return text ? JSON.parse(text) : null;
+		}
 		if (contentType.includes("text/")) return await response.text();
-		if (contentType.includes("application/octet-stream") || contentType.includes("image/")) return await response.blob();
+		if (this.isBinaryContentType(contentType)) return await response.blob();
 		return await response.text();
+	}
+	isBinaryContentType(contentType) {
+		return contentType.includes("application/octet-stream") || contentType.includes("application/pdf") || contentType.includes("application/zip") || contentType.startsWith("image/") || contentType.startsWith("audio/") || contentType.startsWith("video/") || contentType.startsWith("font/");
 	}
 };
 function provideHttp(httpClientConfig, interceptors) {
@@ -1228,20 +1350,47 @@ function createResolver(fn) {
 }
 var RouteMatcher = class {
 	constructor(route, rules) {
-		this._reEscape = /[-[\]{}()+?.,\\^$|#\s]/g;
+		this._reEscape = /[-[\]{}()+?.,\\^$|#\s*]/g;
+		this._reToken = /(\*\*)|:(\w+)|\*(\w+)|(\*)/g;
 		this._reParam = /([:*])(\w+)/g;
 		this._names = [];
 		this._isWildcard = false;
 		this._route = route;
 		this._rules = rules;
 		this._isWildcard = route.includes("*");
-		let escapedRoute = this._route.replace(this._reEscape, "\\$&");
-		escapedRoute = escapedRoute.replace(this._reParam, (_, mode, name) => {
-			this._names.push(name);
-			return mode === ":" ? "([^/]*)" : "(.*)";
-		});
+		const escapedRoute = this.buildPattern(route);
 		this._routeRegex = /* @__PURE__ */ new RegExp("^" + escapedRoute + "$");
 		this._prefixRegex = /* @__PURE__ */ new RegExp("^" + escapedRoute + "(?:/|$)");
+	}
+	buildPattern(route) {
+		this._reToken.lastIndex = 0;
+		let pattern = "";
+		let lastIndex = 0;
+		let anonCount = 0;
+		let match;
+		while ((match = this._reToken.exec(route)) !== null) {
+			pattern += route.slice(lastIndex, match.index).replace(this._reEscape, "\\$&");
+			if (match[1] || match[4]) {
+				this._names.push(`_wildcard${anonCount++}`);
+				pattern += "(.*)";
+			} else if (match[2]) {
+				this._names.push(match[2]);
+				pattern += "([^/]*)";
+			} else if (match[3]) {
+				this._names.push(match[3]);
+				pattern += "(.*)";
+			}
+			lastIndex = this._reToken.lastIndex;
+		}
+		pattern += route.slice(lastIndex).replace(this._reEscape, "\\$&");
+		return pattern;
+	}
+	decode(value) {
+		try {
+			return decodeURIComponent(value);
+		} catch {
+			return value;
+		}
 	}
 	parse(url) {
 		let i = 0;
@@ -1252,7 +1401,7 @@ var RouteMatcher = class {
 		if (!matches) return null;
 		while (i < this._names.length) {
 			param = this._names[i++];
-			value = matches[i];
+			value = this.decode(matches[i]);
 			if (this._rules && param in this._rules && !this.validateRule(this._rules[param], value)) return null;
 			params[param] = value;
 		}
@@ -1269,7 +1418,7 @@ var RouteMatcher = class {
 		const params = {};
 		for (let i = 0; i < this._names.length; i++) {
 			const name = this._names[i];
-			const value = matches[i + 1];
+			const value = this.decode(matches[i + 1]);
 			if (this._rules && name in this._rules && !this.validateRule(this._rules[name], value)) return null;
 			params[name] = value;
 		}
@@ -1287,7 +1436,7 @@ var RouteMatcher = class {
 			re = /* @__PURE__ */ new RegExp("[:*]" + param + "\\b");
 			result = result.replace(re, params[param]);
 		}
-		return result.replace(this._reParam, "");
+		return result.replace(this._reParam, "").replace(/\*+/g, "");
 	}
 	calculateMatchedPath(url) {
 		if (this._isWildcard) return url;
@@ -1418,7 +1567,7 @@ function buildPathFromRoute(routes, name, params = {}) {
 		}
 		return false;
 	}
-	if (findAndBuildPath(routes, name)) return "/" + pathParts.filter(Boolean).join("/");
+	if (findAndBuildPath(routes, name)) return "/" + pathParts.join("/").split("/").filter(Boolean).join("/");
 	return null;
 }
 function __decorate(decorators, target, key, desc) {
@@ -1556,6 +1705,8 @@ var RouterService = class RouterService$1 {
 		this._currentMatches = [];
 		this._resolversExecutedForPath = null;
 		this._currentPath = `${window.location.pathname}${window.location.search}`;
+		this._navigationId = 0;
+		this._pendingTarget = null;
 		this._contextService = new RouteContextService();
 		window.addEventListener("NavigationEvent", (event) => {
 			this._route = event.detail.state;
@@ -1583,7 +1734,7 @@ var RouterService = class RouterService$1 {
 		return this._contextService.getCurrentParams()[name];
 	}
 	getQueryParams() {
-		return new URLSearchParams(window.location.search);
+		return this.targetQueryParams();
 	}
 	getCurrentMatches() {
 		return [...this._currentMatches];
@@ -1595,7 +1746,29 @@ var RouterService = class RouterService$1 {
 		return this._contextService.getMergedResolvedData(depth);
 	}
 	matchPath(path) {
-		return matchRouteTree(this._routes, path);
+		return matchRouteTree(this._routes, this.normalizePath(path));
+	}
+	parseUrl(url) {
+		const hashIndex = url.indexOf("#");
+		const hash = hashIndex >= 0 ? url.slice(hashIndex) : "";
+		const withoutHash = hashIndex >= 0 ? url.slice(0, hashIndex) : url;
+		const queryIndex = withoutHash.indexOf("?");
+		const search = queryIndex >= 0 ? withoutHash.slice(queryIndex) : "";
+		return {
+			pathname: queryIndex >= 0 ? withoutHash.slice(0, queryIndex) : withoutHash,
+			search,
+			hash
+		};
+	}
+	normalizePath(url) {
+		const { pathname } = this.parseUrl(url);
+		return pathname.length > 1 ? pathname.replace(/\/+$/, "") : pathname;
+	}
+	targetPathname() {
+		return this._pendingTarget ? this._pendingTarget.pathname : window.location.pathname;
+	}
+	targetQueryParams() {
+		return new URLSearchParams(this._pendingTarget ? this._pendingTarget.queryParams : window.location.search);
 	}
 	setCurrentMatches(result) {
 		this._currentMatches = result.matches;
@@ -1615,60 +1788,74 @@ var RouterService = class RouterService$1 {
 		const { data, replace = false, queryParams, skipGuards = false, skipResolvers = false, scrollToTop = true } = options;
 		let fullPath = path;
 		if (queryParams && Object.keys(queryParams).length > 0) fullPath = `${path}?${new URLSearchParams(queryParams).toString()}`;
-		if (!skipGuards && this._currentMatches.length > 0) {
-			const deactivateResult = await this.runDeactivationGuards(fullPath);
-			if (deactivateResult !== true) {
-				if (typeof deactivateResult === "string") return this.navigate(deactivateResult, {
-					...options,
-					skipGuards: true
-				});
-				return {
-					success: false,
-					error: "Navigation blocked by guard"
-				};
-			}
-		}
-		const matchResult = this.matchPath(path);
-		if (matchResult.redirectTo) return this.navigate(matchResult.redirectTo, {
-			...options,
-			replace: true
-		});
-		if (!skipGuards && matchResult.matches.length > 0) {
-			const guardResult = await this.runGuards(matchResult);
-			if (guardResult !== true) {
-				if (typeof guardResult === "string") return this.navigate(guardResult, {
-					...options,
-					skipGuards: true
-				});
-				return {
-					success: false,
-					error: "Navigation blocked by guard"
-				};
-			}
-		}
-		if (!skipResolvers && matchResult.matches.length > 0) {
-			const resolverResult = await this.runResolversInternal(matchResult);
-			if (!resolverResult.success) return {
-				success: false,
-				error: resolverResult.error ?? "Navigation blocked by resolver"
-			};
-			this._resolversExecutedForPath = fullPath;
-		}
-		this.setCurrentMatches(matchResult);
-		if (replace) history.replaceState(data, "", fullPath);
-		else history.pushState(data, "", fullPath);
-		this._currentPath = fullPath;
-		if (scrollToTop) {
-			const hash = fullPath.includes("#") ? fullPath.split("#")[1] : null;
-			if (hash) {
-				const element = document.getElementById(hash);
-				if (element) element.scrollIntoView();
-			} else window.scrollTo(0, 0);
-		}
-		return {
-			success: true,
-			url: fullPath
+		const navId = ++this._navigationId;
+		const { pathname, search } = this.parseUrl(fullPath);
+		this._pendingTarget = {
+			pathname,
+			queryParams: new URLSearchParams(search)
 		};
+		const superseded = () => ({
+			success: false,
+			error: "Navigation superseded"
+		});
+		try {
+			if (!skipGuards && this._currentMatches.length > 0) {
+				const deactivateResult = await this.runDeactivationGuards(fullPath);
+				if (this._navigationId !== navId) return superseded();
+				if (deactivateResult !== true) {
+					if (typeof deactivateResult === "string") return this.navigate(deactivateResult, {
+						...options,
+						skipGuards: true
+					});
+					return {
+						success: false,
+						error: "Navigation blocked by guard"
+					};
+				}
+			}
+			const matchResult = this.matchPath(path);
+			if (matchResult.redirectTo) return this.navigate(matchResult.redirectTo, options);
+			if (!skipGuards && matchResult.matches.length > 0) {
+				const guardResult = await this.runGuards(matchResult);
+				if (this._navigationId !== navId) return superseded();
+				if (guardResult !== true) {
+					if (typeof guardResult === "string") return this.navigate(guardResult, {
+						...options,
+						skipGuards: true
+					});
+					return {
+						success: false,
+						error: "Navigation blocked by guard"
+					};
+				}
+			}
+			if (!skipResolvers && matchResult.matches.length > 0) {
+				const resolverResult = await this.runResolversInternal(matchResult);
+				if (this._navigationId !== navId) return superseded();
+				if (!resolverResult.success) return {
+					success: false,
+					error: resolverResult.error ?? "Navigation blocked by resolver"
+				};
+				this._resolversExecutedForPath = fullPath;
+			}
+			this.setCurrentMatches(matchResult);
+			if (replace) history.replaceState(data, "", fullPath);
+			else history.pushState(data, "", fullPath);
+			this._currentPath = fullPath;
+			if (scrollToTop) {
+				const hash = fullPath.includes("#") ? fullPath.split("#")[1] : null;
+				if (hash) {
+					const element = document.getElementById(hash);
+					if (element) element.scrollIntoView();
+				} else window.scrollTo(0, 0);
+			}
+			return {
+				success: true,
+				url: fullPath
+			};
+		} finally {
+			if (this._navigationId === navId) this._pendingTarget = null;
+		}
 	}
 	async navigateByName(name, params = {}, options = {}) {
 		const path = buildPathFromRoute(this._routes, name, params);
@@ -1734,8 +1921,8 @@ var RouterService = class RouterService$1 {
 			route: match,
 			matchedRoutes: matchResult.matches,
 			params: matchResult.params,
-			queryParams: new URLSearchParams(window.location.search),
-			targetPath: window.location.pathname,
+			queryParams: this.targetQueryParams(),
+			targetPath: this.targetPathname(),
 			currentPath: window.location.pathname,
 			data: match.route.data
 		};
@@ -1787,8 +1974,8 @@ var RouterService = class RouterService$1 {
 			route: match,
 			matchedRoutes: matchResult.matches,
 			params: matchResult.params,
-			queryParams: new URLSearchParams(window.location.search),
-			targetPath: window.location.pathname
+			queryParams: this.targetQueryParams(),
+			targetPath: this.targetPathname()
 		};
 	}
 };
@@ -1815,7 +2002,7 @@ function getRegisteredDirectives() {
 	return Array.from(directiveRegistry.keys());
 }
 function isDirective(value) {
-	return typeof value === "object" && value !== null && "__directive" in value;
+	return typeof value === "object" && value !== null && value.__directive === true && typeof value.render === "function";
 }
 var MARKER = `m${Math.random().toString(36).slice(2, 9)}`;
 var COMMENT_NODE_MARKER = `<!--${MARKER}-->`;
@@ -2389,7 +2576,8 @@ var TemplateResult = class TemplateResult {
 							else element.setAttribute(part.name, composed);
 							part.previousValue = composed;
 							continue;
-						} else if (value === null || value === void 0 || value === false) element.removeAttribute(part.name);
+						} else if (typeof value === "boolean" && part.name.startsWith("aria-")) element.setAttribute(part.name, String(value));
+						else if (value === null || value === void 0 || value === false) element.removeAttribute(part.name);
 						else if (value === true) element.setAttribute(part.name, "");
 						else element.setAttribute(part.name, String(value));
 					}
@@ -2453,6 +2641,7 @@ var RouterOutletComponent = class RouterOutletComponent$1 {
 		this._parentOutlet = null;
 		this._initialized = false;
 		this._navigationCleanup = null;
+		this._renderToken = 0;
 		this.routes = [];
 		this.name = "primary";
 	}
@@ -2563,6 +2752,7 @@ var RouterOutletComponent = class RouterOutletComponent$1 {
 		if (this._depth === 0) this.matchAndRender(window.location.pathname);
 	}
 	async matchAndRender(fullPath) {
+		const token = ++this._renderToken;
 		const routes = this.routes.length > 0 ? this.routes : this._router.getRoutes();
 		if (routes.length === 0) return;
 		const matchResult = matchRouteTree(routes, fullPath);
@@ -2572,6 +2762,7 @@ var RouterOutletComponent = class RouterOutletComponent$1 {
 		}
 		if (matchResult.matches.length > 0) {
 			const guardResult = await this._router.runGuards(matchResult);
+			if (token !== this._renderToken) return;
 			if (guardResult !== true) {
 				if (typeof guardResult === "string") this._router.navigate(guardResult, {
 					replace: true,
@@ -2582,6 +2773,7 @@ var RouterOutletComponent = class RouterOutletComponent$1 {
 		}
 		if (matchResult.matches.length > 0) {
 			const resolverResult = await this._router.runResolvers(matchResult);
+			if (token !== this._renderToken) return;
 			if (!resolverResult.success) {
 				console.error("Resolver failed:", resolverResult.error);
 				await this.render404();
@@ -2685,6 +2877,7 @@ var RouterLinkComponent = class RouterLinkComponent$1 {
 	constructor() {
 		this._anchorElement = null;
 		this._navigationCleanup = null;
+		this._clickCleanup = null;
 		this.href = "";
 		this.data = null;
 		this.queryParams = {};
@@ -2699,14 +2892,16 @@ var RouterLinkComponent = class RouterLinkComponent$1 {
 		const initialActiveClass = this.elementRef.getAttribute("active-class");
 		if (initialActiveClass) this.activeClass = initialActiveClass;
 		this.updateAnchorHref();
-		this.elementRef.addEventListener("click", (e) => {
+		const clickHandler = (e) => {
 			e.preventDefault();
 			if (e.ctrlKey || e.metaKey || e.shiftKey) {
 				window.open(this.buildFullPath(), "_blank");
 				return;
 			}
 			this.navigate();
-		}, false);
+		};
+		this.elementRef.addEventListener("click", clickHandler, false);
+		this._clickCleanup = () => this.elementRef.removeEventListener("click", clickHandler, false);
 		const handler = () => this.updateActiveState();
 		window.addEventListener("NavigationEvent", handler);
 		this._navigationCleanup = () => window.removeEventListener("NavigationEvent", handler);
@@ -2714,6 +2909,7 @@ var RouterLinkComponent = class RouterLinkComponent$1 {
 	}
 	onDestroy() {
 		this._navigationCleanup?.();
+		this._clickCleanup?.();
 	}
 	onAttributeChange(attribute, _, newVal) {
 		if (attribute === "href") {
@@ -2951,6 +3147,8 @@ var ComponentStateBaseService = class extends EffectsBase {
 			effect.effect(action).then((newAction) => {
 				if (newAction === void 0) return;
 				(Array.isArray(newAction) ? newAction : [newAction]).forEach((na) => this.dispatch(na));
+			}).catch((error) => {
+				console.error(`[ComponentState] Effect for action '${action.type}' failed:`, error);
 			});
 		});
 	}
@@ -3002,6 +3200,8 @@ var SignalStoreService = class SignalStoreService$1 {
 				newAction.forEach((na) => {
 					this.dispatch(na);
 				});
+			}).catch((error) => {
+				console.error(`[SignalStore] Effect for action '${action.type}' failed:`, error);
 			});
 		});
 	}
@@ -3080,103 +3280,6 @@ function provideRX(initState, actionReducers, effects, debug = false) {
 		] });
 	};
 }
-var compiledCache = /* @__PURE__ */ new WeakMap();
-var CompiledTemplate = class CompiledTemplate {
-	constructor(strings) {
-		this._factory = null;
-		this._hasEvents = false;
-		this._canCompile = false;
-		this.analyzeAndCompile(strings);
-	}
-	static compile(strings) {
-		let compiled = compiledCache.get(strings);
-		if (!compiled) {
-			compiled = new CompiledTemplate(strings);
-			compiledCache.set(strings, compiled);
-		}
-		return compiled;
-	}
-	canUseFastPath() {
-		return this._canCompile && !this._hasEvents;
-	}
-	create(values) {
-		if (this._factory) return {
-			nodes: [this._factory(values)],
-			eventTargets: []
-		};
-		return {
-			nodes: [],
-			eventTargets: []
-		};
-	}
-	createDirect(values) {
-		return this._factory ? this._factory(values) : null;
-	}
-	analyzeAndCompile(strings) {
-		if (strings.length < 2) return;
-		for (const s of strings) if (s.includes("@")) {
-			this._hasEvents = true;
-			return;
-		}
-		let html$1 = strings[0];
-		for (let i = 1; i < strings.length; i++) html$1 += `\${${i - 1}}` + strings[i];
-		const fullMatch = html$1.match(/^<([\w-]+)([^>]*)>(.*)$/s);
-		if (!fullMatch) return;
-		const [, tag, attrString, rest] = fullMatch;
-		const closingTag = `</${tag}>`;
-		if (!rest.endsWith(closingTag)) return;
-		const textContent = rest.slice(0, -closingTag.length);
-		const attrs = [];
-		const attrRegex = /([\w-]+)\s*=\s*(?:"([^"]*)"|'([^']*)'|\$\{(\d+)\})/g;
-		let attrMatch;
-		while ((attrMatch = attrRegex.exec(attrString)) !== null) {
-			const name = attrMatch[1];
-			const staticVal = attrMatch[2] ?? attrMatch[3];
-			const dynamicIndex = attrMatch[4];
-			if (dynamicIndex !== void 0) attrs.push({
-				name,
-				valueIndex: parseInt(dynamicIndex, 10)
-			});
-			else if (staticVal !== void 0) {
-				const placeholderMatch = staticVal.match(/\$\{(\d+)\}/);
-				if (placeholderMatch) attrs.push({
-					name,
-					valueIndex: parseInt(placeholderMatch[1], 10)
-				});
-				else attrs.push({
-					name,
-					valueIndex: null,
-					staticValue: staticVal
-				});
-			}
-		}
-		const textParts = [];
-		const remaining = textContent;
-		const placeholderRegex = /\$\{(\d+)\}/g;
-		let lastIndex = 0;
-		let textMatch;
-		placeholderRegex.lastIndex = 0;
-		while ((textMatch = placeholderRegex.exec(remaining)) !== null) {
-			if (textMatch.index > lastIndex) textParts.push({ static: remaining.slice(lastIndex, textMatch.index) });
-			textParts.push({ valueIndex: parseInt(textMatch[1], 10) });
-			lastIndex = textMatch.index + textMatch[0].length;
-		}
-		if (lastIndex < remaining.length) textParts.push({ static: remaining.slice(lastIndex) });
-		this._factory = (values) => {
-			const el = document.createElement(tag);
-			for (const attr of attrs) if (attr.valueIndex !== null) {
-				const value = values[attr.valueIndex];
-				if (value !== null && value !== void 0 && value !== false) el.setAttribute(attr.name, value === true ? "" : String(value));
-			} else if (attr.staticValue !== void 0) el.setAttribute(attr.name, attr.staticValue);
-			let text = "";
-			for (const part of textParts) if ("static" in part) text += part.static;
-			else text += values[part.valueIndex] ?? "";
-			el.textContent = text;
-			return el;
-		};
-		this._canCompile = true;
-	}
-};
 function directive(renderFn) {
 	return {
 		__directive: true,
@@ -3227,12 +3330,6 @@ function updateList$1(newItems, keyFn, template, state) {
 			return;
 		}
 	}
-	if (state.useCompiledPath === void 0 && newItems.length > 0) {
-		const sampleTemplate = template(newItems[0], 0);
-		const compiled = CompiledTemplate.compile(sampleTemplate.strings);
-		state.useCompiledPath = compiled.canUseFastPath();
-		if (state.useCompiledPath) state.compiledTemplate = compiled;
-	}
 	const oldItemsByKey = /* @__PURE__ */ new Map();
 	const oldIndexByKey = /* @__PURE__ */ new Map();
 	for (const oldItem of oldItems) {
@@ -3252,7 +3349,7 @@ function updateList$1(newItems, keyFn, template, state) {
 				isNew: false
 			});
 		} else {
-			const repeatItem = createRepeatItem(item, i, key, template, state);
+			const repeatItem = createRepeatItem(item, i, key, template);
 			newEntries.push({
 				item: repeatItem,
 				oldIndex: -1,
@@ -3278,29 +3375,14 @@ function updateList$1(newItems, keyFn, template, state) {
 	state.keyToIndex = newKeyToIndex;
 	state.items = newEntries.map((entry) => entry.item);
 }
-function createRepeatItem(item, index, key, template, state) {
+function createRepeatItem(item, index, key, template) {
 	const templateResult = template(item, index);
-	let nodes;
-	let container;
-	if (state.useCompiledPath && state.compiledTemplate) {
-		const node = state.compiledTemplate.createDirect(templateResult.values);
-		if (node) {
-			nodes = [node];
-			container = document.createDocumentFragment();
-			container.appendChild(node);
-		} else {
-			container = document.createDocumentFragment();
-			nodes = templateResult.renderOnce(container);
-		}
-	} else {
-		container = document.createDocumentFragment();
-		nodes = templateResult.renderOnce(container);
-	}
+	const container = document.createDocumentFragment();
 	return {
 		key,
 		value: item,
 		container,
-		nodes,
+		nodes: templateResult.renderOnce(container),
 		start: document.createComment("repeat-item-start"),
 		end: document.createComment("repeat-item-end")
 	};
@@ -3663,7 +3745,7 @@ var FormControl = class extends AbstractControl {
 	setValue(value, options) {
 		if (this._ownDisabled()) return;
 		this.value.set(value);
-		this._dirty.set(!options?.markAsPristine);
+		if (options?.markAsPristine) this._dirty.set(false);
 		if (this.updateOn === "change") this.runValidation();
 	}
 	patchValue(value, options) {
@@ -3678,7 +3760,6 @@ var FormControl = class extends AbstractControl {
 		this.value.set(value ?? this.initialValue);
 		this._dirty.set(false);
 		this._touched.set(false);
-		this.errors.set(null);
 		this.runValidation();
 	}
 	destroy() {
@@ -3718,18 +3799,25 @@ var FormGroup = class FormGroup extends AbstractControl {
 		const control = this.controls()[name];
 		if (!control) return;
 		control.parent = null;
-		control.destroy();
 		this.controls.update((current) => {
 			const next = { ...current };
 			delete next[name];
 			return next;
 		});
+		control.destroy();
 	}
 	setValue(value, options) {
 		if (this._ownDisabled()) return;
 		const controls = this.controls();
-		for (const key of Object.keys(value)) controls[key]?.setValue(value[key], options);
+		const controlKeys = Object.keys(controls);
+		const valueKeys = Object.keys(value);
+		for (const key of valueKeys) if (!(key in controls)) throw new Error(`FormGroup.setValue: unknown control name '${key}'. Use patchValue() for partial updates.`);
+		for (const key of controlKeys) if (!(key in value)) throw new Error(`FormGroup.setValue: missing value for control name '${key}'. Use patchValue() for partial updates.`);
+		for (const key of controlKeys) controls[key].setValue(value[key], options);
 		if (options?.markAsPristine) this._dirty.set(false);
+	}
+	getRawValue() {
+		return FormGroup.computeValue(this.controls(), true);
 	}
 	patchValue(value, options) {
 		if (this._ownDisabled()) return;
@@ -3807,9 +3895,13 @@ var FormGroup = class FormGroup extends AbstractControl {
 		const controls = this.controls();
 		return Object.keys(controls).some((key) => controls[key].invalid());
 	}
-	static computeValue(controls) {
+	static computeValue(controls, includeDisabled = false) {
 		const result = {};
-		for (const key of Object.keys(controls)) result[key] = controls[key].value();
+		for (const key of Object.keys(controls)) {
+			const control = controls[key];
+			if (!includeDisabled && control.disabled()) continue;
+			result[key] = includeDisabled ? control.getRawValue() : control.value();
+		}
 		return result;
 	}
 };
@@ -3822,7 +3914,7 @@ var FormArray = class extends AbstractControl {
 		this._childValueEffect = new SignalEffect(() => {
 			const controls = this.controls();
 			for (const control of controls) control.value();
-			this.value.set(controls.map((c) => c.value()));
+			this.value.set(controls.filter((c) => !c.disabled()).map((c) => c.value()));
 			this.runValidation();
 		});
 		this._childValueEffect.run();
@@ -3849,24 +3941,26 @@ var FormArray = class extends AbstractControl {
 		const control = this.controls()[index];
 		if (!control) return;
 		control.parent = null;
-		control.destroy();
 		this.controls.update((current) => current.filter((_, i) => i !== index));
+		control.destroy();
 	}
 	clear() {
 		const controls = this.controls();
-		for (const control of controls) {
-			control.parent = null;
-			control.destroy();
-		}
+		for (const control of controls) control.parent = null;
 		this.controls.set([]);
+		for (const control of controls) control.destroy();
 	}
 	setValue(value, options) {
 		if (this._ownDisabled()) return;
 		const controls = this.controls();
+		if (value.length !== controls.length) throw new Error(`FormArray.setValue: expected ${controls.length} value(s) but received ${value.length}. Use patchValue() for partial updates.`);
 		value.forEach((v, i) => {
-			controls[i]?.setValue(v, options);
+			controls[i].setValue(v, options);
 		});
 		if (options?.markAsPristine) this._dirty.set(false);
+	}
+	getRawValue() {
+		return this.controls().map((c) => c.getRawValue());
 	}
 	patchValue(value, options) {
 		if (this._ownDisabled()) return;
@@ -4147,12 +4241,15 @@ function formControlDirective(element, value, _) {
 	}
 	const cleanupFns = [];
 	const syncElementValue = (val) => {
+		if (control.destroyed) return;
 		adapter.setValue(element, val);
 	};
 	const syncDisabled = (disabled) => {
+		if (control.destroyed) return;
 		adapter.setDisabled?.(element, disabled);
 	};
 	const syncClasses = () => {
+		if (control.destroyed) return;
 		element.classList.toggle("mf-valid", control.valid());
 		element.classList.toggle("mf-invalid", control.invalid());
 		element.classList.toggle("mf-dirty", control.dirty());
@@ -4162,6 +4259,7 @@ function formControlDirective(element, value, _) {
 		element.classList.toggle("mf-disabled", control.disabled());
 	};
 	const syncError = () => {
+		if (control.destroyed) return;
 		if (!control.touched() || !control.errors()) {
 			element.removeAttribute("error");
 			return;
@@ -4172,7 +4270,10 @@ function formControlDirective(element, value, _) {
 	};
 	const handleInput = (event) => {
 		const target = event.target;
-		if (target === element || element.contains(target)) control.setValue(adapter.getValue(element));
+		if (target === element || element.contains(target)) {
+			control.setValue(adapter.getValue(element));
+			control.markAsDirty();
+		}
 	};
 	const handleBlur = () => {
 		control.markAsTouched();
@@ -4632,7 +4733,7 @@ const darkThemeCss = `[data-theme="dark"] {
 }
 
 @media (prefers-color-scheme: dark) {
-	:root:not([data-theme="light"]) {
+	:root:not([data-theme]) {
 		${Object.entries(darkTheme).map(([key, value]) => `${key}: ${value};`).join("\n		")}
 
 		color-scheme: dark;
@@ -4651,7 +4752,10 @@ function getTheme() {
 	return currentTheme;
 }
 function getResolvedTheme() {
-	if (currentTheme === "system") return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+	if (currentTheme === "system") {
+		if (typeof window === "undefined" || !window.matchMedia) return "light";
+		return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+	}
 	return currentTheme;
 }
 function applyTheme(theme) {
@@ -4660,6 +4764,10 @@ function applyTheme(theme) {
 		mediaQueryCleanup = null;
 	}
 	currentTheme = theme;
+	if (typeof document === "undefined" || typeof window === "undefined" || !window.matchMedia) {
+		notifyListeners(theme, theme === "dark" ? "dark" : "light");
+		return;
+	}
 	if (theme === "system") {
 		const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
 		const handleChange = () => {
@@ -4691,6 +4799,7 @@ function createTheme(name, overrides) {
 	return `[data-theme="${name}"] {\n\t${Object.entries(overrides).map(([key, value]) => `${key}: ${value};`).join("\n	")}\n}`;
 }
 function injectTheme(name, overrides) {
+	if (typeof document === "undefined") throw new Error("injectTheme requires a DOM (document is undefined).");
 	const css$1 = createTheme(name, overrides);
 	const style = document.createElement("style");
 	style.id = `ml-theme-${name}`;
@@ -4700,13 +4809,19 @@ function injectTheme(name, overrides) {
 	document.head.appendChild(style);
 	return style;
 }
+function setColorWithVariants(overrides, token, color) {
+	overrides[token] = color;
+	overrides[`${token}-hover`] = `color-mix(in srgb, ${color}, black 12%)`;
+	overrides[`${token}-active`] = `color-mix(in srgb, ${color}, black 22%)`;
+	overrides[`${token}-subtle`] = `color-mix(in srgb, ${color}, white 88%)`;
+}
 function createBrandTheme(name, options) {
 	const overrides = {};
-	if (options.primary) overrides["--ml-color-primary"] = options.primary;
-	if (options.secondary) overrides["--ml-color-secondary"] = options.secondary;
-	if (options.success) overrides["--ml-color-success"] = options.success;
-	if (options.warning) overrides["--ml-color-warning"] = options.warning;
-	if (options.danger) overrides["--ml-color-danger"] = options.danger;
+	if (options.primary) setColorWithVariants(overrides, "--ml-color-primary", options.primary);
+	if (options.secondary) setColorWithVariants(overrides, "--ml-color-secondary", options.secondary);
+	if (options.success) setColorWithVariants(overrides, "--ml-color-success", options.success);
+	if (options.warning) setColorWithVariants(overrides, "--ml-color-warning", options.warning);
+	if (options.danger) setColorWithVariants(overrides, "--ml-color-danger", options.danger);
 	return createTheme(name, overrides);
 }
 function getBasePlacement(reference, floating, placement) {
@@ -5334,14 +5449,14 @@ var VirtualScroller = class {
 		this._resizeObserver = null;
 		this._options = null;
 		this._handleScroll = () => {
-			this._compute(this._viewport.clientHeight);
+			this._compute();
 		};
 	}
 	attach(viewport, options) {
 		this._viewport = viewport;
 		this._options = options;
-		this._resizeObserver = new ResizeObserver((entries) => {
-			for (const entry of entries) this._compute(entry.contentRect.height);
+		this._resizeObserver = new ResizeObserver(() => {
+			this._compute();
 		});
 		this._resizeObserver.observe(viewport);
 		viewport.addEventListener("scroll", this._handleScroll);
@@ -5354,10 +5469,9 @@ var VirtualScroller = class {
 		this._options = null;
 	}
 	invalidate() {
-		if (!this._viewport) return;
-		this._compute(this._viewport.clientHeight);
+		this._compute();
 	}
-	_compute(viewportHeight) {
+	_compute() {
 		if (!this._viewport || !this._options) return;
 		const { rowHeight, itemCount, onUpdate, enabled, buffer = 3 } = this._options;
 		const count = itemCount();
@@ -5365,6 +5479,7 @@ var VirtualScroller = class {
 			onUpdate(0, count);
 			return;
 		}
+		const viewportHeight = this._viewport.clientHeight;
 		const scrollTop = this._viewport.scrollTop;
 		const rowH = rowHeight();
 		onUpdate(Math.max(0, Math.floor(scrollTop / rowH) - buffer), Math.min(count, Math.ceil((scrollTop + viewportHeight) / rowH) + buffer));
@@ -7317,6 +7432,11 @@ var RadioGroupComponent = class RadioGroupComponent$1 {
 	}
 	onInit() {
 		this.elementRef.addEventListener("ml:change", this.handleChildChange);
+	}
+	onCreate() {
+		(this.elementRef.shadowRoot?.querySelector("slot"))?.addEventListener("slotchange", () => this.updateChildRadios());
+	}
+	onRender() {
 		this.updateChildRadios();
 	}
 	updateChildRadios() {
@@ -7504,6 +7624,9 @@ var RadioCardGroupComponent = class RadioCardGroupComponent$1 {
 	}
 	onCreate() {
 		this.elementRef.addEventListener("ml:card-select", this._handleCardSelect);
+		this.elementRef.shadowRoot?.querySelector("slot")?.addEventListener("slotchange", this.handleSlotChange);
+	}
+	onRender() {
 		this.syncCards();
 	}
 	onDestroy() {
@@ -13693,7 +13816,7 @@ function tableTemplate(c) {
 		[`ml-table--${c.size}`]: true,
 		"ml-table--striped": c.striped,
 		"ml-table--hoverable": c.hoverable,
-		"ml-table--row-clickable": c._rowClickable,
+		"ml-table--row-clickable": c.clickableRows,
 		"ml-table--sticky-header": c.stickyHeader,
 		"ml-table--virtual": c.virtual
 	})}>
@@ -14115,15 +14238,9 @@ const tableStyles = () => css`
 		padding: var(--ml-space-2) var(--ml-space-4);
 	}
 `;
-var _rowClickTargets = /* @__PURE__ */ new WeakSet();
-var _origAddEventListener = EventTarget.prototype.addEventListener;
-EventTarget.prototype.addEventListener = function(type, listener, options) {
-	if (type === "ml:row-click") _rowClickTargets.add(this);
-	_origAddEventListener.call(this, type, listener, options);
-};
 var TableComponent = class TableComponent$1 {
 	constructor() {
-		this._rowClickable = false;
+		this.clickableRows = false;
 		this.hasFooter = false;
 		this.hasHeaderActions = false;
 		this.selectable = false;
@@ -14192,9 +14309,6 @@ var TableComponent = class TableComponent$1 {
 	}
 	onPropertyChange(name, _oldVal, _newVal) {
 		if (name === "rows" || name === "columns") this._scroller.invalidate();
-	}
-	onInit() {
-		this._rowClickable = _rowClickTargets.has(this.elementRef);
 	}
 	onCreate() {
 		const shadow = this.elementRef.shadowRoot;
@@ -14296,7 +14410,8 @@ TableComponent = __decorate([MelodicComponent({
 		"description",
 		"sticky-header",
 		"virtual",
-		"manual-sort"
+		"manual-sort",
+		"clickable-rows"
 	]
 })], TableComponent);
 function renderCell(col, row, index) {
@@ -15103,6 +15218,7 @@ var DataGridComponent = class DataGridComponent$1 {
 				this.sortDirection = "asc";
 			}
 			this.currentPage = 1;
+			this.selectedIndices = [];
 			this._scroller.invalidate();
 			this.elementRef.dispatchEvent(new CustomEvent("ml:sort", {
 				bubbles: true,
@@ -15120,6 +15236,7 @@ var DataGridComponent = class DataGridComponent$1 {
 				[key]: val
 			};
 			this.currentPage = 1;
+			this.selectedIndices = [];
 			this._scroller.invalidate();
 			this.elementRef.dispatchEvent(new CustomEvent("ml:filter", {
 				bubbles: true,
@@ -15212,6 +15329,7 @@ var DataGridComponent = class DataGridComponent$1 {
 		this.goToPage = (page) => {
 			if (page < 1 || page > this.totalPages) return;
 			this.currentPage = page;
+			this.selectedIndices = [];
 			if (this._viewport) this._viewport.scrollTop = 0;
 			this._scroller.invalidate();
 			this.elementRef.dispatchEvent(new CustomEvent("ml:page-change", {
@@ -15229,6 +15347,10 @@ var DataGridComponent = class DataGridComponent$1 {
 	}
 	onPropertyChange(name, _oldVal, newVal) {
 		if (name === "columns" && Array.isArray(newVal)) this._syncColumnState(newVal);
+		if (name === "rows") {
+			this.selectedIndices = [];
+			queueMicrotask(() => this._scroller.invalidate());
+		}
 	}
 	onCreate() {
 		this._syncColumnState(this.columns);
@@ -23405,7 +23527,12 @@ var DropdownComponent = class DropdownComponent$1 {
 		this.isOpen = false;
 		this._focusedIndex = -1;
 		this._cleanupAutoUpdate = null;
+		this._justDismissed = false;
 		this.toggle = () => {
+			if (this._justDismissed) {
+				this._justDismissed = false;
+				return;
+			}
 			const menuEl = this.getMenuEl();
 			if (menuEl) menuEl.togglePopover();
 		};
@@ -23420,6 +23547,10 @@ var DropdownComponent = class DropdownComponent$1 {
 				}));
 			} else {
 				this.isOpen = false;
+				this._justDismissed = true;
+				setTimeout(() => {
+					this._justDismissed = false;
+				}, 0);
 				this.clearFocus();
 				this._cleanupAutoUpdate?.();
 				this._cleanupAutoUpdate = null;
@@ -23856,8 +23987,10 @@ const tooltipStyles = () => css`
 		--ml-tooltip-max-width: 320px;
 		--ml-tooltip-padding-y: var(--ml-space-2);
 		--ml-tooltip-padding-x: var(--ml-space-3);
-		--ml-tooltip-bg: var(--ml-tooltip-bg);
-		--ml-tooltip-color: var(--ml-tooltip-text);
+		/* bg/color derive from the global tooltip theme tokens; referencing
+		   --ml-tooltip-bg here would be self-referential (invalid → transparent). */
+		--ml-tooltip-bg: var(--ml-color-neutral-900, var(--ml-gray-900));
+		--ml-tooltip-color: var(--ml-tooltip-text, var(--ml-white));
 		--ml-tooltip-font-size: var(--ml-text-xs);
 		--ml-tooltip-font-weight: var(--ml-font-medium);
 		--ml-tooltip-line-height: var(--ml-leading-snug);
@@ -24126,7 +24259,12 @@ var PopoverComponent = class PopoverComponent$1 {
 		this.arrow = false;
 		this.isOpen = false;
 		this._cleanupAutoUpdate = null;
+		this._justDismissed = false;
 		this.toggle = () => {
+			if (this._justDismissed) {
+				this._justDismissed = false;
+				return;
+			}
 			const popoverEl = this.getPopoverEl();
 			if (popoverEl) popoverEl.togglePopover();
 		};
@@ -24136,6 +24274,10 @@ var PopoverComponent = class PopoverComponent$1 {
 				this.startPositioning();
 			} else {
 				this.isOpen = false;
+				this._justDismissed = true;
+				setTimeout(() => {
+					this._justDismissed = false;
+				}, 0);
 				this._cleanupAutoUpdate?.();
 				this._cleanupAutoUpdate = null;
 			}
@@ -25798,6 +25940,6 @@ DashboardPageComponent = __decorate([MelodicComponent({
 		"layout"
 	]
 })], DashboardPageComponent);
-export { APP_CONFIG, AbortError, AbstractControl, ActivityFeedComponent, ActivityFeedItemComponent, AlertComponent, AppShellComponent, AvatarComponent, BadgeComponent, BadgeGroupComponent, Binding, BreadcrumbComponent, BreadcrumbItemComponent, ButtonComponent, ButtonGroupComponent, ButtonGroupItemComponent, CalendarComponent, CalendarViewComponent, CardComponent, CheckboxComponent, ComponentBase, ComponentStateBaseService, ContainerComponent, DashboardPageComponent, DatePickerComponent, DialogComponent, DialogRef, DialogService, Directive, DividerComponent, DrawerComponent, DropdownComponent, DropdownGroupComponent, DropdownItemComponent, DropdownSeparatorComponent, EffectsBase, FormArray, FormControl, FormFieldComponent, FormGroup, HeroSectionComponent, HttpBaseError, HttpClient, HttpError, IconComponent, Inject, Injectable, InjectionEngine, Injector, InputComponent, ListComponent, ListItemComponent, LoginPageComponent, MelodicComponent, NetworkError, PageHeaderComponent, PaginationComponent, PopoverComponent, ProgressComponent, ROUTE_CONTEXT_EVENT, RX_ACTION_PROVIDERS, RX_EFFECTS_PROVIDERS, RX_INIT_STATE, RX_STATE_DEBUG, RadioCardComponent, RadioCardGroupComponent, RadioComponent, RadioGroupComponent, RouteContextEvent, RouteContextService, RouteMatcher, RouterLinkComponent, RouterOutletComponent, RouterService, SIGNAL_MARKER, SelectComponent, Service, SidebarComponent, SidebarGroupComponent, SidebarItemComponent, SignalEffect, SignalStoreService, SignupPageComponent, SliderComponent, SpinnerComponent, StackComponent, StepComponent, StepPanelComponent, StepsComponent, TabComponent, TabPanelComponent, TableComponent, TabsComponent, TagComponent, TemplateResult, TextareaComponent, ToastComponent, ToastContainerComponent, ToastService, ToggleComponent, TooltipComponent, Validators, VirtualScroller, activityFeedItemStyles, activityFeedItemTemplate, activityFeedStyles, activityFeedTemplate, allTokens, announce, appShellStyles, appShellTemplate, applyGlobalStyles, applyTheme, arrow, autoUpdate, baseThemeCss, bootstrap, borderTokens, breadcrumbItemStyles, breadcrumbItemTemplate, breadcrumbStyles, breadcrumbTemplate, breakpointTokens, breakpoints, buildPathFromRoute, calendarViewStyles, calendarViewTemplate, checkboxAdapter, classMap, clickOutside, colorTokens, componentBaseStyles, computePosition, computed, containerStyles, containerTemplate, createAction, createAsyncValidator, createBrandTheme, createDeactivateGuard, createFocusTrap, createFormArray, createFormControl, createFormGroup, createGuard, createLiveRegion, createReducer, createResolver, createState, createTheme, createToken, createValidator, css, darkTheme, darkThemeCss, dashboardPageStyles, dashboardPageTemplate, defineConfig, directive, drawerStyles, drawerTemplate, dropdownGroupStyles, dropdownGroupTemplate, dropdownItemStyles, dropdownItemTemplate, dropdownSeparatorStyles, dropdownSeparatorTemplate, dropdownStyles, dropdownTemplate, environment, findRouteByName, flip, focusFirst, focusLast, focusTrap, focusVisible, formControlDirective, formFieldStyles, formFieldTemplate, getActiveComponent, getActiveEffect, getAdapter, getAttributeDirective, getEnvironment, getFirstFocusable, getFocusableElements, getGlobalMessage, getLastFocusable, getRegisteredDirectives, getResolvedTheme, getTheme, getTokenKey, hasAttributeDirective, heroSectionStyles, heroSectionTemplate, html, injectTheme, isDirective, isFocusVisible, isSignal, lightTheme, lightThemeCss, listItemStyles, listItemTemplate, listStyles, listTemplate, loginPageStyles, loginPageTemplate, matchRouteTree, newID, offset, onAction, onThemeChange, pageHeaderStyles, pageHeaderTemplate, paginationStyles, paginationTemplate, portalDirective, primitiveColors, progressStyles, progressTemplate, props, provideConfig, provideHttp, provideRX, radioAdapter, registerAdapter, registerAttributeDirective, registerDefaultMessages, render, repeat, repeatRaw, resetStyles, resolveMessage, routerLinkDirective, selectStyles, selectTemplate, setActiveComponent, setActiveEffect, setDefaultMessage, shadowTokens, shift, sidebarGroupStyles, sidebarGroupTemplate, sidebarItemStyles, sidebarItemTemplate, sidebarStyles, sidebarTemplate, signal, signupPageStyles, signupPageTemplate, sliderStyles, sliderTemplate, spacingTokens, stepPanelStyles, stepPanelTemplate, stepStyles, stepTemplate, stepsStyles, stepsTemplate, styleMap, tabPanelStyles, tabPanelTemplate, tabStyles, tabTemplate, tableStyles, tableTemplate, tabsStyles, tabsTemplate, textAdapter, toastContainerStyles, toastContainerTemplate, toastStyles, toastTemplate, toggleTheme, tokensToCss, tooltipDirective, transitionTokens, typographyTokens, unregisterAttributeDirective, unsafeHTML, visuallyHiddenStyles, when };
+export { APP_CONFIG, AbortError, AbstractControl, ActivityFeedComponent, ActivityFeedItemComponent, AlertComponent, AppShellComponent, AvatarComponent, BadgeComponent, BadgeGroupComponent, Binding, BreadcrumbComponent, BreadcrumbItemComponent, ButtonComponent, ButtonGroupComponent, ButtonGroupItemComponent, CalendarComponent, CalendarViewComponent, CardComponent, CheckboxComponent, ComponentBase, ComponentStateBaseService, ContainerComponent, DashboardPageComponent, DatePickerComponent, DialogComponent, DialogRef, DialogService, Directive, DividerComponent, DrawerComponent, DropdownComponent, DropdownGroupComponent, DropdownItemComponent, DropdownSeparatorComponent, EffectsBase, FormArray, FormControl, FormFieldComponent, FormGroup, HeroSectionComponent, HttpBaseError, HttpClient, HttpError, IconComponent, Inject, Injectable, InjectionEngine, Injector, InputComponent, ListComponent, ListItemComponent, LoginPageComponent, MelodicComponent, NetworkError, PageHeaderComponent, PaginationComponent, PopoverComponent, ProgressComponent, ROUTE_CONTEXT_EVENT, RX_ACTION_PROVIDERS, RX_EFFECTS_PROVIDERS, RX_INIT_STATE, RX_STATE_DEBUG, RadioCardComponent, RadioCardGroupComponent, RadioComponent, RadioGroupComponent, RouteContextEvent, RouteContextService, RouteMatcher, RouterLinkComponent, RouterOutletComponent, RouterService, SIGNAL_MARKER, SelectComponent, Service, SidebarComponent, SidebarGroupComponent, SidebarItemComponent, SignalEffect, SignalStoreService, SignupPageComponent, SliderComponent, SpinnerComponent, StackComponent, StepComponent, StepPanelComponent, StepsComponent, TabComponent, TabPanelComponent, TableComponent, TabsComponent, TagComponent, TemplateResult, TextareaComponent, ToastComponent, ToastContainerComponent, ToastService, ToggleComponent, TooltipComponent, Validators, VirtualScroller, activityFeedItemStyles, activityFeedItemTemplate, activityFeedStyles, activityFeedTemplate, allTokens, announce, appShellStyles, appShellTemplate, applyGlobalStyles, applyTheme, arrow, autoUpdate, baseThemeCss, batch, bootstrap, borderTokens, breadcrumbItemStyles, breadcrumbItemTemplate, breadcrumbStyles, breadcrumbTemplate, breakpointTokens, breakpoints, buildPathFromRoute, calendarViewStyles, calendarViewTemplate, checkboxAdapter, classMap, clickOutside, colorTokens, componentBaseStyles, computePosition, computed, containerStyles, containerTemplate, createAction, createAsyncValidator, createBrandTheme, createDeactivateGuard, createFocusTrap, createFormArray, createFormControl, createFormGroup, createGuard, createLiveRegion, createReducer, createResolver, createState, createTheme, createToken, createValidator, css, darkTheme, darkThemeCss, dashboardPageStyles, dashboardPageTemplate, defineConfig, describeToken, directive, drawerStyles, drawerTemplate, dropdownGroupStyles, dropdownGroupTemplate, dropdownItemStyles, dropdownItemTemplate, dropdownSeparatorStyles, dropdownSeparatorTemplate, dropdownStyles, dropdownTemplate, environment, findRouteByName, flip, focusFirst, focusLast, focusTrap, focusVisible, formControlDirective, formFieldStyles, formFieldTemplate, getActiveComponent, getActiveEffect, getAdapter, getAttributeDirective, getEnvironment, getFirstFocusable, getFocusableElements, getGlobalMessage, getLastFocusable, getRegisteredDirectives, getResolvedTheme, getTheme, getTokenKey, hasAttributeDirective, heroSectionStyles, heroSectionTemplate, html, injectTheme, isDirective, isFocusVisible, isSignal, lightTheme, lightThemeCss, listItemStyles, listItemTemplate, listStyles, listTemplate, loginPageStyles, loginPageTemplate, matchRouteTree, newID, offset, onAction, onThemeChange, pageHeaderStyles, pageHeaderTemplate, paginationStyles, paginationTemplate, portalDirective, primitiveColors, progressStyles, progressTemplate, props, provideConfig, provideHttp, provideRX, radioAdapter, registerAdapter, registerAttributeDirective, registerDefaultMessages, render, repeat, repeatRaw, resetStyles, resolveMessage, routerLinkDirective, selectStyles, selectTemplate, setActiveComponent, setActiveEffect, setDefaultMessage, shadowTokens, shift, sidebarGroupStyles, sidebarGroupTemplate, sidebarItemStyles, sidebarItemTemplate, sidebarStyles, sidebarTemplate, signal, signupPageStyles, signupPageTemplate, sliderStyles, sliderTemplate, spacingTokens, stepPanelStyles, stepPanelTemplate, stepStyles, stepTemplate, stepsStyles, stepsTemplate, styleMap, tabPanelStyles, tabPanelTemplate, tabStyles, tabTemplate, tableStyles, tableTemplate, tabsStyles, tabsTemplate, textAdapter, toastContainerStyles, toastContainerTemplate, toastStyles, toastTemplate, toggleTheme, tokensToCss, tooltipDirective, transitionTokens, typographyTokens, unregisterAttributeDirective, unsafeHTML, visuallyHiddenStyles, when };
 
 //# sourceMappingURL=melodic-components.js.map
