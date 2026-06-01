@@ -5,6 +5,7 @@ import { getTokenKey, describeToken } from '../function/get-token-key.function';
 import { resolveInjectedParams } from '../function/resolve-injected-params.function';
 import type { IClassBindingOptions } from '../interfaces/iclass-binding-options.interface';
 import type { IFactoryBindingOptions } from '../interfaces/ifactory-binding-options.interface';
+import { getActiveComponent, setActiveComponent } from '../../components/functions/active-component.functions';
 
 export class InjectionEngine {
 	private _bindings: Map<TokenKey, Binding<unknown>> = new Map();
@@ -177,7 +178,19 @@ export class InjectionEngine {
 			dependencies = dependencies.concat(binding.args);
 		}
 
-		return Reflect.construct(cls, dependencies);
+		// Services are singletons but are constructed lazily — often while a
+		// component is the active consumer (the one whose injection triggered
+		// this resolution). Clearing the active component for the duration of
+		// construction ensures any signals a service creates in its field
+		// initializers (e.g. ComponentStateBaseService selectors) are owned by
+		// the service, not destroyed when that transient component unmounts.
+		const prevActive = getActiveComponent();
+		setActiveComponent(null);
+		try {
+			return Reflect.construct(cls, dependencies);
+		} finally {
+			setActiveComponent(prevActive);
+		}
 	}
 }
 
