@@ -38,7 +38,7 @@ melodic/
 |---------|---------|-------------|
 | `@melodicdev/core` | 2.0.0 | Core framework |
 | `@melodicdev/components` | 2.0.0 | Themeable UI component library |
-| `@melodicdev/cli` | 1.3.0 | CLI scaffolding tool |
+| `@melodicdev/cli` | 2.0.0 | CLI scaffolding tool |
 
 ## Build Commands
 

@@ -337,13 +337,45 @@ export class MyComponent {
 onCreate?: () => void
 ```
 
-Called after the component is attached to the DOM (`connectedCallback`).
+Called **once**, the first time the component is attached to the DOM (`connectedCallback`).
 
 ```typescript
 export class MyComponent {
     onCreate() {
         console.log('Component added to DOM');
         // Good for: DOM measurements, focus management
+    }
+}
+```
+
+### `onConnect()`
+
+```typescript
+onConnect?: () => void
+```
+
+Called on **every** connect to the DOM, including the first (right after `onCreate`). Use this — rather than `onCreate` — for work that must repeat if the element is moved or re-attached, since re-parenting an element disconnects and reconnects it.
+
+```typescript
+export class MyComponent {
+    onConnect() {
+        // Runs on first mount and on every re-attach
+    }
+}
+```
+
+### `onDisconnect()`
+
+```typescript
+onDisconnect?: () => void
+```
+
+Called on **every** disconnect from the DOM (`disconnectedCallback`). Reactive subscriptions are torn down here and re-established on the next connect. This fires even for a transient move; for permanent-removal cleanup use `onDestroy`.
+
+```typescript
+export class MyComponent {
+    onDisconnect() {
+        // Runs every time the element leaves the DOM
     }
 }
 ```
@@ -371,7 +403,7 @@ export class MyComponent {
 onDestroy?: () => void
 ```
 
-Called when the component is removed from the DOM (`disconnectedCallback`).
+Called **once**, when the component is permanently removed. Unlike `onDisconnect`, this does not fire for a transient move: teardown is deferred to a microtask after `disconnectedCallback`, and a reconnect within that window cancels it — so re-parenting an element preserves its state instead of destroying it.
 
 ```typescript
 export class MyComponent {

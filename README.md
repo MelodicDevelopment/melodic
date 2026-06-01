@@ -295,7 +295,6 @@ await bootstrap({
 - [HTTP Client](./docs/HTTP.md)
 - [Dependency Injection](./docs/INJECTION.md)
 - [Forms](./docs/FORMS.md)
-- [Upcoming Features](./docs/UPCOMING_FEATURES.md)
 
 ## Publishing
 

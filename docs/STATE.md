@@ -188,3 +188,5 @@ const has = perms?.includes(perm) ?? false;
 Calling `select()` from a guard, service, or app boot path (anywhere with no active component) returns a fresh computed each call and does not auto-clean. The caller owns the lifetime — store the result and call `.destroy()` when done.
 
 `ComponentStateBaseService.select(selectFn, cacheKey?)` follows the same contract; cache keys are scoped per service instance, so two services don't collide.
+
+Selector **fields** defined on a `ComponentStateBaseService` subclass — the common `count = this.select(s => s.count)` pattern — are owned by the service and live for the application's lifetime. Even though the service is constructed lazily (often while a component is the active consumer), DI clears the active component during construction, so these signals are not tied to — or destroyed with — whichever component first triggered the injection.

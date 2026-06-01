@@ -1,4 +1,4 @@
-# Melodic Portal - POC Documentation
+# Melodic Portal
 
 A directive that teleports elements to a different location in the DOM, useful for modals, tooltips, dropdowns, and notifications.
 

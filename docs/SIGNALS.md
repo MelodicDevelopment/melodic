@@ -7,6 +7,7 @@ Signals are Melodic's fine-grained reactive primitives. They store a value, noti
 - [Overview](#overview)
 - [Creating Signals](#creating-signals)
 - [Reading and Updating](#reading-and-updating)
+- [Batching Updates](#batching-updates)
 - [Computed Signals](#computed-signals)
 - [Signal Effects](#signal-effects)
 - [Using Signals in Components](#using-signals-in-components)
@@ -46,6 +47,27 @@ const unsubscribe = count.subscribe((value) => {
 
 unsubscribe();
 ```
+
+## Batching Updates
+
+`batch()` groups multiple signal writes so dependents recompute **once** at the end instead of after every individual write. While a batch is active, notifications are deferred and de-duplicated; the flush runs when the outermost batch completes. This makes updates glitch-free — a computed or effect that depends on several signals written in the same batch runs a single time, observing all the new values together.
+
+```typescript
+import { signal, computed, batch } from '@melodicdev/core/signals';
+
+const first = signal('Ada');
+const last = signal('Lovelace');
+const full = computed(() => `${first()} ${last()}`);
+
+batch(() => {
+	first.set('Grace');
+	last.set('Hopper');
+}); // `full` recomputes once here, not twice
+
+batch(() => batch(() => first.set('Alan'))); // nested batches flush with the outermost
+```
+
+`batch()` returns whatever its callback returns. Reads inside a batch still see the latest values immediately; only *notifications* to subscribers are deferred.
 
 ## Computed Signals
 

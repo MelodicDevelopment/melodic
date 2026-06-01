@@ -307,7 +307,6 @@ html`${repeat(
 ```
 
 - **Fast path**: same key order → in-place template updates, no reconciliation
-- **CompiledTemplate optimization**: simple single-element templates use `createElement` directly
 - Each item bounded by comment markers for efficient range operations
 
 #### `repeatRaw(items, keyFn, factory)`
@@ -1517,7 +1516,6 @@ Source: `docs/CODING_PRACTICES.md`
 - `queueMicrotask` batches multiple property changes into a single render
 - `repeat()` with stable keys minimizes DOM mutations via LIS algorithm
 - `repeatRaw()` for maximum performance when template overhead matters
-- `CompiledTemplate` auto-optimizes simple single-element templates in `repeat()`
 
 ### Anti-Patterns
 
