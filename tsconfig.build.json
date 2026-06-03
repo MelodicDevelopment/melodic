@@ -10,5 +10,5 @@
 		"rootDir": "src"
 	},
 	"include": ["src"],
-	"exclude": ["src/_poc", "example", "docs", "benchmark"]
+	"exclude": ["src/_poc", "example", "docs", "benchmark", "src/**/*.type-test.ts"]
 }
