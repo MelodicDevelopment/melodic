@@ -41,7 +41,11 @@ export class DialogComponent implements IElementRef, OnCreate, OnDestroy {
 	}
 
 	public onDestroy(): void {
-		this._dialogService.removeDialog(this._dialogID);
+		// Only this element should be able to remove its own registration. On a
+		// re-render the new instance registers (same id) before this stale one
+		// tears down; passing our element lets the service ignore that delete.
+		if (!this._registered) return;
+		this._dialogService.removeDialog(this._dialogID, this._dialogEl);
 	}
 
 	public open(): void {

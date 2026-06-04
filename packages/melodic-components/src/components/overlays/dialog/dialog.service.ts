@@ -12,6 +12,7 @@ interface IDialogComponentElement<T = unknown> extends HTMLElement {
 
 interface IDialogElements<T = unknown> {
 	dialogRef: DialogRef<T>;
+	dialogEl: HTMLDialogElement;
 	dialogComponent?: IDialogComponentElement<T>;
 }
 
@@ -23,6 +24,7 @@ export class DialogService {
 		const dialogRef = new DialogRef(dialogID, dialogEl);
 		this._dialogs.set(dialogID, {
 			dialogRef,
+			dialogEl,
 			dialogComponent: undefined
 		});
 
@@ -34,7 +36,22 @@ export class DialogService {
 		return dialogRef;
 	}
 
-	public removeDialog(dialogID: UniqueID): void {
+	/**
+	 * Remove a dialog's registration.
+	 *
+	 * When `dialogEl` is supplied (component teardown), the entry is only
+	 * deleted if it still belongs to that element. This prevents a stale
+	 * `<ml-dialog>`'s late `onDestroy` from wiping the registration a freshly
+	 * re-rendered instance (same id) just created.
+	 */
+	public removeDialog(dialogID: UniqueID, dialogEl?: HTMLDialogElement): void {
+		if (dialogEl) {
+			const elements = this._dialogs.get(dialogID);
+			if (!elements || elements.dialogEl !== dialogEl) {
+				return;
+			}
+		}
+
 		this._dialogs.delete(dialogID);
 	}
 

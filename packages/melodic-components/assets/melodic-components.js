@@ -22993,6 +22993,7 @@ var DialogService = class DialogService$1 {
 		const dialogRef = new DialogRef(dialogID, dialogEl);
 		this._dialogs.set(dialogID, {
 			dialogRef,
+			dialogEl,
 			dialogComponent: void 0
 		});
 		dialogEl.addEventListener("close", () => {
@@ -23001,7 +23002,11 @@ var DialogService = class DialogService$1 {
 		});
 		return dialogRef;
 	}
-	removeDialog(dialogID) {
+	removeDialog(dialogID, dialogEl) {
+		if (dialogEl) {
+			const elements = this._dialogs.get(dialogID);
+			if (!elements || elements.dialogEl !== dialogEl) return;
+		}
 		this._dialogs.delete(dialogID);
 	}
 	open(dialogComponentOrID, config) {
@@ -23057,7 +23062,8 @@ var DialogComponent = class DialogComponent$1 {
 		this._registered = true;
 	}
 	onDestroy() {
-		this._dialogService.removeDialog(this._dialogID);
+		if (!this._registered) return;
+		this._dialogService.removeDialog(this._dialogID, this._dialogEl);
 	}
 	open() {
 		this.registerDialog();
