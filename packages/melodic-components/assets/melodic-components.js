@@ -830,10 +830,14 @@ var ComponentBase = class extends HTMLElement {
 			}
 			proto = Object.getPrototypeOf(proto);
 		}
+		const getterOnly = [];
 		const filtered = properties.filter((prop) => {
 			if (prop.startsWith("_") || prop === "elementRef" || prop === "constructor") return false;
 			const descriptor = this.getPropertyDescriptor(this._component, prop);
-			if (descriptor && descriptor.get && !descriptor.set) return false;
+			if (descriptor && descriptor.get && !descriptor.set) {
+				getterOnly.push(prop);
+				return false;
+			}
 			const value = this._component[prop];
 			if (isSignal(value)) {
 				this._reactiveSources.push(value);
@@ -881,6 +885,15 @@ var ComponentBase = class extends HTMLElement {
 			Object.defineProperty(this, prop, {
 				get: componentGetter,
 				set: componentSetter,
+				enumerable: true,
+				configurable: true
+			});
+		}
+		for (const prop of getterOnly) {
+			if (Object.prototype.hasOwnProperty.call(this, prop)) continue;
+			Object.defineProperty(this, prop, {
+				get: () => this._component[prop],
+				set: () => {},
 				enumerable: true,
 				configurable: true
 			});

@@ -230,6 +230,11 @@ export abstract class ComponentBase extends HTMLElement {
 			proto = Object.getPrototypeOf(proto);
 		}
 
+		// Public getter-only accessors (computed properties): not reactive data,
+		// but still part of the element's public surface. Mirrored onto the host
+		// as lazy passthroughs after the reactive props are wired (see below).
+		const getterOnly: string[] = [];
+
 		const filtered = properties.filter((prop) => {
 			// Skip private properties (convention) and framework-internal fields.
 			if (prop.startsWith('_') || prop === 'elementRef' || prop === 'constructor') {
@@ -240,8 +245,10 @@ export abstract class ComponentBase extends HTMLElement {
 
 			// Skip getter-only accessors (e.g. @Service fields): leave their lazy,
 			// per-instance-cached getter intact rather than eagerly reading it and
-			// reifying it as a reactive data property.
+			// reifying it as a reactive data property. Public ones are still
+			// surfaced on the host (without invoking the getter here).
 			if (descriptor && descriptor.get && !descriptor.set) {
+				getterOnly.push(prop);
 				return false;
 			}
 
@@ -321,6 +328,24 @@ export abstract class ComponentBase extends HTMLElement {
 			Object.defineProperty(this, prop, {
 				get: componentGetter,
 				set: componentSetter,
+				enumerable: true,
+				configurable: true
+			});
+		}
+
+		// Mirror public computed getters onto the host so `el.prop` reads the live
+		// value. The passthrough delegates to the component lazily — it never
+		// invokes the getter during observe(), so @Service-style lazy getters keep
+		// their deferred resolution. A no-op setter keeps accidental writes from
+		// throwing (a computed property has nothing to assign to).
+		for (const prop of getterOnly) {
+			if (Object.prototype.hasOwnProperty.call(this, prop)) {
+				continue;
+			}
+
+			Object.defineProperty(this, prop, {
+				get: () => (this._component as any)[prop],
+				set: () => {},
 				enumerable: true,
 				configurable: true
 			});
