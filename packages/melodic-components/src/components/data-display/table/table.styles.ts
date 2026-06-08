@@ -178,13 +178,16 @@ export const tableStyles = () => css`
 	}
 
 	/* ── Body rows ── */
+	/* Divider rendered as an inset box-shadow (not border-bottom) so it never
+	   participates in layout — hover/selected/striped state changes can't
+	   collapse it and shift rows below by 1px. */
 	.ml-table__row {
-		border-bottom: var(--ml-table-divider-width) solid var(--ml-table-divider-color);
+		box-shadow: inset 0 calc(-1 * var(--ml-table-divider-width)) 0 var(--ml-table-divider-color);
 		transition: background-color var(--ml-duration-150) var(--ml-ease-in-out);
 	}
 
 	.ml-table__row:last-child {
-		border-bottom: none;
+		box-shadow: none;
 	}
 
 	.ml-table--hoverable .ml-table__row:hover {
