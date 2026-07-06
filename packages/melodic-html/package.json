@@ -60,7 +60,8 @@
 	],
 	"scripts": {
 		"build": "esbuild src/extension.ts --bundle --outfile=dist/extension.js --external:vscode --format=cjs --platform=node --minify --main-fields=module,main",
-		"package": "npm run build && npx vsce package"
+		"package": "npm run build && npx vsce package",
+		"typecheck": "tsc --noEmit -p tsconfig.json"
 	},
 	"dependencies": {
 		"typescript": "~5.9.3",

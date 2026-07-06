@@ -1,5 +1,31 @@
 # Changelog
 
+## 2.0.3
+
+### @melodicdev/components
+
+- Fixed table row divider collapsing layout on hover.
+
+## 2.0.2
+
+### @melodicdev/core
+
+- Restored host exposure of public computed getters.
+
+### @melodicdev/components
+
+- Version aligned with the core getter-exposure fix.
+
+## 2.0.1
+
+### @melodicdev/core
+
+- Fixed overly-strict `HttpClient` request body type.
+
+### @melodicdev/components
+
+- Fixed `DialogService` dropping registration on inline dialog re-render.
+
 ## 2.0.0
 
 Major hardening release across the core framework and component library.

@@ -133,7 +133,7 @@ Fine-grained reactive primitives:
 import { signal, computed, SignalEffect } from '@melodicdev/core/signals';
 
 const count = signal(0);
-const doubled = computed(() => count() * 2);
+const doubled = computed(() => count() * 2); // lazy + read-only: .set()/.update() throw
 
 const effect = new SignalEffect(() => {
   console.log('Count:', count());
@@ -149,7 +149,10 @@ count.update(n => n + 1);
 Client-side routing with guards and resolvers:
 
 ```typescript
-import { RouterService, RouterOutlet, RouterLink } from '@melodicdev/core/routing';
+import { RouterService, RouterOutlet, RouterLink, provideRouter } from '@melodicdev/core/routing';
+// Register via bootstrap: providers: [provideRouter()] — installs history events idempotently.
+// The full match→guards→resolvers→commit pipeline runs in RouterService (incl. popstate);
+// outlets render the committed route.
 
 const routes = [
   { path: '', component: HomeComponent },
@@ -297,7 +300,9 @@ import { breakpoints, colorTokens, allTokens, tokensToCss } from '@melodicdev/co
 
 ### Available Components
 
-**Forms:** `ml-button`, `ml-button-group`, `ml-input`, `ml-textarea`, `ml-checkbox`, `ml-radio`, `ml-radio-group`, `ml-radio-card-group`, `ml-toggle`, `ml-select`, `ml-autocomplete`, `ml-slider`, `ml-date-picker`, `ml-form-field`
+**Forms:** `ml-button`, `ml-button-group`, `ml-input`, `ml-textarea`, `ml-checkbox`, `ml-radio`, `ml-radio-group`, `ml-radio-card-group`, `ml-toggle`, `ml-select`, `ml-autocomplete`, `ml-slider`, `ml-date-picker`, `ml-time-picker`, `ml-file-upload`, `ml-form-field`
+
+**Pages:** `ml-login-page`, `ml-signup-page`, `ml-dashboard-page`
 
 **Feedback:** `ml-spinner`, `ml-alert`, `ml-progress`, `ml-toast` (+ `ToastService`)
 
@@ -446,9 +451,12 @@ melodic add config
 melodic generate component <name>
 melodic generate service <name>
 melodic generate directive <name>
+melodic generate guard <name>
+melodic generate resolver <name>
+# generate supports --dry-run and --force; names must kebab-case to ^[a-z][a-z0-9-]*$
 ```
 
-**Templates:** `basic`, `app-basic`, `lib-basic`, `monorepo-basic`
+**Templates:** `app-basic`, `lib-basic`, `monorepo-basic`, `monorepo-app`
 
 ## TypeScript Configuration
 
@@ -483,6 +491,7 @@ Component library docs in `packages/melodic-components/docs/`:
 - `components/navigation.md`
 - `components/overlays.md`
 - `components/sections.md`
+- `components/pages.md`
 
 ## Git Commit Preferences
 

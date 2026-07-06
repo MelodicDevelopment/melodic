@@ -1,10 +1,4 @@
 # CI for the Melodic monorepo (TODO-REVIEW.md — Phase 0 safety net).
-#
-# NOTE on `npm install` vs `npm ci`: the committed package-lock.json is stale
-# (it pins the root at @melodicdev/core@1.2.5 while package.json is 2.0.2), so
-# `npm ci` fails with "lock file's @melodicdev/core@1.2.5 does not satisfy
-# @melodicdev/core@2.0.2". Switch every `npm install` below to `npm ci` once
-# the lockfile is regenerated.
 
 name: CI
 
@@ -35,7 +29,7 @@ jobs:
           cache-dependency-path: package-lock.json
 
       - name: Install dependencies
-        run: npm install --no-audit --no-fund
+        run: npm ci --no-audit --no-fund
 
       - name: Typecheck
         run: npx tsc --noEmit
@@ -69,7 +63,7 @@ jobs:
       # Workspace deps are installed from the repo root (npm workspaces);
       # packages/melodic-components has no lockfile of its own.
       - name: Install dependencies
-        run: npm install --no-audit --no-fund
+        run: npm ci --no-audit --no-fund
 
       # If npm links node_modules/@melodicdev/core to the repo root (it can,
       # since the root package satisfies the components' peer dependency),
@@ -98,12 +92,13 @@ jobs:
           cache-dependency-path: package-lock.json
 
       - name: Install dependencies
-        run: npm install --no-audit --no-fund
+        run: npm ci --no-audit --no-fund
 
-      # The CLI's only script is `build` (tsc -p tsconfig.json), which is also
-      # its typecheck.
       - name: Build
         run: npm --workspace @melodicdev/cli run build
+
+      - name: Unit tests
+        run: npm --workspace @melodicdev/cli run test
 
   # ── Scaffold smoke test ──────────────────────────────────────────────────
   # Builds the CLI, scaffolds fresh projects with it, and builds them exactly
@@ -121,7 +116,7 @@ jobs:
           cache-dependency-path: package-lock.json
 
       - name: Install dependencies
-        run: npm install --no-audit --no-fund
+        run: npm ci --no-audit --no-fund
 
       - name: Build CLI
         run: npm --workspace @melodicdev/cli run build
@@ -134,21 +129,11 @@ jobs:
         run: npm install --no-audit --no-fund
         working-directory: ${{ runner.temp }}/smoke-app
 
-      # KNOWN BUG (found while adding CI; same class as TODO-REVIEW.md P2 CLI
-      # "Template dependency pinning"): the app-basic template's tsconfig sets
-      # `"types": ["node"]` but the template's package.json has no @types/node
-      # devDependency, so `tsc -b` fails with TS2688. Flip continue-on-error
-      # off once the template is fixed.
-      - name: Build scaffolded basic project (non-blocking — known template bug)
+      - name: Build scaffolded basic project
         run: npm run build
-        continue-on-error: true
         working-directory: ${{ runner.temp }}/smoke-app
 
       # ── monorepo project ──
-      # Positional argument intentionally comes BEFORE --monorepo: the CLI's
-      # hand-rolled parser treats the token after a boolean flag as its value
-      # (TODO-REVIEW.md P2 CLI "Argument parser eats positionals after boolean
-      # flags").
       - name: Scaffold monorepo project (melodic init --monorepo)
         run: node "$GITHUB_WORKSPACE/packages/cli/dist/index.js" init "$RUNNER_TEMP/smoke-mono" --monorepo --app-name web
 
@@ -156,12 +141,6 @@ jobs:
         run: npm install --no-audit --no-fund
         working-directory: ${{ runner.temp }}/smoke-mono
 
-      # KNOWN BUG (TODO-REVIEW.md P0 "CLI monorepo scaffold is dead on arrival
-      # under Vite"): a fresh `melodic init --monorepo` does not build — the
-      # app imports @config/@shared via root tsconfig paths that the project
-      # references don't satisfy (tsc -b fails with TS6307) and Vite has no
-      # matching resolve.alias. Flip continue-on-error off once fixed.
-      - name: Build scaffolded monorepo project (non-blocking — known P0 bug)
+      - name: Build scaffolded monorepo project
         run: npm run build
-        continue-on-error: true
         working-directory: ${{ runner.temp }}/smoke-mono
