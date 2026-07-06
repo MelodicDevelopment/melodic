@@ -23,13 +23,6 @@ export type PaginationPage = { type: 'page'; value: number } | { type: 'ellipsis
 	attributes: ['page', 'total-pages', 'siblings']
 })
 export class PaginationComponent implements IElementRef {
-	/** Attribute coercion hints — numeric attributes arrive as numbers. */
-	public static propertyTypes = {
-		page: 'number',
-		totalPages: 'number',
-		siblings: 'number'
-	} as const;
-
 	public elementRef!: HTMLElement;
 
 	/** Current active page (1-based) */
@@ -42,9 +35,9 @@ export class PaginationComponent implements IElementRef {
 	public siblings = 1;
 
 	public get pages(): PaginationPage[] {
-		const total = Math.max(1, this.totalPages);
-		const current = Math.min(Math.max(1, this.page), total);
-		const siblings = Math.max(0, this.siblings);
+		const total = Math.max(1, Number(this.totalPages));
+		const current = Math.min(Math.max(1, Number(this.page)), total);
+		const siblings = Math.max(0, Number(this.siblings));
 
 		const range = (start: number, end: number) =>
 			Array.from({ length: end - start + 1 }, (_, i): PaginationPage => ({ type: 'page', value: start + i }));
@@ -87,15 +80,17 @@ export class PaginationComponent implements IElementRef {
 	}
 
 	public get hasPrevious(): boolean {
-		return this.page > 1;
+		return Number(this.page) > 1;
 	}
 
 	public get hasNext(): boolean {
-		return this.page < this.totalPages;
+		return Number(this.page) < Number(this.totalPages);
 	}
 
 	public goToPage = (page: number): void => {
-		if (page < 1 || page > this.totalPages || page === this.page) return;
+		const currentPage = Number(this.page);
+		const total = Number(this.totalPages);
+		if (page < 1 || page > total || page === currentPage) return;
 
 		this.page = page;
 		this.elementRef.dispatchEvent(
@@ -108,10 +103,10 @@ export class PaginationComponent implements IElementRef {
 	};
 
 	public previous = (): void => {
-		this.goToPage(this.page - 1);
+		this.goToPage(Number(this.page) - 1);
 	};
 
 	public next = (): void => {
-		this.goToPage(this.page + 1);
+		this.goToPage(Number(this.page) + 1);
 	};
 }
