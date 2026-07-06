@@ -1,8 +1,9 @@
 import { Injectable } from '../../injection/decorators/injectable.decorator';
+import { signal } from '../../signals';
+import type { Signal } from '../../signals';
 import type { IRouterEventState } from '../interfaces/irouter-event-state.interface';
 import type { IRouteGuard } from '../interfaces/iroute-guard.interface';
 import type { IRouteResolver } from '../interfaces/iroute-resolver.interface';
-import type { RouterStateEvent } from '../types/router-state-event.type';
 import { RouteContextService } from './route-context.service';
 import type { IResolverContext } from '../interfaces/iresolver-context.interface';
 import type { AsyncGuardResult } from '../types/guard-result.type';
@@ -14,45 +15,7 @@ import type { IRouteMatch } from '../interfaces/iroute-match.interface';
 import type { IRouteMatchResult } from '../interfaces/iroute-match-result.interface';
 import { matchRouteTree } from '../functions/match-route-tree.function';
 import { buildPathFromRoute } from '../functions/build-path-from-route.function';
-
-const routerStateEvent = (type: RouterStateEvent, data: unknown, title: string, url: string): PopStateEvent => {
-	return new PopStateEvent('History', {
-		state: {
-			type: type,
-			data: data,
-			url: url,
-			host: window.location.host,
-			hostName: window.location.hostname,
-			href: window.location.href,
-			pathName: window.location.pathname,
-			port: window.location.port,
-			protocol: window.location.protocol,
-			params: new URLSearchParams(window.location.search),
-			title: title
-		} as IRouterEventState
-	});
-};
-
-// monkey-patch history methods to emit NavigationEvent
-const pushState = history.pushState;
-history.pushState = (data: unknown, title: string, url?: string | URL | null): void => {
-	pushState.apply(history, [data, title, url]);
-
-	const navigationEvent = new CustomEvent('NavigationEvent', {
-		detail: routerStateEvent('push', data, title, url as string)
-	});
-	window.dispatchEvent(navigationEvent);
-};
-
-const replaceState = history.replaceState;
-history.replaceState = (data: unknown, title: string, url?: string | URL | null): void => {
-	replaceState.apply(history, [data, title, url]);
-
-	const navigationEvent = new CustomEvent('NavigationEvent', {
-		detail: routerStateEvent('replace', data, title, url as string)
-	});
-	window.dispatchEvent(navigationEvent);
-};
+import { installHistoryEvents, routerStateEvent } from '../functions/install-history-events.function';
 
 @Injectable()
 export class RouterService {
@@ -60,7 +23,6 @@ export class RouterService {
 	private _routes: IRoute[] = [];
 	private _contextService: RouteContextService;
 	private _currentMatches: IRouteMatch[] = [];
-	private _resolversExecutedForPath: string | null = null;
 	private _currentPath: string = `${window.location.pathname}${window.location.search}`;
 	// Monotonic id so a slower navigation can detect it was superseded by a newer
 	// one after an await (guards/resolvers) and bail before committing.
@@ -69,17 +31,44 @@ export class RouterService {
 	// guard/resolver contexts before history is updated. Null during popstate
 	// (where window.location is already the target) and when idle.
 	private _pendingTarget: { pathname: string; queryParams: URLSearchParams } | null = null;
+	// The last match result the full pipeline (match → guards → resolvers)
+	// committed. Outlets are dumb renderers reacting to this signal — they never
+	// run guards or resolvers themselves.
+	private _committedRoute: Signal<IRouteMatchResult | null>;
+	private _navigationListener: EventListener;
+	private _popStateListener: (event: PopStateEvent) => void;
 
 	constructor() {
+		installHistoryEvents();
+
 		this._contextService = new RouteContextService();
+		this._committedRoute = signal<IRouteMatchResult | null>(null);
 
-		window.addEventListener('NavigationEvent', (event: Event) => {
+		this._navigationListener = (event: Event) => {
 			this._route = ((event as CustomEvent).detail as PopStateEvent).state;
-		});
+		};
+		window.addEventListener('NavigationEvent', this._navigationListener);
 
-		window.addEventListener('popstate', (event: PopStateEvent) => {
+		this._popStateListener = (event: PopStateEvent) => {
 			void this.handlePopState(event);
-		});
+		};
+		window.addEventListener('popstate', this._popStateListener);
+	}
+
+	/**
+	 * Signal holding the last committed route match result (null until the
+	 * first navigation commits). Emits after the whole match → guards →
+	 * resolvers pipeline succeeds, for programmatic navigation, initial load
+	 * and popstate alike.
+	 */
+	public get committedRoute(): Signal<IRouteMatchResult | null> {
+		return this._committedRoute;
+	}
+
+	/** Remove the service's window listeners (tests / teardown). */
+	public destroy(): void {
+		window.removeEventListener('NavigationEvent', this._navigationListener);
+		window.removeEventListener('popstate', this._popStateListener);
 	}
 
 	public setRoutes(routes: IRoute[]): void {
@@ -158,17 +147,67 @@ export class RouterService {
 		this._contextService.setMatchResult(result);
 	}
 
-	public async runResolvers(matchResult: IRouteMatchResult): Promise<{ success: boolean; error?: string }> {
-		const currentPath = `${window.location.pathname}${window.location.search}`;
+	/** Store the matches/context AND notify outlets via the committed signal. */
+	private commit(result: IRouteMatchResult): void {
+		this.setCurrentMatches(result);
+		this._committedRoute.set(result);
+	}
 
-		if (this._resolversExecutedForPath === currentPath) {
-			this._resolversExecutedForPath = null; // Clear for next navigation
-			return { success: true };
+	/**
+	 * Run the resolvers for a match result.
+	 *
+	 * Note: the router pipeline (navigate / initial navigation / popstate) runs
+	 * resolvers itself exactly once per navigation — call this only when driving
+	 * the router manually.
+	 */
+	public async runResolvers(matchResult: IRouteMatchResult): Promise<{ success: boolean; error?: string }> {
+		return this.runResolversInternal(matchResult);
+	}
+
+	/**
+	 * Run the full pipeline (match → guards → resolvers → commit) for the
+	 * CURRENT location without touching history. Called once by the root
+	 * outlet on startup; also re-run when the root outlet's routes change.
+	 */
+	public async initialNavigation(): Promise<INavigationResult> {
+		const navId = ++this._navigationId;
+		const currentUrl = `${window.location.pathname}${window.location.search}`;
+		const matchResult = this.matchPath(window.location.pathname);
+
+		if (matchResult.redirectTo) {
+			if (this.normalizePath(window.location.pathname) !== this.normalizePath(matchResult.redirectTo)) {
+				return this.navigate(matchResult.redirectTo, { replace: true });
+			}
 		}
 
-		const result = await this.runResolversInternal(matchResult);
-		this._resolversExecutedForPath = null; // Clear after execution
-		return result;
+		if (matchResult.matches.length > 0) {
+			const guardResult = await this.runGuards(matchResult);
+			if (this._navigationId !== navId) {
+				return { success: false, error: 'Navigation superseded' };
+			}
+			if (guardResult !== true) {
+				if (typeof guardResult === 'string') {
+					return this.navigate(guardResult, { replace: true, skipGuards: true });
+				}
+				return { success: false, error: 'Navigation blocked by guard' };
+			}
+
+			const resolverResult = await this.runResolversInternal(matchResult);
+			if (this._navigationId !== navId) {
+				return { success: false, error: 'Navigation superseded' };
+			}
+			if (!resolverResult.success) {
+				// Commit an empty result so outlets render their 404 view
+				// (mirrors the previous initial-load behavior).
+				this.commit({ matches: [], params: {}, isExactMatch: false });
+				return { success: false, error: resolverResult.error ?? 'Navigation blocked by resolver' };
+			}
+		}
+
+		this._currentPath = currentUrl;
+		this.commit(matchResult);
+
+		return { success: true, url: currentUrl };
 	}
 
 	public async navigate(path: string, options: INavigationOptions = {}): Promise<INavigationResult> {
@@ -177,7 +216,8 @@ export class RouterService {
 		let fullPath = path;
 		if (queryParams && Object.keys(queryParams).length > 0) {
 			const params = new URLSearchParams(queryParams);
-			fullPath = `${path}?${params.toString()}`;
+			// Merge with an existing query string instead of appending a second `?`.
+			fullPath = `${path}${path.includes('?') ? '&' : '?'}${params.toString()}`;
 		}
 
 		// Claim this navigation. Any newer navigate() bumps the id, letting this
@@ -235,10 +275,10 @@ export class RouterService {
 				if (!resolverResult.success) {
 					return { success: false, error: resolverResult.error ?? 'Navigation blocked by resolver' };
 				}
-
-				this._resolversExecutedForPath = fullPath;
 			}
 
+			// Params/context must be current before the history update fires
+			// NavigationEvent…
 			this.setCurrentMatches(matchResult);
 
 			if (replace) {
@@ -247,6 +287,10 @@ export class RouterService {
 				history.pushState(data, '', fullPath);
 			}
 			this._currentPath = fullPath;
+
+			// …while outlets must only render once window.location reflects the
+			// target (components commonly read the location on create).
+			this._committedRoute.set(matchResult);
 
 			if (scrollToTop) {
 				const hash = fullPath.includes('#') ? fullPath.split('#')[1] : null;
@@ -405,23 +449,67 @@ export class RouterService {
 		return { success: true };
 	}
 
+	/**
+	 * Full pipeline for browser back/forward (and synthetic popstate): the
+	 * URL has already changed, so a guard block reverts history to the
+	 * previous path instead of preventing the URL change.
+	 */
 	private async handlePopState(event: PopStateEvent): Promise<void> {
+		const navId = ++this._navigationId;
 		const targetPath = `${window.location.pathname}${window.location.search}`;
-		const guardResult = await this.runDeactivationGuards(targetPath);
+		const previousPath = this._currentPath;
 
-		if (guardResult !== true) {
-			if (typeof guardResult === 'string') {
-				await this.navigate(guardResult, { replace: true, skipGuards: true });
+		const deactivateResult = await this.runDeactivationGuards(targetPath);
+		if (this._navigationId !== navId) {
+			return;
+		}
+
+		if (deactivateResult !== true) {
+			if (typeof deactivateResult === 'string') {
+				await this.navigate(deactivateResult, { replace: true, skipGuards: true });
 			} else {
-				history.replaceState(event.state, '', this._currentPath);
+				history.replaceState(event.state, '', previousPath);
 			}
 			return;
 		}
 
-		this._currentPath = targetPath;
 		const matchResult = this.matchPath(window.location.pathname);
-		this.setCurrentMatches(matchResult);
 
+		if (matchResult.redirectTo) {
+			await this.navigate(matchResult.redirectTo, { replace: true });
+			return;
+		}
+
+		if (matchResult.matches.length > 0) {
+			const guardResult = await this.runGuards(matchResult);
+			if (this._navigationId !== navId) {
+				return;
+			}
+			if (guardResult !== true) {
+				if (typeof guardResult === 'string') {
+					await this.navigate(guardResult, { replace: true, skipGuards: true });
+				} else {
+					// Blocked: restore the previous URL without committing.
+					history.replaceState(event.state, '', previousPath);
+				}
+				return;
+			}
+
+			const resolverResult = await this.runResolversInternal(matchResult);
+			if (this._navigationId !== navId) {
+				return;
+			}
+			if (!resolverResult.success) {
+				this._currentPath = targetPath;
+				this.commit({ matches: [], params: {}, isExactMatch: false });
+				return;
+			}
+		}
+
+		this._currentPath = targetPath;
+		this.commit(matchResult);
+
+		// Notify listeners (router links, tabs, …) that the location changed.
 		const navigationEvent = new CustomEvent('NavigationEvent', {
 			detail: routerStateEvent('push', event.state, '', window.location.pathname)
 		});

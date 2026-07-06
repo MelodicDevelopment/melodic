@@ -37,6 +37,8 @@ export { RouteContextEvent, ROUTE_CONTEXT_EVENT } from './classes/route-context-
 export { matchRouteTree } from './functions/match-route-tree.function';
 export { findRouteByName } from './functions/find-route-by-name.function';
 export { buildPathFromRoute } from './functions/build-path-from-route.function';
+export { provideRouter } from './functions/provide-router.function';
+export { installHistoryEvents } from './functions/install-history-events.function';
 
 // Services
 export { RouterService } from './services/router.service';
