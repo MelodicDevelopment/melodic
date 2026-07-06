@@ -37,14 +37,16 @@ function makeFakeComponent(): ComponentBase {
 }
 
 describe('SignalStoreService.select() with active-component context', () => {
-	it('dedups within a component for identical (key, selectFn-source) calls', () => {
+	it('dedups within a component for repeated calls with the same selector reference', () => {
 		const store = makeStore();
 		const component = makeFakeComponent();
 
+		const selectId = (s: AppState['account']): number => s.id;
+
 		setActiveComponent(component);
 		try {
-			const a = store.select('account', (s) => s.id);
-			const b = store.select('account', (s) => s.id);
+			const a = store.select('account', selectId);
+			const b = store.select('account', selectId);
 			expect(a).toBe(b);
 			expect(component.getSelectCache().size).toBe(1);
 		} finally {
@@ -139,13 +141,10 @@ describe('SignalStoreService.select() with active-component context', () => {
 		expect(a).not.toBe(b);
 	});
 
-	// Pinning the documented limitation: when the selectFn captures a variable that
-	// affects its return value and the caller omits cacheKey, both calls hash to the
-	// same toString-based key and return the same cached signal. This is a wrong
-	// answer for the second call. The correct fix is to pass an explicit cacheKey,
-	// covered by the next test. This test pins the documented constraint, NOT
-	// desired behavior.
-	it('CAVEAT: closure-capturing selectors collide when cacheKey is omitted', () => {
+	// Regression for the toString-keyed cache: two closures with identical source
+	// text but different captured variables used to collide and return the wrong
+	// cached signal. Identity keying (WeakMap) discriminates them.
+	it('closure-capturing selectors no longer collide when cacheKey is omitted', () => {
 		const store = makeStore();
 		const component = makeFakeComponent();
 
@@ -153,9 +152,10 @@ describe('SignalStoreService.select() with active-component context', () => {
 		try {
 			const make = (perm: string) => store.select('account', (s) => s.permissions.includes(perm));
 			const a = make('read');
-			const b = make('write');
-			// Same toString, no discriminator → collides.
-			expect(a).toBe(b);
+			const b = make('admin');
+			expect(a).not.toBe(b);
+			expect(a()).toBe(true);
+			expect(b()).toBe(false);
 		} finally {
 			setActiveComponent(null);
 		}

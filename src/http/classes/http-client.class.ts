@@ -14,6 +14,46 @@ import { RequestManager } from './request-manager.class';
 
 const MAX_RETRIES = 3;
 
+/**
+ * Combines abort signals into one that aborts when ANY of them aborts.
+ * Uses the native `AbortSignal.any` where available.
+ */
+function combineSignals(signals: AbortSignal[]): AbortSignal | undefined {
+	if (signals.length === 0) {
+		return undefined;
+	}
+
+	if (signals.length === 1) {
+		return signals[0];
+	}
+
+	if (typeof AbortSignal.any === 'function') {
+		return AbortSignal.any(signals);
+	}
+
+	const controller = new AbortController();
+	for (const signal of signals) {
+		if (signal.aborted) {
+			controller.abort(signal.reason);
+			break;
+		}
+		signal.addEventListener('abort', () => controller.abort(signal.reason), { once: true });
+	}
+
+	return controller.signal;
+}
+
+/** A signal that aborts with a TimeoutError after `ms` milliseconds. */
+function createTimeoutSignal(ms: number): AbortSignal {
+	if (typeof AbortSignal.timeout === 'function') {
+		return AbortSignal.timeout(ms);
+	}
+
+	const controller = new AbortController();
+	setTimeout(() => controller.abort(new DOMException('Request timed out', 'TimeoutError')), ms);
+	return controller.signal;
+}
+
 export class HttpClient {
 	private _clientConfig: IHttpClientConfig;
 	private _requestManager = new RequestManager();
@@ -97,13 +137,26 @@ export class HttpClient {
 			}
 		}
 
-		if (requestConfig.abortController === undefined) {
-			const abortController = new AbortController();
-			requestConfig.abortController = abortController;
+		// Compose the caller-side abort signal: explicit `signal`, legacy
+		// `abortController`, and the per-request timeout (AbortSignal.timeout).
+		const callerSignals: AbortSignal[] = [];
+		if (requestConfig.signal) {
+			callerSignals.push(requestConfig.signal);
 		}
+		if (requestConfig.abortController) {
+			callerSignals.push(requestConfig.abortController.signal);
+		}
+		if (requestConfig.timeout && requestConfig.timeout > 0) {
+			callerSignals.push(createTimeoutSignal(requestConfig.timeout));
+		}
+		const callerSignal = combineSignals(callerSignals);
 
 		try {
-			const response = await this.executeRequest<T>(requestConfig);
+			if (requestConfig.deduplicate === true) {
+				return await this.executeDeduplicatedRequest<T>(requestConfig, callerSignal);
+			}
+
+			const response = await this.executeRequest<T>(requestConfig, callerSignal);
 
 			return await this.executeResponseInterceptors<T>(response, 0);
 		} catch (error) {
@@ -111,11 +164,73 @@ export class HttpClient {
 		}
 	}
 
+	/**
+	 * Deduplicated execution: one underlying fetch per request key, response
+	 * interceptors run EXACTLY ONCE on the shared response, and cancellation is
+	 * ref-counted — the underlying request aborts only when every participant
+	 * has aborted, while each aborting caller's own promise rejects immediately.
+	 */
+	private async executeDeduplicatedRequest<T>(config: IRequestConfig, callerSignal?: AbortSignal): Promise<IHttpResponse<T>> {
+		const requestKey = this._requestManager.generateRequestKey(config.method!, config.url!, config.body);
+
+		let shared = this._requestManager.joinPendingRequest<T>(requestKey, callerSignal);
+
+		if (!shared) {
+			const sharedController = new AbortController();
+			const promise = this.executeRequest<T>(config, sharedController.signal).then((response) =>
+				this.executeResponseInterceptors<T>(response, 0)
+			);
+			shared = this._requestManager.addPendingRequest<T>(requestKey, promise, sharedController, callerSignal);
+		}
+
+		return this.raceCallerAbort<T>(shared, callerSignal, config);
+	}
+
+	/**
+	 * Settles with the shared response unless this specific caller's signal
+	 * aborts first, in which case the caller gets an AbortError while the
+	 * shared request keeps running for the remaining participants.
+	 */
+	private raceCallerAbort<T>(promise: Promise<IHttpResponse<T>>, signal: AbortSignal | undefined, config: IRequestConfig): Promise<IHttpResponse<T>> {
+		if (!signal) {
+			return promise;
+		}
+
+		const toAbortError = (): AbortError => {
+			const timedOut = signal.reason instanceof DOMException && signal.reason.name === 'TimeoutError';
+			return new AbortError(timedOut ? 'Request timed out' : 'Request aborted', config);
+		};
+
+		if (signal.aborted) {
+			return Promise.reject(toAbortError());
+		}
+
+		return new Promise<IHttpResponse<T>>((resolve, reject) => {
+			const onAbort = (): void => reject(toAbortError());
+			signal.addEventListener('abort', onAbort, { once: true });
+
+			promise.then(
+				(value) => {
+					signal.removeEventListener('abort', onAbort);
+					resolve(value);
+				},
+				(error) => {
+					signal.removeEventListener('abort', onAbort);
+					reject(error);
+				}
+			);
+		});
+	}
+
 	private async handleResponseError<T>(error: Error, originalConfig: IRequestConfig): Promise<IHttpResponse<T>> {
 		const retryCount = originalConfig._retryCount ?? 0;
 		// One retry per error pass, across ALL interceptors — otherwise N error
 		// handlers could each fan out a retry at the same depth.
 		let retryInitiated = false;
+		// Errors thrown by error handlers replace the propagated error, so
+		// "catch HttpError, throw domain error" reaches the caller instead of
+		// being silently swallowed.
+		let currentError = error;
 
 		for (let i = 0; i < this._interceptors.response.length; i++) {
 			const interceptor = this._interceptors.response[i];
@@ -145,13 +260,18 @@ export class HttpClient {
 			const context: IHttpResponseErrorContext<T> = { retry, retryCount };
 
 			try {
-				const result = await interceptor.error(error, context);
+				const result = await interceptor.error(currentError, context);
 
 				if (this.isHttpResponse<T>(result)) {
-					return this.executeResponseInterceptors<T>(result, i + 1);
+					// A response obtained via retry() already ran the FULL response
+					// interceptor chain inside internalRequest — running [i+1..n]
+					// again would apply data-unwrap/logging interceptors twice.
+					return retryInitiated ? result : this.executeResponseInterceptors<T>(result, i + 1);
 				}
-			} catch {
-				// Fall through to the next interceptor's error handler.
+			} catch (interceptorError) {
+				// The handler threw (or its retry() failed): propagate this error to
+				// the remaining handlers and rethrow it if none of them recover.
+				currentError = interceptorError as Error;
 			}
 
 			// A retry was initiated but didn't yield a response we returned above
@@ -161,7 +281,7 @@ export class HttpClient {
 			}
 		}
 
-		throw error;
+		throw currentError;
 	}
 
 	private isHttpResponse<T>(value: unknown): value is IHttpResponse<T> {
@@ -197,31 +317,14 @@ export class HttpClient {
 		return typeof body === 'object';
 	}
 
-	private async executeRequest<T>(config: IRequestConfig): Promise<IHttpResponse<T>> {
-		if (config.deduplicate === true) {
-			const requestKey = this._requestManager.generateRequestKey(config.method!, config.url!, config.body);
-
-			if (this._requestManager.hasPendingRequest(requestKey)) {
-				return this._requestManager.getPendingRequest<T>(requestKey)!;
-			}
-		}
-
-		// Abort the request after `timeout` ms (combined with any caller abort).
-		let timeoutId: ReturnType<typeof setTimeout> | undefined;
-		if (config.timeout && config.timeout > 0 && config.abortController) {
-			const controller = config.abortController;
-			timeoutId = setTimeout(() => {
-				controller.abort(new DOMException('Request timed out', 'TimeoutError'));
-			}, config.timeout);
-		}
-
-		const fetchPromise = fetch(config.url!, {
+	private async executeRequest<T>(config: IRequestConfig, signal?: AbortSignal): Promise<IHttpResponse<T>> {
+		return fetch(config.url!, {
 			method: config.method,
 			headers: config.headers,
 			body: this.prepareBody(config.body),
 			credentials: config.credentials,
 			mode: config.mode,
-			signal: config.abortController?.signal
+			signal
 		})
 			.then(async (response) => {
 				const data = await this.parseResponse<T>(response, config.onProgress);
@@ -244,23 +347,14 @@ export class HttpClient {
 				if (error instanceof HttpError) {
 					throw error;
 				}
+				// A signal aborted via AbortSignal.timeout carries a TimeoutError
+				// DOMException as reason; fetch rejects with it directly.
 				if (error instanceof Error && (error.name === 'AbortError' || error.name === 'TimeoutError')) {
 					throw new AbortError(error.name === 'TimeoutError' ? 'Request timed out' : 'Request aborted', config);
 				}
 				const message = error instanceof Error ? error.message : 'Network error';
 				throw new NetworkError(message || 'Network error', config);
-			})
-			.finally(() => {
-				if (timeoutId !== undefined) {
-					clearTimeout(timeoutId);
-				}
 			});
-
-		if (config.deduplicate === true) {
-			this._requestManager.addPendingRequest<T>(config, fetchPromise);
-		}
-
-		return await fetchPromise;
 	}
 
 	private async executeRequestInterceptors(config: IRequestConfig): Promise<IRequestConfig> {
@@ -381,6 +475,8 @@ export class HttpClient {
 				});
 			}
 
+			// Honor the content-type exactly like the non-progress path below —
+			// supplying onProgress must not silently change a text response to Blob.
 			const blob = new Blob(chunks as BlobPart[]);
 
 			if (contentType.includes('application/json')) {
@@ -388,7 +484,15 @@ export class HttpClient {
 				return (text ? JSON.parse(text) : null) as T;
 			}
 
-			return blob as T;
+			if (contentType.includes('text/')) {
+				return (await blob.text()) as T;
+			}
+
+			if (this.isBinaryContentType(contentType)) {
+				return blob as T;
+			}
+
+			return (await blob.text()) as T;
 		}
 
 		if (contentType.includes('application/json')) {

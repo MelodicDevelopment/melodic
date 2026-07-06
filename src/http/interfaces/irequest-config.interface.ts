@@ -16,6 +16,12 @@ export interface IRequestConfig {
 	//retry?: RetryConfig;
 	deduplicate?: boolean;
 	onProgress?: (progress: IProgressEvent) => void;
+	/**
+	 * Caller-supplied abort signal (e.g. `AbortSignal.timeout(…)` or a
+	 * controller's signal). Combined with `timeout` and `abortController`.
+	 */
+	signal?: AbortSignal;
+	/** @deprecated Pass `signal` instead (`controller.signal`). Still honored. */
 	abortController?: AbortController;
 	credentials?: RequestCredentials;
 	mode?: RequestMode;
