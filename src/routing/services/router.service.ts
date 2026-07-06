@@ -331,8 +331,11 @@ export class RouterService {
 	}
 
 	public replace(path: string, data?: unknown): void {
-		history.replaceState(data, '', path);
-		this._currentPath = `${window.location.pathname}${window.location.search}`;
+		// Run the full pipeline with replace semantics so outlets render the
+		// new location. (Pre-3.0, the patched replaceState fired a
+		// NavigationEvent and outlets re-matched — replacing the URL without
+		// committing a route left the view stale.)
+		void this.navigate(path, { replace: true, data });
 	}
 
 	public back(): void {

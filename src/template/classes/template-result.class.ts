@@ -5,6 +5,7 @@ import type { IDirectiveState } from '../interfaces/idirective-state.interface';
 import type { RenderedContainer } from '../interfaces/irendered-container.interface';
 import { isDirective } from '../directives/functions/is-directive.function';
 import { disposeParts, disposeContainerParts, disposeDirectiveState } from '../functions/dispose.functions';
+import { renderDetachedItem } from '../functions/render-detached.function';
 
 // Unique marker for identifying dynamic positions
 const MARKER = `m${Math.random().toString(36).slice(2, 9)}`;
@@ -190,9 +191,6 @@ export class TemplateResult {
 		const target = container as RenderedContainer<Element | DocumentFragment>;
 		const templateKey = getTemplateKey(this.strings);
 
-		// Get or create template
-		const { element: template } = this.getTemplate(templateKey);
-
 		// First render - clone and prepare
 		const existingKey = target.__templateKey;
 		if (existingKey && existingKey !== templateKey) {
@@ -205,8 +203,11 @@ export class TemplateResult {
 		}
 
 		if (!target.__parts) {
-			const clone = template.content.cloneNode(true);
-			const parts = this.prepareParts(clone, this.getTemplate(templateKey));
+			// Template lookup only on the instantiation path — update renders
+			// touch only the stored parts (and skip the LRU recency churn).
+			const cache = this.getTemplate(templateKey);
+			const clone = cache.element.content.cloneNode(true);
+			const parts = this.prepareParts(clone, cache);
 
 			target.__parts = parts;
 			target.__templateKey = templateKey;
@@ -910,9 +911,11 @@ export class TemplateResult {
 
 	private updateArrayItem(item: IKeyedArrayItem, value: unknown, parent: Node, endMarker: Comment): void {
 		if (value instanceof TemplateResult) {
-			value.renderInto(item.container);
+			// renderDetachedItem keeps the live nodes when the structure is
+			// unchanged and swaps in the rebuilt nodes when it is — and never
+			// wipes item.nodes with the (empty) fragment's child list.
+			item.nodes = renderDetachedItem(value, item.container, item.nodes, endMarker);
 			item.value = value;
-			item.nodes = Array.from(item.container.childNodes);
 			return;
 		}
 
