@@ -24,7 +24,10 @@ export function stepsTemplate(c: StepsComponent) {
 				${hasSteps
 					? repeat(
 							c.steps,
-							(step) => `${step.value}-${c.active === step.value}`,
+							// Key by value ALONE — encoding the active state in the key
+							// destroys/recreates the focused step on selection change,
+							// dropping keyboard focus to <body> (see tabs.template).
+							(step) => step.value,
 							(step, index) => renderConfigStep(c, step, index)
 						)
 					: html`<slot name="step" @slotchange=${c.handleStepSlotChange}></slot>`}

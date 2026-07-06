@@ -13,7 +13,7 @@ export function avatarTemplate(c: AvatarComponent) {
 			aria-label=${c.alt || c.initials || 'Avatar'}
 		>
 			${when(
-				!!c.src && !c._imageError,
+				!!c.src && !c.imageError,
 				() => html` <img class="ml-avatar__image" src="${c.src}" alt="${c.alt}" @error=${c.handleImageError} /> `,
 				() => html`${when(
 						!!c.initials,

@@ -1,5 +1,5 @@
 import { MelodicComponent } from '@melodicdev/core';
-import type { IElementRef } from '@melodicdev/core';
+import type { IElementRef, OnPropertyChange } from '@melodicdev/core';
 import type { Size } from '../../../types/index.js';
 import { avatarTemplate } from './avatar.template.js';
 import { avatarStyles } from './avatar.styles.js';
@@ -22,7 +22,7 @@ import { avatarStyles } from './avatar.styles.js';
 	styles: avatarStyles,
 	attributes: ['src', 'alt', 'initials', 'size', 'rounded']
 })
-export class AvatarComponent implements IElementRef {
+export class AvatarComponent implements IElementRef, OnPropertyChange {
 	public elementRef!: HTMLElement;
 
 	/** Image source URL */
@@ -40,11 +40,21 @@ export class AvatarComponent implements IElementRef {
 	/** Use rounded square instead of circle */
 	public rounded = false;
 
-	/** Internal: track image load errors */
-	public _imageError = false;
+	/**
+	 * Tracks image load errors so the initials/icon fallback renders. Reactive
+	 * (no `_` prefix) so the error actually triggers a re-render; reset whenever
+	 * `src` changes so a new image gets a fresh attempt.
+	 */
+	public imageError = false;
+
+	public onPropertyChange(name: string, oldVal: unknown, newVal: unknown): void {
+		if (name === 'src' && oldVal !== newVal) {
+			this.imageError = false;
+		}
+	}
 
 	public handleImageError = (): void => {
-		this._imageError = true;
+		this.imageError = true;
 	};
 
 	public getInitials(): string {

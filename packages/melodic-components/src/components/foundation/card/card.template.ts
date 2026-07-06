@@ -1,6 +1,9 @@
-import { html, classMap, when } from '@melodicdev/core';
+import { html, classMap } from '@melodicdev/core';
 import type { CardComponent } from './card.component.js';
 
+// The header/footer slots are ALWAYS rendered — hiding their wrappers with a
+// class instead of `when` keeps slotchange firing, so content inserted after
+// mount still projects.
 export function cardTemplate(c: CardComponent) {
 	return html`
 		<div
@@ -12,25 +15,21 @@ export function cardTemplate(c: CardComponent) {
 			})}
 			@click=${c.handleClick}
 		>
-			${when(
-				c.hasHeader,
-				() => html`
-					<div class="ml-card__header">
-						<slot name="header"></slot>
-					</div>
-				`
-			)}
+			<div class=${classMap({
+				'ml-card__header': true,
+				'ml-card__header--hidden': !c.hasHeader
+			})}>
+				<slot name="header"></slot>
+			</div>
 			<div class="ml-card__body">
 				<slot></slot>
 			</div>
-			${when(
-				c.hasFooter,
-				() => html`
-					<div class="ml-card__footer">
-						<slot name="footer"></slot>
-					</div>
-				`
-			)}
+			<div class=${classMap({
+				'ml-card__footer': true,
+				'ml-card__footer--hidden': !c.hasFooter
+			})}>
+				<slot name="footer"></slot>
+			</div>
 		</div>
 	`;
 }

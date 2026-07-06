@@ -148,6 +148,10 @@ export const activityFeedItemStyles = () => css`
 		margin-top: var(--ml-space-2);
 	}
 
+	.ml-afi__content--hidden {
+		display: none;
+	}
+
 	/* Indicator dot */
 	.ml-afi__indicator {
 		width: var(--ml-activity-feed-item-indicator-size);

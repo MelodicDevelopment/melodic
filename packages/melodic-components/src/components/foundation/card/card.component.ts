@@ -1,5 +1,5 @@
 import { MelodicComponent } from '@melodicdev/core';
-import type { IElementRef } from '@melodicdev/core';
+import type { IElementRef, OnCreate } from '@melodicdev/core';
 import { cardTemplate } from './card.template.js';
 import { cardStyles } from './card.styles.js';
 
@@ -27,7 +27,7 @@ type CardVariant = 'default' | 'outlined' | 'elevated' | 'filled';
 	styles: cardStyles,
 	attributes: ['variant', 'hoverable', 'clickable']
 })
-export class CardComponent implements IElementRef {
+export class CardComponent implements IElementRef, OnCreate {
 	public elementRef!: HTMLElement;
 
 	/** Card visual style */
@@ -39,14 +39,26 @@ export class CardComponent implements IElementRef {
 	/** Make card clickable */
 	public clickable = false;
 
-	/** Internal: check if header slot has content */
-	public get hasHeader(): boolean {
-		return this.elementRef?.querySelector('[slot="header"]') !== null;
-	}
+	/** Whether the header slot has content (kept in sync via slotchange) */
+	public hasHeader = false;
 
-	/** Internal: check if footer slot has content */
-	public get hasFooter(): boolean {
-		return this.elementRef?.querySelector('[slot="footer"]') !== null;
+	/** Whether the footer slot has content (kept in sync via slotchange) */
+	public hasFooter = false;
+
+	public onCreate(): void {
+		// Slot presence is reactive (profile-card pattern): content added or
+		// removed after mount projects correctly instead of being frozen at the
+		// value a render-time querySelector saw.
+		const shadow = this.elementRef.shadowRoot;
+		if (!shadow) return;
+		shadow.querySelectorAll('slot[name]').forEach((slot) => {
+			slot.addEventListener('slotchange', () => {
+				const name = slot.getAttribute('name');
+				const hasContent = (slot as HTMLSlotElement).assignedNodes().length > 0;
+				if (name === 'header') this.hasHeader = hasContent;
+				else if (name === 'footer') this.hasFooter = hasContent;
+			});
+		});
 	}
 
 	public handleClick = (event: MouseEvent): void => {

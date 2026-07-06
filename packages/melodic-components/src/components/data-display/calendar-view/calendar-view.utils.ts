@@ -26,6 +26,22 @@ export function parseDate(iso: string): Date {
 	return new Date(y, m - 1, d);
 }
 
+/**
+ * Parse an event timestamp on the single timezone basis the calendar uses
+ * everywhere: LOCAL time. Full timestamps go through `new Date(iso)` so any
+ * offset/Z suffix is honored and converted to local time; date-only strings
+ * are treated as local midnight (never `new Date('YYYY-MM-DD')`, which is UTC
+ * midnight and shifts a day in negative-offset timezones).
+ */
+export function parseEventDate(iso: string): Date {
+	return iso.includes('T') ? new Date(iso) : parseDate(iso);
+}
+
+/** Local-time calendar date (YYYY-MM-DD) of an event timestamp. */
+export function toLocalIsoDate(date: Date): string {
+	return toIsoDate(date.getFullYear(), date.getMonth(), date.getDate());
+}
+
 export function isSameDay(a: Date, b: Date): boolean {
 	return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
 }
@@ -70,7 +86,7 @@ export function getISOWeekNumber(date: Date): number {
 }
 
 export function formatTime(iso: string): string {
-	const date = new Date(iso);
+	const date = parseEventDate(iso);
 	const h = date.getHours();
 	const m = date.getMinutes();
 	const ampm = h >= 12 ? 'PM' : 'AM';
@@ -160,10 +176,10 @@ export function getWeekdayHeaders(weekStartsOn: number = 0): { short: string; fu
 }
 
 export function getEventsForDate(events: CalendarEvent[], iso: string): CalendarEvent[] {
-	return events.filter(e => {
-		const eventDate = e.start.split('T')[0];
-		return eventDate === iso;
-	});
+	// Bucket by the event's LOCAL calendar date — the same basis used to render
+	// its time — so a `…T23:00:00Z` event never lands on its UTC date while
+	// displaying a local-shifted time on the wrong day.
+	return events.filter(e => toLocalIsoDate(parseEventDate(e.start)) === iso);
 }
 
 export function getMonthAbbrev(date: Date): string {
@@ -178,34 +194,54 @@ export function getDayName(date: Date): string {
 	return DAY_NAMES[date.getDay()];
 }
 
-function getMinutesFromMidnight(iso: string): number {
-	const date = new Date(iso);
-	return date.getHours() * 60 + date.getMinutes();
-}
-
 /** Convert minutes from midnight to a 1-based grid row (30-min increments, 48 rows) */
 function minutesToGridRow(minutes: number): number {
 	return Math.floor(minutes / TIME_INCREMENT) + 1;
 }
 
+/**
+ * An event's in-day occupancy in local minutes from midnight.
+ *
+ * Events that cross midnight (or otherwise end on a later local day than they
+ * start) are clamped to the end of the start day, so grid spans stay valid
+ * (gridRowEnd >= gridRowStart) and column packing sees real occupancy instead
+ * of an end that is numerically before the start. Degenerate/reversed inputs
+ * within one day are clamped to a minimum positive span.
+ */
+function getEventSpan(event: CalendarEvent): { start: number; end: number } {
+	const startDate = parseEventDate(event.start);
+	const endDate = parseEventDate(event.end);
+	const start = startDate.getHours() * 60 + startDate.getMinutes();
+	let end = endDate.getHours() * 60 + endDate.getMinutes();
+
+	if (!isSameDay(startDate, endDate)) {
+		end = 24 * 60;
+	}
+
+	return { start, end: Math.max(end, start + 1) };
+}
+
 export function layoutOverlappingEvents(events: CalendarEvent[]): PositionedEvent[] {
 	if (events.length === 0) return [];
 
+	const spans = new Map<string, { start: number; end: number }>();
+	for (const event of events) {
+		spans.set(event.id, getEventSpan(event));
+	}
+	const spanOf = (event: CalendarEvent) => spans.get(event.id)!;
+
 	const sorted = [...events].sort((a, b) => {
-		const aStart = getMinutesFromMidnight(a.start);
-		const bStart = getMinutesFromMidnight(b.start);
-		if (aStart !== bStart) return aStart - bStart;
-		const aDuration = getMinutesFromMidnight(a.end) - aStart;
-		const bDuration = getMinutesFromMidnight(b.end) - bStart;
-		return bDuration - aDuration;
+		const aSpan = spanOf(a);
+		const bSpan = spanOf(b);
+		if (aSpan.start !== bSpan.start) return aSpan.start - bSpan.start;
+		return (bSpan.end - bSpan.start) - (aSpan.end - aSpan.start);
 	});
 
 	const columns: { end: number }[][] = [];
 	const eventColumns: Map<string, number> = new Map();
 
 	for (const event of sorted) {
-		const start = getMinutesFromMidnight(event.start);
-		const end = getMinutesFromMidnight(event.end);
+		const { start, end } = spanOf(event);
 
 		let placed = false;
 		for (let col = 0; col < columns.length; col++) {
@@ -232,16 +268,16 @@ export function layoutOverlappingEvents(events: CalendarEvent[]): PositionedEven
 
 		const group: CalendarEvent[] = [event];
 		visited.add(event.id);
-		let groupEnd = getMinutesFromMidnight(event.end);
+		let groupEnd = spanOf(event).end;
 		let maxCol = eventColumns.get(event.id)! + 1;
 
 		for (const other of sorted) {
 			if (visited.has(other.id)) continue;
-			const otherStart = getMinutesFromMidnight(other.start);
-			if (otherStart < groupEnd) {
+			const otherSpan = spanOf(other);
+			if (otherSpan.start < groupEnd) {
 				group.push(other);
 				visited.add(other.id);
-				groupEnd = Math.max(groupEnd, getMinutesFromMidnight(other.end));
+				groupEnd = Math.max(groupEnd, otherSpan.end);
 				maxCol = Math.max(maxCol, eventColumns.get(other.id)! + 1);
 			}
 		}
@@ -253,15 +289,17 @@ export function layoutOverlappingEvents(events: CalendarEvent[]): PositionedEven
 
 	for (const group of groups) {
 		for (const event of group.events) {
-			const start = getMinutesFromMidnight(event.start);
-			const end = getMinutesFromMidnight(event.end);
+			const { start, end } = spanOf(event);
 			const col = eventColumns.get(event.id)!;
 			const total = group.totalColumns;
 
+			const gridRowStart = minutesToGridRow(start);
+			const gridRowEnd = Math.max(minutesToGridRow(end), gridRowStart + 1);
+
 			result.push({
 				event,
-				gridRowStart: minutesToGridRow(start),
-				gridRowEnd: minutesToGridRow(end),
+				gridRowStart,
+				gridRowEnd,
 				left: col / total,
 				width: 1 / total
 			});
@@ -316,7 +354,7 @@ export function getMiniCalendarDots(year: number, month: number, events: Calenda
 	const daysInMonth = new Date(year, month + 1, 0).getDate();
 	for (let d = 1; d <= daysInMonth; d++) {
 		const iso = toIsoDate(year, month, d);
-		if (events.some(e => e.start.split('T')[0] === iso)) {
+		if (events.some(e => toLocalIsoDate(parseEventDate(e.start)) === iso)) {
 			dots.add(iso);
 		}
 	}

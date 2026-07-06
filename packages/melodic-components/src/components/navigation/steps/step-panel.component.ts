@@ -25,4 +25,12 @@ export class StepPanelComponent implements IElementRef {
 
 	/** Panel identifier (must match ml-step value) */
 	public value = '';
+
+	/**
+	 * Accessible name for the panel, kept in sync with the matching step's
+	 * label by the parent ml-steps. ARIA id references cannot cross shadow-root
+	 * boundaries, so the step/panel association is carried by name (aria-label)
+	 * rather than aria-labelledby.
+	 */
+	public panelLabel = '';
 }

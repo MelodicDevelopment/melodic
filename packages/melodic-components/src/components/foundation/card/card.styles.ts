@@ -101,4 +101,9 @@ export const cardStyles = () => css`
 		border-top: var(--ml-card-border-width) solid var(--ml-card-border-color);
 		background-color: var(--ml-card-footer-bg);
 	}
+
+	.ml-card__header--hidden,
+	.ml-card__footer--hidden {
+		display: none;
+	}
 `;

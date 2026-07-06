@@ -106,3 +106,120 @@ describe('ml-table sortedRows (default)', () => {
 		expect(el.sortedRows).toEqual(serverOrderedRows);
 	});
 });
+
+describe('ml-table selection', () => {
+	let el: any;
+
+	afterEach(() => {
+		if (el) removeComponent(el);
+	});
+
+	function rowCheckboxes(): HTMLInputElement[] {
+		return Array.from(el.shadowRoot?.querySelectorAll('tbody .ml-table__checkbox') ?? []);
+	}
+
+	it('resets selection when rows are replaced', async () => {
+		el = createComponent('ml-table', {
+			properties: { columns, rows: serverOrderedRows, selectable: true }
+		});
+		await flush();
+
+		rowCheckboxes()[0].dispatchEvent(new Event('change'));
+		expect(el.selectedIndices).toEqual([0]);
+
+		el.rows = [{ name: 'Dana', age: 40 }];
+		await flush();
+		expect(el.selectedIndices).toEqual([]);
+	});
+
+	it('emits selected ROW OBJECTS plus original-order indices, not sorted positions', async () => {
+		el = createComponent('ml-table', {
+			properties: {
+				columns,
+				rows: serverOrderedRows,
+				selectable: true,
+				sortKey: 'name',
+				sortDirection: 'asc'
+			}
+		});
+		await flush();
+
+		// Sorted order: Alice, Bob, Charlie. Select the first VISIBLE row (Alice),
+		// which is index 1 in the consumer's original array.
+		const eventPromise = captureEvent<{
+			selectedRows: Record<string, unknown>[];
+			selectedIndices: number[];
+			allSelected: boolean;
+		}>(el, 'ml:select');
+		rowCheckboxes()[0].dispatchEvent(new Event('change'));
+
+		const event = await eventPromise;
+		expect(event.detail.selectedRows).toEqual([{ name: 'Alice', age: 25 }]);
+		expect(event.detail.selectedRows[0]).toBe(serverOrderedRows[1]);
+		expect(event.detail.selectedIndices).toEqual([1]);
+		expect(event.detail.allSelected).toBe(false);
+	});
+
+	it('select-all emits every row object with original-order indices', async () => {
+		el = createComponent('ml-table', {
+			properties: {
+				columns,
+				rows: serverOrderedRows,
+				selectable: true,
+				sortKey: 'name',
+				sortDirection: 'asc'
+			}
+		});
+		await flush();
+
+		const eventPromise = captureEvent<{
+			selectedRows: Record<string, unknown>[];
+			selectedIndices: number[];
+			allSelected: boolean;
+		}>(el, 'ml:select');
+		const headerCheckbox = el.shadowRoot?.querySelector('thead .ml-table__checkbox') as HTMLInputElement;
+		headerCheckbox.dispatchEvent(new Event('change'));
+
+		const event = await eventPromise;
+		expect(event.detail.allSelected).toBe(true);
+		expect(event.detail.selectedRows).toHaveLength(3);
+		// Every original row is present, and indices point into the original array.
+		for (let i = 0; i < event.detail.selectedRows.length; i++) {
+			const row = event.detail.selectedRows[i];
+			expect(serverOrderedRows[event.detail.selectedIndices[i]]).toBe(row);
+		}
+	});
+
+	it('emits ml:select (empty) when sorting clears a non-empty selection', async () => {
+		el = createComponent('ml-table', {
+			properties: { columns, rows: serverOrderedRows, selectable: true }
+		});
+		await flush();
+
+		rowCheckboxes()[0].dispatchEvent(new Event('change'));
+		expect(el.selectedIndices).toEqual([0]);
+
+		const selectPromise = captureEvent<{ selectedRows: unknown[]; selectedIndices: number[] }>(el, 'ml:select');
+		const header = el.shadowRoot?.querySelector('th.ml-table__th--sortable') as HTMLElement;
+		header.click();
+
+		const event = await selectPromise;
+		expect(event.detail.selectedRows).toEqual([]);
+		expect(event.detail.selectedIndices).toEqual([]);
+		expect(el.selectedIndices).toEqual([]);
+	});
+
+	it('does not emit ml:select when sorting with nothing selected', async () => {
+		el = createComponent('ml-table', {
+			properties: { columns, rows: serverOrderedRows, selectable: true }
+		});
+		await flush();
+
+		let selectFired = false;
+		el.addEventListener('ml:select', () => { selectFired = true; });
+		const header = el.shadowRoot?.querySelector('th.ml-table__th--sortable') as HTMLElement;
+		header.click();
+		await flush();
+		expect(selectFired).toBe(false);
+	});
+});

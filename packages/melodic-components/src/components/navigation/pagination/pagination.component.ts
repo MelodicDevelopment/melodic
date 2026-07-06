@@ -42,6 +42,14 @@ export class PaginationComponent implements IElementRef {
 		const range = (start: number, end: number) =>
 			Array.from({ length: end - start + 1 }, (_, i): PaginationPage => ({ type: 'page', value: start + i }));
 
+		// A full layout is first + last + current + siblings on each side + one
+		// hidden page behind each ellipsis (2*siblings + 5 slots). When the total
+		// fits within that, an ellipsis would hide zero pages (or duplicate the
+		// boundary pages), so just render every page.
+		if (2 * siblings + 5 >= total) {
+			return range(1, total);
+		}
+
 		const leftSibling = Math.max(current - siblings, 1);
 		const rightSibling = Math.min(current + siblings, total);
 

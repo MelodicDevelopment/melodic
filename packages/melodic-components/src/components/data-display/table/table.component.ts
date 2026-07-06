@@ -24,7 +24,11 @@ import { VirtualScroller } from '../../../utils/virtual-scroll/index.js';
  * ```
  *
  * @fires ml:sort - Emitted when a sortable column header is clicked. Detail: { key, direction }
- * @fires ml:select - Emitted when row selection changes. Detail: { selectedRows, allSelected }
+ * @fires ml:select - Emitted when row selection changes (including when sorting clears a
+ *   non-empty selection). Detail: { selectedRows, selectedIndices, allSelected } where
+ *   `selectedRows` contains the selected row OBJECTS and `selectedIndices` their indices
+ *   in the original `rows` array (consumer order, independent of the current sort).
+ *   BREAKING (2.x): `selectedRows` previously contained sorted-order indices.
  * @fires ml:row-click - Emitted when a row is clicked. Detail: { row, index }
  *
  * @slot footer - Content for the table footer area (e.g. pagination)
@@ -120,6 +124,12 @@ export class TableComponent implements IElementRef, OnCreate, OnDestroy, OnRende
 	public onPropertyChange(name: string, _oldVal: unknown, _newVal: unknown): void {
 		if (name === 'rows' || name === 'columns') {
 			this._scroller.invalidate();
+		}
+
+		if (name === 'rows') {
+			// Selection is positional; a new dataset invalidates it (mirrors
+			// ml-data-grid). Reset silently — the consumer initiated the change.
+			this.selectedIndices = [];
 		}
 	}
 
@@ -236,6 +246,9 @@ export class TableComponent implements IElementRef, OnCreate, OnDestroy, OnRende
 			this.sortKey = column.key;
 			this.sortDirection = 'asc';
 		}
+		// Selection is positional; sorting reorders rows, so clear it. Announce
+		// the change so consumers holding the previous selection stay in sync.
+		const hadSelection = this.selectedIndices.length > 0;
 		this.selectedIndices = [];
 		this._scroller.invalidate();
 		this.elementRef.dispatchEvent(
@@ -245,6 +258,9 @@ export class TableComponent implements IElementRef, OnCreate, OnDestroy, OnRende
 				detail: { key: this.sortKey, direction: this.sortDirection }
 			})
 		);
+		if (hadSelection) {
+			this.emitSelect();
+		}
 	};
 
 	public handleSelectAll = (): void => {
@@ -277,11 +293,28 @@ export class TableComponent implements IElementRef, OnCreate, OnDestroy, OnRende
 	};
 
 	private emitSelect(): void {
+		// Internal selection state is sorted-order positional (it mirrors what is
+		// rendered); the public contract is row objects plus their indices in the
+		// consumer's original `rows` array, so selections survive re-sorting on
+		// the consumer side.
+		const sorted = this.sortedRows;
+		const selectedRows = this.selectedIndices
+			.map((i) => sorted[i])
+			.filter((row): row is Record<string, unknown> => row !== undefined);
+
+		const indexByRow = new Map<Record<string, unknown>, number>();
+		this.rows.forEach((row, i) => {
+			if (!indexByRow.has(row)) indexByRow.set(row, i);
+		});
+		const selectedIndices = selectedRows
+			.map((row) => indexByRow.get(row))
+			.filter((i): i is number => i !== undefined);
+
 		this.elementRef.dispatchEvent(
 			new CustomEvent('ml:select', {
 				bubbles: true,
 				composed: true,
-				detail: { selectedRows: this.selectedIndices, allSelected: this.allSelected }
+				detail: { selectedRows, selectedIndices, allSelected: this.allSelected }
 			})
 		);
 	}

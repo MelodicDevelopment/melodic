@@ -63,6 +63,11 @@ export const listItemStyles = () => css`
 		flex-shrink: 0;
 	}
 
+	.ml-li__leading--hidden,
+	.ml-li__trailing--hidden {
+		display: none;
+	}
+
 	.ml-li__content {
 		flex: 1;
 		min-width: 0;

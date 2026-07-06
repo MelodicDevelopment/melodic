@@ -100,6 +100,7 @@ export function dataGridTemplate(c: DataGridComponent) {
 										@pointerdown=${(e: PointerEvent) => c.handleResizeStart(col.key, e)}
 										@pointermove=${(e: PointerEvent) => c.handleResizeMove(col.key, e)}
 										@pointerup=${c.handleResizeEnd}
+										@click=${(e: Event) => e.stopPropagation()}
 									></div>
 								`)}
 							</div>
