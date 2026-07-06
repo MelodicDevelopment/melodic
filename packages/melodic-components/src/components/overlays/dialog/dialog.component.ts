@@ -50,11 +50,15 @@ export class DialogComponent implements IElementRef, OnCreate, OnDestroy {
 
 	public open(): void {
 		this.registerDialog();
+		if (!this._dialogRef) {
+			console.warn('[ml-dialog] Cannot open: dialog element is not rendered yet.');
+			return;
+		}
 		this._dialogRef.open();
 	}
 
 	public close<T = unknown>(result?: T): void {
-		this._dialogRef.close(result);
+		this._dialogRef?.close(result);
 	}
 
 	private createDialogID(): UniqueID {

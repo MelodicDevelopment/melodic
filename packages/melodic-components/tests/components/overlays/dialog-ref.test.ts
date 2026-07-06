@@ -116,3 +116,116 @@ describe('DialogRef.close()', () => {
 		expect(cb).toHaveBeenCalledWith('done');
 	});
 });
+
+describe('DialogRef native close (Escape-dismiss) handling', () => {
+	let dialogEl: HTMLDialogElement;
+	let ref: DialogRef;
+
+	beforeEach(() => {
+		dialogEl = document.createElement('dialog') as HTMLDialogElement;
+		(dialogEl as any).showModal = vi.fn();
+		// Mirror the native contract: close() fires the `close` event.
+		(dialogEl as any).close = vi.fn(() => {
+			dialogEl.dispatchEvent(new Event('close'));
+		});
+		document.body.appendChild(dialogEl);
+		ref = new DialogRef(newID(), dialogEl);
+	});
+
+	afterEach(() => {
+		dialogEl.remove();
+	});
+
+	it('fires afterClosed when the dialog closes natively (Escape path skips close())', () => {
+		const cb = vi.fn();
+		ref.afterClosed(cb);
+		ref.open();
+
+		// Escape: native cancel → close; DialogRef.close() is never called.
+		dialogEl.dispatchEvent(new Event('close'));
+
+		expect(cb).toHaveBeenCalledTimes(1);
+		expect(cb).toHaveBeenCalledWith(undefined);
+	});
+
+	it('dismisses descendant popovers on native close (Escape path)', () => {
+		const { el: pop, spy } = makePopover();
+		dialogEl.appendChild(pop);
+		ref.open();
+
+		dialogEl.dispatchEvent(new Event('close'));
+
+		expect(spy).toHaveBeenCalledTimes(1);
+	});
+
+	it('does not double-fire afterClosed when close() also triggers the native close event', () => {
+		const cb = vi.fn();
+		ref.afterClosed(cb);
+		ref.open();
+
+		ref.close('result' as any);
+
+		expect(cb).toHaveBeenCalledTimes(1);
+		expect(cb).toHaveBeenCalledWith('result');
+	});
+
+	it('does not double-dismiss descendant popovers when close() also triggers the native close event', () => {
+		const { el: pop, spy } = makePopover();
+		dialogEl.appendChild(pop);
+		ref.open();
+
+		ref.close();
+
+		expect(spy).toHaveBeenCalledTimes(1);
+	});
+
+	it('fires afterClosed again on a subsequent open/close cycle', () => {
+		const cb = vi.fn();
+		ref.afterClosed(cb);
+
+		ref.open();
+		dialogEl.dispatchEvent(new Event('close'));
+		ref.open();
+		ref.close('second' as any);
+
+		expect(cb).toHaveBeenCalledTimes(2);
+		expect(cb).toHaveBeenLastCalledWith('second');
+	});
+
+	it('supports multiple afterOpened and afterClosed registrations, invoked in order', () => {
+		const order: string[] = [];
+		ref.afterOpened(() => order.push('opened-1'));
+		ref.afterOpened(() => order.push('opened-2'));
+		ref.afterClosed(() => order.push('closed-1'));
+		ref.afterClosed(() => order.push('closed-2'));
+
+		ref.open();
+		ref.close();
+
+		expect(order).toEqual(['opened-1', 'opened-2', 'closed-1', 'closed-2']);
+	});
+
+	it('emits ml:open and ml:close lifecycle events', () => {
+		const openSpy = vi.fn();
+		const closeSpy = vi.fn();
+		dialogEl.addEventListener('ml:open', openSpy);
+		dialogEl.addEventListener('ml:close', closeSpy);
+
+		ref.open();
+		expect(openSpy).toHaveBeenCalledTimes(1);
+
+		ref.close('done' as any);
+		expect(closeSpy).toHaveBeenCalledTimes(1);
+		expect((closeSpy.mock.calls[0][0] as CustomEvent).detail).toEqual({ result: 'done' });
+	});
+
+	it('emits ml:close on native (Escape) dismissal', () => {
+		const closeSpy = vi.fn();
+		dialogEl.addEventListener('ml:close', closeSpy);
+
+		ref.open();
+		dialogEl.dispatchEvent(new Event('close'));
+
+		expect(closeSpy).toHaveBeenCalledTimes(1);
+	});
+});

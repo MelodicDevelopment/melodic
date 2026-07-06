@@ -82,10 +82,14 @@ export function computePosition(reference: Element, floating: HTMLElement, confi
 	for (const mw of middleware) {
 		const result = mw.fn(state);
 		if (result) {
-			state = { ...state, ...result };
-			if (result.middlewareData) {
-				state.middlewareData = { ...state.middlewareData, ...result.middlewareData };
-			}
+			// Merge middlewareData instead of replacing it, so data recorded by
+			// earlier middleware (e.g. offset) survives later middleware results.
+			const { middlewareData: resultData, ...rest } = result;
+			state = {
+				...state,
+				...rest,
+				middlewareData: resultData ? { ...state.middlewareData, ...resultData } : state.middlewareData
+			};
 		}
 	}
 
