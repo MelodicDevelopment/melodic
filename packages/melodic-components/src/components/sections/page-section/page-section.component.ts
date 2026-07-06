@@ -1,5 +1,5 @@
 import { MelodicComponent } from '@melodicdev/core';
-import type { IElementRef } from '@melodicdev/core';
+import type { IElementRef, OnCreate } from '@melodicdev/core';
 import { pageSectionTemplate } from './page-section.template.js';
 import { pageSectionStyles } from './page-section.styles.js';
 
@@ -40,7 +40,7 @@ function warnDeprecatedTitle(): void {
 	styles: pageSectionStyles,
 	attributes: ['section-title', 'title', 'subtitle', 'action-label', 'action-href', 'padding']
 })
-export class PageSectionComponent implements IElementRef {
+export class PageSectionComponent implements IElementRef, OnCreate {
 	public elementRef!: HTMLElement;
 
 	/** Section title (attribute: section-title) */
@@ -83,8 +83,16 @@ export class PageSectionComponent implements IElementRef {
 		this.actionHref = value;
 	}
 
-	/** Check if action slot has content */
-	public get hasActionSlot(): boolean {
-		return this.elementRef?.querySelector('[slot="action"]') !== null;
+	/** Whether the action slot has content (toggled via slotchange) */
+	public hasAction = false;
+
+	public onCreate(): void {
+		const shadow = this.elementRef.shadowRoot;
+		if (!shadow) return;
+
+		const slot = shadow.querySelector('slot[name="action"]') as HTMLSlotElement | null;
+		slot?.addEventListener('slotchange', () => {
+			this.hasAction = slot.assignedNodes().length > 0;
+		});
 	}
 }

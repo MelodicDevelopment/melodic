@@ -27,9 +27,44 @@ describe('ml-page-section', () => {
 		expect(title?.textContent).toBe('Recent Activity');
 	});
 
-	it('does not render header when no title', () => {
+	it('hides the header when no title, subtitle, or action is provided', () => {
+		// The header (and its action slot) is now always rendered so slotchange
+		// can fire for late-inserted action content; it is hidden via CSS instead.
 		el = createComponent('ml-page-section');
-		expect(shadowQuery(el, '.ml-page-section__header')).toBeNull();
+		expect(shadowHasClass(el, '.ml-page-section__header', 'ml-page-section__header--hidden')).toBe(true);
+		expect(shadowQuery(el, 'slot[name="action"]')).toBeTruthy();
+	});
+
+	it('shows the header when action content is inserted after mount', async () => {
+		el = createComponent('ml-page-section');
+		expect(shadowHasClass(el, '.ml-page-section__header', 'ml-page-section__header--hidden')).toBe(true);
+
+		const button = document.createElement('button');
+		button.slot = 'action';
+		button.textContent = 'Export';
+		el.appendChild(button);
+
+		await new Promise((resolve) => setTimeout(resolve, 20));
+		await flush();
+
+		expect(el.hasAction).toBe(true);
+		expect(shadowHasClass(el, '.ml-page-section__header', 'ml-page-section__header--hidden')).toBe(false);
+	});
+
+	it('hides the header again when action content is removed', async () => {
+		el = createComponent('ml-page-section');
+		const button = document.createElement('button');
+		button.slot = 'action';
+		el.appendChild(button);
+		await new Promise((resolve) => setTimeout(resolve, 20));
+		await flush();
+		expect(el.hasAction).toBe(true);
+
+		button.remove();
+		await new Promise((resolve) => setTimeout(resolve, 20));
+		await flush();
+		expect(el.hasAction).toBe(false);
+		expect(shadowHasClass(el, '.ml-page-section__header', 'ml-page-section__header--hidden')).toBe(true);
 	});
 
 	it('renders subtitle when provided', async () => {

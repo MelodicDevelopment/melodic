@@ -1,5 +1,5 @@
 import { MelodicComponent } from '@melodicdev/core';
-import type { IElementRef } from '@melodicdev/core';
+import type { IElementRef, OnCreate } from '@melodicdev/core';
 import { pageHeaderTemplate } from './page-header.template.js';
 import { pageHeaderStyles } from './page-header.styles.js';
 
@@ -41,7 +41,7 @@ function warnDeprecatedTitle(): void {
 	styles: pageHeaderStyles,
 	attributes: ['variant', 'divider', 'header-title', 'title', 'description']
 })
-export class PageHeaderComponent implements IElementRef {
+export class PageHeaderComponent implements IElementRef, OnCreate {
 	public elementRef!: HTMLElement;
 
 	/** Page title text (attribute: header-title) */
@@ -65,33 +65,29 @@ export class PageHeaderComponent implements IElementRef {
 	/** Show bottom border */
 	public divider = true;
 
-	/** Check if breadcrumb slot has content */
-	public get hasBreadcrumb(): boolean {
-		return this.elementRef?.querySelector('[slot="breadcrumb"]') !== null;
-	}
+	/** Slot visibility flags (toggled via slotchange so late-inserted content projects) */
+	public hasBreadcrumb = false;
+	public hasTitleSlot = false;
+	public hasDescriptionSlot = false;
+	public hasActions = false;
+	public hasTabs = false;
+	public hasMeta = false;
 
-	/** Check if title slot has content */
-	public get hasTitleSlot(): boolean {
-		return this.elementRef?.querySelector('[slot="title"]') !== null;
-	}
+	public onCreate(): void {
+		const shadow = this.elementRef.shadowRoot;
+		if (!shadow) return;
 
-	/** Check if description slot has content */
-	public get hasDescriptionSlot(): boolean {
-		return this.elementRef?.querySelector('[slot="description"]') !== null;
-	}
-
-	/** Check if actions slot has content */
-	public get hasActions(): boolean {
-		return this.elementRef?.querySelector('[slot="actions"]') !== null;
-	}
-
-	/** Check if tabs slot has content */
-	public get hasTabs(): boolean {
-		return this.elementRef?.querySelector('[slot="tabs"]') !== null;
-	}
-
-	/** Check if meta slot has content */
-	public get hasMeta(): boolean {
-		return this.elementRef?.querySelector('[slot="meta"]') !== null;
+		shadow.querySelectorAll('slot[name]').forEach((slot) => {
+			slot.addEventListener('slotchange', () => {
+				const name = slot.getAttribute('name');
+				const hasContent = (slot as HTMLSlotElement).assignedNodes().length > 0;
+				if (name === 'breadcrumb') this.hasBreadcrumb = hasContent;
+				else if (name === 'title') this.hasTitleSlot = hasContent;
+				else if (name === 'description') this.hasDescriptionSlot = hasContent;
+				else if (name === 'actions') this.hasActions = hasContent;
+				else if (name === 'tabs') this.hasTabs = hasContent;
+				else if (name === 'meta') this.hasMeta = hasContent;
+			});
+		});
 	}
 }
