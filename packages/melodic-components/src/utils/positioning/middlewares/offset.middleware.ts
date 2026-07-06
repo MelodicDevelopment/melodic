@@ -45,7 +45,46 @@ export function offset(options: number | OffsetOptions = 0): Middleware {
 					break;
 			}
 
-			return { x: newX, y: newY };
+			// Record the applied offset so later middleware (e.g. flip) can
+			// re-apply it when recomputing positions for other placements.
+			return { x: newX, y: newY, middlewareData: { offset: { mainAxis, crossAxis } } };
 		}
 	};
+}
+
+/** Offset amounts recorded in middlewareData by the offset middleware. */
+export interface OffsetMiddlewareData {
+	mainAxis: number;
+	crossAxis: number;
+}
+
+/**
+ * Apply a previously-recorded offset to a base position for the given placement side.
+ */
+export function applyOffsetToPosition(position: { x: number; y: number }, side: 'top' | 'right' | 'bottom' | 'left', offsetData: OffsetMiddlewareData): { x: number; y: number } {
+	const { mainAxis, crossAxis } = offsetData;
+	let { x, y } = position;
+
+	switch (side) {
+		case 'top':
+			y -= mainAxis;
+			x += crossAxis;
+			break;
+		case 'bottom':
+			y += mainAxis;
+			x += crossAxis;
+			break;
+		case 'left':
+			x -= mainAxis;
+			y += crossAxis;
+			break;
+		case 'right':
+			x += mainAxis;
+			y += crossAxis;
+			break;
+		default:
+			break;
+	}
+
+	return { x, y };
 }
