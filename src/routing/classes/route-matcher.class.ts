@@ -47,9 +47,10 @@ export class RouteMatcher {
 				this._names.push(`_wildcard${anonCount++}`);
 				pattern += '(.*)';
 			} else if (match[2]) {
-				// :name — single path segment
+				// :name — single NON-EMPTY path segment (`([^/]*)` would let a
+				// top-level `:id` route match the root URL with an empty param)
 				this._names.push(match[2]);
-				pattern += '([^/]*)';
+				pattern += '([^/]+)';
 			} else if (match[3]) {
 				// *name — named catch-all
 				this._names.push(match[3]);
@@ -134,7 +135,15 @@ export class RouteMatcher {
 
 		for (const param in params) {
 			re = new RegExp('[:*]' + param + '\\b');
-			result = result.replace(re, params[param]);
+			// Replacer-function form: a plain string replacement would mangle
+			// `$`-sequences in the value (e.g. `$&`). URL-encode the value —
+			// per-segment for splats (`*name`) so their slashes survive, fully
+			// for `:name` single-segment params.
+			result = result.replace(re, (token) =>
+				token.charAt(0) === '*'
+					? params[param].split('/').map(encodeURIComponent).join('/')
+					: encodeURIComponent(params[param])
+			);
 		}
 
 		// Strip any unfilled :name/*name params and standalone */** wildcards.
