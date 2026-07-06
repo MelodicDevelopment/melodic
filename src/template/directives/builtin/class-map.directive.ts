@@ -40,5 +40,5 @@ export function classMap(classes: Record<string, boolean | undefined>): IDirecti
 		}
 
 		return currentClasses;
-	});
+	}, 'classMap');
 }

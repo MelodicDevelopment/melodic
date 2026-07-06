@@ -59,7 +59,7 @@ export function unsafeHTML(html: string): IDirectiveResult {
 		// Update HTML
 		renderHTML(html, previousState);
 		return previousState;
-	});
+	}, 'unsafeHTML');
 }
 
 function renderHTML(html: string, state: UnsafeHTMLState): void {

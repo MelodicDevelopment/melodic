@@ -1,7 +1,10 @@
 import { getAttributeDirective } from '../directives/functions/attribute-directive.functions';
-import type { ITemplatePart } from '../interfaces/itemplate-part.interface';
+import type { ITemplatePart, IKeyedArrayItem } from '../interfaces/itemplate-part.interface';
 import type { ITemplateCache, IPartPath } from '../interfaces/itemplate-cache.interface';
+import type { IDirectiveState } from '../interfaces/idirective-state.interface';
+import type { RenderedContainer } from '../interfaces/irendered-container.interface';
 import { isDirective } from '../directives/functions/is-directive.function';
+import { disposeParts, disposeContainerParts, disposeDirectiveState } from '../functions/dispose.functions';
 
 // Unique marker for identifying dynamic positions
 const MARKER = `m${Math.random().toString(36).slice(2, 9)}`;
@@ -12,6 +15,20 @@ const ATTRIBUTE_MARKER_REGEX = new RegExp(`${ATTRIBUTE_MARKER_PREFIX}(\\d+)__`, 
 const createAttributeMarker = (index: number): string => `${ATTRIBUTE_MARKER_PREFIX}${index}__`;
 
 const templateCache = new Map<string, ITemplateCache>();
+
+// Dev-mode warning (once per property name) for property bindings that assign
+// raw HTML — .innerHTML=${...} looks like a normal bind but bypasses the safe
+// text path entirely.
+const warnedUnsafeProperties = new Set<string>();
+function warnUnsafePropertyBinding(name: string): void {
+	if (warnedUnsafeProperties.has(name)) return;
+	if (typeof import.meta !== 'undefined' && import.meta.env && !import.meta.env.DEV) return;
+	warnedUnsafeProperties.add(name);
+	console.warn(
+		`[melodic] Property binding ".${name}" assigns raw HTML and is an XSS hazard if the value is not fully trusted. ` +
+			'Prefer text interpolation, or unsafeHTML() with sanitized content.'
+	);
+}
 
 // Cache template keys by TemplateStringsArray identity to avoid repeated string joins
 const templateKeyCache = new WeakMap<TemplateStringsArray, string>();
@@ -39,68 +56,83 @@ export class TemplateResult {
 	}
 
 	/**
+	 * Structural identity of this template (derived from its tagged template
+	 * literal). Two TemplateResults with the same key share DOM structure and
+	 * can be updated in place; different keys require a rebuild.
+	 */
+	public get templateKey(): string {
+		return getTemplateKey(this.strings);
+	}
+
+	/**
 	 * Optimized render for single-use containers (like repeat items).
 	 * Returns the rendered nodes directly.
 	 */
 	public renderOnce(container: DocumentFragment): Node[] {
+		const target = container as RenderedContainer<DocumentFragment>;
 		const templateKey = getTemplateKey(this.strings);
 		const cache = this.getTemplate(templateKey);
 		const clone = cache.element.content.cloneNode(true);
 		const parts = this.prepareParts(clone, cache);
 
 		this.commit(parts);
-		container.appendChild(clone);
+		target.appendChild(clone);
 
-		(container as any).__parts = parts;
-		(container as any).__templateKey = templateKey;
+		target.__parts = parts;
+		target.__templateKey = templateKey;
 
-		return Array.from(container.childNodes);
+		return Array.from(target.childNodes);
 	}
 
 	public renderInto(container: Element | DocumentFragment): void {
+		const target = container as RenderedContainer<Element | DocumentFragment>;
 		const templateKey = getTemplateKey(this.strings);
 
 		// Get or create template
 		const { element: template } = this.getTemplate(templateKey);
 
 		// First render - clone and prepare
-		const existingKey = (container as any).__templateKey as string | undefined;
+		const existingKey = target.__templateKey;
 		if (existingKey && existingKey !== templateKey) {
-			const existingParts = (container as any).__parts as ITemplatePart[] | undefined;
-			if (existingParts) {
-				this.cleanupParts(existingParts);
+			// Structure changed — recursively dispose the old part tree before
+			// the container is wiped and rebuilt.
+			if (target.__parts) {
+				disposeParts(target.__parts);
 			}
-			delete (container as any).__parts;
+			delete target.__parts;
 		}
 
-		if (!(container as any).__parts) {
+		if (!target.__parts) {
 			const clone = template.content.cloneNode(true);
 			const parts = this.prepareParts(clone, this.getTemplate(templateKey));
 
-			(container as any).__parts = parts;
-			(container as any).__templateKey = templateKey;
+			target.__parts = parts;
+			target.__templateKey = templateKey;
 
 			// Commit values BEFORE appending to DOM so attributes are set
 			// before connectedCallback fires on child custom elements
 			this.commit(parts);
 
-			container.textContent = '';
-			container.appendChild(clone);
+			target.textContent = '';
+			target.appendChild(clone);
 			return;
 		}
 
 		// Update values
-		if (!(container as any).__templateKey) {
-			(container as any).__templateKey = templateKey;
+		if (!target.__templateKey) {
+			target.__templateKey = templateKey;
 		}
-		const parts = (container as any).__parts as ITemplatePart[];
-		this.commit(parts);
+		this.commit(target.__parts);
 	}
 
 	private getTemplate(key: string): ITemplateCache {
 		let cached = templateCache.get(key);
 
 		if (cached) {
+			// LRU: refresh recency so eviction removes the least recently USED
+			// template, not the least recently created one.
+			templateCache.delete(key);
+			templateCache.set(key, cached);
 			return cached;
 		}
 
@@ -498,17 +530,37 @@ export class TemplateResult {
 	}
 
 	/**
-	 * Clears previously rendered nodes between markers
+	 * Clears previously rendered nodes between markers, recursively disposing
+	 * the nested part trees (directive/action cleanups) they own.
 	 */
 	private clearRenderedNodes(part: ITemplatePart): void {
-		if (!part.renderedNodes || part.renderedNodes.length === 0) return;
+		// Dispose nested part trees BEFORE dropping the references, so cleanups
+		// registered anywhere in the removed content actually run.
+		if (part.nestedContainer) {
+			disposeContainerParts(part.nestedContainer);
+			part.nestedContainer = undefined;
+		}
 
-		for (const node of part.renderedNodes) {
-			node.parentNode?.removeChild(node);
+		if (part.renderedContainers) {
+			for (const container of part.renderedContainers) {
+				disposeContainerParts(container);
+			}
+			part.renderedContainers = undefined;
+		}
+
+		if (part.arrayState) {
+			for (const item of part.arrayState.items.values()) {
+				disposeContainerParts(item.container);
+			}
+			part.arrayState = undefined;
+		}
+
+		if (part.renderedNodes && part.renderedNodes.length > 0) {
+			for (const node of part.renderedNodes) {
+				node.parentNode?.removeChild(node);
+			}
 		}
 		part.renderedNodes = [];
-		part.arrayState = undefined;
-		part.nestedContainer = undefined;
 	}
 
 	/**
@@ -521,9 +573,18 @@ export class TemplateResult {
 		const state = part.directiveState;
 		if (!state) return;
 
+		// Recursively dispose resources owned by the directive state (nested
+		// part trees, subscriptions) before its DOM is removed.
+		disposeDirectiveState(state);
+
+		if (typeof state !== 'object') {
+			part.directiveState = undefined;
+			part.directiveType = undefined;
+			return;
+		}
+
 		// Directive markers (repeat/when both use startMarker/endMarker)
-		const startMarker: Comment | undefined = state.startMarker;
-		const endMarker: Comment | undefined = state.endMarker;
+		const { startMarker, endMarker } = state as IDirectiveState;
 
 		if (startMarker && endMarker && startMarker.parentNode) {
 			const parent = startMarker.parentNode;
@@ -548,24 +609,7 @@ export class TemplateResult {
 		}
 
 		part.directiveState = undefined;
-	}
-
-	private cleanupParts(parts: ITemplatePart[]): void {
-		for (const part of parts) {
-			if (part.actionCleanup) {
-				try {
-					part.actionCleanup();
-				} catch (error) {
-					console.error('Action directive cleanup failed:', error);
-				} finally {
-					part.actionCleanup = undefined;
-				}
-			}
-
-			if (part.renderedNodes && part.renderedNodes.length > 0) {
-				this.clearRenderedNodes(part);
-			}
-		}
+		part.directiveType = undefined;
 	}
 
 	/**
@@ -582,23 +626,17 @@ export class TemplateResult {
 
 		// Reuse existing container for same template structure (avoids destroying/recreating DOM)
 		if (part.nestedContainer) {
-			const existingKey = (part.nestedContainer as any).__templateKey as string | undefined;
-			const newKey = getTemplateKey(template.strings);
+			const existingKey = (part.nestedContainer as RenderedContainer<DocumentFragment>).__templateKey;
 
-			if (existingKey === newKey) {
+			if (existingKey === getTemplateKey(template.strings)) {
 				// Same structure — update existing DOM nodes in place
 				template.renderInto(part.nestedContainer);
 				return;
 			}
-
-			// Template structure changed — clean up old parts
-			const oldParts = (part.nestedContainer as any).__parts as ITemplatePart[] | undefined;
-			if (oldParts) {
-				this.cleanupParts(oldParts);
-			}
 		}
 
-		// First render or template structure changed
+		// First render or template structure changed — clearRenderedNodes
+		// recursively disposes the old nested part tree before removal.
 		this.clearRenderedNodes(part);
 		part.node!.textContent = '';
 
@@ -643,11 +681,11 @@ export class TemplateResult {
 
 		if (keyedValues) {
 			const state = part.arrayState ?? {
-				items: new Map<unknown, { key: unknown; value: unknown; container: DocumentFragment; nodes: Node[] }>(),
+				items: new Map<unknown, IKeyedArrayItem>(),
 				keys: []
 			};
 
-			const newItems = new Map<unknown, { key: unknown; value: unknown; container: DocumentFragment; nodes: Node[] }>();
+			const newItems = new Map<unknown, IKeyedArrayItem>();
 			const newKeys: unknown[] = [];
 
 			for (const item of keyedValues) {
@@ -669,6 +707,8 @@ export class TemplateResult {
 
 			for (const [key, oldItem] of state.items.entries()) {
 				if (!newItems.has(key)) {
+					// Dispose the removed item's part tree before removing its nodes.
+					disposeContainerParts(oldItem.container);
 					for (const node of oldItem.nodes) {
 						node.parentNode?.removeChild(node);
 					}
@@ -697,6 +737,7 @@ export class TemplateResult {
 
 		this.clearRenderedNodes(part);
 		const renderedNodes: Node[] = [];
+		const renderedContainers: DocumentFragment[] = [];
 
 		for (const value of values) {
 			if (value instanceof TemplateResult) {
@@ -704,6 +745,9 @@ export class TemplateResult {
 				value.renderInto(fragment);
 				const nodes = Array.from(fragment.childNodes);
 				renderedNodes.push(...nodes);
+				// Retain the container so its part tree can be disposed when the
+				// (non-keyed) array re-renders or the part is discarded.
+				renderedContainers.push(fragment);
 				parent.insertBefore(fragment, part.endMarker!);
 			} else if (value instanceof Node) {
 				renderedNodes.push(value);
@@ -716,6 +760,7 @@ export class TemplateResult {
 		}
 
 		part.renderedNodes = renderedNodes;
+		part.renderedContainers = renderedContainers.length > 0 ? renderedContainers : undefined;
 	}
 
 	private getKeyedValues(values: unknown[]): Array<{ key: unknown; value: unknown }> | null {
@@ -751,12 +796,7 @@ export class TemplateResult {
 		return { container, nodes };
 	}
 
-	private updateArrayItem(
-		item: { key: unknown; value: unknown; container: DocumentFragment; nodes: Node[] },
-		value: unknown,
-		parent: Node,
-		endMarker: Comment
-	): void {
+	private updateArrayItem(item: IKeyedArrayItem, value: unknown, parent: Node, endMarker: Comment): void {
 		if (value instanceof TemplateResult) {
 			value.renderInto(item.container);
 			item.value = value;
@@ -767,6 +807,10 @@ export class TemplateResult {
 		if (value === item.value) {
 			return;
 		}
+
+		// The item's content type changed (was a template, now a plain value) —
+		// dispose the old part tree before discarding it.
+		disposeContainerParts(item.container);
 
 		for (const node of item.nodes) {
 			node.parentNode?.removeChild(node);
@@ -813,7 +857,14 @@ export class TemplateResult {
 
 						// Handle directives
 						if (nowDirective) {
+							// Transition between two DIFFERENT directive types: never hand
+							// one directive's state to another. Dispose the old directive's
+							// state and DOM, then let the new directive start fresh.
+							if (part.directiveState !== undefined && part.directiveType !== value.type) {
+								this.clearDirectiveDOM(part);
+							}
 							part.directiveState = value.render(part.node, part.directiveState);
+							part.directiveType = value.type;
 						} else if (value instanceof TemplateResult) {
 							// Handle nested TemplateResult
 							this.renderNestedTemplate(part, value);
@@ -836,7 +887,14 @@ export class TemplateResult {
 						const element = part.node as Element;
 						// Handle directives
 						if (isDirective(value)) {
+							if (part.directiveState !== undefined && part.directiveType !== value.type) {
+								// Directive type switched — dispose the old state instead of
+								// passing it to a different directive.
+								disposeDirectiveState(part.directiveState);
+								part.directiveState = undefined;
+							}
 							part.directiveState = value.render(element, part.directiveState);
+							part.directiveType = value.type;
 						} else if (isCompositeAttribute) {
 							const strings = part.attributeStrings as string[];
 							const indices = part.attributeIndices as number[];
@@ -848,7 +906,11 @@ export class TemplateResult {
 							}
 
 							if (part.previousValue === composed) {
-								break;
+								// Composed value unchanged — skip the DOM write. Use continue
+								// (not break) so the loop's trailing `part.previousValue = value`
+								// can't overwrite the stored composed string with a single
+								// segment value, which would defeat this skip forever.
+								continue;
 							}
 
 							if (composed === '' && strings.every((segment) => segment === '')) {
@@ -890,9 +952,17 @@ export class TemplateResult {
 					if (part.node && part.name) {
 						// Handle directives
 						if (isDirective(value)) {
+							if (part.directiveState !== undefined && part.directiveType !== value.type) {
+								disposeDirectiveState(part.directiveState);
+								part.directiveState = undefined;
+							}
 							part.directiveState = value.render(part.node as Element, part.directiveState);
+							part.directiveType = value.type;
 						} else {
-							(part.node as any)[part.name] = value;
+							if (part.name === 'innerHTML' || part.name === 'outerHTML') {
+								warnUnsafePropertyBinding(part.name);
+							}
+							(part.node as Element & Record<string, unknown>)[part.name] = value;
 						}
 					}
 					break;

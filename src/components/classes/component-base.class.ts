@@ -4,7 +4,8 @@ import { render } from '../../template/functions/render.function';
 import type { Unsubscriber } from '../../signals/types/unsubscriber.type';
 import type { Signal } from '../../signals/types/signal.type';
 import { isSignal } from '../../signals/functions/is-signal.function';
-import type { ITemplatePart } from '../../template/interfaces/itemplate-part.interface';
+import type { IRenderedContainer } from '../../template/interfaces/irendered-container.interface';
+import { disposeParts } from '../../template/functions/dispose.functions';
 import { applyGlobalStyles } from '../styles/apply-global-styles.function';
 import { AbstractControl } from '../../forms/classes/abstract-control.class';
 import { getActiveComponent, setActiveComponent } from '../functions/active-component.functions';
@@ -137,20 +138,12 @@ export abstract class ComponentBase extends HTMLElement {
 	private teardown(): void {
 		this._destroyed = true;
 
-		// Run action-directive cleanups (e.g. clickOutside document listeners).
-		const parts = (this._root as any).__parts as ITemplatePart[] | undefined;
+		// Recursively dispose the rendered part tree: action-directive cleanups
+		// (e.g. clickOutside document listeners) plus everything nested inside
+		// when/repeat branches, nested templates, and array items.
+		const parts = (this._root as ShadowRoot & IRenderedContainer).__parts;
 		if (parts) {
-			for (const part of parts) {
-				if (part.actionCleanup) {
-					try {
-						part.actionCleanup();
-					} catch (error) {
-						console.error('Action directive cleanup failed:', error);
-					} finally {
-						part.actionCleanup = undefined;
-					}
-				}
-			}
+			disposeParts(parts);
 		}
 
 		// User's onDestroy runs first so user code can still reference signals before they're destroyed.

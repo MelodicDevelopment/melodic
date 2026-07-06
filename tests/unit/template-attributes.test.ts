@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { html, render } from '../../src/template';
 import { registerAttributeDirective, unregisterAttributeDirective } from '../../src/template/directives/functions/attribute-directive.functions';
 
@@ -24,6 +24,32 @@ describe('template attributes', () => {
 		render(html`<div title="Hello ${name}!"></div>`, container);
 		const second = container.querySelector('div');
 		expect(second?.getAttribute('title')).toBe('Hello Bob!');
+	});
+
+	it('skips the DOM write for unchanged composite attributes on every re-render', () => {
+		const template = (name: string) => html`<div title="Hello ${name}!"></div>`;
+
+		render(template('Ada'), container);
+		const el = container.querySelector('div') as HTMLElement;
+		const setAttributeSpy = vi.spyOn(el, 'setAttribute');
+
+		// Unchanged re-renders must never touch the attribute — the skip must
+		// keep working across MULTIPLE renders (previousValue must not be
+		// corrupted by the unchanged fast-path).
+		render(template('Ada'), container);
+		render(template('Ada'), container);
+		expect(setAttributeSpy).not.toHaveBeenCalled();
+
+		render(template('Bob'), container);
+		expect(setAttributeSpy).toHaveBeenCalledTimes(1);
+		expect(el.getAttribute('title')).toBe('Hello Bob!');
+
+		// And the skip re-arms after a change.
+		setAttributeSpy.mockClear();
+		render(template('Bob'), container);
+		expect(setAttributeSpy).not.toHaveBeenCalled();
+
+		setAttributeSpy.mockRestore();
 	});
 
 	it('applies and removes boolean attributes', () => {
