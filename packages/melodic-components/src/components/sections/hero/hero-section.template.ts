@@ -20,8 +20,8 @@ export function heroSectionTemplate(c: HeroSectionComponent) {
 					</slot>
 
 					<slot name="title">
-						${when(!!c.title, () => html`
-							<h1 class="ml-hero__title">${c.title}</h1>
+						${when(!!c.heroTitle, () => html`
+							<h1 class="ml-hero__title">${c.heroTitle}</h1>
 						`)}
 					</slot>
 

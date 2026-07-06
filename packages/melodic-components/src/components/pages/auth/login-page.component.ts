@@ -3,6 +3,15 @@ import type { IElementRef } from '@melodicdev/core';
 import { loginPageTemplate } from './login-page.template.js';
 import { loginPageStyles } from './login-page.styles.js';
 
+let warnedDeprecatedTitle = false;
+function warnDeprecatedTitle(): void {
+	if (warnedDeprecatedTitle) return;
+	warnedDeprecatedTitle = true;
+	console.warn(
+		'[ml-login-page] The "title" attribute/property is deprecated because it collides with the global HTML title attribute (native tooltip). Use "page-title" instead. The "title" shim will be removed in the next major release.'
+	);
+}
+
 /**
  * ml-login-page - A full-page login component
  *
@@ -37,7 +46,7 @@ import { loginPageStyles } from './login-page.styles.js';
 	selector: 'ml-login-page',
 	template: loginPageTemplate,
 	styles: loginPageStyles,
-	attributes: ['variant', 'title', 'description']
+	attributes: ['variant', 'page-title', 'title', 'description']
 })
 export class LoginPageComponent implements IElementRef {
 	public elementRef!: HTMLElement;
@@ -45,11 +54,20 @@ export class LoginPageComponent implements IElementRef {
 	/** Layout variant */
 	public variant: 'centered' | 'split' = 'centered';
 
-	/** Page title */
-	public title = 'Log in to your account';
+	/** Page title (attribute: page-title) */
+	public pageTitle = 'Log in to your account';
 
 	/** Page description */
 	public description = 'Welcome back! Please enter your details.';
+
+	/** @deprecated Use `pageTitle` (attribute `page-title`); `title` collides with the global HTML attribute. */
+	public get title(): string {
+		return this.pageTitle;
+	}
+	public set title(value: string) {
+		warnDeprecatedTitle();
+		this.pageTitle = value;
+	}
 
 	/** Check if header slot has content */
 	public get hasHeaderSlot(): boolean {

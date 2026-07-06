@@ -181,6 +181,15 @@ export const pageHeaderStyles = () => css`
 	}
 
 	/* ============================================
+	   EMPTY SECTIONS
+	   Slots are always rendered (so slotchange can
+	   fire); empty wrappers are hidden instead.
+	   ============================================ */
+	.ml-page-header__section--empty {
+		display: none;
+	}
+
+	/* ============================================
 	   RESPONSIVE
 	   ============================================ */
 	@media (max-width: 640px) {

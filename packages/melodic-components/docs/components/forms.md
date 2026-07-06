@@ -13,7 +13,9 @@
 - [ml-slider](#ml-slider)
 - [ml-date-picker](#ml-date-picker)
 - [ml-date-time-picker](#ml-date-time-picker)
+- [ml-time-picker](#ml-time-picker)
 - [ml-form-field](#ml-form-field)
+- [ml-file-upload](#ml-file-upload)
 
 ## FormControl integration
 
@@ -648,6 +650,48 @@ picker.addEventListener('ml:change', (e) => {
 
 ---
 
+## ml-time-picker
+
+Time input with a dropdown selector (preset list plus hour/minute spinners). Stores and emits 24-hour `HH:mm` (or `HH:mm:ss` when `step="1"`) strings; displays 12-hour AM/PM by default.
+
+```ts
+import '@melodicdev/components/time-picker';
+```
+
+```html
+<ml-time-picker label="Start time" value="09:30"></ml-time-picker>
+
+<!-- 24-hour display -->
+<ml-time-picker label="Meeting" twelve-hour="false" value="14:00"></ml-time-picker>
+
+<!-- Seconds precision -->
+<ml-time-picker label="Precise" step="1"></ml-time-picker>
+
+<!-- Constrained range, 30-minute presets -->
+<ml-time-picker label="Delivery window" min="08:00" max="18:00" step="30"></ml-time-picker>
+```
+
+| Property | Type | Default | Description |
+|----------|------|---------|-------------|
+| `value` | `string` | `''` | Selected time (`HH:mm` or `HH:mm:ss`) |
+| `placeholder` | `string` | `'Select time'` | Placeholder text |
+| `label` | `string` | `''` | Field label |
+| `hint` | `string` | `''` | Hint text |
+| `error` | `string` | `''` | Error message |
+| `size` | `'sm'` \| `'md'` \| `'lg'` | `'md'` | Input size |
+| `disabled` | `boolean` | `false` | Disabled state |
+| `required` | `boolean` | `false` | Required indicator |
+| `min` | `string` | `''` | Earliest selectable time (`HH:mm`) |
+| `max` | `string` | `''` | Latest selectable time (`HH:mm`) |
+| `step` | `number` | `15` | Preset list interval in minutes; `1` shows a seconds spinner |
+| `twelveHour` | `boolean` | `true` | 12-hour AM/PM display (attribute: `twelve-hour`) |
+
+**Events:** `ml:change` `{ value: string }` — emitted when the time changes
+
+Registers a `:formControl` adapter at import time, so it participates in the reactive forms system like the other inputs.
+
+---
+
 ## ml-form-field
 
 Wrapper that adds a label, hint, error, and required indicator to any form control. Automatically links the label to the inner control via `aria-labelledby`.
@@ -679,3 +723,62 @@ import '@melodicdev/components/form-field';
 | `required` | `boolean` | `false` | Required asterisk |
 
 **Slots:** `default` (the wrapped form control)
+
+---
+
+## ml-file-upload
+
+Drag-and-drop file selection area with client-side validation (accepted types, max size, max file count). Pair with `ml-file-upload-item` to render the selected-file list.
+
+```ts
+import '@melodicdev/components/file-upload';
+```
+
+```html
+<ml-file-upload
+  accept=".pdf,image/*"
+  multiple
+  max-size="5242880"
+  max-files="5"
+  @ml:change=${e => this.handleFiles(e.detail.files)}
+  @ml:error=${e => this.showErrors(e.detail.errors)}
+></ml-file-upload>
+
+<!-- Selected-file list -->
+<ml-file-upload-item
+  name="report.pdf"
+  size="1.2 MB"
+  status="uploading"
+  progress="60"
+  @ml:remove=${e => this.remove(e)}
+  @ml:retry=${e => this.retry(e)}
+></ml-file-upload-item>
+```
+
+**ml-file-upload properties:**
+
+| Property | Type | Default | Description |
+|----------|------|---------|-------------|
+| `accept` | `string` | `''` | Accepted types (extension, MIME, or `type/*` — same syntax as native `accept`) |
+| `multiple` | `boolean` | `false` | Allow selecting multiple files |
+| `maxSize` | `number` | `0` | Max size per file in bytes (attribute: `max-size`; `0` = unlimited) |
+| `maxFiles` | `number` | `0` | Max number of files (attribute: `max-files`; `0` = unlimited) |
+| `disabled` | `boolean` | `false` | Disabled state |
+| `label` | `string` | `'Click to upload'` | Primary label text |
+| `sublabel` | `string` | `'or drag and drop'` | Secondary label text |
+| `hint` | `string` | `''` | Hint text |
+| `error` | `string` | `''` | Error message |
+| `icon` | `string` | `'cloud-arrow-up'` | Icon name |
+
+**ml-file-upload events:**
+
+- `ml:change` `{ files: File[] }` — emitted with the valid files after selection/drop
+- `ml:error` `{ errors: Array<{ type: 'accept' | 'max-size' | 'max-files'; file?: File; message: string }> }` — emitted when any file fails validation
+
+**ml-file-upload-item properties:** `name`, `size` (display string), `status` (`'idle' | 'uploading' | 'success' | 'error'`), `progress` (0–100), `error`.
+
+**ml-file-upload-item events:** `ml:remove`, `ml:retry`.
+
+> **Note:** unlike the other form inputs, `ml-file-upload` does not yet register a `:formControl`
+> adapter, so it cannot be bound to a `FormControl` directly — listen to `ml:change` and write the
+> `File[]` into your form state manually. Adapter support is planned.

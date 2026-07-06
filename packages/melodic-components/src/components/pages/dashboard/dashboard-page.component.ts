@@ -5,6 +5,15 @@ import { dashboardPageStyles } from './dashboard-page.styles.js';
 
 export type DashboardLayout = 'default' | 'wide' | 'full';
 
+let warnedDeprecatedTitle = false;
+function warnDeprecatedTitle(): void {
+	if (warnedDeprecatedTitle) return;
+	warnedDeprecatedTitle = true;
+	console.warn(
+		'[ml-dashboard-page] The "title" attribute/property is deprecated because it collides with the global HTML title attribute (native tooltip). Use "page-title" instead. The "title" shim will be removed in the next major release.'
+	);
+}
+
 /**
  * ml-dashboard-page - Composite dashboard layout component
  *
@@ -14,7 +23,7 @@ export type DashboardLayout = 'default' | 'wide' | 'full';
  *
  * @example
  * ```html
- * <ml-dashboard-page title="Dashboard" description="Overview of your account">
+ * <ml-dashboard-page page-title="Dashboard" description="Overview of your account">
  *   <ml-sidebar slot="sidebar">...</ml-sidebar>
  *   <ml-button slot="header-actions" variant="primary">Create</ml-button>
  *   <ml-stat slot="metrics">...</ml-stat>
@@ -33,16 +42,25 @@ export type DashboardLayout = 'default' | 'wide' | 'full';
 	selector: 'ml-dashboard-page',
 	template: dashboardPageTemplate,
 	styles: dashboardPageStyles,
-	attributes: ['title', 'description', 'layout']
+	attributes: ['page-title', 'title', 'description', 'layout']
 })
 export class DashboardPageComponent implements IElementRef {
 	public elementRef!: HTMLElement;
 
-	/** Page title */
-	public title = '';
+	/** Page title (attribute: page-title) */
+	public pageTitle = '';
 
 	/** Page description */
 	public description = '';
+
+	/** @deprecated Use `pageTitle` (attribute `page-title`); `title` collides with the global HTML attribute. */
+	public get title(): string {
+		return this.pageTitle;
+	}
+	public set title(value: string) {
+		warnDeprecatedTitle();
+		this.pageTitle = value;
+	}
 
 	/** Content layout variant */
 	public layout: DashboardLayout = 'default';

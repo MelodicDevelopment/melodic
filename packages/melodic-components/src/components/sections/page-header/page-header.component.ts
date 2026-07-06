@@ -1,16 +1,25 @@
 import { MelodicComponent } from '@melodicdev/core';
-import type { IElementRef } from '@melodicdev/core';
+import type { IElementRef, OnCreate } from '@melodicdev/core';
 import { pageHeaderTemplate } from './page-header.template.js';
 import { pageHeaderStyles } from './page-header.styles.js';
 
 export type PageHeaderVariant = 'default' | 'compact' | 'centered';
+
+let warnedDeprecatedTitle = false;
+function warnDeprecatedTitle(): void {
+	if (warnedDeprecatedTitle) return;
+	warnedDeprecatedTitle = true;
+	console.warn(
+		'[ml-page-header] The "title" attribute/property is deprecated because it collides with the global HTML title attribute (native tooltip). Use "header-title" instead. The "title" shim will be removed in the next major release.'
+	);
+}
 
 /**
  * ml-page-header - Section component for page titles with breadcrumb, description, and actions
  *
  * @example
  * ```html
- * <ml-page-header title="Dashboard" description="Overview of your account">
+ * <ml-page-header header-title="Dashboard" description="Overview of your account">
  *   <ml-breadcrumb slot="breadcrumb">
  *     <ml-breadcrumb-item href="/">Home</ml-breadcrumb-item>
  *     <ml-breadcrumb-item>Dashboard</ml-breadcrumb-item>
@@ -30,16 +39,25 @@ export type PageHeaderVariant = 'default' | 'compact' | 'centered';
 	selector: 'ml-page-header',
 	template: pageHeaderTemplate,
 	styles: pageHeaderStyles,
-	attributes: ['variant', 'divider', 'title', 'description']
+	attributes: ['variant', 'divider', 'header-title', 'title', 'description']
 })
-export class PageHeaderComponent implements IElementRef {
+export class PageHeaderComponent implements IElementRef, OnCreate {
 	public elementRef!: HTMLElement;
 
-	/** Page title text */
-	public title = '';
+	/** Page title text (attribute: header-title) */
+	public headerTitle = '';
 
 	/** Page description text */
 	public description = '';
+
+	/** @deprecated Use `headerTitle` (attribute `header-title`); `title` collides with the global HTML attribute. */
+	public get title(): string {
+		return this.headerTitle;
+	}
+	public set title(value: string) {
+		warnDeprecatedTitle();
+		this.headerTitle = value;
+	}
 
 	/** Visual variant */
 	public variant: PageHeaderVariant = 'default';
@@ -47,33 +65,29 @@ export class PageHeaderComponent implements IElementRef {
 	/** Show bottom border */
 	public divider = true;
 
-	/** Check if breadcrumb slot has content */
-	public get hasBreadcrumb(): boolean {
-		return this.elementRef?.querySelector('[slot="breadcrumb"]') !== null;
-	}
+	/** Slot visibility flags (toggled via slotchange so late-inserted content projects) */
+	public hasBreadcrumb = false;
+	public hasTitleSlot = false;
+	public hasDescriptionSlot = false;
+	public hasActions = false;
+	public hasTabs = false;
+	public hasMeta = false;
 
-	/** Check if title slot has content */
-	public get hasTitleSlot(): boolean {
-		return this.elementRef?.querySelector('[slot="title"]') !== null;
-	}
+	public onCreate(): void {
+		const shadow = this.elementRef.shadowRoot;
+		if (!shadow) return;
 
-	/** Check if description slot has content */
-	public get hasDescriptionSlot(): boolean {
-		return this.elementRef?.querySelector('[slot="description"]') !== null;
-	}
-
-	/** Check if actions slot has content */
-	public get hasActions(): boolean {
-		return this.elementRef?.querySelector('[slot="actions"]') !== null;
-	}
-
-	/** Check if tabs slot has content */
-	public get hasTabs(): boolean {
-		return this.elementRef?.querySelector('[slot="tabs"]') !== null;
-	}
-
-	/** Check if meta slot has content */
-	public get hasMeta(): boolean {
-		return this.elementRef?.querySelector('[slot="meta"]') !== null;
+		shadow.querySelectorAll('slot[name]').forEach((slot) => {
+			slot.addEventListener('slotchange', () => {
+				const name = slot.getAttribute('name');
+				const hasContent = (slot as HTMLSlotElement).assignedNodes().length > 0;
+				if (name === 'breadcrumb') this.hasBreadcrumb = hasContent;
+				else if (name === 'title') this.hasTitleSlot = hasContent;
+				else if (name === 'description') this.hasDescriptionSlot = hasContent;
+				else if (name === 'actions') this.hasActions = hasContent;
+				else if (name === 'tabs') this.hasTabs = hasContent;
+				else if (name === 'meta') this.hasMeta = hasContent;
+			});
+		});
 	}
 }

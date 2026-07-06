@@ -10,7 +10,7 @@ export function dashboardPageTemplate(c: DashboardPageComponent) {
 
 			<ml-page-header
 				slot="header"
-				title=${c.title}
+				header-title=${c.pageTitle}
 				description=${c.description}
 			>
 				${when(c.hasHeaderActions, () => html`

@@ -4,12 +4,21 @@ import type { ToastVariant } from './toast-config.interface.js';
 import { toastTemplate } from './toast.template.js';
 import { toastStyles } from './toast.styles.js';
 
+let warnedDeprecatedTitle = false;
+function warnDeprecatedTitle(): void {
+	if (warnedDeprecatedTitle) return;
+	warnedDeprecatedTitle = true;
+	console.warn(
+		'[ml-toast] The "title" attribute/property is deprecated because it collides with the global HTML title attribute (native tooltip). Use "toast-title" instead. The "title" shim will be removed in the next major release.'
+	);
+}
+
 /**
  * ml-toast - Individual toast notification
  *
  * @example
  * ```html
- * <ml-toast variant="success" title="Saved" message="Your changes have been saved."></ml-toast>
+ * <ml-toast variant="success" toast-title="Saved" message="Your changes have been saved."></ml-toast>
  * ```
  *
  * @fires ml:dismiss - Emitted when the toast is dismissed
@@ -18,7 +27,7 @@ import { toastStyles } from './toast.styles.js';
 	selector: 'ml-toast',
 	template: toastTemplate,
 	styles: toastStyles,
-	attributes: ['variant', 'title', 'message', 'duration', 'dismissible']
+	attributes: ['variant', 'toast-title', 'title', 'message', 'duration', 'dismissible']
 })
 export class ToastComponent implements IElementRef, OnCreate {
 	public elementRef!: HTMLElement;
@@ -26,8 +35,8 @@ export class ToastComponent implements IElementRef, OnCreate {
 	/** Toast variant */
 	public variant: ToastVariant = 'info';
 
-	/** Toast title */
-	public title = '';
+	/** Toast title (attribute: toast-title) */
+	public toastTitle = '';
 
 	/** Toast message */
 	public message = '';
@@ -39,6 +48,15 @@ export class ToastComponent implements IElementRef, OnCreate {
 	public dismissible = true;
 
 	private _timer: ReturnType<typeof setTimeout> | null = null;
+
+	/** @deprecated Use `toastTitle` (attribute `toast-title`); `title` collides with the global HTML attribute. */
+	public get title(): string {
+		return this.toastTitle;
+	}
+	public set title(value: string) {
+		warnDeprecatedTitle();
+		this.toastTitle = value;
+	}
 
 	public onCreate(): void {
 		if (this.duration > 0) {

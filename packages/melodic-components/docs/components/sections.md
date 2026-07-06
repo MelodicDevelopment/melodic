@@ -27,7 +27,7 @@ import '@melodicdev/components/app-shell';
     </div>
   </ml-sidebar>
 
-  <ml-page-header slot="header" title="Dashboard" description="Overview of your account">
+  <ml-page-header slot="header" header-title="Dashboard" description="Overview of your account">
     <ml-button slot="actions" variant="primary">New Report</ml-button>
   </ml-page-header>
 
@@ -91,7 +91,7 @@ import '@melodicdev/components/page-header';
 
 ```html
 <!-- Basic -->
-<ml-page-header title="Team Members" description="Manage access for your organization">
+<ml-page-header header-title="Team Members" description="Manage access for your organization">
   <ml-button slot="actions" variant="primary">
     <ml-icon slot="icon-start" icon="plus"></ml-icon>
     Invite member
@@ -99,7 +99,7 @@ import '@melodicdev/components/page-header';
 </ml-page-header>
 
 <!-- With breadcrumb, meta badges, and tabs -->
-<ml-page-header title="Project Alpha">
+<ml-page-header header-title="Project Alpha">
   <ml-breadcrumb slot="breadcrumb">
     <ml-breadcrumb-item href="/">Home</ml-breadcrumb-item>
     <ml-breadcrumb-item href="/projects">Projects</ml-breadcrumb-item>
@@ -122,23 +122,27 @@ import '@melodicdev/components/page-header';
 </ml-page-header>
 
 <!-- Centered variant (marketing/landing style) -->
-<ml-page-header variant="centered" title="Our Features" description="Everything you need." divider="false">
+<ml-page-header variant="centered" header-title="Our Features" description="Everything you need." divider="false">
 </ml-page-header>
 ```
 
 | Property | Type | Default | Description |
 |----------|------|---------|-------------|
-| `title` | `string` | `''` | Page title (can also use `slot="title"` for rich content) |
+| `headerTitle` | `string` | `''` | Page title (attribute: `header-title`; can also use `slot="title"` for rich content) |
 | `description` | `string` | `''` | Supporting text (can also use `slot="description"`) |
 | `variant` | `'default'` \| `'compact'` \| `'centered'` | `'default'` | Layout variant |
 | `divider` | `boolean` | `true` | Show bottom border |
+
+> **Deprecated:** the `title` attribute/property still works as an alias for `header-title` but logs a
+> one-time warning — it collides with the global HTML `title` attribute (native browser tooltip).
+> The alias will be removed in the next major release.
 
 **Slots:**
 
 | Slot | Description |
 |------|-------------|
 | `breadcrumb` | `ml-breadcrumb` placed above the title |
-| `title` | Rich HTML title (overrides the `title` attribute) |
+| `title` | Rich HTML title (overrides the `header-title` attribute) |
 | `description` | Rich HTML description |
 | `meta` | Badges, status indicators, etc. (placed next to the title) |
 | `actions` | Action buttons (right-aligned) |
@@ -166,17 +170,17 @@ import '@melodicdev/components/page-section';
 
 ```html
 <!-- Basic -->
-<ml-page-section title="Recent Activity" subtitle="What your team has been up to">
+<ml-page-section section-title="Recent Activity" subtitle="What your team has been up to">
   <ml-activity-feed>...</ml-activity-feed>
 </ml-page-section>
 
 <!-- With action button -->
-<ml-page-section title="Team Members" action-label="View all" action-href="/team">
+<ml-page-section section-title="Team Members" action-label="View all" action-href="/team">
   <ml-list>...</ml-list>
 </ml-page-section>
 
 <!-- With custom action slot -->
-<ml-page-section title="Analytics" padding="lg">
+<ml-page-section section-title="Analytics" padding="lg">
   <ml-button slot="action" variant="outline" size="sm">Export</ml-button>
   <div>Chart content here</div>
 </ml-page-section>
@@ -184,11 +188,15 @@ import '@melodicdev/components/page-section';
 
 | Property | Type | Default | Description |
 |----------|------|---------|-------------|
-| `title` | `string` | `''` | Section heading text |
+| `sectionTitle` | `string` | `''` | Section heading text (attribute: `section-title`) |
 | `subtitle` | `string` | `''` | Supporting text below the title |
-| `action-label` | `string` | `''` | Text for the default action link |
-| `action-href` | `string` | `''` | URL for the default action link |
+| `actionLabel` | `string` | `''` | Text for the default action link (attribute: `action-label`) |
+| `actionHref` | `string` | `''` | URL for the default action link (attribute: `action-href`; only http(s), relative, and fragment URLs are rendered — other schemes are neutralized) |
 | `padding` | `'none'` \| `'sm'` \| `'md'` \| `'lg'` | `'md'` | Content padding |
+
+> **Deprecated:** the `title` attribute/property still works as an alias for `section-title` but logs a
+> one-time warning — it collides with the global HTML `title` attribute (native browser tooltip).
+> The alias will be removed in the next major release.
 
 **Slots:**
 
@@ -219,21 +227,21 @@ import '@melodicdev/components/hero';
 ```html
 <!-- Text + CTA -->
 <ml-hero-section
-  eyebrow="Now in Beta"
-  headline="Build faster with Melodic"
-  subheadline="A lightweight web component framework with reactive signals, ultra-fast templates, and a complete UI library."
+  variant="centered"
+  size="lg"
+  hero-title="Build faster with Melodic"
+  description="A lightweight web component framework with reactive signals, ultra-fast templates, and a complete UI library."
 >
   <ml-button slot="actions" variant="primary" size="lg">Get started</ml-button>
   <ml-button slot="actions" variant="outline" size="lg">View docs</ml-button>
 </ml-hero-section>
 
-<!-- With badge group and custom media -->
-<ml-hero-section
-  headline="Ship production UI faster"
-  subheadline="From zero to polished in minutes."
-  align="center"
->
+<!-- Split layout with eyebrow badge and media -->
+<ml-hero-section variant="split" background="subtle">
   <ml-badge-group slot="eyebrow" label="New" variant="primary">Version 2.0 is here</ml-badge-group>
+
+  <span slot="title">Ship production UI faster</span>
+  <span slot="description">From zero to polished in minutes.</span>
 
   <ml-button slot="actions" size="lg">Start free</ml-button>
 
@@ -243,17 +251,23 @@ import '@melodicdev/components/hero';
 
 | Property | Type | Default | Description |
 |----------|------|---------|-------------|
-| `headline` | `string` | `''` | Primary heading text |
-| `subheadline` | `string` | `''` | Supporting body text |
-| `eyebrow` | `string` | `''` | Small text above the headline |
-| `align` | `'left'` \| `'center'` | `'left'` | Text alignment |
+| `heroTitle` | `string` | `''` | Headline text (attribute: `hero-title`; or use `slot="title"`) |
+| `description` | `string` | `''` | Supporting body text (or use `slot="description"`) |
+| `variant` | `'centered'` \| `'split'` \| `'split-reverse'` | `'centered'` | Layout variant |
+| `size` | `'sm'` \| `'md'` \| `'lg'` | `'lg'` | Padding and font scale |
+| `background` | `'none'` \| `'subtle'` \| `'gradient'` | `'none'` | Background style |
+
+> **Deprecated:** the `title` attribute/property still works as an alias for `hero-title` but logs a
+> one-time warning — it collides with the global HTML `title` attribute (native browser tooltip).
+> The alias will be removed in the next major release.
 
 **Slots:**
 
 | Slot | Description |
 |------|-------------|
-| `eyebrow` | Rich content above headline (use `ml-badge-group` here) |
-| `headline` | Rich HTML headline (overrides the `headline` attribute) |
-| `subheadline` | Rich HTML subheadline |
+| `eyebrow` | Small text/badge above the title (use `ml-badge-group` here) |
+| `title` | Rich HTML headline (overrides the `hero-title` attribute) |
+| `description` | Rich HTML supporting text |
 | `actions` | CTA buttons |
 | `media` | Image, video, or component displayed alongside/below the text |
+| `social-proof` | Logos, testimonials, stats below the CTA |

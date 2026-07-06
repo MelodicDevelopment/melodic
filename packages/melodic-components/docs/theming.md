@@ -113,7 +113,12 @@ import {
 | `onThemeChange(fn)` | Subscribe to theme changes; returns an unsubscribe function |
 | `createTheme(name, overrides)` | Build a CSS string for a custom theme (does not inject it) |
 | `injectTheme(name, overrides)` | Build and inject the theme into `<head>` automatically |
-| `createBrandTheme(name, colors)` | Convenience wrapper for overriding brand colors |
+| `createBrandTheme(name, options)` | Convenience wrapper for overriding brand colors (supports `mode: 'light' \| 'dark'`) |
+
+> **Input validation:** theme names must match `^[a-z0-9-]+$`, override keys must be CSS custom
+> properties (`--…`), and override values may not contain `;`, `{`, `}`, `<`, `>`, or control
+> characters. `createTheme`/`injectTheme` throw on invalid input — values are interpolated into a
+> stylesheet, so this prevents CSS-rule injection.
 
 ---
 
@@ -335,7 +340,14 @@ import { createBrandTheme } from '@melodicdev/components/theme';
 const css = createBrandTheme('brand', {
   primary:   '#7c3aed',
   secondary: '#6b7280',
-  // success, warning, danger, info are also accepted
+  // success, warning, danger are also accepted
+});
+
+// Dark-mode variants: hover/active lighten instead of darken and the
+// -subtle tints mix toward black so they sit on dark surfaces.
+const darkCss = createBrandTheme('brand-dark', {
+  primary: '#a78bfa',
+  mode: 'dark',
 });
 
 const style = document.createElement('style');
