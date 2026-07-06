@@ -37,23 +37,23 @@ Findings from a whole-repo review (2026-06-09), merged with a second six-agent d
   `src/config/define-config.ts:40` — `{ ...definition.base, ...envOverrides }` is one level deep, but `extends` (line 43) uses `deepMerge`. `base:{api:{url,timeout}}` + `prod:{api:{url}}` yields `api:{url}` — `timeout` silently lost.
   **Fix:** deep-merge env overrides too (one merge strategy everywhere).
 
-- [ ] **`DialogRef.afterClosed` never fires on Escape-dismiss**
+- [x] **`DialogRef.afterClosed` never fires on Escape-dismiss**
   `packages/melodic-components/src/components/overlays/dialog/dialog-ref.class.ts:62-86` — callback only fires from `close()`; Escape takes native `cancel` → `close` → `DialogService.cleanUpDialog` and skips it (descendant-popover cleanup also skipped).
   **Fix:** have `DialogRef` listen to the dialog's native `close` event and fire the callback there (guard double-fire). Also consider supporting multiple `afterOpened`/`afterClosed` registrations (currently single-callback, silently replaced).
 
-- [ ] **[NEW] `ml-table` selection is stale/positional — never cleared when `rows` changes**
+- [x] **[NEW] `ml-table` selection is stale/positional — never cleared when `rows` changes**
   `packages/melodic-components/src/components/data-display/table/table.component.ts:120-124` — `onPropertyChange` invalidates the scroller but does NOT reset `selectedIndices` on `rows` change; data-grid does (`data-grid.component.ts:152-158`). Swapping rows (pagination/filter/live update) leaves old indices highlighting the wrong rows and `ml:select` reporting the wrong set. Compounded: indices are `sortedRows`-relative (template passes `startIndex+i`, `table.template.ts:85-102`) so they don't map to consumer row order under sort.
   **Fix:** mirror data-grid's reset; define the selection contract (emit rows or original-order indices). Root cause is the table/data-grid fork — see extraction item in P2 Components.
 
-- [ ] **[NEW] Avatar image-error fallback is dead code**
+- [x] **[NEW] Avatar image-error fallback is dead code**
   `packages/melodic-components/src/components/data-display/avatar/avatar.component.ts:44-48` — `_imageError` is `_`-prefixed → excluded from reactivity, so `handleImageError` never triggers a re-render and `when(!!c.src && !c._imageError, …)` never re-evaluates. Broken `src` shows a broken-image glyph forever; initials never appear.
   **Fix:** rename to a reactive prop; also reset it on `src` change.
 
-- [ ] **[NEW] Pagination renders duplicate pages + spurious ellipsis for small totals**
+- [x] **[NEW] Pagination renders duplicate pages + spurious ellipsis for small totals**
   `packages/melodic-components/src/components/navigation/pagination/pagination.component.ts:55-62` — verified: `page=1 total-pages=4 siblings=1` → `[1,2,3,4,…,4]` (page 4 twice, duplicate `page-4` repeat keys corrupt keyed reconciliation, `pagination.template.ts:24`). Symmetric on the right branch; `total-pages=5` → ellipsis hiding zero pages.
   **Fix:** short-circuit `if (2*siblings + 5 >= total) return range(1, total);` before the ellipsis logic.
 
-- [ ] **[NEW] Autocomplete async search race — stale responses overwrite newer results**
+- [x] **[NEW] Autocomplete async search race — stale responses overwrite newer results**
   `packages/melodic-components/src/components/forms/autocomplete/autocomplete.component.ts:443-453` — `this.asyncOptions = await this.searchFn(query)` with no sequencing/cancellation; a slow earlier request resolving late shows results for the wrong query.
   **Fix:** request-generation counter; ignore resolutions that aren't the latest.
 
@@ -90,7 +90,7 @@ Findings from a whole-repo review (2026-06-09), merged with a second six-agent d
   `src/config/define-config.ts:12-34` — `result[key] = …` for every own source key. Inert today (dev-authored literals), exploitable the moment config comes from `JSON.parse` (which DOES produce an own `__proto__` key).
   **Fix:** skip `__proto__`, `constructor`, `prototype` keys.
 
-- [ ] **[NEW] Theme name/values interpolated unsanitized into CSS**
+- [x] **[NEW] Theme name/values interpolated unsanitized into CSS**
   `packages/melodic-components/src/theme/functions/create-theme.function.ts:14` — `[data-theme="${name}"]` — a name containing `"]{…}` injects arbitrary CSS rules (no script exec; dev-controlled → low).
   **Fix:** validate name against `^[a-z0-9-]+$`; escape override values.
 
@@ -98,69 +98,69 @@ Findings from a whole-repo review (2026-06-09), merged with a second six-agent d
 
 ## P1 — Accessibility (components library)
 
-- [ ] **Radio group has no arrow-key navigation**
+- [x] **Radio group has no arrow-key navigation**
   `packages/melodic-components/src/components/forms/radio/radio-group.component.ts` — each radio's native input is in its own shadow root so native grouping doesn't apply; `role="radiogroup"` is set but no keydown handler exists. Every radio is a Tab stop; arrows do nothing. Copy the roving-tabindex pattern from `tabs.component.ts:146-181`.
 
-- [ ] **Select/autocomplete/dropdown keyboard focus invisible to screen readers**
+- [x] **Select/autocomplete/dropdown keyboard focus invisible to screen readers**
   `select.template.ts`, `autocomplete.template.ts:78-146`, `dropdown.template.ts:7` — arrow-key "focus" is CSS-only: no option `id`s, no `aria-activedescendant`. Autocomplete input is missing the combobox pattern entirely (`role="combobox"`, `aria-expanded`, `aria-controls`, `aria-autocomplete`). Dropdown trigger lacks `aria-haspopup`/`aria-expanded`. Use `newID()` for option ids.
   *2026-07-05 addendum:* select's `aria-labelledby=${c.label ? 'label' : ''}` (`select.template.ts:35`) references a nonexistent id — the combobox has NO accessible name; empty-string attribute rendered when unlabeled. Give the label an id (radio-group's `legend` pattern) and omit the attribute when absent.
 
-- [ ] **`focusTrap` is broken inside shadow DOM — and no component uses it (or `announce`)**
+- [x] **`focusTrap` is broken inside shadow DOM — and no component uses it (or `announce`)**
   `packages/melodic-components/src/utils/accessibility/focus-trap.ts:38,44` — compares `document.activeElement` (always the host) instead of `(container.getRootNode() as Document | ShadowRoot).activeElement`. Fix the util, then actually adopt it (popover should trap/restore focus; it does neither).
 
-- [ ] **Tooltip a11y + positioning gaps**
+- [x] **Tooltip a11y + positioning gaps**
   `overlays/tooltip/` — no `role="tooltip"` link (`id` + `aria-describedby` on trigger), no Escape-to-dismiss (WCAG 1.4.13), and no `autoUpdate` so a visible tooltip drifts on scroll. Also `icon.template.ts:9` should set `aria-hidden="true"` on the ligature text.
   *2026-07-05 addendum:* tooltips never show on keyboard focus at all — `@focus`/`@blur` are bound to the shadow wrapper (`tooltip.template.ts:7-15`) but the focusable element is slotted light DOM, and `focus` doesn't bubble. Use `focusin`/`focusout`.
 
-- [ ] **ml-button: `role="button"` on host + non-functional `type="submit"`**
+- [x] **ml-button: `role="button"` on host + non-functional `type="submit"`**
   `forms/button/button.component.ts:67-72,44` — host role wraps a real `<button>` (button-in-button for SRs); drop it. `type="submit"` does nothing without form association — implement `ElementInternals` (`internals.form.requestSubmit()`) or document the limitation.
 
-- [ ] **[NEW] form-field sets slotted-control ARIA once and never re-syncs**
+- [x] **[NEW] form-field sets slotted-control ARIA once and never re-syncs**
   `packages/melodic-components/src/components/forms/form-field/form-field.component.ts:87-122` — `connectSlottedControl` runs only in `onCreate`/`slotchange`; when error/hint/required/disabled change reactively (e.g. validation error after submit), `aria-describedby`/`aria-invalid`/`aria-required` go stale and are never removed when the error clears. Also `describedBy` drops the hint id when both error and hint are set. Re-sync in `onRender` (radio-group pattern).
 
-- [ ] **[NEW] Circle/half-circle progress invisible to screen readers; `aria-valuenow` unclamped**
+- [x] **[NEW] Circle/half-circle progress invisible to screen readers; `aria-valuenow` unclamped**
   `packages/melodic-components/src/components/feedback/progress/progress.template.ts:54-135` — only `linearTemplate` sets `role="progressbar"` + aria values. Also `aria-valuenow=${c.value}` (line 34) uses the raw value while the visual clamps to 0–100 (`component:55-58`) — `value="150"` exceeds `aria-valuemax`. Add role/values to all shapes; use the clamped value.
 
-- [ ] **[NEW] Tabs/steps `repeat` key encodes active state → arrow-key navigation drops focus to `<body>`**
+- [x] **[NEW] Tabs/steps `repeat` key encodes active state → arrow-key navigation drops focus to `<body>`**
   `packages/melodic-components/src/components/navigation/tabs/tabs.template.ts:26` & `steps.template.ts:27` — key is `` `${value}-${active}` ``; selection flips the key on old+new tab so `repeat` destroys/recreates them, and the async re-render destroys the just-focused button. Defeats roving tabindex; needless DOM churn. Key by value alone. (Same anti-pattern ships in the CLI starter app — see P2 CLI.)
 
-- [ ] **[NEW] Slotted-mode tabs/steps/sidebar never move keyboard focus**
+- [x] **[NEW] Slotted-mode tabs/steps/sidebar never move keyboard focus**
   `tabs.component.ts:223-227`, `steps.component.ts:263-267`, `sidebar.component.ts:135-169` — `focusTab`/`focusStep`/sidebar keydown query `[data-value=…]` in the shadow root, which only exists in config mode. In slotted mode arrows change active state but focus stays put. Query slotted hosts (and delegate focus) too.
 
-- [ ] **[NEW] Dropdown/date-picker steal focus back to trigger on pointer light-dismiss**
+- [x] **[NEW] Dropdown/date-picker steal focus back to trigger on pointer light-dismiss**
   `overlays/dropdown/dropdown.component.ts:122`, `forms/date-picker/date-picker.component.ts:164` — the toggle→close branch restores trigger focus unconditionally, yanking focus away from whatever the user just clicked. Restore only for keyboard/inside-overlay dismissals.
 
-- [ ] **[NEW] `announce()` clobbers rapid successive messages**
+- [x] **[NEW] `announce()` clobbers rapid successive messages**
   `packages/melodic-components/src/utils/accessibility/live-region.ts:39-50` — fixed 50ms clear+set; overlapping calls cancel earlier announcements. Queue messages or debounce per politeness level.
 
-- [ ] **[NEW] Misc ARIA gaps** — `ml-list-item` `interactive` is styled clickable but has no `tabindex`/`role`/key handling (its focus-visible rule is dead); tab/panel and step/panel pairs lack `id`/`aria-controls`/`aria-labelledby` association.
+- [x] **[NEW] Misc ARIA gaps** — `ml-list-item` `interactive` is styled clickable but has no `tabindex`/`role`/key handling (its focus-visible rule is dead); tab/panel and step/panel pairs lack `id`/`aria-controls`/`aria-labelledby` association.
 
 ## P1 — Component consistency sweep
 
 - [ ] **Event vocabulary contract.** Dismissal is `ml:dismiss` (alert/toast) vs `ml:close` (tag) vs `ml:remove` (file-upload-item) — standardize. Internal coordination events (`ml:item-click`, `ml:tab-click`, `ml:card-select`, `ml:sidebar-item-click`, `ml:step-click`) leak out composed without `stopPropagation` (dropdown stops its own at `dropdown.component.ts:130`; others don't). Worst: `radio-group.component.ts:80-99` re-emits child `ml:change` without stopping the original — two `ml:change` events per click.
 
-- [ ] **ml-dialog and ml-popover emit no lifecycle events** while drawer/dropdown/select/autocomplete all fire `ml:open`/`ml:close`. Add them (popover's `handleToggle`; dialog's native `close` event).
+- [x] **ml-dialog and ml-popover emit no lifecycle events** while drawer/dropdown/select/autocomplete all fire `ml:open`/`ml:close`. Add them (popover's `handleToggle`; dialog's native `close` event).
 
-- [ ] **[NEW] Non-reactive slot-presence getters — systemic sweep**
+- [x] **[NEW] Non-reactive slot-presence getters — systemic sweep**
   card (`card.component.ts:43-50`), page-header (`:51-77`), page-section (`:53-55`), divider (`:32-34`), list-item (`list-item.component.ts:43-50`), activity-feed-item (`:63-70`) all compute `hasX` via `querySelector` at render time with no `slotchange` wiring — and the `<slot>` sits inside a `when(…)`, so content inserted after mount NEVER projects. profile-card (`profile-card.component.ts:83-96`) does it right; make its `slotchange` pattern the standard everywhere.
 
-- [ ] **CSS token convention violations** (per CLAUDE.md's own rules; `button.styles.ts` is the gold standard):
+- [x] **CSS token convention violations** (per CLAUDE.md's own rules; `button.styles.ts` is the gold standard):
   - `badge.styles.ts:61-79` — hardcoded paddings, global tokens referenced directly in rules; variant colors defined in `theme/tokens/colors.tokens.ts:179-197` instead of `:host`.
   - `tooltip.styles.ts:11,18,37` — combined `--ml-tooltip-transition`, hardcoded `z-index: 9999`, and the documented theme-vs-component namespace collision on `--ml-tooltip-bg`.
   - `pagination.styles.ts:17,61` — combined transition; raw `var(--ml-space-2)` in a rule.
   **Systemic fix:** give theme-level knobs a distinct namespace (e.g. `--ml-theme-*`) so `:host` blocks can alias them safely; sweep older components to the button pattern.
 
-- [ ] **Eight components observe the reserved global `title` attribute** (alert, toast, hero-section, page-header, page-section, login/signup/dashboard pages) — causes native hover tooltips (ToastService also sets native `title` via `setAttribute`, `toast.service.ts:37`). Migrate to prefixed names (`ml-table` already uses `table-title`) with a deprecation shim.
+- [x] **Eight components observe the reserved global `title` attribute** (alert, toast, hero-section, page-header, page-section, login/signup/dashboard pages) — causes native hover tooltips (ToastService also sets native `title` via `setAttribute`, `toast.service.ts:37`). Migrate to prefixed names (`ml-table` already uses `table-title`) with a deprecation shim.
 
-- [ ] **`ml-checkbox`/`ml-toggle` have no `error` attribute**, so the forms system's "validator messages auto-populate `error`" contract silently fails for required checkboxes. Add `error` + rendering to both (button-group too).
+- [x] **`ml-checkbox`/`ml-toggle` have no `error` attribute**, so the forms system's "validator messages auto-populate `error`" contract silently fails for required checkboxes. Add `error` + rendering to both (button-group too).
 
-- [ ] **Undocumented exports:** `ml-time-picker`, `ml-file-upload` (no `registerAdapter` either — can't bind `:formControl`), and the three page components (`ml-login-page`, `ml-signup-page`, `ml-dashboard-page`) appear in zero docs and aren't in CLAUDE.md's inventory. Document or de-export; add `docs/components/pages.md`.
+- [x] **Undocumented exports:** `ml-time-picker`, `ml-file-upload` (no `registerAdapter` either — can't bind `:formControl`), and the three page components (`ml-login-page`, `ml-signup-page`, `ml-dashboard-page`) appear in zero docs and aren't in CLAUDE.md's inventory. Document or de-export; add `docs/components/pages.md`.
 
-- [ ] **Drawer lifecycle events fire before animations finish** (`drawer.component.ts:95-112`) and animation duration/easing are hardcoded instead of tokens. Consider `ml:open`/`ml:opened`, `ml:close`/`ml:closed` pairs.
+- [x] **Drawer lifecycle events fire before animations finish** (`drawer.component.ts:95-112`) and animation duration/easing are hardcoded instead of tokens. Consider `ml:open`/`ml:opened`, `ml:close`/`ml:closed` pairs.
 
-- [ ] **`createBrandTheme` produces unusable colors in dark mode** (`theme/functions/create-theme.function.ts:48-53`) — `-subtle` always mixes toward white. Add a `mode: 'light' | 'dark'` option.
+- [x] **`createBrandTheme` produces unusable colors in dark mode** (`theme/functions/create-theme.function.ts:48-53`) — `-subtle` always mixes toward white. Add a `mode: 'light' | 'dark'` option.
 
-- [ ] **[NEW] date-picker layers a custom calendar popover on a native `type="date"` input** (`date-picker.template.ts:21-35,48-57`) — clicking the field can surface BOTH pickers. Switch the input to `type="text"` with parse/format, or drop the custom calendar.
+- [x] **[NEW] date-picker layers a custom calendar popover on a native `type="date"` input** (`date-picker.template.ts:21-35,48-57`) — clicking the field can surface BOTH pickers. Switch the input to `type="text"` with parse/format, or drop the custom calendar.
 
 ## P2 — Framework improvements
 
@@ -215,31 +215,31 @@ Findings from a whole-repo review (2026-06-09), merged with a second six-agent d
 
 ## P2 — Components library (new 2026-07-05)
 
-- [ ] **[NEW] Positioning: `shift()` axis options are inert and main axis always clamps**
+- [x] **[NEW] Positioning: `shift()` axis options are inert and main axis always clamps**
   `packages/melodic-components/src/utils/positioning/middlewares/shift.middleware.ts:31-42` — both clamps are gated by `if (crossAxis || mainAxis)` (always true); `crossAxis:false` does nothing, and main-axis clamping (floating-ui defaults it OFF) pulls a bottom-placed element up OVER its trigger near the viewport edge instead of letting `flip` handle it. Gate each axis by its own flag; default mainAxis off.
 
-- [ ] **[NEW] Positioning: `flip()` discards a prior `offset()`**
+- [x] **[NEW] Positioning: `flip()` discards a prior `offset()`**
   `.../middlewares/flip.middleware.ts:77` — recomputes the raw base position for the fallback placement, losing the applied offset; with `[offset(8), flip()]` the 8px gap disappears after flipping. Re-run earlier middleware (or carry the offset) on flip.
 
-- [ ] **[NEW] `autoUpdate` never runs an initial `update()`** (`.../positioning/auto-update.ts`) — floating-ui does; first paint is unpositioned unless callers invoke manually.
+- [x] **[NEW] `autoUpdate` never runs an initial `update()`** (`.../positioning/auto-update.ts`) — floating-ui does; first paint is unpositioned unless callers invoke manually.
 
-- [ ] **[NEW] `clickOutside` fails across shadow boundaries**
+- [x] **[NEW] `clickOutside` fails across shadow boundaries**
   `packages/melodic-components/src/utils/directives/click-outside.directive.ts:9-12` — document-level `event.target` is retargeted to the outer host, so `element.contains(target)` is false for clicks INSIDE a shadow-hosted element → spurious "outside" close. Use `event.composedPath().includes(element)`.
 
-- [ ] **[NEW] data-grid: `currentPage` not clamped when `rows` shrink externally** (`data-grid.component.ts:147-159,252-256`) — replacing `rows` with a smaller set can leave "Page 5 of 2" and a blank grid (internal filter/sort reset the page; external replacement doesn't). Clamp on rows change.
+- [x] **[NEW] data-grid: `currentPage` not clamped when `rows` shrink externally** (`data-grid.component.ts:147-159,252-256`) — replacing `rows` with a smaller set can leave "Page 5 of 2" and a blank grid (internal filter/sort reset the page; external replacement doesn't). Clamp on rows change.
 
-- [ ] **[NEW] data-grid: resizing a sortable column can trigger a sort** (`data-grid.template.ts:79,97-104`) — the resize handle is a child of the sortable `<th>` and doesn't stop the synthesized click. `@click=${e => e.stopPropagation()}` on the handle.
+- [x] **[NEW] data-grid: resizing a sortable column can trigger a sort** (`data-grid.template.ts:79,97-104`) — the resize handle is a child of the sortable `<th>` and doesn't stop the synthesized click. `@click=${e => e.stopPropagation()}` on the handle.
 
-- [ ] **[NEW] select/autocomplete reposition once on open — no resize handling** (`select.component.ts:345-376`, `autocomplete.component.ts:471-501`) — single `computePosition`; viewport resize while open misaligns the menu (dropdown/popover/date-picker correctly use `autoUpdate`). Adopt `autoUpdate`.
+- [x] **[NEW] select/autocomplete reposition once on open — no resize handling** (`select.component.ts:345-376`, `autocomplete.component.ts:471-501`) — single `computePosition`; viewport resize while open misaligns the menu (dropdown/popover/date-picker correctly use `autoUpdate`). Adopt `autoUpdate`.
 
-- [ ] **[NEW] calendar-view: timezone-inconsistent date handling**
+- [x] **[NEW] calendar-view: timezone-inconsistent date handling**
   `calendar-view.utils.ts:162-167` buckets events by raw ISO date-string while `:181-189` renders times via local `new Date(iso)` — a `…T23:00:00Z` event buckets on its UTC date but renders at shifted local time (wrong day/time pairing). Also midnight-crossing events yield `gridRowEnd < gridRowStart` (invalid CSS grid span), and `layoutOverlappingEvents` can over-count `totalColumns` (cosmetic width gaps). Pick one timezone basis for both bucketing and rendering; clamp spans to the day.
 
-- [ ] **[NEW] DialogService robustness** (`dialog.service.ts:31-34,62-88`) — `open(id)`/`close()` use non-null assertions that throw opaque TypeErrors for unregistered ids (guard + warn); `addDialog` attaches a `close` listener per registration that's never removed (inline re-registers under the same id accumulate listeners on discarded elements until GC).
+- [x] **[NEW] DialogService robustness** (`dialog.service.ts:31-34,62-88`) — `open(id)`/`close()` use non-null assertions that throw opaque TypeErrors for unregistered ids (guard + warn); `addDialog` attaches a `close` listener per registration that's never removed (inline re-registers under the same id accumulate listeners on discarded elements until GC).
 
 - [ ] **[NEW] `:tooltip` directive reparenting hazards** (`packages/melodic-components/src/directives/tooltip.directive.ts:44-56`) — moves the element into an `ml-tooltip` wrapper (can desync template part positions on re-render), sets `content` only at creation (dynamic `:tooltip=${value}` updates never propagate), and orphans the element if `parentNode` is null.
 
-- [ ] **[NEW] slider fill hardcodes native thumb geometry** (`slider.component.ts:75-78`) — `calc(${p*100}% + ${10 - p*20}px)` assumes a 20px thumb; themed thumb sizes misalign the fill. Derive from the same token.
+- [x] **[NEW] slider fill hardcodes native thumb geometry** (`slider.component.ts:75-78`) — `calc(${p*100}% + ${10 - p*20}px)` assumes a 20px thumb; themed thumb sizes misalign the fill. Derive from the same token.
 
 - [ ] **[NEW] Extract shared table/data-grid core** — they re-implement the same pipeline (sortedRows, virtual-scroll wiring, spacers, selection, renderCell) twice and have already diverged (data-grid is the correct/complete one; table's missing selection reset is a P0 above). A shared base prevents the next divergence.
 
@@ -269,13 +269,13 @@ Findings from a whole-repo review (2026-06-09), merged with a second six-agent d
 ## Smaller / opportunistic
 
 - [ ] Template parser: document/throw-in-dev for unsupported binding positions (`<textarea>`, `<title>`, comments, tag-name position); make the 500-entry template cache LRU instead of FIFO; consider Trusted Types support (`template-result.class.ts:118-119, 168-169, 307-312`).
-- [ ] **[NEW]** Non-keyed array interpolation fully tears down and rebuilds every node each render (`template-result.class.ts:698-719`) — by design (that's what `repeat` is for), but it destroys nested component state/focus silently; add a dev-mode warning or doc callout.
-- [ ] **[NEW]** Pervasive `(container as any).__parts` / `directiveState?: any` in the template engine hides the part/state contract from the compiler — it's what let the `when`-structural and directive-switch P0s through. Type the part tree when touching those fixes.
+- [x] **[NEW]** Non-keyed array interpolation fully tears down (disposal leak fixed properly in Phase 1; rebuild semantics remain by design) and rebuilds every node each render (`template-result.class.ts:698-719`) — by design (that's what `repeat` is for), but it destroys nested component state/focus silently; add a dev-mode warning or doc callout.
+- [x] **[NEW]** Pervasive `(container as any).__parts` / `directiveState?: any` in the template engine hides the part/state contract from the compiler — it's what let the `when`-structural and directive-switch P0s through. Type the part tree when touching those fixes.
 - [ ] **[NEW]** `calendar.component.ts:257` — `isPlaceholder`'s second clause duplicates `!inRange`; simplify.
 - [ ] `Size` type promises `xs`–`xl` but most components style only `sm/md/lg`; define per-component unions. Unify `error` vs `danger` variant naming.
-- [ ] Routed tabs bypass the router (`tabs.component.ts:127-129` — raw `pushState` + synthetic `PopStateEvent` skips guards/resolvers).
-- [ ] `ml-table` `ml:select` detail `selectedRows` contains sorted-order **indices**, and sorting silently clears selection without an event (`table.component.ts:239, 279-287`). (Selection-reset half promoted to P0.)
-- [ ] Select in `multiple` mode can't be closed by clicking its trigger (`select.component.ts:222-227`).
+- [x] Routed tabs bypass the router (fixed for tabs AND steps — both now use RouterService.navigate) (`tabs.component.ts:127-129` — raw `pushState` + synthetic `PopStateEvent` skips guards/resolvers).
+- [x] `ml-table` `ml:select` detail `selectedRows` contains sorted-order **indices**, and sorting silently clears selection without an event (`table.component.ts:239, 279-287`). (Selection-reset half promoted to P0.)
+- [x] Select in `multiple` mode can't be closed by clicking its trigger (`select.component.ts:222-227`).
 - [ ] Missing framework capabilities to plan: auto-registered `effect()` companion to `computed()`; hierarchical/child injectors; router event stream (NavigationStart/End/Cancel); typed custom-event emit helper; SSR/jsdom-free testability (module-top-level `window`/`document` access in routing and `src/config/environment.ts:17`).
 - [ ] Migrate from `experimentalDecorators` to TC39 standard decorators (viral: consumers' tsconfigs are locked to the legacy flag) — needs an `accessor`-based redesign, so plan as a major.
 
