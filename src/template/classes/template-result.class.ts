@@ -30,6 +30,85 @@ function warnUnsafePropertyBinding(name: string): void {
 	);
 }
 
+/** True outside production builds (mirrors the guard used by other dev-only warnings). */
+function isDevMode(): boolean {
+	return !(typeof import.meta !== 'undefined' && import.meta.env && !import.meta.env.DEV);
+}
+
+// Matches any marker the parser injects for a binding: text-position comment
+// markers, composite attribute-value markers, and pre-processed binding
+// attributes (@/./:/? forms).
+const ANY_MARKER_REGEX = new RegExp(`${COMMENT_NODE_MARKER}|${ATTRIBUTE_MARKER_PREFIX}\\d+__|__(?:event|prop|action|bool)-\\d+__`);
+
+/** Human-readable snippet around an offending marker (markers shown as `${…}`). */
+function describeSnippet(html: string, index: number): string {
+	const start = Math.max(0, index - 40);
+	const end = Math.min(html.length, index + 80);
+	const snippet = html
+		.slice(start, end)
+		.replace(new RegExp(`${COMMENT_NODE_MARKER}|${ATTRIBUTE_MARKER_PREFIX}\\d+__|__(?:event|prop|action|bool)-\\d+__=""`, 'g'), '${…}')
+		.replace(/\s+/g, ' ')
+		.trim();
+	return `${start > 0 ? '…' : ''}${snippet}${end < html.length ? '…' : ''}`;
+}
+
+function warnUnsupportedBinding(position: string, html: string, index: number): void {
+	console.warn(
+		`[melodic] Template contains a binding in an unsupported position (${position}). ` +
+			`The parser cannot track bindings here, so the value will not render or update. ` +
+			`Offending template: ${describeSnippet(html, index)}`
+	);
+}
+
+/**
+ * Dev-mode diagnostics for bindings in positions the parser cannot handle:
+ * raw-text element content (<textarea>, <title>), HTML comments, and tag-name
+ * position. These silently misrender in production (backwards compat — never
+ * throws); in dev the offending template snippet is reported via console.warn.
+ * Runs once per template (getTemplate caches by template key).
+ */
+function warnUnsupportedBindingPositions(html: string): void {
+	if (!isDevMode()) return;
+
+	// 1) Bindings inside raw-text elements: their content is parsed as literal
+	//    text, so comment markers never become comment nodes.
+	const rawTextRegex = /<(textarea|title)(?:\s[^>]*)?>([\s\S]*?)<\/\1\s*>/gi;
+	let rawTextMatch: RegExpExecArray | null;
+	while ((rawTextMatch = rawTextRegex.exec(html)) !== null) {
+		if (ANY_MARKER_REGEX.test(rawTextMatch[2])) {
+			warnUnsupportedBinding(`inside <${rawTextMatch[1].toLowerCase()}> content`, html, rawTextMatch.index);
+		}
+	}
+
+	// 2) Bindings in tag-name position: `<${tag}>` / `</${tag}>` put a comment
+	//    marker directly after `<`.
+	const tagNameIndex = html.search(new RegExp(`</?${COMMENT_NODE_MARKER}`));
+	if (tagNameIndex !== -1) {
+		warnUnsupportedBinding('tag-name position', html, tagNameIndex);
+	}
+
+	// 3) Bindings inside HTML comments: comments cannot nest, so the injected
+	//    marker corrupts the comment and the binding is lost.
+	let searchFrom = 0;
+	for (;;) {
+		const open = html.indexOf('<!--', searchFrom);
+		if (open === -1) break;
+
+		// The parser's own text-position marker is itself a comment — skip it.
+		if (html.startsWith(COMMENT_NODE_MARKER, open)) {
+			searchFrom = open + COMMENT_NODE_MARKER.length;
+			continue;
+		}
+
+		const close = html.indexOf('-->', open + 4);
+		const content = close === -1 ? html.slice(open + 4) : html.slice(open + 4, close);
+		if (content.includes(MARKER) || /__(?:event|prop|action|bool)-\d+__/.test(content)) {
+			warnUnsupportedBinding('inside an HTML comment', html, open);
+		}
+		searchFrom = close === -1 ? html.length : close + 3;
+	}
+}
+
 /**
  * Extract listener options (capture/once/passive) from a `handleEvent`-object
  * binding value. Returns undefined when no option flag is present, so plain
@@ -220,6 +299,16 @@ export class TemplateResult {
 			}
 		}
 
+		warnUnsupportedBindingPositions(html);
+
+		// NOTE(security/Trusted Types): this innerHTML assignment only ever parses
+		// developer-authored template strings — interpolated values are replaced
+		// with inert markers BEFORE parsing and never reach the markup, so this is
+		// not an injection sink for runtime data. Trusted Types support (wrapping
+		// this parse in a policy so the engine works under a
+		// `require-trusted-types-for 'script'` CSP) was considered and deferred:
+		// it needs a policy-name contract with consumers and a fallback for
+		// browsers without the API, for no XSS-surface reduction here.
 		const element = document.createElement('template');
 		element.innerHTML = html;
 
