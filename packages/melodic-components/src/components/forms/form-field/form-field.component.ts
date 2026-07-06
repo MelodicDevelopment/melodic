@@ -1,5 +1,5 @@
 import { MelodicComponent } from '@melodicdev/core';
-import type { IElementRef, OnCreate } from '@melodicdev/core';
+import type { IElementRef, OnCreate, OnRender } from '@melodicdev/core';
 import type { Size } from '../../../types/index.js';
 import type { FormFieldOrientation } from './form-field.types.js';
 import { formFieldTemplate } from './form-field.template.js';
@@ -31,7 +31,7 @@ import { formFieldStyles } from './form-field.styles.js';
 	styles: formFieldStyles,
 	attributes: ['label', 'hint', 'error', 'size', 'orientation', 'disabled', 'required']
 })
-export class FormFieldComponent implements IElementRef, OnCreate {
+export class FormFieldComponent implements IElementRef, OnCreate, OnRender {
 	public elementRef!: HTMLElement;
 
 	/** Label text */
@@ -71,12 +71,21 @@ export class FormFieldComponent implements IElementRef, OnCreate {
 	}
 
 	public get describedBy(): string {
-		if (this.error) return this.errorId;
-		if (this.hint) return this.hintId;
-		return '';
+		// Both the error and the hint describe the control when both are present.
+		const ids: string[] = [];
+		if (this.error) ids.push(this.errorId);
+		if (this.hint) ids.push(this.hintId);
+		return ids.join(' ');
 	}
 
 	public onCreate(): void {
+		this.connectSlottedControl();
+	}
+
+	public onRender(): void {
+		// Re-sync ARIA after every render so reactive changes to error/hint/
+		// required (e.g. validation errors set after submit) reach the slotted
+		// control — and are removed again when the error clears.
 		this.connectSlottedControl();
 	}
 
@@ -97,9 +106,11 @@ export class FormFieldComponent implements IElementRef, OnCreate {
 				control.id = this.fieldId;
 			}
 
-			// Connect aria-describedby for hint/error
+			// Connect aria-describedby for hint/error; remove when neither is set
 			if (this.describedBy) {
 				control.setAttribute('aria-describedby', this.describedBy);
+			} else {
+				control.removeAttribute('aria-describedby');
 			}
 
 			// Set aria-invalid for error state
@@ -112,6 +123,8 @@ export class FormFieldComponent implements IElementRef, OnCreate {
 			// Set aria-required
 			if (this.required) {
 				control.setAttribute('aria-required', 'true');
+			} else {
+				control.removeAttribute('aria-required');
 			}
 
 			// Set disabled if applicable

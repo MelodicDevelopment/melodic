@@ -29,7 +29,7 @@ registerAdapter<boolean>((el) => el.tagName === 'ML-CHECKBOX', {
 	selector: 'ml-checkbox',
 	template: checkboxTemplate,
 	styles: checkboxStyles,
-	attributes: ['label', 'hint', 'size', 'checked', 'indeterminate', 'disabled']
+	attributes: ['label', 'hint', 'error', 'size', 'checked', 'indeterminate', 'disabled']
 })
 export class CheckboxComponent implements IElementRef {
 	public elementRef!: HTMLElement;
@@ -39,6 +39,9 @@ export class CheckboxComponent implements IElementRef {
 
 	/** Hint text below the checkbox */
 	public hint = '';
+
+	/** Error message (shows error state when set; auto-populated by the forms system) */
+	public error = '';
 
 	/** Checkbox size */
 	public size: Size = 'md';

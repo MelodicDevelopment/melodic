@@ -31,7 +31,7 @@ export function formFieldTemplate(c: FormFieldComponent) {
 				() => html`<span id=${c.errorId} class="ml-form-field__error">${c.error}</span>`
 			)}
 			${when(
-				!c.error && !!c.hint,
+				!!c.hint,
 				() => html`<span id=${c.hintId} class="ml-form-field__hint">${c.hint}</span>`
 			)}
 		</div>
