@@ -10,7 +10,10 @@ export function Service<T>(token: Token<T>) {
 			get(): T {
 				const cacheKey = `__cached_${String(propertyKey)}`;
 
-				if (!(this as any)[cacheKey]) {
+				// Own-property (sentinel) check instead of truthiness: falsy
+				// resolutions (false, 0, '', null) must cache too, otherwise a
+				// transient/factory binding is re-resolved on every access.
+				if (!Object.prototype.hasOwnProperty.call(this, cacheKey)) {
 					(this as any)[cacheKey] = Injector.get<T>(token);
 				}
 
