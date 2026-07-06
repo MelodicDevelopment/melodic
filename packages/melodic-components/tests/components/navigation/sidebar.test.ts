@@ -1,5 +1,6 @@
 import { describe, it, expect, afterEach } from 'vitest';
 import '../../../src/components/navigation/sidebar/sidebar.component';
+import '../../../src/components/navigation/sidebar/sidebar-item.component';
 // Register ml-icon so config-driven rendering doesn't error
 import '../../../src/components/general/icon/icon.component';
 import {
@@ -198,5 +199,78 @@ describe('ml-sidebar', () => {
 		el.collapsed = true;
 		await flush();
 		expect(shadowQuery(el, '.ml-sidebar__group-label')).toBeFalsy();
+	});
+});
+
+describe('ml-sidebar slotted keyboard navigation', () => {
+	let el: HTMLElement;
+
+	afterEach(() => {
+		if (el) el.remove();
+	});
+
+	async function settle(): Promise<void> {
+		await flush();
+		await new Promise((r) => setTimeout(r, 0));
+		await flush();
+	}
+
+	function buildSlottedSidebar(): HTMLElement {
+		const sidebar = document.createElement('ml-sidebar');
+		sidebar.innerHTML = `
+			<ml-sidebar-item icon="house" label="Home" value="home"></ml-sidebar-item>
+			<ml-sidebar-item icon="gear" label="Settings" value="settings"></ml-sidebar-item>
+		`;
+		document.body.appendChild(sidebar);
+		return sidebar;
+	}
+
+	it('ArrowDown moves focus into the next slotted item link', async () => {
+		el = buildSlottedSidebar();
+		await settle();
+
+		const [itemOne, itemTwo] = Array.from(el.querySelectorAll('ml-sidebar-item'));
+		const linkOne = itemOne.shadowRoot!.querySelector('.ml-sidebar-item__link') as HTMLElement;
+		const linkTwo = itemTwo.shadowRoot!.querySelector('.ml-sidebar-item__link') as HTMLElement;
+		expect(linkOne).toBeTruthy();
+		expect(linkTwo).toBeTruthy();
+
+		linkOne.focus();
+		// happy-dom doesn't propagate events across slots; dispatch on the aside
+		// (where the listener is bound) with the link as the logical target via
+		// a manual event whose target happy-dom sets to the aside — the handler
+		// matches either the link or its host, so pre-focus the link and pass
+		// the host as the event target by dispatching on it when possible.
+		const aside = el.shadowRoot!.querySelector('.ml-sidebar') as HTMLElement;
+		const event = new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true, composed: true });
+		Object.defineProperty(event, 'target', { value: linkOne });
+		aside.dispatchEvent(event);
+		await settle();
+
+		expect(itemTwo.shadowRoot!.activeElement).toBe(linkTwo);
+	});
+
+	it('skips disabled slotted items', async () => {
+		el = document.createElement('ml-sidebar');
+		el.innerHTML = `
+			<ml-sidebar-item label="Home" value="home"></ml-sidebar-item>
+			<ml-sidebar-item label="Blocked" value="blocked" disabled></ml-sidebar-item>
+			<ml-sidebar-item label="Settings" value="settings"></ml-sidebar-item>
+		`;
+		document.body.appendChild(el);
+		await settle();
+
+		const items = Array.from(el.querySelectorAll('ml-sidebar-item'));
+		const linkOne = items[0].shadowRoot!.querySelector('.ml-sidebar-item__link') as HTMLElement;
+		const linkThree = items[2].shadowRoot!.querySelector('.ml-sidebar-item__link') as HTMLElement;
+
+		linkOne.focus();
+		const aside = el.shadowRoot!.querySelector('.ml-sidebar') as HTMLElement;
+		const event = new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true, composed: true });
+		Object.defineProperty(event, 'target', { value: linkOne });
+		aside.dispatchEvent(event);
+		await settle();
+
+		expect(items[2].shadowRoot!.activeElement).toBe(linkThree);
 	});
 });

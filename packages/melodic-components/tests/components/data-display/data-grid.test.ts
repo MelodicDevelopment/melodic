@@ -116,3 +116,153 @@ describe('ml-data-grid pinned columns', () => {
 		expect(shadowQueryAll(el, '.ml-data-grid__td--pinned-right-edge')).toHaveLength(2);
 	});
 });
+
+describe('ml-data-grid page clamping', () => {
+	let el: any;
+
+	afterEach(() => {
+		if (el) removeComponent(el);
+	});
+
+	const manyRows = Array.from({ length: 30 }, (_, i) => ({ id: i + 1, name: `Row ${i + 1}` }));
+	const gridColumns: DataGridColumn[] = [
+		{ key: 'id', label: 'ID' },
+		{ key: 'name', label: 'Name' }
+	];
+
+	it('clamps currentPage when rows shrink externally', async () => {
+		el = createComponent('ml-data-grid', {
+			properties: { columns: gridColumns, rows: manyRows, pageSize: 10, virtual: false }
+		});
+		await flush();
+
+		el.component.goToPage(3);
+		expect(el.currentPage).toBe(3);
+
+		// External replacement with a smaller dataset — page must not stay at 3 of 1.
+		el.rows = manyRows.slice(0, 5);
+		await flush();
+		await flush();
+
+		expect(el.totalPages).toBe(1);
+		expect(el.currentPage).toBe(1);
+		expect(el.processedRows).toHaveLength(5);
+	});
+
+	it('keeps currentPage when it is still valid after rows change', async () => {
+		el = createComponent('ml-data-grid', {
+			properties: { columns: gridColumns, rows: manyRows, pageSize: 10, virtual: false }
+		});
+		await flush();
+
+		el.component.goToPage(2);
+		el.rows = manyRows.slice(0, 25); // still 3 pages
+		await flush();
+		await flush();
+
+		expect(el.currentPage).toBe(2);
+	});
+});
+
+describe('ml-data-grid resize handle vs sort', () => {
+	let el: any;
+
+	afterEach(() => {
+		if (el) removeComponent(el);
+	});
+
+	const sortableColumns: DataGridColumn[] = [
+		{ key: 'id', label: 'ID', sortable: true, resizable: true },
+		{ key: 'name', label: 'Name', sortable: true, resizable: true }
+	];
+
+	it('clicking the resize handle does not trigger a sort', async () => {
+		el = createComponent('ml-data-grid', {
+			properties: { columns: sortableColumns, rows, virtual: false }
+		});
+		await flush();
+
+		const handle = el.shadowRoot?.querySelector('.ml-data-grid__resize-handle') as HTMLElement;
+		expect(handle).toBeTruthy();
+		handle.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+		await flush();
+
+		expect(el.sortKey).toBe('');
+	});
+
+	it('clicking the header itself still sorts', async () => {
+		el = createComponent('ml-data-grid', {
+			properties: { columns: sortableColumns, rows, virtual: false }
+		});
+		await flush();
+
+		const th = el.shadowRoot?.querySelector('.ml-data-grid__th--sortable') as HTMLElement;
+		th.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+		await flush();
+
+		expect(el.sortKey).toBe('id');
+	});
+});
+
+describe('ml-data-grid ml:select contract', () => {
+	let el: any;
+
+	afterEach(() => {
+		if (el) removeComponent(el);
+	});
+
+	const gridColumns: DataGridColumn[] = [
+		{ key: 'id', label: 'ID', sortable: true },
+		{ key: 'name', label: 'Name' }
+	];
+	const gridRows = [
+		{ id: 3, name: 'Charlie' },
+		{ id: 1, name: 'Alice' },
+		{ id: 2, name: 'Bob' }
+	];
+
+	it('emits row objects and original-order indices under an active sort', async () => {
+		el = createComponent('ml-data-grid', {
+			properties: {
+				columns: gridColumns,
+				rows: gridRows,
+				selectable: true,
+				virtual: false,
+				sortKey: 'id',
+				sortDirection: 'asc'
+			}
+		});
+		await flush();
+
+		const detail = await new Promise<any>((resolve) => {
+			el.addEventListener('ml:select', (e: CustomEvent) => resolve(e.detail), { once: true });
+			// First rendered row under id-asc sort is Alice (original index 1).
+			const checkbox = el.shadowRoot?.querySelector('.ml-data-grid__row .ml-data-grid__checkbox') as HTMLInputElement;
+			checkbox.dispatchEvent(new Event('change'));
+		});
+
+		expect(detail.selectedRows).toEqual([{ id: 1, name: 'Alice' }]);
+		expect(detail.selectedRows[0]).toBe(gridRows[1]);
+		expect(detail.selectedIndices).toEqual([1]);
+	});
+
+	it('emits an empty ml:select when sorting clears a non-empty selection', async () => {
+		el = createComponent('ml-data-grid', {
+			properties: { columns: gridColumns, rows: gridRows, selectable: true, virtual: false }
+		});
+		await flush();
+
+		const checkbox = el.shadowRoot?.querySelector('.ml-data-grid__row .ml-data-grid__checkbox') as HTMLInputElement;
+		checkbox.dispatchEvent(new Event('change'));
+		expect(el.selectedIndices).toEqual([0]);
+
+		const detail = await new Promise<any>((resolve) => {
+			el.addEventListener('ml:select', (e: CustomEvent) => resolve(e.detail), { once: true });
+			const th = el.shadowRoot?.querySelector('.ml-data-grid__th--sortable') as HTMLElement;
+			th.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+		});
+
+		expect(detail.selectedRows).toEqual([]);
+		expect(detail.selectedIndices).toEqual([]);
+	});
+});
