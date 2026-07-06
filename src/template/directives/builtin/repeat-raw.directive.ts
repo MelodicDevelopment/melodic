@@ -71,7 +71,7 @@ export function repeatRaw<T>(
 		// Update existing list
 		updateList(items, keyFn, factory, previousState);
 		return previousState;
-	});
+	}, 'repeatRaw');
 }
 
 function updateList<T>(

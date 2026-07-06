@@ -129,4 +129,52 @@ describe('when directive', () => {
 		expect(trueCalls).toBe(0);
 		expect(container.textContent?.trim()).toBe('');
 	});
+
+	it('updates the DOM when the true branch returns a structurally different template', () => {
+		const template = (flag: boolean) =>
+			html`<div>${when(true, () => (flag ? html`<strong>bold</strong>` : html`<em>italic</em>`))}</div>`;
+
+		render(template(true), container);
+		expect(container.querySelector('strong')?.textContent).toBe('bold');
+		expect(container.querySelector('em')).toBeNull();
+
+		// Condition stays true, but the branch template's STRUCTURE changes —
+		// the old structure must be replaced, not silently kept.
+		render(template(false), container);
+		expect(container.querySelector('strong')).toBeNull();
+		expect(container.querySelector('em')?.textContent).toBe('italic');
+
+		render(template(true), container);
+		expect(container.querySelector('strong')?.textContent).toBe('bold');
+		expect(container.querySelector('em')).toBeNull();
+	});
+
+	it('updates the DOM when the false branch returns a structurally different template', () => {
+		const template = (flag: boolean) =>
+			html`<div>${when(
+				false,
+				() => html`<span>never</span>`,
+				() => (flag ? html`<strong>f-bold</strong>` : html`<em>f-italic</em>`)
+			)}</div>`;
+
+		render(template(true), container);
+		expect(container.querySelector('strong')?.textContent).toBe('f-bold');
+
+		render(template(false), container);
+		expect(container.querySelector('strong')).toBeNull();
+		expect(container.querySelector('em')?.textContent).toBe('f-italic');
+	});
+
+	it('still updates values in place when the branch structure is unchanged', () => {
+		const template = (label: string) => html`<div>${when(true, () => html`<span>${label}</span>`)}</div>`;
+
+		render(template('one'), container);
+		const span = container.querySelector('span');
+		expect(span?.textContent).toBe('one');
+
+		render(template('two'), container);
+		// Same structure — the SAME element is updated, not recreated.
+		expect(container.querySelector('span')).toBe(span);
+		expect(span?.textContent).toBe('two');
+	});
 });

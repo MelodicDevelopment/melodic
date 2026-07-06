@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { html, render } from '../../src/template';
 import { styleMap } from '../../src/template/directives/builtin/style-map.directive';
 
@@ -54,6 +54,20 @@ describe('template bindings', () => {
 
 		render(html`<input .value=${'second'} />`, container);
 		expect(input.value).toBe('second');
+	});
+
+	it('warns (dev) when a property binding targets innerHTML/outerHTML but still assigns', () => {
+		const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+		render(html`<div .innerHTML=${'<b>markup</b>'}></div>`, container);
+		const element = container.querySelector('div') as HTMLDivElement;
+
+		// The binding still works (backwards compatible) …
+		expect(element.querySelector('b')?.textContent).toBe('markup');
+		// … but the XSS hazard is surfaced.
+		expect(warnSpy.mock.calls.some((call) => String(call[0]).includes('innerHTML'))).toBe(true);
+
+		warnSpy.mockRestore();
 	});
 
 	it('applies and removes inline styles via styleMap', () => {

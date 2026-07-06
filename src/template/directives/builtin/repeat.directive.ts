@@ -3,6 +3,7 @@
  */
 
 import type { TemplateResult } from '../../classes/template-result.class';
+import { disposeContainerParts } from '../../functions/dispose.functions';
 import { directive } from '../functions/directive.function';
 import type { IDirectiveResult } from '../interfaces/idirective-result.interface';
 
@@ -11,6 +12,8 @@ interface RepeatState {
 	items: RepeatItem[];
 	startMarker: Comment;
 	endMarker: Comment;
+	/** Disposal contract (see IDirectiveState) — releases every item's part tree. */
+	__dispose: () => void;
 }
 
 interface RepeatItem {
@@ -51,7 +54,14 @@ export function repeat<T>(items: T[], keyFn: (item: T, index: number) => unknown
 				keyToIndex: new Map(),
 				items: [],
 				startMarker,
-				endMarker
+				endMarker,
+				__dispose: () => {
+					for (const item of state.items) {
+						disposeContainerParts(item.container);
+					}
+					state.items = [];
+					state.keyToIndex.clear();
+				}
 			};
 
 			// Initial render
@@ -62,7 +72,7 @@ export function repeat<T>(items: T[], keyFn: (item: T, index: number) => unknown
 		// Update existing list
 		updateList(items, keyFn, template, previousState);
 		return previousState;
-	});
+	}, 'repeat');
 }
 
 function updateList<T>(
@@ -227,6 +237,10 @@ function moveItemRange(item: RepeatItem, referenceNode: Node): void {
 }
 
 function removeItemRange(item: RepeatItem): void {
+	// Recursively dispose the removed item's part tree so directive/action
+	// cleanups registered inside the item template run before its nodes go away.
+	disposeContainerParts(item.container);
+
 	let node: Node | null = item.start;
 	const end = item.end;
 

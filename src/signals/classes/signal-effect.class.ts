@@ -39,34 +39,39 @@ export class SignalEffect {
 		this._isRunning = true;
 		let iterations = 0;
 
-		do {
-			if (++iterations > MAX_EFFECT_ITERATIONS) {
-				// Reset state so the effect isn't left permanently "running".
-				this._isRunning = false;
+		try {
+			do {
+				if (++iterations > MAX_EFFECT_ITERATIONS) {
+					// Reset re-run state; _isRunning is restored by the finally below.
+					this._needsRerun = false;
+					throw new Error(
+						`Circular dependency detected in effect: exceeded ${MAX_EFFECT_ITERATIONS} synchronous re-runs. ` +
+							'An effect is repeatedly writing to a signal it also reads.'
+					);
+				}
+
 				this._needsRerun = false;
-				throw new Error(
-					`Circular dependency detected in effect: exceeded ${MAX_EFFECT_ITERATIONS} synchronous re-runs. ` +
-						'An effect is repeatedly writing to a signal it also reads.'
-				);
-			}
 
-			this._needsRerun = false;
+				this._dependencies.forEach((signal) => {
+					signal.unsubscribe(this.run);
+				});
 
-			this._dependencies.forEach((signal) => {
-				signal.unsubscribe(this.run);
-			});
+				this._dependencies.clear();
 
-			this._dependencies.clear();
+				const prevEffect = getActiveEffect();
+				setActiveEffect(this);
 
-			const prevEffect = getActiveEffect();
-			setActiveEffect(this);
-
-			this.execute();
-
-			setActiveEffect(prevEffect);
-		} while (this._needsRerun);
-
-		this._isRunning = false;
+				try {
+					this.execute();
+				} finally {
+					// A throwing execute() must never leave the global active-effect
+					// pointing at this (possibly dead) effect.
+					setActiveEffect(prevEffect);
+				}
+			} while (this._needsRerun);
+		} finally {
+			this._isRunning = false;
+		}
 	}
 
 	public addDependency<T>(signal: Signal<T>): void {
