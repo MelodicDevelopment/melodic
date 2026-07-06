@@ -7,6 +7,7 @@ import { isSignal } from '../../signals/functions/is-signal.function';
 import type { IRenderedContainer } from '../../template/interfaces/irendered-container.interface';
 import { disposeParts } from '../../template/functions/dispose.functions';
 import { applyGlobalStyles } from '../styles/apply-global-styles.function';
+import { getComponentStyleSheet } from '../styles/component-style-sheets.function';
 import { AbstractControl } from '../../forms/classes/abstract-control.class';
 import { getActiveComponent, setActiveComponent } from '../functions/active-component.functions';
 
@@ -33,7 +34,9 @@ export abstract class ComponentBase extends HTMLElement {
 	private readonly _meta: ComponentMeta;
 	private readonly _component: Component;
 	private readonly _root: ShadowRoot;
-	private readonly _style: HTMLStyleElement;
+	// Fallback per-instance <style> element — only used when shared constructed
+	// stylesheets are unavailable (see renderStyles()).
+	private readonly _style: HTMLStyleElement | null;
 	private _renderScheduled = false;
 	private readonly _booleanProperties: Set<string> = new Set();
 	private readonly _numberProperties: Set<string> = new Set();
@@ -230,13 +233,28 @@ export abstract class ComponentBase extends HTMLElement {
 		this._selectCache.clear();
 	}
 
-	private renderStyles(): HTMLStyleElement {
-		const styleNode: HTMLStyleElement = document.createElement('style');
-
-		if (this._meta.styles) {
-			const stylesResult = this._meta.styles();
-			render(stylesResult, styleNode);
+	/**
+	 * Applies the component's styles to its shadow root.
+	 *
+	 * Preferred path: one shared CSSStyleSheet per component class, adopted via
+	 * adoptedStyleSheets (no per-instance <style> element, one CSS parse per
+	 * class). Fallback path (constructed stylesheets unsupported): the original
+	 * per-instance <style> element, returned so render() can re-append it after
+	 * the first template render wipes the root.
+	 */
+	private renderStyles(): HTMLStyleElement | null {
+		if (!this._meta.styles) {
+			return null;
 		}
+
+		const sheet = getComponentStyleSheet(this._meta.styles);
+		if (sheet) {
+			this._root.adoptedStyleSheets = [...this._root.adoptedStyleSheets, sheet];
+			return null;
+		}
+
+		const styleNode: HTMLStyleElement = document.createElement('style');
+		render(this._meta.styles(), styleNode);
 
 		return this._root.appendChild(styleNode);
 	}
@@ -249,7 +267,7 @@ export abstract class ComponentBase extends HTMLElement {
 				const templateResult = this._meta.template(this._component, this.getAttributeValues());
 				render(templateResult, this._root);
 
-				if (this._style.parentNode !== this._root) {
+				if (this._style && this._style.parentNode !== this._root) {
 					this._root.appendChild(this._style);
 				}
 			}

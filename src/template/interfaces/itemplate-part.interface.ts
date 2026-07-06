@@ -8,6 +8,18 @@ export interface IKeyedArrayItem {
 	nodes: Node[];
 }
 
+/**
+ * Event binding value form supporting listener options:
+ * `@scroll=${{ handleEvent: (e) => …, passive: true, once: false, capture: false }}`
+ * The object is registered through a stable wrapper listener; changing any of
+ * the option flags re-attaches the underlying listener with the new options.
+ */
+export interface IEventHandlerWithOptions extends EventListenerObject {
+	capture?: boolean;
+	once?: boolean;
+	passive?: boolean;
+}
+
 export interface ITemplatePart {
 	type: TemplatePartType;
 	index: number;
@@ -33,6 +45,22 @@ export interface ITemplatePart {
 	endMarker?: Comment;
 	// For action directives, store cleanup function and static value
 	actionCleanup?: () => void;
+	/**
+	 * Stable wrapper listener for event parts. Attached ONCE (per options set)
+	 * via addEventListener and kept across renders — handler changes swap
+	 * `eventHandler` instead of re-registering the listener.
+	 */
+	eventWrapper?: EventListener;
+	/**
+	 * The current handler the stable wrapper delegates to: a plain function or
+	 * an object implementing `handleEvent` (optionally carrying listener
+	 * options — see IEventHandlerWithOptions).
+	 */
+	eventHandler?: unknown;
+	/** Listener options the stable wrapper is currently registered with. */
+	eventOptions?: AddEventListenerOptions;
+	/** Whether the stable wrapper is currently registered on the node. */
+	eventAttached?: boolean;
 	staticValue?: string; // For static :directive="value" attributes
 	attributeStrings?: string[];
 	attributeIndices?: number[];
