@@ -1,4 +1,4 @@
-import { getFocusableElements, getFirstFocusable } from './focus-utils.js';
+import { getFocusableElements } from './focus-utils.js';
 
 export interface FocusTrapOptions {
 	/** Element to focus when trap is activated */
@@ -9,10 +9,53 @@ export interface FocusTrapOptions {
 	autoFocus?: boolean;
 }
 
+export interface FocusTrapDeactivateOptions {
+	/** Whether to restore focus to the previously-focused element (default: true) */
+	returnFocus?: boolean;
+}
+
 export interface FocusTrap {
 	activate(): void;
-	deactivate(): void;
+	deactivate(options?: FocusTrapDeactivateOptions): void;
 	isActive(): boolean;
+}
+
+/**
+ * The element that actually has focus, descending through nested shadow roots.
+ * `document.activeElement` alone reports the outermost shadow host.
+ */
+export function getDeepActiveElement(): Element | null {
+	let active: Element | null = document.activeElement;
+	while (active?.shadowRoot?.activeElement) {
+		active = active.shadowRoot.activeElement;
+	}
+	return active;
+}
+
+/**
+ * Collect focusable elements within a container, expanding `<slot>` elements
+ * to their assigned (light DOM) content so traps work on shadow containers
+ * that project slotted content.
+ */
+function collectFocusables(container: HTMLElement): HTMLElement[] {
+	const slots = Array.from(container.querySelectorAll('slot'));
+	if (slots.length === 0) {
+		return getFocusableElements(container);
+	}
+
+	const focusables = getFocusableElements(container);
+	for (const slot of slots) {
+		for (const assigned of slot.assignedElements({ flatten: true })) {
+			if (assigned instanceof HTMLElement) {
+				focusables.push(...getFocusableElements(assigned));
+				if (assigned.matches('a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])')) {
+					focusables.push(assigned);
+				}
+			}
+		}
+	}
+
+	return focusables;
 }
 
 /**
@@ -24,24 +67,31 @@ export function createFocusTrap(container: HTMLElement, options: FocusTrapOption
 	let active = false;
 	let previouslyFocused: HTMLElement | null = null;
 
+	function getActiveElement(): Element | null {
+		// document.activeElement is always the outer shadow host for content
+		// inside shadow DOM; resolve against the container's own root instead.
+		return (container.getRootNode() as Document | ShadowRoot).activeElement;
+	}
+
 	function handleKeydown(event: KeyboardEvent): void {
 		if (event.key !== 'Tab' || !active) return;
 
-		const focusables = getFocusableElements(container);
+		const focusables = collectFocusables(container);
 		if (focusables.length === 0) return;
 
 		const first = focusables[0];
 		const last = focusables[focusables.length - 1];
+		const activeElement = getActiveElement();
 
 		if (event.shiftKey) {
 			// Shift + Tab: going backwards
-			if (document.activeElement === first) {
+			if (activeElement === first) {
 				event.preventDefault();
 				last.focus();
 			}
 		} else {
 			// Tab: going forwards
-			if (document.activeElement === last) {
+			if (activeElement === last) {
 				event.preventDefault();
 				first.focus();
 			}
@@ -52,7 +102,7 @@ export function createFocusTrap(container: HTMLElement, options: FocusTrapOption
 		if (active) return;
 
 		active = true;
-		previouslyFocused = document.activeElement as HTMLElement;
+		previouslyFocused = getDeepActiveElement() as HTMLElement | null;
 
 		// Add keydown listener
 		container.addEventListener('keydown', handleKeydown);
@@ -61,20 +111,24 @@ export function createFocusTrap(container: HTMLElement, options: FocusTrapOption
 		if (initialFocus) {
 			initialFocus.focus();
 		} else if (autoFocus) {
-			const first = getFirstFocusable(container);
+			const first = collectFocusables(container)[0];
 			if (first) {
 				first.focus();
 			}
 		}
 	}
 
-	function deactivate(): void {
+	function deactivate(deactivateOptions: FocusTrapDeactivateOptions = {}): void {
 		if (!active) return;
 
 		active = false;
 		container.removeEventListener('keydown', handleKeydown);
 
 		// Return focus
+		if (deactivateOptions.returnFocus === false) {
+			return;
+		}
+
 		const focusTarget = returnFocus ?? previouslyFocused;
 		if (focusTarget && typeof focusTarget.focus === 'function') {
 			focusTarget.focus();
