@@ -1,6 +1,6 @@
 {
 	"name": "@melodicdev/components",
-	"version": "2.0.3",
+	"version": "3.0.0",
 	"description": "Themeable UI component library built on the Melodic Framework",
 	"license": "MIT",
 	"author": "Melodic Development",
@@ -24,6 +24,9 @@
 		"typescript"
 	],
 	"type": "module",
+	"engines": {
+		"node": ">=20.19.0"
+	},
 	"main": "./lib/index.js",
 	"types": "./lib/index.d.ts",
 	"files": [

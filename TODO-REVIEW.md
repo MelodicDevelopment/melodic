@@ -137,7 +137,7 @@ Findings from a whole-repo review (2026-06-09), merged with a second six-agent d
 
 ## P1 — Component consistency sweep
 
-- [ ] **Event vocabulary contract.** Dismissal is `ml:dismiss` (alert/toast) vs `ml:close` (tag) vs `ml:remove` (file-upload-item) — standardize. Internal coordination events (`ml:item-click`, `ml:tab-click`, `ml:card-select`, `ml:sidebar-item-click`, `ml:step-click`) leak out composed without `stopPropagation` (dropdown stops its own at `dropdown.component.ts:130`; others don't). Worst: `radio-group.component.ts:80-99` re-emits child `ml:change` without stopping the original — two `ml:change` events per click.
+- [x] **Event vocabulary contract.** Dismissal is `ml:dismiss` (alert/toast) vs `ml:close` (tag) vs `ml:remove` (file-upload-item) — standardize. Internal coordination events (`ml:item-click`, `ml:tab-click`, `ml:card-select`, `ml:sidebar-item-click`, `ml:step-click`) leak out composed without `stopPropagation` (dropdown stops its own at `dropdown.component.ts:130`; others don't). Worst: `radio-group.component.ts:80-99` re-emits child `ml:change` without stopping the original — two `ml:change` events per click.
 
 - [x] **ml-dialog and ml-popover emit no lifecycle events** while drawer/dropdown/select/autocomplete all fire `ml:open`/`ml:close`. Add them (popover's `handleToggle`; dialog's native `close` event).
 
@@ -201,11 +201,11 @@ Findings from a whole-repo review (2026-06-09), merged with a second six-agent d
 
 - [x] **`history` monkey-patching at module import** (`router.service.ts:36-55`) — unconditional, un-unpatchable, double-patch risk; also the mechanism behind the double-guard P0. Move into `provideRouter()` init with an idempotence guard; longer-term, adopt the Navigation API.
 
-- [ ] **Event parts re-bind every render; no listener options** (`template-result.class.ts:900-918`) — attach one stable wrapper listener per part and swap `previousValue`; accept `{handleEvent, ...options}`.
+- [x] **Event parts re-bind every render; no listener options** (`template-result.class.ts:900-918`) — attach one stable wrapper listener per part and swap `previousValue`; accept `{handleEvent, ...options}`.
 
 - [x] **[NEW] Composite-attribute "unchanged" fast-path corrupts `previousValue`** (`template-result.class.ts:850-861,962`) — the skip-path falls through to `part.previousValue = value` (single segment value overwrites the composed string), so the skip never fires again and `setAttribute` runs every render. Perf only; `continue` like the changed-path does.
 
-- [ ] **Per-instance `<style>` element instead of shared constructed stylesheet** (`component-base.class.ts:172-181`) — build one `CSSStyleSheet` per component class and adopt it per instance (global styles already do this).
+- [x] **Per-instance `<style>` element instead of shared constructed stylesheet** (`component-base.class.ts:172-181`) — build one `CSSStyleSheet` per component class and adopt it per instance (global styles already do this).
 
 - [x] **`router-link` defeats native modifier-click behavior** (`router-link.component.ts:54-64`) — return early without `preventDefault` on ctrl/cmd/shift/middle click; handle `auxclick`. *2026-07-05 addendum:* the element and the `:routerLink` directive are two near-complete, independently-drifting implementations (directive handles modifier clicks correctly at `router-link.directive.ts:118-126`) — consolidate on one core.
 
@@ -237,13 +237,13 @@ Findings from a whole-repo review (2026-06-09), merged with a second six-agent d
 
 - [x] **[NEW] DialogService robustness** (`dialog.service.ts:31-34,62-88`) — `open(id)`/`close()` use non-null assertions that throw opaque TypeErrors for unregistered ids (guard + warn); `addDialog` attaches a `close` listener per registration that's never removed (inline re-registers under the same id accumulate listeners on discarded elements until GC).
 
-- [ ] **[NEW] `:tooltip` directive reparenting hazards** (`packages/melodic-components/src/directives/tooltip.directive.ts:44-56`) — moves the element into an `ml-tooltip` wrapper (can desync template part positions on re-render), sets `content` only at creation (dynamic `:tooltip=${value}` updates never propagate), and orphans the element if `parentNode` is null.
+- [x] **[NEW] `:tooltip` directive reparenting hazards** (`packages/melodic-components/src/directives/tooltip.directive.ts:44-56`) — moves the element into an `ml-tooltip` wrapper (can desync template part positions on re-render), sets `content` only at creation (dynamic `:tooltip=${value}` updates never propagate), and orphans the element if `parentNode` is null.
 
 - [x] **[NEW] slider fill hardcodes native thumb geometry** (`slider.component.ts:75-78`) — `calc(${p*100}% + ${10 - p*20}px)` assumes a 20px thumb; themed thumb sizes misalign the fill. Derive from the same token.
 
-- [ ] **[NEW] Extract shared table/data-grid core** — they re-implement the same pipeline (sortedRows, virtual-scroll wiring, spacers, selection, renderCell) twice and have already diverged (data-grid is the correct/complete one; table's missing selection reset is a P0 above). A shared base prevents the next divergence.
+- [x] **[NEW] Extract shared table/data-grid core** — they re-implement the same pipeline (sortedRows, virtual-scroll wiring, spacers, selection, renderCell) twice and have already diverged (data-grid is the correct/complete one; table's missing selection reset is a P0 above). A shared base prevents the next divergence.
 
-- [ ] **[NEW] Deduplicate popover/dropdown overlay plumbing** — `_justDismissed`/`setTimeout(0)` toggle-guard and `positionArrow()` are verbatim copies (`popover.component.ts:104-116,153-173` vs `dropdown.component.ts:104-127,326-346`), with the offset/flip/shift wiring echoed again in select/autocomplete/date-picker. Extract a shared overlay-positioning helper/mixin.
+- [x] **[NEW] Deduplicate popover/dropdown overlay plumbing** — `_justDismissed`/`setTimeout(0)` toggle-guard and `positionArrow()` are verbatim copies (`popover.component.ts:104-116,153-173` vs `dropdown.component.ts:104-127,326-346`), with the offset/flip/shift wiring echoed again in select/autocomplete/date-picker. Extract a shared overlay-positioning helper/mixin.
 
 ## P2 — CLI cleanup
 
@@ -261,23 +261,23 @@ Findings from a whole-repo review (2026-06-09), merged with a second six-agent d
 ## P2 — Infrastructure
 
 - [x] **Add CI** — no workflows exist. Minimum: lint + typecheck + test + build per package on push/PR, plus a scaffold smoke test (`melodic init` → `npm run build`) that would permanently catch CLI template drift. Add a release workflow later.
-- [ ] **CLI and melodic-html packages have no test/lint/typecheck scripts and zero tests.** CLI snapshot tests of generated trees are cheap and would have caught the interceptor bug.
-- [ ] **Component test coverage:** ~16 test files for ~72 components. Establish a baseline for the top-10 most-used (button, input, select, dialog, table…).
-- [ ] **Version/doc drift:** align package versions (core 2.0.2 / components 2.0.3 / CLI 2.0.0); add CHANGELOG entries for 2.0.1–2.0.3; update README CDN URLs (still reference 1.3.2/1.0.4); add `engines` field; consider `"sideEffects": false` after auditing for top-level side effects.
+- [x] **CLI and melodic-html packages have no test/lint/typecheck scripts and zero tests.** (CLI: 40-test vitest suite + scripts. melodic-html: typecheck script added; unit tests judged not value-add for the VS Code extension wrapper.) CLI snapshot tests of generated trees are cheap and would have caught the interceptor bug.
+- [x] **Component test coverage:** ~16 test files for ~72 components. Establish a baseline for the top-10 most-used (button, input, select, dialog, table…).
+- [x] **Version/doc drift:** align package versions (core 2.0.2 / components 2.0.3 / CLI 2.0.0); add CHANGELOG entries for 2.0.1–2.0.3; update README CDN URLs (still reference 1.3.2/1.0.4); add `engines` field; consider `"sideEffects": false` after auditing for top-level side effects.
 - [x] **Repo hygiene:** `src/forms/` is mode 700 and a couple of test files are mode 600 — `chmod 755`/`644` so collaborators aren't blocked.
 
 ## Smaller / opportunistic
 
-- [ ] Template parser: document/throw-in-dev for unsupported binding positions (`<textarea>`, `<title>`, comments, tag-name position); make the 500-entry template cache LRU instead of FIFO; consider Trusted Types support (`template-result.class.ts:118-119, 168-169, 307-312`).
+- [x] Template parser: document/throw-in-dev for unsupported binding positions (`<textarea>`, `<title>`, comments, tag-name position); make the 500-entry template cache LRU instead of FIFO; consider Trusted Types support (`template-result.class.ts:118-119, 168-169, 307-312`).
 - [x] **[NEW]** Non-keyed array interpolation fully tears down (disposal leak fixed properly in Phase 1; rebuild semantics remain by design) and rebuilds every node each render (`template-result.class.ts:698-719`) — by design (that's what `repeat` is for), but it destroys nested component state/focus silently; add a dev-mode warning or doc callout.
 - [x] **[NEW]** Pervasive `(container as any).__parts` / `directiveState?: any` in the template engine hides the part/state contract from the compiler — it's what let the `when`-structural and directive-switch P0s through. Type the part tree when touching those fixes.
-- [ ] **[NEW]** `calendar.component.ts:257` — `isPlaceholder`'s second clause duplicates `!inRange`; simplify.
-- [ ] `Size` type promises `xs`–`xl` but most components style only `sm/md/lg`; define per-component unions. Unify `error` vs `danger` variant naming.
+- [x] **[NEW]** `calendar.component.ts:257` — `isPlaceholder`'s second clause duplicates `!inRange`; simplify.
+- [x] `Size` type promises `xs`–`xl` but most components style only `sm/md/lg`; define per-component unions. Unify `error` vs `danger` variant naming.
 - [x] Routed tabs bypass the router (fixed for tabs AND steps — both now use RouterService.navigate) (`tabs.component.ts:127-129` — raw `pushState` + synthetic `PopStateEvent` skips guards/resolvers).
 - [x] `ml-table` `ml:select` detail `selectedRows` contains sorted-order **indices**, and sorting silently clears selection without an event (`table.component.ts:239, 279-287`). (Selection-reset half promoted to P0.)
 - [x] Select in `multiple` mode can't be closed by clicking its trigger (`select.component.ts:222-227`).
-- [ ] Missing framework capabilities to plan: auto-registered `effect()` companion to `computed()`; hierarchical/child injectors; router event stream (NavigationStart/End/Cancel); typed custom-event emit helper; SSR/jsdom-free testability (module-top-level `window`/`document` access in routing and `src/config/environment.ts:17`).
-- [ ] Migrate from `experimentalDecorators` to TC39 standard decorators (viral: consumers' tsconfigs are locked to the legacy flag) — needs an `accessor`-based redesign, so plan as a major.
+- [x] Missing framework capabilities to plan (planned in docs/ROADMAP.md — not implemented): auto-registered `effect()` companion to `computed()`; hierarchical/child injectors; router event stream (NavigationStart/End/Cancel); typed custom-event emit helper; SSR/jsdom-free testability (module-top-level `window`/`document` access in routing and `src/config/environment.ts:17`).
+- [x] Migrate from `experimentalDecorators` (planned as the 4.0 major in docs/ROADMAP.md — not implemented) to TC39 standard decorators (viral: consumers' tsconfigs are locked to the legacy flag) — needs an `accessor`-based redesign, so plan as a major.
 
 ---
 
