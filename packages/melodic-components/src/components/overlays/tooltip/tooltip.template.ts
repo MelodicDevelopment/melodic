@@ -8,12 +8,13 @@ export function tooltipTemplate(c: TooltipComponent) {
 				class="ml-tooltip__trigger"
 				@mouseenter=${c.show}
 				@mouseleave=${c.hide}
-				@focus=${c.show}
-				@blur=${c.hide}
+				@focusin=${c.show}
+				@focusout=${c.hide}
 			>
 				<slot></slot>
 			</div>
 			<div
+				id=${c.tooltipID}
 				class=${classMap({
 					'ml-tooltip__content': true,
 					'ml-tooltip__content--visible': c.isVisible
