@@ -24,7 +24,10 @@ import { VirtualScroller } from '../../../utils/virtual-scroll/index.js';
  *
  * @fires ml:sort           - { key, direction }
  * @fires ml:filter         - { filters: Record<string, string> }
- * @fires ml:select         - { selectedRows: number[], allSelected: boolean }
+ * @fires ml:select         - { selectedRows, selectedIndices, allSelected } where `selectedRows`
+ *   contains the selected row OBJECTS and `selectedIndices` their indices in the original
+ *   `rows` array (consumer order). Also emitted when sorting/filtering/paging clears a
+ *   non-empty selection. BREAKING (2.x): `selectedRows` previously contained page-relative indices.
  * @fires ml:row-click      - { row, index }
  * @fires ml:column-resize  - { key, width }
  * @fires ml:column-reorder - { order: string[] }
@@ -154,7 +157,15 @@ export class DataGridComponent implements IElementRef, OnCreate, OnDestroy, OnRe
 			// virtual window after the new value commits (onPropertyChange fires
 			// before the assignment), matching ml-table's behavior.
 			this.selectedIndices = [];
-			queueMicrotask(() => this._scroller.invalidate());
+			queueMicrotask(() => {
+				// Clamp the page when the new dataset has fewer pages than the
+				// current one (internal filter/sort already reset it; an external
+				// rows replacement must not leave e.g. "Page 5 of 2" and a blank grid).
+				if (this.currentPage > this.totalPages) {
+					this.currentPage = this.totalPages;
+				}
+				this._scroller.invalidate();
+			});
 		}
 	}
 
@@ -377,6 +388,7 @@ export class DataGridComponent implements IElementRef, OnCreate, OnDestroy, OnRe
 		this.currentPage = 1;
 		// Selection is positional; sorting reorders rows, so clear it (otherwise
 		// the same indices would point at different rows).
+		const hadSelection = this.selectedIndices.length > 0;
 		this.selectedIndices = [];
 		this._scroller.invalidate();
 		this.elementRef.dispatchEvent(
@@ -386,6 +398,7 @@ export class DataGridComponent implements IElementRef, OnCreate, OnDestroy, OnRe
 				detail: { key: this.sortKey, direction: this.sortDirection }
 			})
 		);
+		if (hadSelection) this._emitSelect();
 	};
 
 	public handleFilterInput = (key: string, e: Event): void => {
@@ -393,6 +406,7 @@ export class DataGridComponent implements IElementRef, OnCreate, OnDestroy, OnRe
 		this.filters = { ...this.filters, [key]: val };
 		this.currentPage = 1;
 		// Filtering changes which rows are present; positional selection no longer applies.
+		const hadSelection = this.selectedIndices.length > 0;
 		this.selectedIndices = [];
 		this._scroller.invalidate();
 		this.elementRef.dispatchEvent(
@@ -402,6 +416,7 @@ export class DataGridComponent implements IElementRef, OnCreate, OnDestroy, OnRe
 				detail: { filters: this.filters }
 			})
 		);
+		if (hadSelection) this._emitSelect();
 	};
 
 	public handleSelectAll = (): void => {
@@ -505,6 +520,7 @@ export class DataGridComponent implements IElementRef, OnCreate, OnDestroy, OnRe
 		this.currentPage = page;
 		// Selection indices are page-relative; clear on page change so the header
 		// checkbox and ml:select don't report rows from the previous page.
+		const hadSelection = this.selectedIndices.length > 0;
 		this.selectedIndices = [];
 		if (this._viewport) this._viewport.scrollTop = 0;
 		this._scroller.invalidate();
@@ -515,14 +531,31 @@ export class DataGridComponent implements IElementRef, OnCreate, OnDestroy, OnRe
 				detail: { page: this.currentPage, pageSize: this.pageSize }
 			})
 		);
+		if (hadSelection) this._emitSelect();
 	};
 
 	private _emitSelect(): void {
+		// Internal selection state is page-relative positional (it mirrors what is
+		// rendered); the public contract is row objects plus their indices in the
+		// consumer's original `rows` array (same contract as ml-table).
+		const paged = this.processedRows;
+		const selectedRows = this.selectedIndices
+			.map((i) => paged[i])
+			.filter((row): row is Record<string, unknown> => row !== undefined);
+
+		const indexByRow = new Map<Record<string, unknown>, number>();
+		this.rows.forEach((row, i) => {
+			if (!indexByRow.has(row)) indexByRow.set(row, i);
+		});
+		const selectedIndices = selectedRows
+			.map((row) => indexByRow.get(row))
+			.filter((i): i is number => i !== undefined);
+
 		this.elementRef.dispatchEvent(
 			new CustomEvent('ml:select', {
 				bubbles: true,
 				composed: true,
-				detail: { selectedRows: this.selectedIndices, allSelected: this.allSelected }
+				detail: { selectedRows, selectedIndices, allSelected: this.allSelected }
 			})
 		);
 	}

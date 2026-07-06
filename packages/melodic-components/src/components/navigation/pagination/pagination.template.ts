@@ -31,10 +31,10 @@ export function paginationTemplate(c: PaginationComponent) {
 								class=${classMap({
 									'ml-pagination__btn': true,
 									'ml-pagination__btn--page': true,
-									'ml-pagination__btn--active': p.value === Number(c.page)
+									'ml-pagination__btn--active': p.value === c.page
 								})}
 								aria-label=${`Page ${p.value}`}
-								aria-current=${p.value === Number(c.page) ? 'page' : false}
+								aria-current=${p.value === c.page ? 'page' : false}
 								@click=${() => c.goToPage(p.value)}
 							>
 								${p.value}
