@@ -56,7 +56,7 @@ interface Task {
 					<ul class="task-list">
 						${repeat(
 							component.filteredTasks(),
-							(task) => `${task.id}-${task.completed}`,
+							(task) => task.id,
 							(task) => html`
 								<li class=${classMap({ 'task-item': true, completed: task.completed })}>
 									<label class="task-label">

@@ -8,19 +8,8 @@
 		"emitDecoratorMetadata": true,
 		"strict": true,
 		"skipLibCheck": true,
-		"baseUrl": ".",
-		"paths": {
-			"@config": ["libs/config/src/index.ts"],
-			"@config/*": ["libs/config/src/*"],
-			"@shared": ["libs/shared/src/index.ts"],
-			"@shared/*": ["libs/shared/src/*"]
-		}
+		"noEmit": true,
+		"types": ["node"]
 	},
-	"files": [],
-	"references": [
-		{ "path": "./tsconfig.node.json" },
-		{ "path": "apps/__APP_NAME__" },
-		{ "path": "libs/config" },
-		{ "path": "libs/shared" }
-	]
+	"include": ["apps", "libs", "vite-plugin-melodic-styles.ts"]
 }
