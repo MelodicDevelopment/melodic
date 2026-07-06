@@ -1,6 +1,6 @@
 import { MelodicComponent } from '@melodicdev/core';
 import type { IElementRef } from '@melodicdev/core';
-import type { Size } from '../../../types/index.js';
+import type { ControlSize } from '../../../types/index.js';
 import type { TagDotColor } from './tag.types.js';
 import { tagTemplate } from './tag.template.js';
 import { tagStyles } from './tag.styles.js';
@@ -18,7 +18,8 @@ import { tagStyles } from './tag.styles.js';
  * ```
  *
  * @slot default - Tag label content
- * @fires ml:close - Fired when the close button is clicked
+ * @fires ml:dismiss - Fired when the close button is clicked
+ * @fires ml:close - Deprecated alias of ml:dismiss (kept for backwards compatibility)
  * @fires ml:change - Fired when checkbox state changes (when checkable)
  */
 @MelodicComponent({
@@ -31,7 +32,7 @@ export class TagComponent implements IElementRef {
 	public elementRef!: HTMLElement;
 
 	/** Tag size */
-	public size: Size = 'md';
+	public size: ControlSize = 'md';
 
 	/** Show dot indicator */
 	public dot = false;
@@ -60,11 +61,31 @@ export class TagComponent implements IElementRef {
 	/** Disabled state */
 	public disabled = false;
 
+	/**
+	 * Dot color with the canonical 'error' name resolved to this component's
+	 * historical 'danger' style class. The two are interchangeable aliases;
+	 * the stylesheet keys off `ml-tag__dot--danger`.
+	 */
+	public get resolvedDotColor(): TagDotColor {
+		const color = this['dot-color'];
+		return color === 'error' ? 'danger' : color;
+	}
+
 	/** Handle close button click */
 	public handleClose = (event: Event): void => {
 		event.stopPropagation();
 		if (this.disabled) return;
 
+		// Canonical dismissal event (shared vocabulary with ml-alert/ml-toast).
+		this.elementRef.dispatchEvent(
+			new CustomEvent('ml:dismiss', {
+				bubbles: true,
+				composed: true
+			})
+		);
+
+		// DEPRECATED: ml:close is kept for backwards compatibility and will be
+		// removed in the next major release. Listen for ml:dismiss instead.
 		this.elementRef.dispatchEvent(
 			new CustomEvent('ml:close', {
 				bubbles: true,

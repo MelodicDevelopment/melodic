@@ -1,6 +1,6 @@
 import { Injector, MelodicComponent, RouterService } from '@melodicdev/core';
 import type { IElementRef, OnCreate, OnDestroy, OnRender } from '@melodicdev/core';
-import type { Size } from '../../../types/index.js';
+import type { ControlSize } from '../../../types/index.js';
 import type { TabsVariant, TabsOrientation, TabConfig } from './tabs.types.js';
 import { tabsTemplate } from './tabs.template.js';
 import { tabsStyles } from './tabs.styles.js';
@@ -57,7 +57,7 @@ export class TabsComponent implements IElementRef, OnCreate, OnDestroy, OnRender
 	public variant: TabsVariant = 'line';
 
 	/** Size variant */
-	public size: Size = 'md';
+	public size: ControlSize = 'md';
 
 	/** Tab orientation */
 	public orientation: TabsOrientation = 'horizontal';
@@ -76,6 +76,9 @@ export class TabsComponent implements IElementRef, OnCreate, OnDestroy, OnRender
 
 	/** Listener for ml:tab-click from slotted ml-tab elements */
 	private readonly _handleTabClick = (event: Event): void => {
+		// ml:tab-click is internal tab→tabs coordination; consumers get ml:change.
+		// Stop it here so it never escapes the ml-tabs host.
+		event.stopPropagation();
 		const { value, href } = (event as CustomEvent<{ value: string; href: string }>).detail;
 		this.handleTabClick(value, href);
 	};
