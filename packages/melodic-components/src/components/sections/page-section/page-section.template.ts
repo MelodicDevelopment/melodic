@@ -1,5 +1,6 @@
 import { html, classMap, when } from '@melodicdev/core';
 import type { PageSectionComponent } from './page-section.component.js';
+import { sanitizeHref } from './sanitize-href.function.js';
 
 export function pageSectionTemplate(c: PageSectionComponent) {
 	return html`
@@ -17,8 +18,8 @@ export function pageSectionTemplate(c: PageSectionComponent) {
 					</div>
 					<div class="ml-page-section__action">
 						<slot name="action">
-							${when(!!c['action-label'], () => html`
-								<a class="ml-page-section__action-link" href=${c['action-href']}>${c['action-label']}</a>
+							${when(!!c.actionLabel, () => html`
+								<a class="ml-page-section__action-link" href=${sanitizeHref(c.actionHref)}>${c.actionLabel}</a>
 							`)}
 						</slot>
 					</div>

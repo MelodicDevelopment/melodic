@@ -40,14 +40,30 @@ export class PageSectionComponent implements IElementRef {
 	/** Subtitle text */
 	public subtitle = '';
 
-	/** Action link label */
-	public 'action-label' = '';
+	/** Action link label (attribute: action-label) */
+	public actionLabel = '';
 
-	/** Action link URL */
-	public 'action-href' = '';
+	/** Action link URL (attribute: action-href). Only http(s), relative, and fragment URLs are rendered. */
+	public actionHref = '';
 
 	/** Content padding */
 	public padding: SectionPadding = 'md';
+
+	/** @deprecated Legacy property alias — use `actionLabel` (attribute `action-label`). */
+	public get 'action-label'(): string {
+		return this.actionLabel;
+	}
+	public set 'action-label'(value: string) {
+		this.actionLabel = value;
+	}
+
+	/** @deprecated Legacy property alias — use `actionHref` (attribute `action-href`). */
+	public get 'action-href'(): string {
+		return this.actionHref;
+	}
+	public set 'action-href'(value: string) {
+		this.actionHref = value;
+	}
 
 	/** Check if action slot has content */
 	public get hasActionSlot(): boolean {

@@ -43,12 +43,66 @@ describe('ml-page-section', () => {
 
 	it('renders action link when action-label is set', async () => {
 		el = createComponent('ml-page-section', {
+			properties: { title: 'Members', actionLabel: 'View All', actionHref: '/members' }
+		});
+		await flush();
+		const link = shadowQuery<HTMLAnchorElement>(el, '.ml-page-section__action-link');
+		expect(link?.textContent).toBe('View All');
+		expect(link?.getAttribute('href')).toBe('/members');
+	});
+
+	it('supports the legacy kebab-case property aliases', async () => {
+		el = createComponent('ml-page-section', {
 			properties: { title: 'Members', 'action-label': 'View All', 'action-href': '/members' }
 		});
 		await flush();
 		const link = shadowQuery<HTMLAnchorElement>(el, '.ml-page-section__action-link');
 		expect(link?.textContent).toBe('View All');
 		expect(link?.getAttribute('href')).toBe('/members');
+	});
+
+	it('accepts action-label/action-href as attributes', async () => {
+		el = createComponent('ml-page-section', {
+			attributes: { title: 'Members', 'action-label': 'View All', 'action-href': '/members' }
+		});
+		await flush();
+		const link = shadowQuery<HTMLAnchorElement>(el, '.ml-page-section__action-link');
+		expect(link?.textContent).toBe('View All');
+		expect(link?.getAttribute('href')).toBe('/members');
+	});
+
+	describe('action-href sanitization', () => {
+		it.each([
+			['/members', '/members'],
+			['#top', '#top'],
+			['?page=2', '?page=2'],
+			['members', 'members'],
+			['https://example.com/members', 'https://example.com/members'],
+			['http://example.com', 'http://example.com']
+		])('allows safe URL %j', async (href, expected) => {
+			el = createComponent('ml-page-section', {
+				properties: { title: 'T', actionLabel: 'Go', actionHref: href }
+			});
+			await flush();
+			const link = shadowQuery<HTMLAnchorElement>(el, '.ml-page-section__action-link');
+			expect(link?.getAttribute('href')).toBe(expected);
+		});
+
+		it.each([
+			'javascript:alert(1)',
+			'JavaScript:alert(1)',
+			'java\tscript:alert(1)',
+			' javascript:alert(1)',
+			'data:text/html,<script>alert(1)</script>',
+			'vbscript:msgbox(1)'
+		])('neutralizes unsafe URL %j', async (href) => {
+			el = createComponent('ml-page-section', {
+				properties: { title: 'T', actionLabel: 'Go', actionHref: href }
+			});
+			await flush();
+			const link = shadowQuery<HTMLAnchorElement>(el, '.ml-page-section__action-link');
+			expect(link?.getAttribute('href')).toBe(`unsafe:${href}`);
+		});
 	});
 
 	it('defaults to md padding', () => {
