@@ -2,7 +2,7 @@ import { html, classMap, when } from '@melodicdev/core';
 import type { PageHeaderComponent } from './page-header.component.js';
 
 export function pageHeaderTemplate(c: PageHeaderComponent) {
-	const hasTitle = !!(c.title || c.hasTitleSlot);
+	const hasTitle = !!(c.headerTitle || c.hasTitleSlot);
 	const hasDescription = !!(c.description || c.hasDescriptionSlot);
 
 	return html`
@@ -25,7 +25,7 @@ export function pageHeaderTemplate(c: PageHeaderComponent) {
 						<div class="ml-page-header__title">
 							${when(c.hasTitleSlot,
 								() => html`<slot name="title"></slot>`,
-								() => html`<h1>${c.title}</h1>`
+								() => html`<h1>${c.headerTitle}</h1>`
 							)}
 						</div>
 					`)}

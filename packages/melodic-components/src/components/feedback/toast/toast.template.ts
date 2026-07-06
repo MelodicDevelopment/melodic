@@ -14,7 +14,7 @@ export function toastTemplate(c: ToastComponent) {
 				${c.renderIcon()}
 			</div>
 			<div class="ml-toast__content">
-				${when(!!c.title, () => html`<div class="ml-toast__title">${c.title}</div>`)}
+				${when(!!c.toastTitle, () => html`<div class="ml-toast__title">${c.toastTitle}</div>`)}
 				${when(!!c.message, () => html`<div class="ml-toast__message">${c.message}</div>`)}
 			</div>
 			${when(

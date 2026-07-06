@@ -15,7 +15,7 @@ export function alertTemplate(c: AlertComponent) {
 			</div>
 
 			<div class="ml-alert__content">
-				${when(!!c.title, () => html`<div class="ml-alert__title">${c.title}</div>`)}
+				${when(!!c.alertTitle, () => html`<div class="ml-alert__title">${c.alertTitle}</div>`)}
 				<div class="ml-alert__message">
 					<slot></slot>
 				</div>

@@ -1,4 +1,4 @@
-import { describe, it, expect, afterEach } from 'vitest';
+import { describe, it, expect, afterEach, vi } from 'vitest';
 import '../../../src/components/sections/page-section/page-section.component';
 import {
 	flush,
@@ -21,7 +21,7 @@ describe('ml-page-section', () => {
 	});
 
 	it('renders title when provided', async () => {
-		el = createComponent('ml-page-section', { properties: { title: 'Recent Activity' } });
+		el = createComponent('ml-page-section', { properties: { sectionTitle: 'Recent Activity' } });
 		await flush();
 		const title = shadowQuery(el, '.ml-page-section__title');
 		expect(title?.textContent).toBe('Recent Activity');
@@ -34,7 +34,7 @@ describe('ml-page-section', () => {
 
 	it('renders subtitle when provided', async () => {
 		el = createComponent('ml-page-section', {
-			properties: { title: 'Activity', subtitle: 'Last 7 days' }
+			properties: { sectionTitle: 'Activity', subtitle: 'Last 7 days' }
 		});
 		await flush();
 		const subtitle = shadowQuery(el, '.ml-page-section__subtitle');
@@ -43,7 +43,7 @@ describe('ml-page-section', () => {
 
 	it('renders action link when action-label is set', async () => {
 		el = createComponent('ml-page-section', {
-			properties: { title: 'Members', actionLabel: 'View All', actionHref: '/members' }
+			properties: { sectionTitle: 'Members', actionLabel: 'View All', actionHref: '/members' }
 		});
 		await flush();
 		const link = shadowQuery<HTMLAnchorElement>(el, '.ml-page-section__action-link');
@@ -52,23 +52,41 @@ describe('ml-page-section', () => {
 	});
 
 	it('supports the legacy kebab-case property aliases', async () => {
+		const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+		try {
+			el = createComponent('ml-page-section', {
+				properties: { title: 'Members', 'action-label': 'View All', 'action-href': '/members' }
+			});
+			await flush();
+			const link = shadowQuery<HTMLAnchorElement>(el, '.ml-page-section__action-link');
+			expect(link?.textContent).toBe('View All');
+			expect(link?.getAttribute('href')).toBe('/members');
+		} finally {
+			warnSpy.mockRestore();
+		}
+	});
+
+	it('accepts section-title/action-label/action-href as attributes', async () => {
 		el = createComponent('ml-page-section', {
-			properties: { title: 'Members', 'action-label': 'View All', 'action-href': '/members' }
+			attributes: { 'section-title': 'Members', 'action-label': 'View All', 'action-href': '/members' }
 		});
 		await flush();
+		expect(shadowQuery(el, '.ml-page-section__title')?.textContent).toBe('Members');
 		const link = shadowQuery<HTMLAnchorElement>(el, '.ml-page-section__action-link');
 		expect(link?.textContent).toBe('View All');
 		expect(link?.getAttribute('href')).toBe('/members');
 	});
 
-	it('accepts action-label/action-href as attributes', async () => {
-		el = createComponent('ml-page-section', {
-			attributes: { title: 'Members', 'action-label': 'View All', 'action-href': '/members' }
-		});
-		await flush();
-		const link = shadowQuery<HTMLAnchorElement>(el, '.ml-page-section__action-link');
-		expect(link?.textContent).toBe('View All');
-		expect(link?.getAttribute('href')).toBe('/members');
+	it('maps the deprecated title attribute to sectionTitle', async () => {
+		const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+		try {
+			el = createComponent('ml-page-section', { attributes: { title: 'Legacy' } });
+			await flush();
+			expect(shadowQuery(el, '.ml-page-section__title')?.textContent).toBe('Legacy');
+			expect(el.sectionTitle).toBe('Legacy');
+		} finally {
+			warnSpy.mockRestore();
+		}
 	});
 
 	describe('action-href sanitization', () => {
@@ -81,7 +99,7 @@ describe('ml-page-section', () => {
 			['http://example.com', 'http://example.com']
 		])('allows safe URL %j', async (href, expected) => {
 			el = createComponent('ml-page-section', {
-				properties: { title: 'T', actionLabel: 'Go', actionHref: href }
+				properties: { sectionTitle: 'T', actionLabel: 'Go', actionHref: href }
 			});
 			await flush();
 			const link = shadowQuery<HTMLAnchorElement>(el, '.ml-page-section__action-link');
@@ -97,7 +115,7 @@ describe('ml-page-section', () => {
 			'vbscript:msgbox(1)'
 		])('neutralizes unsafe URL %j', async (href) => {
 			el = createComponent('ml-page-section', {
-				properties: { title: 'T', actionLabel: 'Go', actionHref: href }
+				properties: { sectionTitle: 'T', actionLabel: 'Go', actionHref: href }
 			});
 			await flush();
 			const link = shadowQuery<HTMLAnchorElement>(el, '.ml-page-section__action-link');

@@ -1,4 +1,4 @@
-import { describe, it, expect, afterEach } from 'vitest';
+import { describe, it, expect, afterEach, vi } from 'vitest';
 import '../../../src/components/feedback/alert/alert.component';
 // Register ml-icon since alert renders default icons
 import '../../../src/components/general/icon/icon.component';
@@ -37,11 +37,37 @@ describe('ml-alert', () => {
 	});
 
 	it('renders title when set', async () => {
-		el = createComponent('ml-alert', { properties: { title: 'Warning!' } });
+		el = createComponent('ml-alert', { properties: { alertTitle: 'Warning!' } });
 		await flush();
 		const title = shadowQuery(el, '.ml-alert__title');
 		expect(title).toBeTruthy();
 		expect(title!.textContent).toContain('Warning!');
+	});
+
+	it('renders title from the alert-title attribute', async () => {
+		el = createComponent('ml-alert', { attributes: { 'alert-title': 'Heads up' } });
+		await flush();
+		expect(shadowQuery(el, '.ml-alert__title')!.textContent).toContain('Heads up');
+	});
+
+	describe('deprecated title shim', () => {
+		it('maps the deprecated title attribute to alertTitle and warns', async () => {
+			const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+			try {
+				el = createComponent('ml-alert', { attributes: { title: 'Legacy title' } });
+				await flush();
+				expect(shadowQuery(el, '.ml-alert__title')!.textContent).toContain('Legacy title');
+				expect((el as any).alertTitle).toBe('Legacy title');
+				expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('alert-title'));
+
+				// The warning is emitted only once even for repeated use
+				warnSpy.mockClear();
+				(el as any).title = 'Again';
+				expect(warnSpy).not.toHaveBeenCalled();
+			} finally {
+				warnSpy.mockRestore();
+			}
+		});
 	});
 
 	it('does not render title when empty', () => {

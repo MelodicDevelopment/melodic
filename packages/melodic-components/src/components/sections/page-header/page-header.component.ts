@@ -5,12 +5,21 @@ import { pageHeaderStyles } from './page-header.styles.js';
 
 export type PageHeaderVariant = 'default' | 'compact' | 'centered';
 
+let warnedDeprecatedTitle = false;
+function warnDeprecatedTitle(): void {
+	if (warnedDeprecatedTitle) return;
+	warnedDeprecatedTitle = true;
+	console.warn(
+		'[ml-page-header] The "title" attribute/property is deprecated because it collides with the global HTML title attribute (native tooltip). Use "header-title" instead. The "title" shim will be removed in the next major release.'
+	);
+}
+
 /**
  * ml-page-header - Section component for page titles with breadcrumb, description, and actions
  *
  * @example
  * ```html
- * <ml-page-header title="Dashboard" description="Overview of your account">
+ * <ml-page-header header-title="Dashboard" description="Overview of your account">
  *   <ml-breadcrumb slot="breadcrumb">
  *     <ml-breadcrumb-item href="/">Home</ml-breadcrumb-item>
  *     <ml-breadcrumb-item>Dashboard</ml-breadcrumb-item>
@@ -30,16 +39,25 @@ export type PageHeaderVariant = 'default' | 'compact' | 'centered';
 	selector: 'ml-page-header',
 	template: pageHeaderTemplate,
 	styles: pageHeaderStyles,
-	attributes: ['variant', 'divider', 'title', 'description']
+	attributes: ['variant', 'divider', 'header-title', 'title', 'description']
 })
 export class PageHeaderComponent implements IElementRef {
 	public elementRef!: HTMLElement;
 
-	/** Page title text */
-	public title = '';
+	/** Page title text (attribute: header-title) */
+	public headerTitle = '';
 
 	/** Page description text */
 	public description = '';
+
+	/** @deprecated Use `headerTitle` (attribute `header-title`); `title` collides with the global HTML attribute. */
+	public get title(): string {
+		return this.headerTitle;
+	}
+	public set title(value: string) {
+		warnDeprecatedTitle();
+		this.headerTitle = value;
+	}
 
 	/** Visual variant */
 	public variant: PageHeaderVariant = 'default';

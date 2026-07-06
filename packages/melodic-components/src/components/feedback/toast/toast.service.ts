@@ -34,7 +34,8 @@ export class ToastService {
 		const toast = document.createElement('ml-toast');
 
 		if (config.variant) toast.setAttribute('variant', config.variant);
-		if (config.title) toast.setAttribute('title', config.title);
+		// Use the prefixed attribute: the global 'title' attribute would surface a native browser tooltip.
+		if (config.title) toast.setAttribute('toast-title', config.title);
 		if (config.message) toast.setAttribute('message', config.message);
 		if (config.duration !== undefined) toast.setAttribute('duration', String(config.duration));
 		if (config.dismissible === false) toast.setAttribute('dismissible', 'false');

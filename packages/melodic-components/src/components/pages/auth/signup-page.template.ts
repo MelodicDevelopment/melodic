@@ -18,7 +18,7 @@ export function signupPageTemplate(c: SignupPageComponent) {
 			`,
 			() => html`
 				<div class="ml-auth__header">
-					<h1 class="ml-auth__title">${c.title}</h1>
+					<h1 class="ml-auth__title">${c.pageTitle}</h1>
 					<p class="ml-auth__description">${c.description}</p>
 				</div>
 			`

@@ -8,10 +8,10 @@ export function pageSectionTemplate(c: PageSectionComponent) {
 			'ml-page-section': true,
 			[`ml-page-section--pad-${c.padding}`]: true
 		})}>
-			${when(!!c.title, () => html`
+			${when(!!c.sectionTitle, () => html`
 				<div class="ml-page-section__header">
 					<div class="ml-page-section__heading">
-						<h2 class="ml-page-section__title">${c.title}</h2>
+						<h2 class="ml-page-section__title">${c.sectionTitle}</h2>
 						${when(!!c.subtitle, () => html`
 							<p class="ml-page-section__subtitle">${c.subtitle}</p>
 						`)}

@@ -4,12 +4,21 @@ import type { AlertVariant } from './alert.types.js';
 import { alertTemplate } from './alert.template.js';
 import { alertStyles } from './alert.styles.js';
 
+let warnedDeprecatedTitle = false;
+function warnDeprecatedTitle(): void {
+	if (warnedDeprecatedTitle) return;
+	warnedDeprecatedTitle = true;
+	console.warn(
+		'[ml-alert] The "title" attribute/property is deprecated because it collides with the global HTML title attribute (native tooltip). Use "alert-title" instead. The "title" shim will be removed in the next major release.'
+	);
+}
+
 /**
  * ml-alert - Alert/notification banner component
  *
  * @example
  * ```html
- * <ml-alert variant="info" title="Information">
+ * <ml-alert variant="info" alert-title="Information">
  *   This is an informational message.
  * </ml-alert>
  *
@@ -26,7 +35,7 @@ import { alertStyles } from './alert.styles.js';
 	selector: 'ml-alert',
 	template: alertTemplate,
 	styles: alertStyles,
-	attributes: ['variant', 'title', 'dismissible']
+	attributes: ['variant', 'alert-title', 'title', 'dismissible']
 })
 export class AlertComponent implements IElementRef {
 	public elementRef!: HTMLElement;
@@ -34,11 +43,20 @@ export class AlertComponent implements IElementRef {
 	/** Alert variant/type */
 	public variant: AlertVariant = 'info';
 
-	/** Optional title */
-	public title = '';
+	/** Optional title (attribute: alert-title) */
+	public alertTitle = '';
 
 	/** Show dismiss button */
 	public dismissible = false;
+
+	/** @deprecated Use `alertTitle` (attribute `alert-title`); `title` collides with the global HTML attribute. */
+	public get title(): string {
+		return this.alertTitle;
+	}
+	public set title(value: string) {
+		warnDeprecatedTitle();
+		this.alertTitle = value;
+	}
 
 	public handleDismiss = (): void => {
 		this.elementRef.dispatchEvent(

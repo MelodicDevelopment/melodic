@@ -5,16 +5,25 @@ import { pageSectionStyles } from './page-section.styles.js';
 
 type SectionPadding = 'none' | 'sm' | 'md' | 'lg';
 
+let warnedDeprecatedTitle = false;
+function warnDeprecatedTitle(): void {
+	if (warnedDeprecatedTitle) return;
+	warnedDeprecatedTitle = true;
+	console.warn(
+		'[ml-page-section] The "title" attribute/property is deprecated because it collides with the global HTML title attribute (native tooltip). Use "section-title" instead. The "title" shim will be removed in the next major release.'
+	);
+}
+
 /**
  * ml-page-section - Titled content section with consistent heading typography
  *
  * @example
  * ```html
- * <ml-page-section title="Recent Activity" subtitle="Last 7 days">
+ * <ml-page-section section-title="Recent Activity" subtitle="Last 7 days">
  *   <div>Section content here</div>
  * </ml-page-section>
  *
- * <ml-page-section title="Members" action-label="View All" action-href="/members">
+ * <ml-page-section section-title="Members" action-label="View All" action-href="/members">
  *   <div>Members list</div>
  * </ml-page-section>
  * ```
@@ -29,16 +38,25 @@ type SectionPadding = 'none' | 'sm' | 'md' | 'lg';
 	selector: 'ml-page-section',
 	template: pageSectionTemplate,
 	styles: pageSectionStyles,
-	attributes: ['title', 'subtitle', 'action-label', 'action-href', 'padding']
+	attributes: ['section-title', 'title', 'subtitle', 'action-label', 'action-href', 'padding']
 })
 export class PageSectionComponent implements IElementRef {
 	public elementRef!: HTMLElement;
 
-	/** Section title */
-	public title = '';
+	/** Section title (attribute: section-title) */
+	public sectionTitle = '';
 
 	/** Subtitle text */
 	public subtitle = '';
+
+	/** @deprecated Use `sectionTitle` (attribute `section-title`); `title` collides with the global HTML attribute. */
+	public get title(): string {
+		return this.sectionTitle;
+	}
+	public set title(value: string) {
+		warnDeprecatedTitle();
+		this.sectionTitle = value;
+	}
 
 	/** Action link label (attribute: action-label) */
 	public actionLabel = '';
