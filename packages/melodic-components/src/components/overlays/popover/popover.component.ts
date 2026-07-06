@@ -1,7 +1,7 @@
 import { MelodicComponent } from '@melodicdev/core';
 import type { IElementRef, OnCreate, OnDestroy } from '@melodicdev/core';
 import type { Placement } from '../../../types/index.js';
-import { computePosition, autoUpdate, offset, flip, shift, arrow as arrowMiddleware } from '../../../utils/positioning/index.js';
+import { OverlayPositioner, ToggleDismissGuard } from '../../../utils/overlay/index.js';
 import { createFocusTrap, getDeepActiveElement, type FocusTrap } from '../../../utils/accessibility/focus-trap.js';
 import { popoverTemplate } from './popover.template.js';
 import { popoverStyles } from './popover.styles.js';
@@ -54,11 +54,16 @@ export class PopoverComponent implements IElementRef, OnCreate, OnDestroy {
 	/** Current open state */
 	public isOpen = false;
 
-	private _cleanupAutoUpdate: (() => void) | null = null;
+	private readonly _positioner = new OverlayPositioner(() => ({
+		placement: this.placement,
+		offset: this.offset,
+		arrowElement: this.arrow ? (this.elementRef.shadowRoot?.querySelector('.ml-popover__arrow') as HTMLElement | null) : null,
+		placementAttribute: true
+	}));
 	private _focusTrap: FocusTrap | null = null;
-	// Set when the popover light-dismisses, consumed by the next toggle() so a
-	// click on the trigger that just dismissed it doesn't immediately reopen it.
-	private _justDismissed = false;
+	// Swallows the trigger click that just light-dismissed the open popover so
+	// it doesn't immediately reopen it.
+	private readonly _dismissGuard = new ToggleDismissGuard();
 
 	public onCreate(): void {
 		const popoverEl = this.getPopoverEl();
@@ -68,7 +73,7 @@ export class PopoverComponent implements IElementRef, OnCreate, OnDestroy {
 	}
 
 	public onDestroy(): void {
-		this._cleanupAutoUpdate?.();
+		this._positioner.stop();
 		this._focusTrap?.deactivate({ returnFocus: false });
 		this._focusTrap = null;
 		const popoverEl = this.getPopoverEl();
@@ -97,8 +102,7 @@ export class PopoverComponent implements IElementRef, OnCreate, OnDestroy {
 	public toggle = (): void => {
 		// Swallow the click that just light-dismissed the open popover, so the
 		// trigger doesn't immediately reopen it.
-		if (this._justDismissed) {
-			this._justDismissed = false;
+		if (this._dismissGuard.shouldSkipToggle()) {
 			return;
 		}
 		const popoverEl = this.getPopoverEl();
@@ -118,10 +122,8 @@ export class PopoverComponent implements IElementRef, OnCreate, OnDestroy {
 			);
 		} else {
 			this.isOpen = false;
-			this._justDismissed = true;
-			setTimeout(() => { this._justDismissed = false; }, 0);
-			this._cleanupAutoUpdate?.();
-			this._cleanupAutoUpdate = null;
+			this._dismissGuard.dismissed();
+			this._positioner.stop();
 			// Restore focus only when it is still inside the popover (keyboard
 			// dismiss / focus parked in the content); a pointer light-dismiss
 			// that moved focus elsewhere must not have it yanked back.
@@ -158,55 +160,7 @@ export class PopoverComponent implements IElementRef, OnCreate, OnDestroy {
 
 		if (!triggerEl || !popoverEl) return;
 
-		const update = () => this.updatePosition(triggerEl, popoverEl);
-
-		this._cleanupAutoUpdate?.();
-		this._cleanupAutoUpdate = autoUpdate(triggerEl, popoverEl, update);
-	}
-
-	private updatePosition(triggerEl: HTMLElement, popoverEl: HTMLElement): void {
-		const arrowEl = this.arrow ? (this.elementRef.shadowRoot?.querySelector('.ml-popover__arrow') as HTMLElement) : null;
-
-		const middleware = [offset(this.offset), flip(), shift({ padding: 8 })];
-
-		if (arrowEl) {
-			middleware.push(arrowMiddleware({ element: arrowEl, padding: 8 }));
-		}
-
-		const { x, y, placement, middlewareData } = computePosition(triggerEl, popoverEl, {
-			placement: this.placement,
-			middleware
-		});
-
-		popoverEl.style.left = `${x}px`;
-		popoverEl.style.top = `${y}px`;
-		popoverEl.dataset.placement = placement;
-
-		if (arrowEl && middlewareData.arrow) {
-			this.positionArrow(arrowEl, placement, middlewareData.arrow as { x?: number; y?: number });
-		}
-	}
-
-	private positionArrow(arrowEl: HTMLElement, placement: string, arrowData: { x?: number; y?: number }): void {
-		const side = placement.split('-')[0];
-
-		arrowEl.style.left = arrowData.x === undefined ? '' : `${arrowData.x}px`;
-		arrowEl.style.right = '';
-		arrowEl.style.top = arrowData.y === undefined ? '' : `${arrowData.y}px`;
-		arrowEl.style.bottom = '';
-
-		if (side === 'top') {
-			arrowEl.style.bottom = '-4px';
-		}
-		if (side === 'bottom') {
-			arrowEl.style.top = '-4px';
-		}
-		if (side === 'left') {
-			arrowEl.style.right = '-4px';
-		}
-		if (side === 'right') {
-			arrowEl.style.left = '-4px';
-		}
+		this._positioner.start(triggerEl, popoverEl);
 	}
 
 	private getTriggerEl(): HTMLElement | null {

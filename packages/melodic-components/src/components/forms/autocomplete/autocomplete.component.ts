@@ -3,7 +3,7 @@ import type { IElementRef, OnCreate, OnDestroy } from '@melodicdev/core';
 import { registerAdapter } from '@melodicdev/core/forms';
 import type { Size } from '../../../types/index.js';
 import type { AutocompleteOption, AutocompleteSearchFn } from './autocomplete.types.js';
-import { computePosition, autoUpdate, offset, flip, shift } from '../../../utils/positioning/index.js';
+import { OverlayPositioner } from '../../../utils/overlay/index.js';
 import { newID } from '../../../functions/index.js';
 import { autocompleteTemplate } from './autocomplete.template.js';
 import { autocompleteStyles } from './autocomplete.styles.js';
@@ -130,7 +130,11 @@ export class AutocompleteComponent implements IElementRef, OnCreate, OnDestroy {
 	private readonly _handleKeyDown = this.onKeyDown.bind(this);
 	private readonly _handleDocumentClick = this.onDocumentClick.bind(this);
 	private readonly _uid = newID();
-	private _cleanupAutoUpdate: (() => void) | null = null;
+	private readonly _positioner = new OverlayPositioner(() => ({
+		placement: 'bottom-start',
+		offset: 4,
+		matchTriggerWidth: true
+	}));
 	private _debounceTimer: ReturnType<typeof setTimeout> | null = null;
 	private _searchGeneration = 0;
 	private _syncingValues = false;
@@ -499,28 +503,11 @@ export class AutocompleteComponent implements IElementRef, OnCreate, OnDestroy {
 		const dropdownEl = this.getDropdownEl();
 		if (!triggerEl || !dropdownEl) return;
 
-		const update = () => this.updatePosition(triggerEl, dropdownEl);
-		this.stopPositioning();
-		this._cleanupAutoUpdate = autoUpdate(triggerEl, dropdownEl, update);
-		// Position immediately; harmless if autoUpdate also runs an initial update.
-		update();
+		this._positioner.start(triggerEl, dropdownEl);
 	}
 
 	private stopPositioning(): void {
-		this._cleanupAutoUpdate?.();
-		this._cleanupAutoUpdate = null;
-	}
-
-	private updatePosition(triggerEl: HTMLElement, dropdownEl: HTMLElement): void {
-		dropdownEl.style.width = `${triggerEl.offsetWidth}px`;
-
-		const { x, y } = computePosition(triggerEl, dropdownEl, {
-			placement: 'bottom-start',
-			middleware: [offset(4), flip(), shift({ padding: 8 })]
-		});
-
-		dropdownEl.style.left = `${x}px`;
-		dropdownEl.style.top = `${y}px`;
+		this._positioner.stop();
 	}
 
 	private getDropdownEl(): HTMLElement | null {
