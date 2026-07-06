@@ -1,7 +1,6 @@
 import { MelodicComponent } from '@melodicdev/core/components';
 import { html, css, repeat, when, classMap } from '@melodicdev/core/template';
 import { signal } from '@melodicdev/core/signals';
-import { sharedVersion } from '@shared';
 
 interface Task {
 	id: number;
@@ -57,7 +56,7 @@ interface Task {
 					<ul class="task-list">
 						${repeat(
 							component.filteredTasks(),
-							(task) => `${task.id}-${task.completed}`,
+							(task) => task.id,
 							(task) => html`
 								<li class=${classMap({ 'task-item': true, completed: task.completed })}>
 									<label class="task-label">
@@ -100,7 +99,6 @@ interface Task {
 					Built with <strong>Melodic</strong> &mdash;
 					<a href="https://github.com/MelodicDevelopment/melodic" target="_blank">Learn more</a>
 				</p>
-				<p class="shared-version">Shared lib v${sharedVersion}</p>
 			</footer>
 		</div>
 	`,
@@ -311,12 +309,6 @@ interface Task {
 
 		.footer a:hover {
 			text-decoration: underline;
-		}
-
-		.shared-version {
-			margin-top: 0.5rem;
-			font-size: 0.75rem;
-			color: #bbb;
 		}
 	`
 })
