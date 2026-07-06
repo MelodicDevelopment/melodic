@@ -73,8 +73,12 @@ export class SliderComponent implements IElementRef {
 
 	/** CSS width for fill that matches native thumb position */
 	public get fillWidth(): string {
+		// The native thumb center travels from (thumb/2) to (100% - thumb/2), so
+		// the fill must extend by (0.5 - ratio) * thumb-size beyond ratio*100%.
+		// Derive it from the same token that sizes the thumb so themed thumb
+		// sizes keep the fill aligned.
 		const p = this.ratio;
-		return `calc(${p * 100}% + ${10 - p * 20}px)`;
+		return `calc(${p * 100}% + ${0.5 - p} * var(--ml-slider-thumb-size))`;
 	}
 
 	public handleInput = (event: Event): void => {
