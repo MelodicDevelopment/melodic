@@ -35,6 +35,18 @@ export function disposeDirectiveState(state: unknown): void {
  * (nested templates, keyed/plain array items).
  */
 export function disposePart(part: ITemplatePart): void {
+	// Remove the stable event-part wrapper listener (registered once at part
+	// setup — see TemplateResult.commitEventPart) from its node.
+	if (part.eventWrapper) {
+		if (part.eventAttached && part.node && part.name) {
+			(part.node as Element).removeEventListener(part.name, part.eventWrapper, part.eventOptions);
+		}
+		part.eventWrapper = undefined;
+		part.eventHandler = undefined;
+		part.eventOptions = undefined;
+		part.eventAttached = false;
+	}
+
 	if (part.actionCleanup) {
 		try {
 			part.actionCleanup();

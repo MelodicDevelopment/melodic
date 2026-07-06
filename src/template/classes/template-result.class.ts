@@ -1,5 +1,5 @@
 import { getAttributeDirective } from '../directives/functions/attribute-directive.functions';
-import type { ITemplatePart, IKeyedArrayItem } from '../interfaces/itemplate-part.interface';
+import type { ITemplatePart, IKeyedArrayItem, IEventHandlerWithOptions } from '../interfaces/itemplate-part.interface';
 import type { ITemplateCache, IPartPath } from '../interfaces/itemplate-cache.interface';
 import type { IDirectiveState } from '../interfaces/idirective-state.interface';
 import type { RenderedContainer } from '../interfaces/irendered-container.interface';
@@ -28,6 +28,29 @@ function warnUnsafePropertyBinding(name: string): void {
 		`[melodic] Property binding ".${name}" assigns raw HTML and is an XSS hazard if the value is not fully trusted. ` +
 			'Prefer text interpolation, or unsafeHTML() with sanitized content.'
 	);
+}
+
+/**
+ * Extract listener options (capture/once/passive) from a `handleEvent`-object
+ * binding value. Returns undefined when no option flag is present, so plain
+ * handleEvent objects register exactly like plain functions.
+ */
+function extractListenerOptions(value: IEventHandlerWithOptions): AddEventListenerOptions | undefined {
+	const { capture, once, passive } = value;
+	if (capture === undefined && once === undefined && passive === undefined) {
+		return undefined;
+	}
+
+	const options: AddEventListenerOptions = {};
+	if (capture !== undefined) options.capture = capture;
+	if (once !== undefined) options.once = once;
+	if (passive !== undefined) options.passive = passive;
+	return options;
+}
+
+/** Compare listener options by effective (boolean) value. */
+function sameListenerOptions(a: AddEventListenerOptions | undefined, b: AddEventListenerOptions | undefined): boolean {
+	return !!a?.capture === !!b?.capture && !!a?.once === !!b?.once && !!a?.passive === !!b?.passive;
 }
 
 // Cache template keys by TemplateStringsArray identity to avoid repeated string joins
@@ -828,6 +851,69 @@ export class TemplateResult {
 		item.value = value;
 	}
 
+	/**
+	 * Commits an event binding through a stable wrapper listener.
+	 *
+	 * The wrapper is created once per part and registered with a single
+	 * addEventListener call; subsequent renders only swap the stored handler,
+	 * so re-renders cause zero add/removeEventListener churn and the listener
+	 * keeps its original position in the target's listener list.
+	 *
+	 * Accepted values: a plain function (invoked with `this` = the event's
+	 * currentTarget, matching direct addEventListener semantics) or an object
+	 * with `handleEvent` plus optional listener options (capture/once/passive —
+	 * see IEventHandlerWithOptions). When the options change, the wrapper is
+	 * re-attached with the new options. Removal on part disposal is handled by
+	 * disposePart (dispose.functions.ts).
+	 */
+	private commitEventPart(part: ITemplatePart, value: unknown): void {
+		const element = part.node as Element;
+		const name = part.name as string;
+
+		const isFunctionHandler = typeof value === 'function';
+		const isHandleEventObject =
+			!isFunctionHandler &&
+			value !== null &&
+			typeof value === 'object' &&
+			typeof (value as EventListenerObject).handleEvent === 'function';
+		const active = isFunctionHandler || isHandleEventObject;
+		const newOptions = isHandleEventObject ? extractListenerOptions(value as IEventHandlerWithOptions) : undefined;
+
+		// One stable wrapper per event part, created lazily on the first
+		// non-empty handler and kept for the part's lifetime.
+		if (!part.eventWrapper) {
+			part.eventWrapper = function (this: Element, event: Event): void {
+				const handler = part.eventHandler;
+				if (typeof handler === 'function') {
+					// Preserve direct-listener semantics: `this` is the currentTarget.
+					(handler as EventListener).call(this, event);
+				} else if (handler !== null && typeof handler === 'object') {
+					// EventListenerObject semantics: `this` is the handler object.
+					(handler as EventListenerObject).handleEvent(event);
+				}
+			};
+		}
+
+		const optionsChanged = !sameListenerOptions(part.eventOptions, newOptions);
+
+		if (part.eventAttached && (!active || optionsChanged)) {
+			element.removeEventListener(name, part.eventWrapper, part.eventOptions);
+			part.eventAttached = false;
+		}
+
+		part.eventHandler = active ? value : undefined;
+		part.eventOptions = newOptions;
+
+		// `once` listeners are re-armed when the handler changes: if the previous
+		// registration already fired (and was auto-removed) this re-attaches; if
+		// it hasn't fired yet, registering the identical wrapper + options is a
+		// spec-guaranteed no-op, so `once` semantics are preserved either way.
+		if (active && (!part.eventAttached || newOptions?.once)) {
+			element.addEventListener(name, part.eventWrapper, newOptions);
+			part.eventAttached = true;
+		}
+	}
+
 	private commit(parts: ITemplatePart[]): void {
 		for (const part of parts) {
 			const value = this.values[part.index];
@@ -969,21 +1055,7 @@ export class TemplateResult {
 
 				case 'event':
 					if (part.node && part.name) {
-						const element = part.node as Element;
-
-						if (part.previousValue === value) {
-							break;
-						}
-
-						// Remove old listener
-						if (part.previousValue && typeof part.previousValue === 'function') {
-							element.removeEventListener(part.name, part.previousValue as EventListener);
-						}
-
-						// Add new listener
-						if (typeof value === 'function') {
-							element.addEventListener(part.name, value as EventListener);
-						}
+						this.commitEventPart(part, value);
 					}
 					break;
 
