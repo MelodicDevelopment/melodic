@@ -61,8 +61,16 @@ export class ProfileCardComponent implements IElementRef, OnCreate {
 	/** Avatar image URL — falls back to initials derived from name */
 	public avatar = '';
 
-	/** Avatar size */
-	public 'avatar-size': Size = 'lg';
+	/** Avatar size (attribute: avatar-size) */
+	public avatarSize: Size = 'lg';
+
+	/** @deprecated Legacy property alias — use `avatarSize` (attribute `avatar-size`). */
+	public get 'avatar-size'(): Size {
+		return this.avatarSize;
+	}
+	public set 'avatar-size'(value: Size) {
+		this.avatarSize = value;
+	}
 
 	/** Slot visibility flags (toggled via slotchange) */
 	public hasDetails = false;

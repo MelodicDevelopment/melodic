@@ -81,7 +81,7 @@ function renderNumberedIndicator(c: StepComponent) {
 	return html`
 		<div class="ml-step__indicator-inner ml-step__indicator-inner--numbered">
 			${when(isCompleted, () => html`<ml-icon icon="check" size="sm"></ml-icon>`)}
-			${when(!isCompleted, () => html`<span>${c['step-number']}</span>`)}
+			${when(!isCompleted, () => html`<span>${c.stepNumber}</span>`)}
 		</div>
 	`;
 }

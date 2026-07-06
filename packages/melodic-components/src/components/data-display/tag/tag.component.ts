@@ -37,14 +37,30 @@ export class TagComponent implements IElementRef {
 	/** Show dot indicator */
 	public dot = false;
 
-	/** Dot color */
-	public 'dot-color': TagDotColor = 'success';
+	/** Dot color (attribute: dot-color) */
+	public dotColor: TagDotColor = 'success';
 
 	/** Show close button */
 	public closable = false;
 
-	/** Avatar image source */
-	public 'avatar-src' = '';
+	/** Avatar image source (attribute: avatar-src) */
+	public avatarSrc = '';
+
+	/** @deprecated Legacy property alias — use `dotColor` (attribute `dot-color`). */
+	public get 'dot-color'(): TagDotColor {
+		return this.dotColor;
+	}
+	public set 'dot-color'(value: TagDotColor) {
+		this.dotColor = value;
+	}
+
+	/** @deprecated Legacy property alias — use `avatarSrc` (attribute `avatar-src`). */
+	public get 'avatar-src'(): string {
+		return this.avatarSrc;
+	}
+	public set 'avatar-src'(value: string) {
+		this.avatarSrc = value;
+	}
 
 	/** Icon name (Phosphor icon) */
 	public icon = '';
@@ -67,7 +83,7 @@ export class TagComponent implements IElementRef {
 	 * the stylesheet keys off `ml-tag__dot--danger`.
 	 */
 	public get resolvedDotColor(): TagDotColor {
-		const color = this['dot-color'];
+		const color = this.dotColor;
 		return color === 'error' ? 'danger' : color;
 	}
 

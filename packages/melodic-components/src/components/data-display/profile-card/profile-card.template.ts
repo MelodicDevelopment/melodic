@@ -8,7 +8,7 @@ export function profileCardTemplate(c: ProfileCardComponent) {
 			<div class="ml-profile-card__identity">
 				<div class="ml-profile-card__avatar">
 					<ml-avatar
-						size=${c['avatar-size']}
+						size=${c.avatarSize}
 						src=${c.avatar}
 						initials=${c.initials}
 					></ml-avatar>

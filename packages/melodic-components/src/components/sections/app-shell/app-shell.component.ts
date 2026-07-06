@@ -32,14 +32,38 @@ export type SidebarPosition = 'left' | 'right';
 export class AppShellComponent implements IElementRef, OnCreate, OnDestroy {
 	public elementRef!: HTMLElement;
 
-	/** Position of the sidebar: 'left' or 'right' */
-	public 'sidebar-position': SidebarPosition = 'left';
+	/** Position of the sidebar: 'left' or 'right' (attribute: sidebar-position) */
+	public sidebarPosition: SidebarPosition = 'left';
 
-	/** Whether the sidebar is collapsed */
-	public 'sidebar-collapsed' = false;
+	/** Whether the sidebar is collapsed (attribute: sidebar-collapsed) */
+	public sidebarCollapsed = false;
 
-	/** Whether the header is fixed/sticky */
-	public 'header-fixed' = false;
+	/** Whether the header is fixed/sticky (attribute: header-fixed) */
+	public headerFixed = false;
+
+	/** @deprecated Legacy property alias — use `sidebarPosition` (attribute `sidebar-position`). */
+	public get 'sidebar-position'(): SidebarPosition {
+		return this.sidebarPosition;
+	}
+	public set 'sidebar-position'(value: SidebarPosition) {
+		this.sidebarPosition = value;
+	}
+
+	/** @deprecated Legacy property alias — use `sidebarCollapsed` (attribute `sidebar-collapsed`). */
+	public get 'sidebar-collapsed'(): boolean {
+		return this.sidebarCollapsed;
+	}
+	public set 'sidebar-collapsed'(value: boolean) {
+		this.sidebarCollapsed = value;
+	}
+
+	/** @deprecated Legacy property alias — use `headerFixed` (attribute `header-fixed`). */
+	public get 'header-fixed'(): boolean {
+		return this.headerFixed;
+	}
+	public set 'header-fixed'(value: boolean) {
+		this.headerFixed = value;
+	}
 
 	/** Whether the viewport is mobile-sized (<768px) */
 	public mobile = false;

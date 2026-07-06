@@ -2,9 +2,9 @@ import { html, classMap, when } from '@melodicdev/core';
 import type { AppShellComponent } from './app-shell.component.js';
 
 export function appShellTemplate(c: AppShellComponent) {
-	const sidebarRight = c['sidebar-position'] === 'right';
-	const collapsed = c['sidebar-collapsed'];
-	const headerFixed = c['header-fixed'];
+	const sidebarRight = c.sidebarPosition === 'right';
+	const collapsed = c.sidebarCollapsed;
+	const headerFixed = c.headerFixed;
 	const mobileOpen = c.mobileOpen;
 	const isMobile = c.mobile;
 
