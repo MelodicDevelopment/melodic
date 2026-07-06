@@ -1,4 +1,4 @@
-import { MelodicComponent } from '@melodicdev/core';
+import { Injector, MelodicComponent, RouterService } from '@melodicdev/core';
 import type { IElementRef, OnCreate, OnDestroy, OnRender } from '@melodicdev/core';
 import type { StepsVariant, StepsOrientation, StepsConnector, StepsColor, StepConfig, StepStatus } from './steps.types.js';
 import { stepsTemplate } from './steps.template.js';
@@ -114,10 +114,25 @@ export class StepsComponent implements IElementRef, OnCreate, OnDestroy, OnRende
 		if (step?.disabled) return;
 
 		if (this.routed && href) {
-			window.history.pushState({}, '', href);
-			window.dispatchEvent(new PopStateEvent('popstate'));
+			// Route through the router pipeline (guards → resolvers → commit)
+			// instead of a raw pushState + synthetic popstate, and only activate
+			// the step when the navigation actually commits — a guard-blocked
+			// navigation must not advance the wizard.
+			void Injector.get<RouterService>(RouterService)
+				.navigate(href)
+				.then((result) => {
+					if (result.success) {
+						this.activateStep(stepValue);
+					}
+				});
+			return;
 		}
 
+		this.activateStep(stepValue);
+	};
+
+	/** Apply the active step state and notify consumers. */
+	private activateStep(stepValue: string): void {
 		this.active = stepValue;
 		this.updateSlottedStepStates();
 		this.updatePanelVisibility();
@@ -129,7 +144,7 @@ export class StepsComponent implements IElementRef, OnCreate, OnDestroy, OnRende
 				detail: { value: stepValue }
 			})
 		);
-	};
+	}
 
 	/** Handle slotted step click event */
 	private handleSlottedStepClick = (event: CustomEvent): void => {

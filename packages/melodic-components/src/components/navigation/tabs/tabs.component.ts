@@ -1,4 +1,4 @@
-import { MelodicComponent } from '@melodicdev/core';
+import { Injector, MelodicComponent, RouterService } from '@melodicdev/core';
 import type { IElementRef, OnCreate, OnDestroy, OnRender } from '@melodicdev/core';
 import type { Size } from '../../../types/index.js';
 import type { TabsVariant, TabsOrientation, TabConfig } from './tabs.types.js';
@@ -125,10 +125,25 @@ export class TabsComponent implements IElementRef, OnCreate, OnDestroy, OnRender
 		if (tab?.disabled) return;
 
 		if (this.routed && href) {
-			window.history.pushState({}, '', href);
-			window.dispatchEvent(new PopStateEvent('popstate'));
+			// Route through the router pipeline (guards → resolvers → commit)
+			// instead of a raw pushState + synthetic popstate, and only activate
+			// the tab when the navigation actually commits — a guard-blocked
+			// navigation must not flip the active tab.
+			void Injector.get<RouterService>(RouterService)
+				.navigate(href)
+				.then((result) => {
+					if (result.success) {
+						this.activateTab(tabValue);
+					}
+				});
+			return;
 		}
 
+		this.activateTab(tabValue);
+	};
+
+	/** Apply the active tab state and notify consumers. */
+	private activateTab(tabValue: string): void {
 		this.value = tabValue;
 		this.updateTabStates();
 		this.updatePanelVisibility();
@@ -140,7 +155,7 @@ export class TabsComponent implements IElementRef, OnCreate, OnDestroy, OnRender
 				detail: { value: tabValue }
 			})
 		);
-	};
+	}
 
 	/** Handle keyboard navigation */
 	public handleKeyDown = (event: KeyboardEvent): void => {

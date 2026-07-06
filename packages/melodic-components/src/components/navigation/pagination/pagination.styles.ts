@@ -7,6 +7,7 @@ export const paginationStyles = () => css`
 		--ml-pagination-pages-gap: var(--ml-space-1);
 
 		/* Button base */
+		--ml-pagination-btn-gap: var(--ml-space-2);
 		--ml-pagination-btn-padding-y: var(--ml-space-2);
 		--ml-pagination-btn-padding-x: var(--ml-space-3);
 		--ml-pagination-btn-font-size: var(--ml-text-sm);
@@ -14,7 +15,8 @@ export const paginationStyles = () => css`
 		--ml-pagination-btn-color: var(--ml-color-text-secondary);
 		--ml-pagination-btn-bg: transparent;
 		--ml-pagination-btn-radius: var(--ml-radius-md);
-		--ml-pagination-btn-transition: var(--ml-duration-150) var(--ml-ease-in-out);
+		--ml-pagination-btn-transition-duration: var(--ml-duration-150);
+		--ml-pagination-btn-transition-easing: var(--ml-ease-in-out);
 
 		/* Button hover */
 		--ml-pagination-btn-hover-bg: var(--ml-color-surface-hover);
@@ -58,7 +60,7 @@ export const paginationStyles = () => css`
 		display: inline-flex;
 		align-items: center;
 		justify-content: center;
-		gap: var(--ml-space-2);
+		gap: var(--ml-pagination-btn-gap);
 		padding: var(--ml-pagination-btn-padding-y) var(--ml-pagination-btn-padding-x);
 		font-size: var(--ml-pagination-btn-font-size);
 		font-weight: var(--ml-pagination-btn-font-weight);
@@ -69,8 +71,8 @@ export const paginationStyles = () => css`
 		cursor: pointer;
 		user-select: none;
 		transition:
-			background-color var(--ml-pagination-btn-transition),
-			color var(--ml-pagination-btn-transition);
+			background-color var(--ml-pagination-btn-transition-duration) var(--ml-pagination-btn-transition-easing),
+			color var(--ml-pagination-btn-transition-duration) var(--ml-pagination-btn-transition-easing);
 	}
 
 	.ml-pagination__btn:hover:not(:disabled) {
