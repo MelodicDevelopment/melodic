@@ -11,7 +11,7 @@ export function radioGroupTemplate(c: RadioGroupComponent) {
 				'ml-radio-group--error': !!c.error
 			})}
 			role="radiogroup"
-			aria-labelledby=${c.label ? 'legend' : ''}
+			aria-labelledby=${c.label ? 'legend' : undefined}
 		>
 			${when(
 				!!c.label,

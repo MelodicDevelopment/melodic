@@ -45,6 +45,12 @@ export class RadioComponent implements IElementRef {
 	/** Disabled state */
 	public disabled = false;
 
+	/**
+	 * Whether the radio participates in the tab order (roving tabindex).
+	 * Managed by ml-radio-group; standalone radios remain tabbable.
+	 */
+	public tabbable = true;
+
 	public handleChange = (): void => {
 		this.checked = true;
 

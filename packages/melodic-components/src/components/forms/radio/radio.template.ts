@@ -16,6 +16,7 @@ export function radioTemplate(c: RadioComponent) {
 				class="ml-radio__input"
 				name="${c.name}"
 				value="${c.value}"
+				tabindex=${c.tabbable ? '0' : '-1'}
 				.checked=${c.checked}
 				?disabled=${c.disabled}
 				@change=${c.handleChange}
