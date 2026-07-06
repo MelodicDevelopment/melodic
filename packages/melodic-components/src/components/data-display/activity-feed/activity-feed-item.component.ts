@@ -36,14 +36,14 @@ export class ActivityFeedItemComponent implements IElementRef, OnCreate {
 	/** Timestamp text */
 	public timestamp = '';
 
-	/** Avatar image source */
-	public 'avatar-src' = '';
+	/** Avatar image source (attribute: avatar-src) */
+	public avatarSrc = '';
 
-	/** Avatar initials fallback */
-	public 'avatar-initials' = '';
+	/** Avatar initials fallback (attribute: avatar-initials) */
+	public avatarInitials = '';
 
-	/** Avatar size */
-	public 'avatar-size': Size = 'sm';
+	/** Avatar size (attribute: avatar-size) */
+	public avatarSize: Size = 'sm';
 
 	/** Subtitle text (e.g. @handle) */
 	public subtitle = '';
@@ -51,12 +51,44 @@ export class ActivityFeedItemComponent implements IElementRef, OnCreate {
 	/** Show indicator dot */
 	public indicator = false;
 
-	/** Indicator dot color — preset name or any CSS color value */
-	public 'indicator-color': IndicatorPreset | string = 'gray';
+	/** Indicator dot color — preset name or any CSS color value (attribute: indicator-color) */
+	public indicatorColor: IndicatorPreset | string = 'gray';
+
+	/** @deprecated Legacy property alias — use `avatarSrc` (attribute `avatar-src`). */
+	public get 'avatar-src'(): string {
+		return this.avatarSrc;
+	}
+	public set 'avatar-src'(value: string) {
+		this.avatarSrc = value;
+	}
+
+	/** @deprecated Legacy property alias — use `avatarInitials` (attribute `avatar-initials`). */
+	public get 'avatar-initials'(): string {
+		return this.avatarInitials;
+	}
+	public set 'avatar-initials'(value: string) {
+		this.avatarInitials = value;
+	}
+
+	/** @deprecated Legacy property alias — use `avatarSize` (attribute `avatar-size`). */
+	public get 'avatar-size'(): Size {
+		return this.avatarSize;
+	}
+	public set 'avatar-size'(value: Size) {
+		this.avatarSize = value;
+	}
+
+	/** @deprecated Legacy property alias — use `indicatorColor` (attribute `indicator-color`). */
+	public get 'indicator-color'(): IndicatorPreset | string {
+		return this.indicatorColor;
+	}
+	public set 'indicator-color'(value: IndicatorPreset | string) {
+		this.indicatorColor = value;
+	}
 
 	/** Whether the indicator-color is a preset name */
 	public get isPresetColor(): boolean {
-		return INDICATOR_PRESETS.has(this['indicator-color']);
+		return INDICATOR_PRESETS.has(this.indicatorColor);
 	}
 
 	/** Whether the avatar slot has content (kept in sync via slotchange) */

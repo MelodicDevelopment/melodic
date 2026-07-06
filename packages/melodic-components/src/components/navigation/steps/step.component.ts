@@ -57,8 +57,16 @@ export class StepComponent implements IElementRef {
 	/** Layout orientation (managed by parent) */
 	public orientation: StepsOrientation = 'horizontal';
 
-	/** Step number (managed by parent) */
-	public 'step-number' = '1';
+	/** Step number (managed by parent; attribute: step-number) */
+	public stepNumber = '1';
+
+	/** @deprecated Legacy property alias — use `stepNumber` (attribute `step-number`). */
+	public get 'step-number'(): string {
+		return this.stepNumber;
+	}
+	public set 'step-number'(value: string) {
+		this.stepNumber = value;
+	}
 
 	/** First step flag (managed by parent) */
 	public first = false;

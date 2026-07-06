@@ -34,8 +34,16 @@ export class SidebarItemComponent implements IElementRef, OnCreate, OnDestroy {
 	/** Icon name */
 	public icon = '';
 
-	/** Icon format (passed through to ml-icon) */
-	public 'icon-format': 'fill' | 'thin' | 'light' | 'regular' | 'bold' | '' = '';
+	/** Icon format (passed through to ml-icon; attribute: icon-format) */
+	public iconFormat: 'fill' | 'thin' | 'light' | 'regular' | 'bold' | '' = '';
+
+	/** @deprecated Legacy property alias — use `iconFormat` (attribute `icon-format`). */
+	public get 'icon-format'(): 'fill' | 'thin' | 'light' | 'regular' | 'bold' | '' {
+		return this.iconFormat;
+	}
+	public set 'icon-format'(value: 'fill' | 'thin' | 'light' | 'regular' | 'bold' | '') {
+		this.iconFormat = value;
+	}
 
 	/** Display label */
 	public label = '';
@@ -55,8 +63,16 @@ export class SidebarItemComponent implements IElementRef, OnCreate, OnDestroy {
 	/** Badge text */
 	public badge = '';
 
-	/** Badge color variant */
-	public 'badge-color': BadgeColor = 'default';
+	/** Badge color variant (attribute: badge-color) */
+	public badgeColor: BadgeColor = 'default';
+
+	/** @deprecated Legacy property alias — use `badgeColor` (attribute `badge-color`). */
+	public get 'badge-color'(): BadgeColor {
+		return this.badgeColor;
+	}
+	public set 'badge-color'(value: BadgeColor) {
+		this.badgeColor = value;
+	}
 
 	/** External link */
 	public external = false;

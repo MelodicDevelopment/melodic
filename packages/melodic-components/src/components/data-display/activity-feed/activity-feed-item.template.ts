@@ -8,9 +8,9 @@ export function activityFeedItemTemplate(c: ActivityFeedItemComponent) {
 				<div class="ml-afi__avatar">
 					<slot name="avatar">
 						<ml-avatar
-							size=${c['avatar-size']}
-							src=${c['avatar-src']}
-							initials=${c['avatar-initials']}
+							size=${c.avatarSize}
+							src=${c.avatarSrc}
+							initials=${c.avatarInitials}
 						></ml-avatar>
 					</slot>
 				</div>
@@ -28,9 +28,9 @@ export function activityFeedItemTemplate(c: ActivityFeedItemComponent) {
 							<span
 								class=${classMap({
 									'ml-afi__indicator': true,
-									[`ml-afi__indicator--${c['indicator-color']}`]: c.isPresetColor
+									[`ml-afi__indicator--${c.indicatorColor}`]: c.isPresetColor
 								})}
-								style=${c.isPresetColor ? '' : `--ml-afi-indicator-bg: ${c['indicator-color']}`}
+								style=${c.isPresetColor ? '' : `--ml-afi-indicator-bg: ${c.indicatorColor}`}
 							></span>
 						`
 					)}

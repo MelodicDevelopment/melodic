@@ -47,15 +47,39 @@ export class StatCardComponent implements IElementRef {
 	/** Trend text (e.g. "+6 this month") */
 	public trend = '';
 
-	/** Trend direction for styling */
-	public 'trend-direction': TrendDirection = 'neutral';
+	/** Trend direction for styling (attribute: trend-direction) */
+	public trendDirection: TrendDirection = 'neutral';
 
 	/** Icon name (Phosphor icon) */
 	public icon = '';
 
-	/** Icon color — CSS color value or token */
-	public 'icon-color' = '';
+	/** Icon color — CSS color value or token (attribute: icon-color) */
+	public iconColor = '';
 
-	/** Value font family */
-	public 'value-font': ValueFont = 'serif';
+	/** Value font family (attribute: value-font) */
+	public valueFont: ValueFont = 'serif';
+
+	/** @deprecated Legacy property alias — use `trendDirection` (attribute `trend-direction`). */
+	public get 'trend-direction'(): TrendDirection {
+		return this.trendDirection;
+	}
+	public set 'trend-direction'(value: TrendDirection) {
+		this.trendDirection = value;
+	}
+
+	/** @deprecated Legacy property alias — use `iconColor` (attribute `icon-color`). */
+	public get 'icon-color'(): string {
+		return this.iconColor;
+	}
+	public set 'icon-color'(value: string) {
+		this.iconColor = value;
+	}
+
+	/** @deprecated Legacy property alias — use `valueFont` (attribute `value-font`). */
+	public get 'value-font'(): ValueFont {
+		return this.valueFont;
+	}
+	public set 'value-font'(value: ValueFont) {
+		this.valueFont = value;
+	}
 }

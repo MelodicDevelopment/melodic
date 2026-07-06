@@ -2,7 +2,7 @@ import { html, classMap } from '@melodicdev/core';
 import type { TagComponent } from './tag.component.js';
 
 export function tagTemplate(c: TagComponent) {
-	const avatarSrc = c['avatar-src'];
+	const avatarSrc = c.avatarSrc;
 	const dotColor = c.resolvedDotColor;
 
 	return html`
