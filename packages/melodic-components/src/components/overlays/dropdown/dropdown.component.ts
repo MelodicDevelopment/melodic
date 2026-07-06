@@ -2,7 +2,7 @@ import { MelodicComponent } from '@melodicdev/core';
 import type { IElementRef, OnCreate, OnDestroy } from '@melodicdev/core';
 import type { Placement } from '../../../types/index.js';
 import type { DropdownItemComponent } from './dropdown-item.component.js';
-import { computePosition, autoUpdate, offset, flip, shift, arrow as arrowMiddleware } from '../../../utils/positioning/index.js';
+import { OverlayPositioner, ToggleDismissGuard } from '../../../utils/overlay/index.js';
 import { getDeepActiveElement } from '../../../utils/accessibility/focus-trap.js';
 import { dropdownTemplate } from './dropdown.template.js';
 import { dropdownStyles } from './dropdown.styles.js';
@@ -49,10 +49,15 @@ export class DropdownComponent implements IElementRef, OnCreate, OnDestroy {
 	public isOpen = false;
 
 	private _focusedIndex = -1;
-	private _cleanupAutoUpdate: (() => void) | null = null;
-	// Set when the popover light-dismisses, consumed by the next toggle() so a
-	// click on the trigger that just dismissed the menu doesn't immediately reopen it.
-	private _justDismissed = false;
+	private readonly _positioner = new OverlayPositioner(() => ({
+		placement: this.placement,
+		offset: this.offset,
+		arrowElement: this.arrow ? (this.elementRef.shadowRoot?.querySelector('.ml-dropdown__arrow') as HTMLElement | null) : null,
+		placementAttribute: true
+	}));
+	// Swallows the trigger click that just light-dismissed the open menu so it
+	// doesn't immediately reopen it.
+	private readonly _dismissGuard = new ToggleDismissGuard();
 	// Set by keyboard-initiated closes (Escape/Tab/Enter selection) so focus is
 	// returned to the trigger only for keyboard or inside-overlay dismissals —
 	// never yanked away from an element the user just clicked outside the menu.
@@ -71,7 +76,7 @@ export class DropdownComponent implements IElementRef, OnCreate, OnDestroy {
 	}
 
 	public onDestroy(): void {
-		this._cleanupAutoUpdate?.();
+		this._positioner.stop();
 		const menuEl = this.getMenuEl();
 		if (menuEl) {
 			menuEl.removeEventListener('toggle', this.handleToggle);
@@ -101,8 +106,7 @@ export class DropdownComponent implements IElementRef, OnCreate, OnDestroy {
 	public toggle = (): void => {
 		// A click on the trigger that just light-dismissed the open menu would
 		// otherwise reopen it. Swallow that one toggle.
-		if (this._justDismissed) {
-			this._justDismissed = false;
+		if (this._dismissGuard.shouldSkipToggle()) {
 			return;
 		}
 		const menuEl = this.getMenuEl();
@@ -123,17 +127,15 @@ export class DropdownComponent implements IElementRef, OnCreate, OnDestroy {
 		} else {
 			this.isOpen = false;
 			// Guard the immediately-following trigger click (if this dismiss was
-			// caused by clicking the trigger). Cleared next macrotask otherwise.
-			this._justDismissed = true;
-			setTimeout(() => { this._justDismissed = false; }, 0);
+			// caused by clicking the trigger).
+			this._dismissGuard.dismissed();
 			// Restore trigger focus only for keyboard dismissals or when focus is
 			// still inside the dropdown (e.g. an item was clicked). A pointer
 			// light-dismiss that moved focus elsewhere must not steal it back.
 			const shouldRestoreFocus = this._restoreFocusOnClose || this.isFocusWithin();
 			this._restoreFocusOnClose = false;
 			this.clearFocus();
-			this._cleanupAutoUpdate?.();
-			this._cleanupAutoUpdate = null;
+			this._positioner.stop();
 			if (shouldRestoreFocus) {
 				this.returnFocusToTrigger();
 			}
@@ -344,55 +346,7 @@ export class DropdownComponent implements IElementRef, OnCreate, OnDestroy {
 
 		if (!triggerEl || !menuEl) return;
 
-		const update = () => this.updatePosition(triggerEl, menuEl);
-
-		this._cleanupAutoUpdate?.();
-		this._cleanupAutoUpdate = autoUpdate(triggerEl, menuEl, update);
-	}
-
-	private updatePosition(triggerEl: HTMLElement, menuEl: HTMLElement): void {
-		const arrowEl = this.arrow ? (this.elementRef.shadowRoot?.querySelector('.ml-dropdown__arrow') as HTMLElement) : null;
-
-		const middleware = [offset(this.offset), flip(), shift({ padding: 8 })];
-
-		if (arrowEl) {
-			middleware.push(arrowMiddleware({ element: arrowEl, padding: 8 }));
-		}
-
-		const { x, y, placement, middlewareData } = computePosition(triggerEl, menuEl, {
-			placement: this.placement,
-			middleware
-		});
-
-		menuEl.style.left = `${x}px`;
-		menuEl.style.top = `${y}px`;
-		menuEl.dataset.placement = placement;
-
-		if (arrowEl && middlewareData.arrow) {
-			this.positionArrow(arrowEl, placement, middlewareData.arrow as { x?: number; y?: number });
-		}
-	}
-
-	private positionArrow(arrowEl: HTMLElement, placement: string, arrowData: { x?: number; y?: number }): void {
-		const side = placement.split('-')[0];
-
-		arrowEl.style.left = arrowData.x === undefined ? '' : `${arrowData.x}px`;
-		arrowEl.style.right = '';
-		arrowEl.style.top = arrowData.y === undefined ? '' : `${arrowData.y}px`;
-		arrowEl.style.bottom = '';
-
-		if (side === 'top') {
-			arrowEl.style.bottom = '-4px';
-		}
-		if (side === 'bottom') {
-			arrowEl.style.top = '-4px';
-		}
-		if (side === 'left') {
-			arrowEl.style.right = '-4px';
-		}
-		if (side === 'right') {
-			arrowEl.style.left = '-4px';
-		}
+		this._positioner.start(triggerEl, menuEl);
 	}
 
 	private getTriggerEl(): HTMLElement | null {

@@ -43,6 +43,14 @@ export class TooltipComponent implements IElementRef, OnCreate, OnDestroy {
 	/** Internal: visibility state */
 	public isVisible = false;
 
+	/**
+	 * Positioning anchor override (property only). When set — e.g. by the
+	 * `:tooltip` attribute directive, which manages a slotless ml-tooltip as a
+	 * sibling overlay — the popup is positioned against this element instead
+	 * of the tooltip's own slotted trigger wrapper.
+	 */
+	public anchorEl: HTMLElement | null = null;
+
 	/** Stable id linking the tooltip content to the trigger's aria-describedby */
 	public tooltipID: UniqueID = newID();
 
@@ -128,7 +136,7 @@ export class TooltipComponent implements IElementRef, OnCreate, OnDestroy {
 	};
 
 	private startPositioning(): void {
-		const trigger = this.elementRef.shadowRoot?.querySelector('.ml-tooltip__trigger') as HTMLElement;
+		const trigger = this.getReferenceEl();
 		const tooltip = this.elementRef.shadowRoot?.querySelector('.ml-tooltip__content') as HTMLElement;
 
 		if (!trigger || !tooltip) return;
@@ -144,8 +152,13 @@ export class TooltipComponent implements IElementRef, OnCreate, OnDestroy {
 		this._cleanupAutoUpdate = null;
 	}
 
+	/** The element the popup is positioned against. */
+	private getReferenceEl(): HTMLElement | null {
+		return this.anchorEl ?? (this.elementRef.shadowRoot?.querySelector('.ml-tooltip__trigger') as HTMLElement | null);
+	}
+
 	private updatePosition(): void {
-		const trigger = this.elementRef.shadowRoot?.querySelector('.ml-tooltip__trigger') as HTMLElement;
+		const trigger = this.getReferenceEl();
 		const tooltip = this.elementRef.shadowRoot?.querySelector('.ml-tooltip__content') as HTMLElement;
 		const arrow = this.elementRef.shadowRoot?.querySelector('.ml-tooltip__arrow') as HTMLElement;
 

@@ -1,7 +1,7 @@
 import { MelodicComponent } from '@melodicdev/core';
 import type { IElementRef, OnCreate, OnDestroy } from '@melodicdev/core';
 import { registerAdapter } from '@melodicdev/core/forms';
-import { computePosition, autoUpdate, offset, flip, shift } from '../../../utils/positioning/index.js';
+import { OverlayPositioner } from '../../../utils/overlay/index.js';
 import { datePickerTemplate } from './date-picker.template.js';
 import { datePickerStyles } from './date-picker.styles.js';
 
@@ -114,7 +114,10 @@ export class DatePickerComponent implements IElementRef, OnCreate, OnDestroy {
 	/** Whether the calendar popover is open */
 	public isOpen = false;
 
-	private _cleanupAutoUpdate: (() => void) | null = null;
+	private readonly _positioner = new OverlayPositioner(() => ({
+		placement: 'bottom-start',
+		offset: 4
+	}));
 	private _restoreFocusOnClose = false;
 
 	/** The formatted text shown in the input (MM/DD/YYYY) */
@@ -130,7 +133,7 @@ export class DatePickerComponent implements IElementRef, OnCreate, OnDestroy {
 	}
 
 	public onDestroy(): void {
-		this._cleanupAutoUpdate?.();
+		this._positioner.stop();
 		const popoverEl = this.getPopoverEl();
 		if (popoverEl) {
 			popoverEl.removeEventListener('toggle', this._handleToggle);
@@ -218,8 +221,7 @@ export class DatePickerComponent implements IElementRef, OnCreate, OnDestroy {
 			this.startPositioning();
 		} else {
 			this.isOpen = false;
-			this._cleanupAutoUpdate?.();
-			this._cleanupAutoUpdate = null;
+			this._positioner.stop();
 			// Only restore focus for keyboard (Escape) or inside-overlay dismissals.
 			// Pointer light-dismiss must not yank focus away from what was clicked.
 			if (this._restoreFocusOnClose) {
@@ -242,19 +244,7 @@ export class DatePickerComponent implements IElementRef, OnCreate, OnDestroy {
 		const popoverEl = this.getPopoverEl();
 		if (!triggerEl || !popoverEl) return;
 
-		const update = () => this.updatePosition(triggerEl, popoverEl);
-		this._cleanupAutoUpdate?.();
-		this._cleanupAutoUpdate = autoUpdate(triggerEl, popoverEl, update);
-	}
-
-	private updatePosition(triggerEl: HTMLElement, popoverEl: HTMLElement): void {
-		const middleware = [offset(4), flip(), shift({ padding: 8 })];
-		const { x, y } = computePosition(triggerEl, popoverEl, {
-			placement: 'bottom-start',
-			middleware
-		});
-		popoverEl.style.left = `${x}px`;
-		popoverEl.style.top = `${y}px`;
+		this._positioner.start(triggerEl, popoverEl);
 	}
 
 	private returnFocus(): void {
