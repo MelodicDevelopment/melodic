@@ -131,16 +131,6 @@ export const datePickerStyles = () => css`
 		padding: var(--ml-date-picker-padding);
 	}
 
-	/* Hide native date picker indicator across browsers */
-	.ml-date-picker__input::-webkit-calendar-picker-indicator {
-		display: none;
-		-webkit-appearance: none;
-	}
-
-	.ml-date-picker__input::-webkit-date-and-time-value {
-		text-align: left;
-	}
-
 	.ml-date-picker__input:disabled {
 		cursor: not-allowed;
 	}

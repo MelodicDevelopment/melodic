@@ -13,10 +13,50 @@ registerAdapter<string>((el) => el.tagName === 'ML-DATE-PICKER', {
 	setDisabled: (el, disabled) => { (el as unknown as { disabled: boolean }).disabled = disabled; }
 });
 
+/** Format an ISO date (YYYY-MM-DD) for display as MM/DD/YYYY. */
+function formatDisplayDate(iso: string): string {
+	const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso ?? '');
+	if (!match) return iso ?? '';
+	return `${match[2]}/${match[3]}/${match[1]}`;
+}
+
+/**
+ * Parse typed text into an ISO date (YYYY-MM-DD).
+ * Accepts `YYYY-MM-DD`, `MM/DD/YYYY`, and `M/D/YYYY`. Returns null when invalid.
+ */
+function parseDateInput(text: string): string | null {
+	const trimmed = text.trim();
+	let year: number;
+	let month: number;
+	let day: number;
+
+	let match = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(trimmed);
+	if (match) {
+		year = Number(match[1]);
+		month = Number(match[2]);
+		day = Number(match[3]);
+	} else {
+		match = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(trimmed);
+		if (!match) return null;
+		month = Number(match[1]);
+		day = Number(match[2]);
+		year = Number(match[3]);
+	}
+
+	if (month < 1 || month > 12) return null;
+	const daysInMonth = new Date(year, month, 0).getDate();
+	if (day < 1 || day > daysInMonth) return null;
+
+	return `${String(year).padStart(4, '0')}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+}
+
 /**
  * ml-date-picker - Date input with calendar dropdown
  *
- * Users can type a date directly into the input or pick from the calendar popover.
+ * Users can type a date directly into the input (`MM/DD/YYYY` or `YYYY-MM-DD`)
+ * or pick from the custom calendar popover. The input is a plain text field so
+ * the native browser date picker never competes with the custom calendar.
+ * `value` is always the ISO date (`YYYY-MM-DD`).
  *
  * @example
  * ```html
@@ -75,6 +115,12 @@ export class DatePickerComponent implements IElementRef, OnCreate, OnDestroy {
 	public isOpen = false;
 
 	private _cleanupAutoUpdate: (() => void) | null = null;
+	private _restoreFocusOnClose = false;
+
+	/** The formatted text shown in the input (MM/DD/YYYY) */
+	public get displayValue(): string {
+		return formatDisplayDate(this.value);
+	}
 
 	public onCreate(): void {
 		const popoverEl = this.getPopoverEl();
@@ -99,10 +145,29 @@ export class DatePickerComponent implements IElementRef, OnCreate, OnDestroy {
 		}
 	};
 
-	/** Called when the user types a date into the input */
+	/** Called when the user types a date into the input (on change/blur) */
 	public handleInput = (event: Event): void => {
 		const input = event.target as HTMLInputElement;
-		this.commitValue(input.value);
+		const text = input.value.trim();
+
+		if (!text) {
+			if (this.value !== '') {
+				this.commitValue('');
+			}
+			input.value = '';
+			return;
+		}
+
+		const iso = parseDateInput(text);
+		if (iso) {
+			this.commitValue(iso);
+			// Normalize the display immediately (re-render may be skipped when the
+			// committed value is unchanged).
+			input.value = formatDisplayDate(iso);
+		} else {
+			// Invalid input: revert to the last committed value.
+			input.value = this.displayValue;
+		}
 	};
 
 	/** Clicking the input opens the calendar */
@@ -117,22 +182,16 @@ export class DatePickerComponent implements IElementRef, OnCreate, OnDestroy {
 		event.stopPropagation();
 		const detail = (event as CustomEvent).detail as { value: string };
 		this.commitValue(detail.value);
-		this.closePopover();
+		// Dismissal originates inside the overlay — restore focus to the input.
+		this.closePopover(true);
 	};
 
 	public handleKeyDown = (event: KeyboardEvent): void => {
 		if (event.key === 'Escape' && this.isOpen) {
 			event.preventDefault();
-			this.closePopover();
+			this.closePopover(true);
 		}
-		// Prevent Space from triggering the native date picker
-		if (event.key === ' ') {
-			event.preventDefault();
-			if (!this.isOpen) {
-				this.toggleCalendar();
-			}
-		}
-		// Prevent F4 / Alt+Down from triggering the native picker in some browsers
+		// F4 / Alt+Down open the custom calendar (standard combobox-style keys)
 		if (event.key === 'F4' || (event.altKey && event.key === 'ArrowDown')) {
 			event.preventDefault();
 			if (!this.isOpen) {
@@ -161,13 +220,19 @@ export class DatePickerComponent implements IElementRef, OnCreate, OnDestroy {
 			this.isOpen = false;
 			this._cleanupAutoUpdate?.();
 			this._cleanupAutoUpdate = null;
-			this.returnFocus();
+			// Only restore focus for keyboard (Escape) or inside-overlay dismissals.
+			// Pointer light-dismiss must not yank focus away from what was clicked.
+			if (this._restoreFocusOnClose) {
+				this.returnFocus();
+			}
+			this._restoreFocusOnClose = false;
 		}
 	};
 
-	private closePopover(): void {
+	private closePopover(restoreFocus = false): void {
 		const popoverEl = this.getPopoverEl();
 		if (popoverEl && this.isOpen) {
+			this._restoreFocusOnClose = restoreFocus;
 			popoverEl.hidePopover();
 		}
 	}
