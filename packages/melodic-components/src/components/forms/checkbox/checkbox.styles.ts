@@ -35,6 +35,10 @@ export const checkboxStyles = () => css`
 		--ml-checkbox-hint-font-size: var(--ml-text-sm);
 		--ml-checkbox-hint-color: var(--ml-color-text-muted);
 
+		/* --- Error --- */
+		--ml-checkbox-error-border-color: var(--ml-color-danger);
+		--ml-checkbox-error-color: var(--ml-color-danger);
+
 		/* --- Gap --- */
 		--ml-checkbox-gap: var(--ml-space-3);
 
@@ -110,6 +114,19 @@ export const checkboxStyles = () => css`
 		font-size: var(--ml-checkbox-hint-font-size);
 		color: var(--ml-checkbox-hint-color);
 		line-height: var(--ml-leading-tight);
+	}
+
+	.ml-checkbox__error {
+		display: block;
+		margin-top: var(--ml-space-0-5);
+		margin-left: calc(var(--ml-checkbox-box-size) + var(--ml-checkbox-gap));
+		font-size: var(--ml-checkbox-hint-font-size);
+		color: var(--ml-checkbox-error-color);
+		line-height: var(--ml-leading-tight);
+	}
+
+	.ml-checkbox--error .ml-checkbox__box {
+		border-color: var(--ml-checkbox-error-border-color);
 	}
 
 	.ml-checkbox--disabled {

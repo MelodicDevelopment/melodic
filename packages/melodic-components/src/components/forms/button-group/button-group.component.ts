@@ -46,7 +46,7 @@ registerAdapter<string | string[]>((el) => el.tagName === 'ML-BUTTON-GROUP', {
 	selector: 'ml-button-group',
 	template: buttonGroupTemplate,
 	styles: buttonGroupStyles,
-	attributes: ['value', 'variant', 'size', 'disabled', 'multiple']
+	attributes: ['value', 'variant', 'size', 'disabled', 'multiple', 'error']
 })
 export class ButtonGroupComponent implements IElementRef, OnCreate, OnDestroy {
 	public elementRef!: HTMLElement;
@@ -68,6 +68,9 @@ export class ButtonGroupComponent implements IElementRef, OnCreate, OnDestroy {
 
 	/** Selected values (multiple mode) */
 	public values: string[] = [];
+
+	/** Error message (shows error state when set; auto-populated by the forms system) */
+	public error = '';
 
 	public onCreate(): void {
 		this.elementRef.addEventListener('ml:item-click', this._handleItemClick as EventListener);
