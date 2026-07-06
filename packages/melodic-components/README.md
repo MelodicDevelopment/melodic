@@ -173,13 +173,14 @@ ml-icon {
 
 ### Components
 - [**Theming**](./docs/theming.md) — Token system, applying themes, creating custom themes, overriding styles
-- [**Forms**](./docs/components/forms.md) — button, button-group, input, textarea, checkbox, radio, radio-card-group, toggle, select, slider, date-picker, form-field
+- [**Forms**](./docs/components/forms.md) — button, button-group, input, textarea, checkbox, radio, radio-card-group, toggle, select, slider, date-picker, date-time-picker, time-picker, form-field, file-upload
 - [**Foundation**](./docs/components/foundation.md) — card, divider, stack, container
 - [**Feedback**](./docs/components/feedback.md) — spinner, alert, progress, toast
 - [**Data Display**](./docs/components/data-display.md) — avatar, badge, badge-group, tag, list, activity-feed, table, data-grid, calendar-view
 - [**Navigation**](./docs/components/navigation.md) — tabs, breadcrumb, pagination, sidebar, steps
 - [**Overlays**](./docs/components/overlays.md) — dialog, drawer, popover, dropdown, tooltip
-- [**Sections**](./docs/components/sections.md) — app-shell, page-header, hero-section
+- [**Sections**](./docs/components/sections.md) — app-shell, page-header, page-section, hero-section
+- [**Pages**](./docs/components/pages.md) — login-page, signup-page, dashboard-page
 
 ### Utilities & Helpers
 - [**Utilities**](./docs/utilities.md) — positioning, accessibility (focus trap, live regions), virtual scrolling, style utilities
