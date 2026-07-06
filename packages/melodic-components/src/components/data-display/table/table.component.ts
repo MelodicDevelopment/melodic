@@ -1,6 +1,7 @@
 import { MelodicComponent } from '@melodicdev/core';
 import type { IElementRef, OnCreate, OnDestroy, OnRender, OnPropertyChange } from '@melodicdev/core';
 import type { TableColumn, SortDirection } from './table.types.js';
+import { watchSlotPresence } from '../../../functions/index.js';
 import { tableTemplate } from './table.template.js';
 import { tableStyles } from './table.styles.js';
 import { TableCore } from '../table-core/index.js';
@@ -140,15 +141,9 @@ export class TableComponent implements IElementRef, OnCreate, OnDestroy, OnRende
 	public onCreate(): void {
 		const shadow = this.elementRef.shadowRoot;
 		if (!shadow) return;
-		shadow.querySelectorAll('slot').forEach(slot => {
-			slot.addEventListener('slotchange', () => {
-				const name = slot.getAttribute('name');
-				if (name === 'footer') {
-					this.hasFooter = slot.assignedNodes().length > 0;
-				} else if (name === 'header-actions') {
-					this.hasHeaderActions = slot.assignedNodes().length > 0;
-				}
-			});
+		watchSlotPresence(shadow, (name, hasContent) => {
+			if (name === 'footer') this.hasFooter = hasContent;
+			else if (name === 'header-actions') this.hasHeaderActions = hasContent;
 		});
 		this._core.attachScroller();
 	}

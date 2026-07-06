@@ -2,6 +2,7 @@ import { MelodicComponent } from '@melodicdev/core';
 import type { IElementRef } from '@melodicdev/core';
 import { statCardTemplate } from './stat-card.template.js';
 import { statCardStyles } from './stat-card.styles.js';
+import { defineLegacyAliases } from '../../../functions/index.js';
 
 type TrendDirection = 'up' | 'down' | 'neutral';
 type ValueFont = 'serif' | 'sans';
@@ -58,28 +59,12 @@ export class StatCardComponent implements IElementRef {
 
 	/** Value font family (attribute: value-font) */
 	public valueFont: ValueFont = 'serif';
-
-	/** @deprecated Legacy property alias — use `trendDirection` (attribute `trend-direction`). */
-	public get 'trend-direction'(): TrendDirection {
-		return this.trendDirection;
-	}
-	public set 'trend-direction'(value: TrendDirection) {
-		this.trendDirection = value;
-	}
-
-	/** @deprecated Legacy property alias — use `iconColor` (attribute `icon-color`). */
-	public get 'icon-color'(): string {
-		return this.iconColor;
-	}
-	public set 'icon-color'(value: string) {
-		this.iconColor = value;
-	}
-
-	/** @deprecated Legacy property alias — use `valueFont` (attribute `value-font`). */
-	public get 'value-font'(): ValueFont {
-		return this.valueFont;
-	}
-	public set 'value-font'(value: ValueFont) {
-		this.valueFont = value;
-	}
 }
+
+// Deprecated quoted kebab-case property aliases (warn once on first write;
+// removed in the next major release).
+defineLegacyAliases(StatCardComponent.prototype, 'ml-stat-card', {
+	'trend-direction': 'trendDirection',
+	'icon-color': 'iconColor',
+	'value-font': 'valueFont'
+});

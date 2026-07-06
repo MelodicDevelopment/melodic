@@ -3,15 +3,7 @@ import type { IElementRef } from '@melodicdev/core';
 import type { AlertVariant } from './alert.types.js';
 import { alertTemplate } from './alert.template.js';
 import { alertStyles } from './alert.styles.js';
-
-let warnedDeprecatedTitle = false;
-function warnDeprecatedTitle(): void {
-	if (warnedDeprecatedTitle) return;
-	warnedDeprecatedTitle = true;
-	console.warn(
-		'[ml-alert] The "title" attribute/property is deprecated because it collides with the global HTML title attribute (native tooltip). Use "alert-title" instead. The "title" shim will be removed in the next major release.'
-	);
-}
+import { warnDeprecatedTitleOnce } from '../../../functions/index.js';
 
 /**
  * ml-alert - Alert/notification banner component
@@ -54,7 +46,7 @@ export class AlertComponent implements IElementRef {
 		return this.alertTitle;
 	}
 	public set title(value: string) {
-		warnDeprecatedTitle();
+		warnDeprecatedTitleOnce('ml-alert', 'alert-title');
 		this.alertTitle = value;
 	}
 

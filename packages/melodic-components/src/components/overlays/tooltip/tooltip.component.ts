@@ -1,7 +1,7 @@
 import { MelodicComponent } from '@melodicdev/core';
 import type { IElementRef, OnCreate, OnDestroy } from '@melodicdev/core';
 import type { Placement } from '../../../types/index.js';
-import { computePosition, autoUpdate, offset, flip, shift } from '../../../utils/positioning/index.js';
+import { OverlayPositioner } from '../../../utils/overlay/index.js';
 import { newID, type UniqueID } from '../../../functions/new-id.function.js';
 import { tooltipTemplate } from './tooltip.template.js';
 import { tooltipStyles } from './tooltip.styles.js';
@@ -56,7 +56,12 @@ export class TooltipComponent implements IElementRef, OnCreate, OnDestroy {
 
 	private _showTimeout: number | null = null;
 	private _hideTimeout: number | null = null;
-	private _cleanupAutoUpdate: (() => void) | null = null;
+	private readonly _positioner = new OverlayPositioner(() => ({
+		placement: this.placement,
+		offset: 8,
+		arrowElement: this.elementRef.shadowRoot?.querySelector('.ml-tooltip__arrow') as HTMLElement | null,
+		placementAttribute: true
+	}));
 
 	public onCreate(): void {
 		// Re-wire aria-describedby whenever the slotted trigger changes.
@@ -141,53 +146,15 @@ export class TooltipComponent implements IElementRef, OnCreate, OnDestroy {
 
 		if (!trigger || !tooltip) return;
 
-		this._cleanupAutoUpdate?.();
-		// autoUpdate runs an initial update immediately, then keeps the tooltip
-		// positioned on scroll/resize so it doesn't drift while visible.
-		this._cleanupAutoUpdate = autoUpdate(trigger, tooltip, () => this.updatePosition());
+		this._positioner.start(trigger, tooltip);
 	}
 
 	private stopPositioning(): void {
-		this._cleanupAutoUpdate?.();
-		this._cleanupAutoUpdate = null;
+		this._positioner.stop();
 	}
 
 	/** The element the popup is positioned against. */
 	private getReferenceEl(): HTMLElement | null {
 		return this.anchorEl ?? (this.elementRef.shadowRoot?.querySelector('.ml-tooltip__trigger') as HTMLElement | null);
-	}
-
-	private updatePosition(): void {
-		const trigger = this.getReferenceEl();
-		const tooltip = this.elementRef.shadowRoot?.querySelector('.ml-tooltip__content') as HTMLElement;
-		const arrow = this.elementRef.shadowRoot?.querySelector('.ml-tooltip__arrow') as HTMLElement;
-
-		if (!trigger || !tooltip) return;
-
-		const { x, y, placement } = computePosition(trigger, tooltip, {
-			placement: this.placement,
-			middleware: [offset(8), flip(), shift({ padding: 8 })]
-		});
-
-		tooltip.style.left = `${x}px`;
-		tooltip.style.top = `${y}px`;
-		tooltip.setAttribute('data-placement', placement);
-
-		// Position arrow
-		if (arrow) {
-			const side = placement.split('-')[0];
-			arrow.style.left = '';
-			arrow.style.right = '';
-			arrow.style.top = '';
-			arrow.style.bottom = '';
-
-			if (side === 'top' || side === 'bottom') {
-				arrow.style.left = '50%';
-				arrow.style.marginLeft = '-4px';
-			} else {
-				arrow.style.top = '50%';
-				arrow.style.marginTop = '-4px';
-			}
-		}
 	}
 }

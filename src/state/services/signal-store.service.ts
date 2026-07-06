@@ -8,6 +8,7 @@ import { Injectable, Injector, Service } from '../../injection';
 import { type ReadonlySignal, type Signal, batch, computed } from '../../signals';
 import { getActiveComponent } from '../../components/functions/active-component.functions';
 import { getSelectorCacheKey } from '../functions/selector-cache-key.function';
+import { getComponentCachedSelect } from '../functions/component-select-cache.function';
 
 type ReducerIndexEntry<S> = { key: keyof S; reducer: ActionReducer<S[keyof S], Action> };
 type EffectIndexEntry<S> = { key: keyof S; effect: ActionEffect };
@@ -34,17 +35,22 @@ export class SignalStoreService<S> {
 	 * Returns a read-only Signal that projects a slice of state[key] through
 	 * selectFn.
 	 *
-	 * When called inside an active component (during template render or onCreate),
-	 * the returned signal is cached for the component's lifetime and destroyed when
-	 * the component unmounts. By default the cache key is the selectFn's function
-	 * identity, so repeated calls with the SAME function reference return the same
-	 * cached signal, and distinct closures never collide (even when their source
-	 * text is identical, e.g. `s => s.items.includes(x)` with different `x`).
+	 * When called inside an active component the returned signal is cached per
+	 * component, keyed by `cacheKey ?? selectFn` identity (distinct closures
+	 * never collide, even with identical source text). The entry's lifetime
+	 * depends on where the call happens:
 	 *
-	 * Because identity is the key, an inline arrow recreated on every call will
-	 * miss the cache each time. Hold the selector in a stable reference (class
-	 * field, module constant), or pass an explicit `cacheKey` to discriminate
-	 * or unify calls:
+	 * - Class-field initializer / onCreate: cached for the component's lifetime
+	 *   and destroyed when the component unmounts.
+	 * - During a render (template expression or a getter the template reads):
+	 *   render-scoped — the component re-renders when the selected value
+	 *   changes, and the entry is destroyed by the first render that stops
+	 *   using it. Inline arrows are therefore safe: each render re-creates the
+	 *   selector with its current captured values and the stale computed is
+	 *   swept, so nothing accumulates.
+	 *
+	 * Pass `cacheKey` to unify call sites or to get cache hits across renders
+	 * for parameterized selectors:
 	 *
 	 *     store.select('accountState',
 	 *         s => s.account?.permissions?.includes(perm),
@@ -61,17 +67,8 @@ export class SignalStoreService<S> {
 		const consumer = getActiveComponent();
 
 		if (consumer) {
-			const cache = consumer.getSelectCache();
 			const fullKey = `${String(key)}::${cacheKey ?? getSelectorCacheKey(selectFn)}`;
-			const cached = cache.get(fullKey) as ReadonlySignal<T> | undefined;
-			if (cached) {
-				return cached;
-			}
-
-			const sig = computed(() => selectFn(this._state[key]()));
-			cache.set(fullKey, sig as unknown as Signal<unknown>);
-			consumer.registerDisposable(sig as unknown as { destroy(): void });
-			return sig;
+			return getComponentCachedSelect(consumer, fullKey, () => computed(() => selectFn(this._state[key]())));
 		}
 
 		return computed(() => selectFn(this._state[key]()));

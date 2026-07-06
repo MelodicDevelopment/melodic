@@ -1,6 +1,7 @@
 import { MelodicComponent } from '@melodicdev/core';
 import type { IElementRef, OnCreate } from '@melodicdev/core';
 import type { Orientation } from '../../../types/index.js';
+import { watchSlotPresence } from '../../../functions/index.js';
 import { dividerTemplate } from './divider.template.js';
 import { dividerStyles } from './divider.styles.js';
 
@@ -35,16 +36,8 @@ export class DividerComponent implements IElementRef, OnCreate {
 		const shadow = this.elementRef.shadowRoot;
 		if (!shadow) return;
 
-		const slot = shadow.querySelector('slot:not([name])') as HTMLSlotElement | null;
-		if (!slot) return;
-
-		const update = (): void => {
-			this.hasLabel = slot.assignedNodes().some(
-				(node) => node.nodeType === Node.ELEMENT_NODE || (node.textContent ?? '').trim() !== ''
-			);
-		};
-
-		slot.addEventListener('slotchange', update);
-		update();
+		watchSlotPresence(shadow, (name, hasContent) => {
+			if (name === '') this.hasLabel = hasContent;
+		});
 	}
 }

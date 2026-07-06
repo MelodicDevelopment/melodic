@@ -3,7 +3,7 @@ import type { IElementRef, OnCreate, OnDestroy } from '@melodicdev/core';
 import type { Placement } from '../../../types/index.js';
 import type { DropdownItemComponent } from './dropdown-item.component.js';
 import { OverlayPositioner, ToggleDismissGuard } from '../../../utils/overlay/index.js';
-import { getDeepActiveElement } from '../../../utils/accessibility/focus-trap.js';
+import { isDeepFocusWithin } from '../../../utils/accessibility/focus-trap.js';
 import { dropdownTemplate } from './dropdown.template.js';
 import { dropdownStyles } from './dropdown.styles.js';
 
@@ -132,7 +132,7 @@ export class DropdownComponent implements IElementRef, OnCreate, OnDestroy {
 			// Restore trigger focus only for keyboard dismissals or when focus is
 			// still inside the dropdown (e.g. an item was clicked). A pointer
 			// light-dismiss that moved focus elsewhere must not steal it back.
-			const shouldRestoreFocus = this._restoreFocusOnClose || this.isFocusWithin();
+			const shouldRestoreFocus = this._restoreFocusOnClose || isDeepFocusWithin(this.elementRef);
 			this._restoreFocusOnClose = false;
 			this.clearFocus();
 			this._positioner.stop();
@@ -331,15 +331,6 @@ export class DropdownComponent implements IElementRef, OnCreate, OnDestroy {
 	};
 
 	/** True when the (deep) focused element is inside this dropdown. */
-	private isFocusWithin(): boolean {
-		let node: Node | null = getDeepActiveElement();
-		while (node) {
-			if (node === this.elementRef) return true;
-			node = node instanceof ShadowRoot ? node.host : node.parentNode;
-		}
-		return false;
-	}
-
 	private startPositioning(): void {
 		const triggerEl = this.getTriggerEl();
 		const menuEl = this.getMenuEl();

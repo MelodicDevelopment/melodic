@@ -2,7 +2,7 @@ import { MelodicComponent } from '@melodicdev/core';
 import type { IElementRef, OnCreate, OnDestroy } from '@melodicdev/core';
 import type { Placement } from '../../../types/index.js';
 import { OverlayPositioner, ToggleDismissGuard } from '../../../utils/overlay/index.js';
-import { createFocusTrap, getDeepActiveElement, type FocusTrap } from '../../../utils/accessibility/focus-trap.js';
+import { createFocusTrap, isDeepFocusWithin, type FocusTrap } from '../../../utils/accessibility/focus-trap.js';
 import { popoverTemplate } from './popover.template.js';
 import { popoverStyles } from './popover.styles.js';
 
@@ -127,7 +127,7 @@ export class PopoverComponent implements IElementRef, OnCreate, OnDestroy {
 			// Restore focus only when it is still inside the popover (keyboard
 			// dismiss / focus parked in the content); a pointer light-dismiss
 			// that moved focus elsewhere must not have it yanked back.
-			this._focusTrap?.deactivate({ returnFocus: this.isFocusWithin() });
+			this._focusTrap?.deactivate({ returnFocus: isDeepFocusWithin(this.elementRef) });
 			this._focusTrap = null;
 			this.elementRef.dispatchEvent(
 				new CustomEvent('ml:close', { bubbles: true, composed: true })
@@ -142,16 +142,6 @@ export class PopoverComponent implements IElementRef, OnCreate, OnDestroy {
 		this._focusTrap?.deactivate({ returnFocus: false });
 		this._focusTrap = createFocusTrap(popoverEl);
 		this._focusTrap.activate();
-	}
-
-	/** True when the (deep) focused element is inside this popover. */
-	private isFocusWithin(): boolean {
-		let node: Node | null = getDeepActiveElement();
-		while (node) {
-			if (node === this.elementRef) return true;
-			node = node instanceof ShadowRoot ? node.host : node.parentNode;
-		}
-		return false;
 	}
 
 	private startPositioning(): void {

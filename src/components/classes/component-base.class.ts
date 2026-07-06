@@ -43,6 +43,11 @@ export abstract class ComponentBase extends HTMLElement {
 	private readonly _stringProperties: Set<string> = new Set();
 	private readonly _disposables: Set<{ destroy(): void }>;
 	private readonly _selectCache: Map<string, Signal<unknown>>;
+	private _rendering = false;
+	private _selectEpoch = 0;
+	// Cache keys of select() entries created during a render pass, tagged with
+	// the epoch of the last render that used them (see sweepRenderScopedSelects).
+	private readonly _renderScopedSelects: Map<string, number> = new Map();
 
 	// Reactive signal/control sources discovered during observe(). Subscribed on
 	// every connect and torn down on every disconnect, so reactivity survives the
@@ -97,6 +102,33 @@ export abstract class ComponentBase extends HTMLElement {
 
 	public getSelectCache(): Map<string, Signal<unknown>> {
 		return this._selectCache;
+	}
+
+	/**
+	 * Marks a cached select() entry as used by the current render pass so the
+	 * post-render sweep keeps it. No-op for entries created outside a render
+	 * (those are component-lifetime and never swept).
+	 */
+	public touchSelectEntry(fullKey: string): void {
+		if (this._renderScopedSelects.has(fullKey)) {
+			this._renderScopedSelects.set(fullKey, this._selectEpoch);
+		}
+	}
+
+	/**
+	 * Registers a select() entry created while this component was rendering as
+	 * render-scoped: the component re-renders when its value changes, and the
+	 * entry is destroyed by the first subsequent render that doesn't use it
+	 * (an inline selector recreated under a new identity key, or a conditional
+	 * branch no longer rendered). Entries created outside a render pass (class
+	 * field initializers, onCreate) keep their component-lifetime semantics.
+	 */
+	public trackSelectEntry(fullKey: string, sig: Signal<unknown>): void {
+		if (!this._rendering) {
+			return;
+		}
+		this._renderScopedSelects.set(fullKey, this._selectEpoch);
+		sig.subscribe(() => this.scheduleRender());
 	}
 
 	public connectedCallback(): void {
@@ -262,6 +294,8 @@ export abstract class ComponentBase extends HTMLElement {
 	private render(): void {
 		const prev = getActiveComponent();
 		setActiveComponent(this);
+		this._rendering = true;
+		this._selectEpoch++;
 		try {
 			if (this._meta.template) {
 				const templateResult = this._meta.template(this._component, this.getAttributeValues());
@@ -276,7 +310,30 @@ export abstract class ComponentBase extends HTMLElement {
 				this._component.onRender();
 			}
 		} finally {
+			this._rendering = false;
 			setActiveComponent(prev);
+			this.sweepRenderScopedSelects();
+		}
+	}
+
+	/**
+	 * Destroys render-scoped select() entries the just-finished render didn't
+	 * touch. Without this, an inline selector (a new function identity every
+	 * render) would accumulate one live computed per render for the life of
+	 * the component, and every store dispatch would pay for all of them.
+	 */
+	private sweepRenderScopedSelects(): void {
+		for (const [key, epoch] of this._renderScopedSelects) {
+			if (epoch === this._selectEpoch) {
+				continue;
+			}
+			const sig = this._selectCache.get(key) as unknown as { destroy(): void } | undefined;
+			this._renderScopedSelects.delete(key);
+			this._selectCache.delete(key);
+			if (sig) {
+				this._disposables.delete(sig);
+				sig.destroy();
+			}
 		}
 	}
 

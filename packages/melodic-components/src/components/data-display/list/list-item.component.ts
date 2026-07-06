@@ -1,5 +1,6 @@
 import { MelodicComponent } from '@melodicdev/core';
 import type { IElementRef, OnCreate, OnRender } from '@melodicdev/core';
+import { watchSlotPresence } from '../../../functions/index.js';
 import { listItemTemplate } from './list-item.template.js';
 import { listItemStyles } from './list-item.styles.js';
 
@@ -50,13 +51,9 @@ export class ListItemComponent implements IElementRef, OnCreate, OnRender {
 		if (shadow) {
 			// Slot presence is reactive: content added/removed after mount projects
 			// correctly instead of being frozen at first render.
-			shadow.querySelectorAll('slot[name]').forEach((slot) => {
-				slot.addEventListener('slotchange', () => {
-					const name = slot.getAttribute('name');
-					const hasContent = (slot as HTMLSlotElement).assignedNodes().length > 0;
-					if (name === 'leading') this.hasLeadingSlot = hasContent;
-					else if (name === 'trailing') this.hasTrailingSlot = hasContent;
-				});
+			watchSlotPresence(shadow, (name, hasContent) => {
+				if (name === 'leading') this.hasLeadingSlot = hasContent;
+				else if (name === 'trailing') this.hasTrailingSlot = hasContent;
 			});
 		}
 

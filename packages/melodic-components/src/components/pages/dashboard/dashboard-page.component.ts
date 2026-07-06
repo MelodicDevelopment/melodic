@@ -2,17 +2,9 @@ import { MelodicComponent } from '@melodicdev/core';
 import type { IElementRef, OnCreate, OnDestroy } from '@melodicdev/core';
 import { dashboardPageTemplate } from './dashboard-page.template.js';
 import { dashboardPageStyles } from './dashboard-page.styles.js';
+import { warnDeprecatedTitleOnce } from '../../../functions/index.js';
 
 export type DashboardLayout = 'default' | 'wide' | 'full';
-
-let warnedDeprecatedTitle = false;
-function warnDeprecatedTitle(): void {
-	if (warnedDeprecatedTitle) return;
-	warnedDeprecatedTitle = true;
-	console.warn(
-		'[ml-dashboard-page] The "title" attribute/property is deprecated because it collides with the global HTML title attribute (native tooltip). Use "page-title" instead. The "title" shim will be removed in the next major release.'
-	);
-}
 
 /**
  * ml-dashboard-page - Composite dashboard layout component
@@ -58,7 +50,7 @@ export class DashboardPageComponent implements IElementRef, OnCreate, OnDestroy 
 		return this.pageTitle;
 	}
 	public set title(value: string) {
-		warnDeprecatedTitle();
+		warnDeprecatedTitleOnce('ml-dashboard-page', 'page-title');
 		this.pageTitle = value;
 	}
 
@@ -85,7 +77,20 @@ export class DashboardPageComponent implements IElementRef, OnCreate, OnDestroy 
 		// true), and the header-actions slot is chained into ml-page-header's
 		// actions slot, so rendering it unconditionally would make page-header
 		// consider its actions section non-empty. Watch the light DOM instead.
-		this._slotObserver = new MutationObserver(() => this.syncSlotFlags());
+		// Only direct children participate in slot projection, but attribute
+		// mutations on children are only observable with subtree:true — so
+		// observe the subtree and filter to the mutations that can actually
+		// change projection: child-list changes on the host itself, or a
+		// `slot` attribute change on a direct child. Deep mutations in slotted
+		// content (e.g. rows changing inside a slotted table) are ignored.
+		this._slotObserver = new MutationObserver((mutations) => {
+			const relevant = mutations.some((m) =>
+				m.type === 'childList' ? m.target === this.elementRef : m.target.parentNode === this.elementRef
+			);
+			if (relevant) {
+				this.syncSlotFlags();
+			}
+		});
 		this._slotObserver.observe(this.elementRef, {
 			childList: true,
 			subtree: true,
@@ -101,8 +106,8 @@ export class DashboardPageComponent implements IElementRef, OnCreate, OnDestroy 
 	}
 
 	private syncSlotFlags(): void {
-		this.hasMetrics = this.elementRef.querySelector('[slot="metrics"]') !== null;
-		this.hasAside = this.elementRef.querySelector('[slot="aside"]') !== null;
-		this.hasHeaderActions = this.elementRef.querySelector('[slot="header-actions"]') !== null;
+		this.hasMetrics = this.elementRef.querySelector(':scope > [slot="metrics"]') !== null;
+		this.hasAside = this.elementRef.querySelector(':scope > [slot="aside"]') !== null;
+		this.hasHeaderActions = this.elementRef.querySelector(':scope > [slot="header-actions"]') !== null;
 	}
 }

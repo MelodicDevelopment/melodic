@@ -154,17 +154,6 @@ export class RouterService {
 	}
 
 	/**
-	 * Run the resolvers for a match result.
-	 *
-	 * Note: the router pipeline (navigate / initial navigation / popstate) runs
-	 * resolvers itself exactly once per navigation — call this only when driving
-	 * the router manually.
-	 */
-	public async runResolvers(matchResult: IRouteMatchResult): Promise<{ success: boolean; error?: string }> {
-		return this.runResolversInternal(matchResult);
-	}
-
-	/**
 	 * Run the full pipeline (match → guards → resolvers → commit) for the
 	 * CURRENT location without touching history. Called once by the root
 	 * outlet on startup; also re-run when the root outlet's routes change.
@@ -192,7 +181,7 @@ export class RouterService {
 				return { success: false, error: 'Navigation blocked by guard' };
 			}
 
-			const resolverResult = await this.runResolversInternal(matchResult);
+			const resolverResult = await this.runResolvers(matchResult);
 			if (this._navigationId !== navId) {
 				return { success: false, error: 'Navigation superseded' };
 			}
@@ -268,7 +257,7 @@ export class RouterService {
 			}
 
 			if (!skipResolvers && matchResult.matches.length > 0) {
-				const resolverResult = await this.runResolversInternal(matchResult);
+				const resolverResult = await this.runResolvers(matchResult);
 				if (this._navigationId !== navId) {
 					return superseded();
 				}
@@ -419,7 +408,12 @@ export class RouterService {
 		};
 	}
 
-	private async runResolversInternal(matchResult: IRouteMatchResult): Promise<{ success: boolean; error?: string }> {
+	/**
+	 * Run the resolvers for a match result. The router pipeline (navigate /
+	 * initial navigation / popstate) calls this exactly once per navigation —
+	 * call it directly only when driving the router manually.
+	 */
+	public async runResolvers(matchResult: IRouteMatchResult): Promise<{ success: boolean; error?: string }> {
 		this._contextService.clearResolvedData();
 
 		for (let depth = 0; depth < matchResult.matches.length; depth++) {
@@ -498,7 +492,7 @@ export class RouterService {
 				return;
 			}
 
-			const resolverResult = await this.runResolversInternal(matchResult);
+			const resolverResult = await this.runResolvers(matchResult);
 			if (this._navigationId !== navId) {
 				return;
 			}

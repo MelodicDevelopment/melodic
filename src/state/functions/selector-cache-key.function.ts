@@ -8,8 +8,11 @@ const selectorKeys = new WeakMap<object, string>();
  * closures capturing different variables, or minified output).
  *
  * Consequence: a selector recreated on every call (an inline arrow in a
- * render path) never hits the cache. Hold selectors in stable references, or
- * pass an explicit `cacheKey`, to benefit from per-component caching.
+ * render path) never hits the cache. That is safe — render-created entries
+ * are render-scoped and swept when a render stops using them (see
+ * ComponentBase.trackSelectEntry) — but each render pays a computed creation.
+ * Hold selectors in stable references, or pass an explicit `cacheKey`, to get
+ * cache hits across renders.
  */
 export function getSelectorCacheKey(selectFn: object): string {
 	let key = selectorKeys.get(selectFn);

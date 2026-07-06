@@ -1,6 +1,7 @@
 import { MelodicComponent } from '@melodicdev/core';
 import type { IElementRef, OnCreate } from '@melodicdev/core';
 import type { Size } from '../../../types/index.js';
+import { watchSlotPresence, defineLegacyAliases } from '../../../functions/index.js';
 import { activityFeedItemTemplate } from './activity-feed-item.template.js';
 import { activityFeedItemStyles } from './activity-feed-item.styles.js';
 
@@ -54,38 +55,6 @@ export class ActivityFeedItemComponent implements IElementRef, OnCreate {
 	/** Indicator dot color — preset name or any CSS color value (attribute: indicator-color) */
 	public indicatorColor: IndicatorPreset | string = 'gray';
 
-	/** @deprecated Legacy property alias — use `avatarSrc` (attribute `avatar-src`). */
-	public get 'avatar-src'(): string {
-		return this.avatarSrc;
-	}
-	public set 'avatar-src'(value: string) {
-		this.avatarSrc = value;
-	}
-
-	/** @deprecated Legacy property alias — use `avatarInitials` (attribute `avatar-initials`). */
-	public get 'avatar-initials'(): string {
-		return this.avatarInitials;
-	}
-	public set 'avatar-initials'(value: string) {
-		this.avatarInitials = value;
-	}
-
-	/** @deprecated Legacy property alias — use `avatarSize` (attribute `avatar-size`). */
-	public get 'avatar-size'(): Size {
-		return this.avatarSize;
-	}
-	public set 'avatar-size'(value: Size) {
-		this.avatarSize = value;
-	}
-
-	/** @deprecated Legacy property alias — use `indicatorColor` (attribute `indicator-color`). */
-	public get 'indicator-color'(): IndicatorPreset | string {
-		return this.indicatorColor;
-	}
-	public set 'indicator-color'(value: IndicatorPreset | string) {
-		this.indicatorColor = value;
-	}
-
 	/** Whether the indicator-color is a preset name */
 	public get isPresetColor(): boolean {
 		return INDICATOR_PRESETS.has(this.indicatorColor);
@@ -104,13 +73,18 @@ export class ActivityFeedItemComponent implements IElementRef, OnCreate {
 		// uses native slot fallback for the default ml-avatar.)
 		const shadow = this.elementRef.shadowRoot;
 		if (!shadow) return;
-		shadow.querySelectorAll('slot[name]').forEach((slot) => {
-			slot.addEventListener('slotchange', () => {
-				const name = slot.getAttribute('name');
-				const hasContent = (slot as HTMLSlotElement).assignedNodes().length > 0;
-				if (name === 'avatar') this.hasAvatarSlot = hasContent;
-				else if (name === 'content') this.hasContentSlot = hasContent;
-			});
+		watchSlotPresence(shadow, (name, hasContent) => {
+			if (name === 'avatar') this.hasAvatarSlot = hasContent;
+			else if (name === 'content') this.hasContentSlot = hasContent;
 		});
 	}
 }
+
+// Deprecated quoted kebab-case property aliases (warn once on first write;
+// removed in the next major release).
+defineLegacyAliases(ActivityFeedItemComponent.prototype, 'ml-activity-feed-item', {
+	'avatar-src': 'avatarSrc',
+	'avatar-initials': 'avatarInitials',
+	'avatar-size': 'avatarSize',
+	'indicator-color': 'indicatorColor'
+});

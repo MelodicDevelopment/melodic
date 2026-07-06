@@ -1,18 +1,10 @@
 import { MelodicComponent } from '@melodicdev/core';
 import type { IElementRef, OnCreate } from '@melodicdev/core';
+import { watchSlotPresence, warnDeprecatedTitleOnce, defineLegacyAliases } from '../../../functions/index.js';
 import { pageSectionTemplate } from './page-section.template.js';
 import { pageSectionStyles } from './page-section.styles.js';
 
 type SectionPadding = 'none' | 'sm' | 'md' | 'lg';
-
-let warnedDeprecatedTitle = false;
-function warnDeprecatedTitle(): void {
-	if (warnedDeprecatedTitle) return;
-	warnedDeprecatedTitle = true;
-	console.warn(
-		'[ml-page-section] The "title" attribute/property is deprecated because it collides with the global HTML title attribute (native tooltip). Use "section-title" instead. The "title" shim will be removed in the next major release.'
-	);
-}
 
 /**
  * ml-page-section - Titled content section with consistent heading typography
@@ -54,7 +46,7 @@ export class PageSectionComponent implements IElementRef, OnCreate {
 		return this.sectionTitle;
 	}
 	public set title(value: string) {
-		warnDeprecatedTitle();
+		warnDeprecatedTitleOnce('ml-page-section', 'section-title');
 		this.sectionTitle = value;
 	}
 
@@ -67,22 +59,6 @@ export class PageSectionComponent implements IElementRef, OnCreate {
 	/** Content padding */
 	public padding: SectionPadding = 'md';
 
-	/** @deprecated Legacy property alias — use `actionLabel` (attribute `action-label`). */
-	public get 'action-label'(): string {
-		return this.actionLabel;
-	}
-	public set 'action-label'(value: string) {
-		this.actionLabel = value;
-	}
-
-	/** @deprecated Legacy property alias — use `actionHref` (attribute `action-href`). */
-	public get 'action-href'(): string {
-		return this.actionHref;
-	}
-	public set 'action-href'(value: string) {
-		this.actionHref = value;
-	}
-
 	/** Whether the action slot has content (toggled via slotchange) */
 	public hasAction = false;
 
@@ -90,9 +66,15 @@ export class PageSectionComponent implements IElementRef, OnCreate {
 		const shadow = this.elementRef.shadowRoot;
 		if (!shadow) return;
 
-		const slot = shadow.querySelector('slot[name="action"]') as HTMLSlotElement | null;
-		slot?.addEventListener('slotchange', () => {
-			this.hasAction = slot.assignedNodes().length > 0;
+		watchSlotPresence(shadow, (name, hasContent) => {
+			if (name === 'action') this.hasAction = hasContent;
 		});
 	}
 }
+
+// Deprecated quoted kebab-case property aliases (warn once on first write;
+// removed in the next major release).
+defineLegacyAliases(PageSectionComponent.prototype, 'ml-page-section', {
+	'action-label': 'actionLabel',
+	'action-href': 'actionHref'
+});

@@ -3,6 +3,7 @@ import type { IElementRef } from '@melodicdev/core';
 import type { StepStatus, StepsVariant, StepsConnector, StepsColor, StepsOrientation } from './steps.types.js';
 import { stepTemplate } from './step.template.js';
 import { stepStyles } from './step.styles.js';
+import { defineLegacyAliases } from '../../../functions/index.js';
 
 /**
  * ml-step - Individual step header for use within ml-steps
@@ -60,14 +61,6 @@ export class StepComponent implements IElementRef {
 	/** Step number (managed by parent; attribute: step-number) */
 	public stepNumber = '1';
 
-	/** @deprecated Legacy property alias — use `stepNumber` (attribute `step-number`). */
-	public get 'step-number'(): string {
-		return this.stepNumber;
-	}
-	public set 'step-number'(value: string) {
-		this.stepNumber = value;
-	}
-
 	/** First step flag (managed by parent) */
 	public first = false;
 
@@ -90,3 +83,9 @@ export class StepComponent implements IElementRef {
 		);
 	};
 }
+
+// Deprecated quoted kebab-case property aliases (warn once on first write;
+// removed in the next major release).
+defineLegacyAliases(StepComponent.prototype, 'ml-step', {
+	'step-number': 'stepNumber'
+});

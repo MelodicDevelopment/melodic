@@ -1,5 +1,6 @@
 import { MelodicComponent } from '@melodicdev/core';
 import type { IElementRef, OnCreate } from '@melodicdev/core';
+import { watchSlotPresence } from '../../../functions/index.js';
 import { cardTemplate } from './card.template.js';
 import { cardStyles } from './card.styles.js';
 
@@ -51,13 +52,9 @@ export class CardComponent implements IElementRef, OnCreate {
 		// value a render-time querySelector saw.
 		const shadow = this.elementRef.shadowRoot;
 		if (!shadow) return;
-		shadow.querySelectorAll('slot[name]').forEach((slot) => {
-			slot.addEventListener('slotchange', () => {
-				const name = slot.getAttribute('name');
-				const hasContent = (slot as HTMLSlotElement).assignedNodes().length > 0;
-				if (name === 'header') this.hasHeader = hasContent;
-				else if (name === 'footer') this.hasFooter = hasContent;
-			});
+		watchSlotPresence(shadow, (name, hasContent) => {
+			if (name === 'header') this.hasHeader = hasContent;
+			else if (name === 'footer') this.hasFooter = hasContent;
 		});
 	}
 

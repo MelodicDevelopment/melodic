@@ -13,6 +13,8 @@ export const buttonGroupStyles = () => css`
 		/* --- Error --- */
 		--ml-button-group-error-font-size: var(--ml-text-sm);
 		--ml-button-group-error-color: var(--ml-color-danger);
+		--ml-button-group-error-margin-top: var(--ml-space-1);
+		--ml-button-group-error-line-height: var(--ml-leading-tight);
 	}
 
 	.ml-button-group {
@@ -27,10 +29,10 @@ export const buttonGroupStyles = () => css`
 
 	.ml-button-group__error {
 		display: block;
-		margin-top: var(--ml-space-1);
+		margin-top: var(--ml-button-group-error-margin-top);
 		font-size: var(--ml-button-group-error-font-size);
 		color: var(--ml-button-group-error-color);
-		line-height: var(--ml-leading-tight);
+		line-height: var(--ml-button-group-error-line-height);
 	}
 
 	::slotted(ml-button-group-item) {

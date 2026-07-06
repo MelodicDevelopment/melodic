@@ -3,6 +3,7 @@ import type { IElementRef, OnCreate, OnDestroy } from '@melodicdev/core';
 import type { BadgeColor } from './sidebar.types.js';
 import { sidebarItemTemplate } from './sidebar-item.template.js';
 import { sidebarItemStyles } from './sidebar-item.styles.js';
+import { defineLegacyAliases } from '../../../functions/index.js';
 
 /**
  * ml-sidebar-item - Navigation link for use within ml-sidebar
@@ -37,14 +38,6 @@ export class SidebarItemComponent implements IElementRef, OnCreate, OnDestroy {
 	/** Icon format (passed through to ml-icon; attribute: icon-format) */
 	public iconFormat: 'fill' | 'thin' | 'light' | 'regular' | 'bold' | '' = '';
 
-	/** @deprecated Legacy property alias — use `iconFormat` (attribute `icon-format`). */
-	public get 'icon-format'(): 'fill' | 'thin' | 'light' | 'regular' | 'bold' | '' {
-		return this.iconFormat;
-	}
-	public set 'icon-format'(value: 'fill' | 'thin' | 'light' | 'regular' | 'bold' | '') {
-		this.iconFormat = value;
-	}
-
 	/** Display label */
 	public label = '';
 
@@ -65,14 +58,6 @@ export class SidebarItemComponent implements IElementRef, OnCreate, OnDestroy {
 
 	/** Badge color variant (attribute: badge-color) */
 	public badgeColor: BadgeColor = 'default';
-
-	/** @deprecated Legacy property alias — use `badgeColor` (attribute `badge-color`). */
-	public get 'badge-color'(): BadgeColor {
-		return this.badgeColor;
-	}
-	public set 'badge-color'(value: BadgeColor) {
-		this.badgeColor = value;
-	}
 
 	/** External link */
 	public external = false;
@@ -130,3 +115,10 @@ export class SidebarItemComponent implements IElementRef, OnCreate, OnDestroy {
 		);
 	};
 }
+
+// Deprecated quoted kebab-case property aliases (warn once on first write;
+// removed in the next major release).
+defineLegacyAliases(SidebarItemComponent.prototype, 'ml-sidebar-item', {
+	'icon-format': 'iconFormat',
+	'badge-color': 'badgeColor'
+});

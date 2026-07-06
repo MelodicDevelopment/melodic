@@ -2,6 +2,7 @@ import { MelodicComponent } from '@melodicdev/core';
 import type { IElementRef, OnCreate, OnDestroy } from '@melodicdev/core';
 import { registerAdapter } from '@melodicdev/core/forms';
 import { OverlayPositioner } from '../../../utils/overlay/index.js';
+import { isDeepFocusWithin } from '../../../utils/accessibility/focus-trap.js';
 import { datePickerTemplate } from './date-picker.template.js';
 import { datePickerStyles } from './date-picker.styles.js';
 
@@ -162,16 +163,24 @@ export class DatePickerComponent implements IElementRef, OnCreate, OnDestroy {
 		}
 
 		const iso = parseDateInput(text);
-		if (iso) {
+		if (iso && this.isWithinRange(iso)) {
 			this.commitValue(iso);
 			// Normalize the display immediately (re-render may be skipped when the
 			// committed value is unchanged).
 			input.value = formatDisplayDate(iso);
 		} else {
-			// Invalid input: revert to the last committed value.
+			// Invalid or out-of-range input: revert to the last committed value,
+			// matching what the calendar enforces for min/max.
 			input.value = this.displayValue;
 		}
 	};
+
+	/** ISO dates (YYYY-MM-DD) compare correctly as strings. */
+	private isWithinRange(iso: string): boolean {
+		if (this.min && iso < this.min) return false;
+		if (this.max && iso > this.max) return false;
+		return true;
+	}
 
 	/** Clicking the input opens the calendar */
 	public handleInputClick = (): void => {
@@ -222,9 +231,12 @@ export class DatePickerComponent implements IElementRef, OnCreate, OnDestroy {
 		} else {
 			this.isOpen = false;
 			this._positioner.stop();
-			// Only restore focus for keyboard (Escape) or inside-overlay dismissals.
-			// Pointer light-dismiss must not yank focus away from what was clicked.
-			if (this._restoreFocusOnClose) {
+			// Restore focus for keyboard (Escape) and inside-overlay dismissals —
+			// including native popover light-dismiss (e.g. Escape pressed while
+			// focus is parked in the calendar), which would otherwise drop focus
+			// to <body>. Pointer light-dismiss that moved focus elsewhere must
+			// not have it yanked back.
+			if (this._restoreFocusOnClose || isDeepFocusWithin(this.elementRef)) {
 				this.returnFocus();
 			}
 			this._restoreFocusOnClose = false;

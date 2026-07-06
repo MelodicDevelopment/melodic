@@ -28,10 +28,6 @@ export class RequestManager {
 		return key;
 	}
 
-	public hasPendingRequest(key: string): boolean {
-		return this._pendingRequests.has(key);
-	}
-
 	/**
 	 * Joins an in-flight request as an additional participant. The caller's
 	 * abort signal is ref-counted: the underlying request is aborted only when

@@ -3,6 +3,7 @@ import { EffectsBase } from './effects.base.class';
 import { type ReadonlySignal, type Signal, signal, computed } from '../../signals';
 import { getActiveComponent } from '../../components/functions/active-component.functions';
 import { getSelectorCacheKey } from '../functions/selector-cache-key.function';
+import { getComponentCachedSelect } from '../functions/component-select-cache.function';
 
 let nextInstanceId = 0;
 
@@ -31,18 +32,23 @@ export abstract class ComponentStateBaseService<S extends object> extends Effect
 	 * Returns a read-only Signal that projects this service's state through
 	 * selectFn.
 	 *
-	 * When called inside an active component (during template render or onCreate,
-	 * or in a class-field initializer), the returned signal is cached per
-	 * (service-instance, selectFn-identity) for the component's lifetime and
-	 * destroyed on disconnect. Identity keying means repeated calls with the
-	 * SAME function reference return the same cached signal, and distinct
-	 * closures never collide (even when their source text is identical).
+	 * When called inside an active component the returned signal is cached per
+	 * (service-instance, cacheKey ?? selectFn-identity); distinct closures
+	 * never collide, even with identical source text. The entry's lifetime
+	 * depends on where the call happens:
 	 *
-	 * Because identity is the key, an inline arrow recreated on every call will
-	 * miss the cache each time. Hold the selector in a stable reference (class
-	 * field, module constant), or pass an explicit `cacheKey` to discriminate
-	 * or unify calls (e.g., `s => s.items.filter(i => i.tag === tag)` with
-	 * `cacheKey: 'tag:' + tag`).
+	 * - Class-field initializer / onCreate: cached for the component's lifetime
+	 *   and destroyed on disconnect.
+	 * - During a render (template expression or a getter the template reads):
+	 *   render-scoped — the component re-renders when the selected value
+	 *   changes, and the entry is destroyed by the first render that stops
+	 *   using it. Inline arrows are therefore safe: each render re-creates the
+	 *   selector with its current captured values and the stale computed is
+	 *   swept, so nothing accumulates.
+	 *
+	 * Pass `cacheKey` to unify call sites or to get cache hits across renders
+	 * for parameterized selectors (e.g., `s => s.items.filter(i => i.tag === tag)`
+	 * with `cacheKey: 'tag:' + tag`).
 	 *
 	 * Outside an active component, no caching happens; the caller owns the
 	 * returned signal's lifetime.
@@ -51,17 +57,8 @@ export abstract class ComponentStateBaseService<S extends object> extends Effect
 		const consumer = getActiveComponent();
 
 		if (consumer) {
-			const cache = consumer.getSelectCache();
 			const fullKey = `cs:${this._instanceId}::${cacheKey ?? getSelectorCacheKey(selectFn)}`;
-			const cached = cache.get(fullKey) as ReadonlySignal<T> | undefined;
-			if (cached) {
-				return cached;
-			}
-
-			const sig = computed(() => selectFn(this._state()));
-			cache.set(fullKey, sig as unknown as Signal<unknown>);
-			consumer.registerDisposable(sig as unknown as { destroy(): void });
-			return sig;
+			return getComponentCachedSelect(consumer, fullKey, () => computed(() => selectFn(this._state())));
 		}
 
 		return computed(() => selectFn(this._state()));

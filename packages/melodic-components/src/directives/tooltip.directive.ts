@@ -152,8 +152,17 @@ function tooltipDirective(element: Element, value: unknown): AttributeDirectiveC
 		tooltipStates.set(element, state);
 	}
 
-	state.tooltip.setAttribute('content', content);
-	state.tooltip.setAttribute('placement', placement ?? 'top');
+	// Diff before writing: an object-form value (`{content, placement}`) is a
+	// fresh reference every render, so the engine re-runs this directive even
+	// when nothing changed — an unconditional setAttribute would fire the
+	// tooltip's attributeChangedCallback each time.
+	if (state.tooltip.getAttribute('content') !== content) {
+		state.tooltip.setAttribute('content', content);
+	}
+	const resolvedPlacement = placement ?? 'top';
+	if (state.tooltip.getAttribute('placement') !== resolvedPlacement) {
+		state.tooltip.setAttribute('placement', resolvedPlacement);
+	}
 	ensureInserted(element, state.tooltip);
 
 	const currentState = state;

@@ -1,6 +1,7 @@
 import { MelodicComponent } from '@melodicdev/core';
 import type { IElementRef, OnCreate } from '@melodicdev/core';
 import type { Size } from '../../../types/index.js';
+import { watchSlotPresence, defineLegacyAliases } from '../../../functions/index.js';
 import { profileCardTemplate } from './profile-card.template.js';
 import { profileCardStyles } from './profile-card.styles.js';
 
@@ -64,14 +65,6 @@ export class ProfileCardComponent implements IElementRef, OnCreate {
 	/** Avatar size (attribute: avatar-size) */
 	public avatarSize: Size = 'lg';
 
-	/** @deprecated Legacy property alias — use `avatarSize` (attribute `avatar-size`). */
-	public get 'avatar-size'(): Size {
-		return this.avatarSize;
-	}
-	public set 'avatar-size'(value: Size) {
-		this.avatarSize = value;
-	}
-
 	/** Slot visibility flags (toggled via slotchange) */
 	public hasDetails = false;
 	public hasTags = false;
@@ -91,15 +84,17 @@ export class ProfileCardComponent implements IElementRef, OnCreate {
 	public onCreate(): void {
 		const shadow = this.elementRef.shadowRoot;
 		if (!shadow) return;
-		shadow.querySelectorAll('slot[name]').forEach(slot => {
-			slot.addEventListener('slotchange', () => {
-				const name = slot.getAttribute('name');
-				const hasContent = (slot as HTMLSlotElement).assignedNodes().length > 0;
-				if (name === 'details') this.hasDetails = hasContent;
-				else if (name === 'tags') this.hasTags = hasContent;
-				else if (name === 'actions') this.hasActions = hasContent;
-				else if (name === 'meta') this.hasMeta = hasContent;
-			});
+		watchSlotPresence(shadow, (name, hasContent) => {
+			if (name === 'details') this.hasDetails = hasContent;
+			else if (name === 'tags') this.hasTags = hasContent;
+			else if (name === 'actions') this.hasActions = hasContent;
+			else if (name === 'meta') this.hasMeta = hasContent;
 		});
 	}
 }
+
+// Deprecated quoted kebab-case property aliases (warn once on first write;
+// removed in the next major release).
+defineLegacyAliases(ProfileCardComponent.prototype, 'ml-profile-card', {
+	'avatar-size': 'avatarSize'
+});

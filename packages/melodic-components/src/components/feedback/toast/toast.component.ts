@@ -3,15 +3,7 @@ import type { IElementRef, OnCreate } from '@melodicdev/core';
 import type { ToastVariant } from './toast-config.interface.js';
 import { toastTemplate } from './toast.template.js';
 import { toastStyles } from './toast.styles.js';
-
-let warnedDeprecatedTitle = false;
-function warnDeprecatedTitle(): void {
-	if (warnedDeprecatedTitle) return;
-	warnedDeprecatedTitle = true;
-	console.warn(
-		'[ml-toast] The "title" attribute/property is deprecated because it collides with the global HTML title attribute (native tooltip). Use "toast-title" instead. The "title" shim will be removed in the next major release.'
-	);
-}
+import { warnDeprecatedTitleOnce } from '../../../functions/index.js';
 
 /**
  * ml-toast - Individual toast notification
@@ -54,7 +46,7 @@ export class ToastComponent implements IElementRef, OnCreate {
 		return this.toastTitle;
 	}
 	public set title(value: string) {
-		warnDeprecatedTitle();
+		warnDeprecatedTitleOnce('ml-toast', 'toast-title');
 		this.toastTitle = value;
 	}
 

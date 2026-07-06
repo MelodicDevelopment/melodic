@@ -310,6 +310,29 @@ export class UserCard {
 }
 ```
 
+### Attribute → property coercion
+
+Attribute values are strings; when an observed attribute changes, the string is coerced onto the matching (camelCase) property by the property's type, determined in this order:
+
+1. An explicit `static propertyTypes` declaration.
+2. The property's **initial value** type, captured when the component was constructed.
+3. The property's **current value** type.
+4. No type information at all: the canonical literals `"true"`/`"false"` become booleans (so an initially-undefined `open?: boolean` never receives the truthy string `"false"`); everything else passes through as the raw string.
+
+Coercion rules per type — **boolean**: present with any value except the literal `"false"` is `true`, absent is `false`; **number**: numeric strings are parsed, non-numeric strings pass through unchanged (never `NaN`); **string**: never coerced.
+
+Steps 2–4 are heuristics, so optional or union-typed properties can coerce differently depending on the property's history. Declare the type explicitly when the initializer doesn't reveal it:
+
+```typescript
+export class MyDialog {
+    static propertyTypes = { open: 'boolean', offset: 'number', label: 'string' };
+
+    open?: boolean;          // no initializer — declared boolean above
+    offset?: number;
+    label?: string;          // declared string: label="false" stays the string "false"
+}
+```
+
 ## Lifecycle Hooks
 
 Components can implement lifecycle hooks by defining methods with specific names. All hooks are optional.

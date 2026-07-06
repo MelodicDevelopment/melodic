@@ -2,19 +2,11 @@ import { MelodicComponent } from '@melodicdev/core';
 import type { IElementRef } from '@melodicdev/core';
 import { heroSectionTemplate } from './hero-section.template.js';
 import { heroSectionStyles } from './hero-section.styles.js';
+import { warnDeprecatedTitleOnce } from '../../../functions/index.js';
 
 export type HeroVariant = 'centered' | 'split' | 'split-reverse';
 export type HeroSize = 'sm' | 'md' | 'lg';
 export type HeroBackground = 'none' | 'subtle' | 'gradient';
-
-let warnedDeprecatedTitle = false;
-function warnDeprecatedTitle(): void {
-	if (warnedDeprecatedTitle) return;
-	warnedDeprecatedTitle = true;
-	console.warn(
-		'[ml-hero-section] The "title" attribute/property is deprecated because it collides with the global HTML title attribute (native tooltip). Use "hero-title" instead. The "title" shim will be removed in the next major release.'
-	);
-}
 
 /**
  * ml-hero-section - Marketing hero/header section
@@ -67,7 +59,7 @@ export class HeroSectionComponent implements IElementRef {
 		return this.heroTitle;
 	}
 	public set title(value: string) {
-		warnDeprecatedTitle();
+		warnDeprecatedTitleOnce('ml-hero-section', 'hero-title');
 		this.heroTitle = value;
 	}
 }

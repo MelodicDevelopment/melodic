@@ -4,6 +4,7 @@ import type { ControlSize } from '../../../types/index.js';
 import type { TagDotColor } from './tag.types.js';
 import { tagTemplate } from './tag.template.js';
 import { tagStyles } from './tag.styles.js';
+import { defineLegacyAliases } from '../../../functions/index.js';
 
 /**
  * ml-tag - Compact element for labeling, categorizing, and organizing items
@@ -45,22 +46,6 @@ export class TagComponent implements IElementRef {
 
 	/** Avatar image source (attribute: avatar-src) */
 	public avatarSrc = '';
-
-	/** @deprecated Legacy property alias — use `dotColor` (attribute `dot-color`). */
-	public get 'dot-color'(): TagDotColor {
-		return this.dotColor;
-	}
-	public set 'dot-color'(value: TagDotColor) {
-		this.dotColor = value;
-	}
-
-	/** @deprecated Legacy property alias — use `avatarSrc` (attribute `avatar-src`). */
-	public get 'avatar-src'(): string {
-		return this.avatarSrc;
-	}
-	public set 'avatar-src'(value: string) {
-		this.avatarSrc = value;
-	}
 
 	/** Icon name (Phosphor icon) */
 	public icon = '';
@@ -125,3 +110,10 @@ export class TagComponent implements IElementRef {
 		);
 	};
 }
+
+// Deprecated quoted kebab-case property aliases (warn once on first write;
+// removed in the next major release).
+defineLegacyAliases(TagComponent.prototype, 'ml-tag', {
+	'dot-color': 'dotColor',
+	'avatar-src': 'avatarSrc'
+});

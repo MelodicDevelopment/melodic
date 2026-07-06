@@ -2,15 +2,7 @@ import { MelodicComponent } from '@melodicdev/core';
 import type { IElementRef } from '@melodicdev/core';
 import { signupPageTemplate } from './signup-page.template.js';
 import { signupPageStyles } from './signup-page.styles.js';
-
-let warnedDeprecatedTitle = false;
-function warnDeprecatedTitle(): void {
-	if (warnedDeprecatedTitle) return;
-	warnedDeprecatedTitle = true;
-	console.warn(
-		'[ml-signup-page] The "title" attribute/property is deprecated because it collides with the global HTML title attribute (native tooltip). Use "page-title" instead. The "title" shim will be removed in the next major release.'
-	);
-}
+import { warnDeprecatedTitleOnce } from '../../../functions/index.js';
 
 /**
  * ml-signup-page - A full-page signup/registration component
@@ -64,7 +56,7 @@ export class SignupPageComponent implements IElementRef {
 		return this.pageTitle;
 	}
 	public set title(value: string) {
-		warnDeprecatedTitle();
+		warnDeprecatedTitleOnce('ml-signup-page', 'page-title');
 		this.pageTitle = value;
 	}
 

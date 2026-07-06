@@ -33,6 +33,23 @@ export function getDeepActiveElement(): Element | null {
 }
 
 /**
+ * True when the (deep) focused element is `container` or lives inside it,
+ * crossing shadow boundaries in both directions: the active element is
+ * resolved through nested shadow roots, and the ancestor walk climbs from
+ * shadow roots to their hosts. Overlays use this to decide whether a
+ * dismissal happened while focus was parked in their content (and therefore
+ * whether focus should be returned to the trigger).
+ */
+export function isDeepFocusWithin(container: Node): boolean {
+	let node: Node | null = getDeepActiveElement();
+	while (node) {
+		if (node === container) return true;
+		node = node instanceof ShadowRoot ? node.host : node.parentNode;
+	}
+	return false;
+}
+
+/**
  * Collect focusable elements within a container, expanding `<slot>` elements
  * to their assigned (light DOM) content so traps work on shadow containers
  * that project slotted content.

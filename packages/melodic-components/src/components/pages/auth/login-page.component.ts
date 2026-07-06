@@ -2,15 +2,7 @@ import { MelodicComponent } from '@melodicdev/core';
 import type { IElementRef } from '@melodicdev/core';
 import { loginPageTemplate } from './login-page.template.js';
 import { loginPageStyles } from './login-page.styles.js';
-
-let warnedDeprecatedTitle = false;
-function warnDeprecatedTitle(): void {
-	if (warnedDeprecatedTitle) return;
-	warnedDeprecatedTitle = true;
-	console.warn(
-		'[ml-login-page] The "title" attribute/property is deprecated because it collides with the global HTML title attribute (native tooltip). Use "page-title" instead. The "title" shim will be removed in the next major release.'
-	);
-}
+import { warnDeprecatedTitleOnce } from '../../../functions/index.js';
 
 /**
  * ml-login-page - A full-page login component
@@ -65,7 +57,7 @@ export class LoginPageComponent implements IElementRef {
 		return this.pageTitle;
 	}
 	public set title(value: string) {
-		warnDeprecatedTitle();
+		warnDeprecatedTitleOnce('ml-login-page', 'page-title');
 		this.pageTitle = value;
 	}
 

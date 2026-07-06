@@ -76,17 +76,6 @@ export class RouterLinkComponent {
 		}
 	}
 
-	public isActive(): boolean {
-		const currentPath = window.location.pathname;
-		const linkPath = this.href.startsWith('/') ? this.href : `/${this.href}`;
-
-		if (this.exactMatch) {
-			return currentPath === linkPath;
-		}
-
-		return currentPath.startsWith(linkPath);
-	}
-
 	private syncCore(): void {
 		this._core?.setOptions({
 			href: this.href,
