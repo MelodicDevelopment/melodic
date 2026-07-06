@@ -3,7 +3,7 @@ import type { IElementRef, OnCreate, OnDestroy, OnRender, OnPropertyChange } fro
 import type { TableColumn, SortDirection } from './table.types.js';
 import { tableTemplate } from './table.template.js';
 import { tableStyles } from './table.styles.js';
-import { VirtualScroller } from '../../../utils/virtual-scroll/index.js';
+import { TableCore } from '../table-core/index.js';
 
 /**
  * ml-table - Data table with sorting, selection, and custom cell rendering
@@ -110,8 +110,11 @@ export class TableComponent implements IElementRef, OnCreate, OnDestroy, OnRende
 
 	// ── Private ──────────────────────────────────────────────────────────────────
 
-	private _scroller = new VirtualScroller();
-	private _viewport: HTMLElement | null = null;
+	/** Shared table pipeline: sorting, selection, ml:* events, virtual window. */
+	private _core = new TableCore(this, {
+		viewportSelector: '.ml-table__wrapper',
+		displayRows: () => this.sortedRows
+	});
 
 	// ── Row height by size ────────────────────────────────────────────────────────
 
@@ -122,14 +125,15 @@ export class TableComponent implements IElementRef, OnCreate, OnDestroy, OnRende
 	// ── Lifecycle ─────────────────────────────────────────────────────────────────
 
 	public onPropertyChange(name: string, _oldVal: unknown, _newVal: unknown): void {
-		if (name === 'rows' || name === 'columns') {
-			this._scroller.invalidate();
+		if (name === 'columns') {
+			this._core.invalidateScroller();
 		}
 
 		if (name === 'rows') {
-			// Selection is positional; a new dataset invalidates it (mirrors
-			// ml-data-grid). Reset silently — the consumer initiated the change.
-			this.selectedIndices = [];
+			// Selection is positional; a new dataset invalidates it. Reset silently
+			// (the consumer initiated the change) and recompute the virtual window
+			// after the new value commits — same behavior as ml-data-grid.
+			this._core.handleRowsChange();
 		}
 	}
 
@@ -146,78 +150,35 @@ export class TableComponent implements IElementRef, OnCreate, OnDestroy, OnRende
 				}
 			});
 		});
-		this._attachScroller();
+		this._core.attachScroller();
 	}
 
 	public onRender(): void {
-		this._attachScroller();
-
-		// Compute initial end index when viewport height not yet known
-		if (this.virtual && this._viewport && this._viewport.clientHeight === 0 && this.sortedRows.length > 0) {
-			const approxEnd = Math.min(this.sortedRows.length, Math.ceil(600 / this.rowHeight) + 6);
-			if (approxEnd !== this.endIndex) {
-				this.endIndex = approxEnd;
-			}
-		}
-
-		if (!this.virtual) {
-			const total = this.sortedRows.length;
-			if (this.endIndex !== total) this.endIndex = total;
-		}
+		this._core.syncRenderWindow();
 	}
 
 	public onDestroy(): void {
-		this._scroller.detach();
-		this._viewport = null;
-	}
-
-	// ── Private helpers ───────────────────────────────────────────────────────────
-
-	private _attachScroller(): void {
-		if (this._viewport) return; // already attached
-		const shadow = this.elementRef.shadowRoot;
-		if (!shadow) return;
-		this._viewport = shadow.querySelector('.ml-table__wrapper') as HTMLElement | null;
-		if (!this._viewport) return;
-		this._scroller.attach(this._viewport, {
-			rowHeight: () => this.rowHeight,
-			itemCount: () => this.sortedRows.length,
-			onUpdate: (start, end) => { this.startIndex = start; this.endIndex = end; },
-			enabled: () => this.virtual,
-		});
+		this._core.detach();
 	}
 
 	// ── Data ──────────────────────────────────────────────────────────────────────
 
 	/** Rows sorted by current sort key/direction */
 	public get sortedRows(): Record<string, unknown>[] {
-		if (this.manualSort || !this.sortKey) return this.rows;
-		const key = this.sortKey;
-		const dir = this.sortDirection === 'asc' ? 1 : -1;
-		return [...this.rows].sort((a, b) => {
-			const aVal = a[key];
-			const bVal = b[key];
-			if (aVal === undefined || aVal === null) {
-				return (bVal === undefined || bVal === null) ? 0 : 1;
-			}
-			if (bVal === undefined || bVal === null) return -1;
-			if (typeof aVal === 'number' && typeof bVal === 'number') return (aVal - bVal) * dir;
-			return String(aVal).localeCompare(String(bVal)) * dir;
-		});
+		if (this.manualSort) return this.rows;
+		return this._core.sortRows(this.rows);
 	}
 
 	public get visibleRows(): Record<string, unknown>[] {
-		if (!this.virtual) return this.sortedRows;
-		return this.sortedRows.slice(this.startIndex, this.endIndex);
+		return this._core.visibleRows;
 	}
 
 	public get topSpacerHeight(): number {
-		return this.virtual ? this.startIndex * this.rowHeight : 0;
+		return this._core.topSpacerHeight;
 	}
 
 	public get bottomSpacerHeight(): number {
-		if (!this.virtual) return 0;
-		return Math.max(0, (this.sortedRows.length - this.endIndex) * this.rowHeight);
+		return this._core.bottomSpacerHeight;
 	}
 
 	public get colCount(): number {
@@ -225,97 +186,32 @@ export class TableComponent implements IElementRef, OnCreate, OnDestroy, OnRende
 	}
 
 	public get allSelected(): boolean {
-		return this.rows.length > 0 && this.selectedIndices.length === this.rows.length;
+		return this._core.allSelected;
 	}
 
 	public get someSelected(): boolean {
-		return this.selectedIndices.length > 0 && !this.allSelected;
+		return this._core.someSelected;
 	}
 
 	public isRowSelected = (index: number): boolean => {
-		return this.selectedIndices.includes(index);
+		return this._core.isRowSelected(index);
 	};
 
 	// ── Event handlers ────────────────────────────────────────────────────────────
 
 	public handleSort = (column: TableColumn): void => {
-		if (!column.sortable) return;
-		if (this.sortKey === column.key) {
-			this.sortDirection = this.sortDirection === 'asc' ? 'desc' : 'asc';
-		} else {
-			this.sortKey = column.key;
-			this.sortDirection = 'asc';
-		}
-		// Selection is positional; sorting reorders rows, so clear it. Announce
-		// the change so consumers holding the previous selection stay in sync.
-		const hadSelection = this.selectedIndices.length > 0;
-		this.selectedIndices = [];
-		this._scroller.invalidate();
-		this.elementRef.dispatchEvent(
-			new CustomEvent('ml:sort', {
-				bubbles: true,
-				composed: true,
-				detail: { key: this.sortKey, direction: this.sortDirection }
-			})
-		);
-		if (hadSelection) {
-			this.emitSelect();
-		}
+		this._core.handleSortClick(column);
 	};
 
 	public handleSelectAll = (): void => {
-		if (this.allSelected) {
-			this.selectedIndices = [];
-		} else {
-			this.selectedIndices = this.rows.map((_, i) => i);
-		}
-		this.emitSelect();
+		this._core.toggleSelectAll();
 	};
 
 	public handleSelectRow = (index: number, event: Event): void => {
-		event.stopPropagation();
-		if (this.selectedIndices.includes(index)) {
-			this.selectedIndices = this.selectedIndices.filter(i => i !== index);
-		} else {
-			this.selectedIndices = [...this.selectedIndices, index];
-		}
-		this.emitSelect();
+		this._core.toggleSelectRow(index, event);
 	};
 
 	public handleRowClick = (row: Record<string, unknown>, index: number): void => {
-		this.elementRef.dispatchEvent(
-			new CustomEvent('ml:row-click', {
-				bubbles: true,
-				composed: true,
-				detail: { row, index }
-			})
-		);
+		this._core.emitRowClick(row, index);
 	};
-
-	private emitSelect(): void {
-		// Internal selection state is sorted-order positional (it mirrors what is
-		// rendered); the public contract is row objects plus their indices in the
-		// consumer's original `rows` array, so selections survive re-sorting on
-		// the consumer side.
-		const sorted = this.sortedRows;
-		const selectedRows = this.selectedIndices
-			.map((i) => sorted[i])
-			.filter((row): row is Record<string, unknown> => row !== undefined);
-
-		const indexByRow = new Map<Record<string, unknown>, number>();
-		this.rows.forEach((row, i) => {
-			if (!indexByRow.has(row)) indexByRow.set(row, i);
-		});
-		const selectedIndices = selectedRows
-			.map((row) => indexByRow.get(row))
-			.filter((i): i is number => i !== undefined);
-
-		this.elementRef.dispatchEvent(
-			new CustomEvent('ml:select', {
-				bubbles: true,
-				composed: true,
-				detail: { selectedRows, selectedIndices, allSelected: this.allSelected }
-			})
-		);
-	}
 }
