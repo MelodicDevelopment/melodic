@@ -1,0 +1,167 @@
+# CI for the Melodic monorepo (TODO-REVIEW.md — Phase 0 safety net).
+#
+# NOTE on `npm install` vs `npm ci`: the committed package-lock.json is stale
+# (it pins the root at @melodicdev/core@1.2.5 while package.json is 2.0.2), so
+# `npm ci` fails with "lock file's @melodicdev/core@1.2.5 does not satisfy
+# @melodicdev/core@2.0.2". Switch every `npm install` below to `npm ci` once
+# the lockfile is regenerated.
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  # ── @melodicdev/core (repo root) ─────────────────────────────────────────
+  core:
+    name: Core (typecheck, lint, test, build)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+      # Lint has substantial pre-existing debt (~2,800 errors as of 2026-07-06).
+      # Kept non-blocking so CI is green on arrival; flip to enforced once the
+      # backlog is burned down.
+      - name: Lint (non-blocking)
+        run: npm run lint
+        continue-on-error: true
+
+      - name: Unit tests
+        run: npm run test:unit
+
+      - name: Build
+        run: npm run build
+
+  # ── @melodicdev/components ───────────────────────────────────────────────
+  components:
+    name: Components (test, build)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      # Workspace deps are installed from the repo root (npm workspaces);
+      # packages/melodic-components has no lockfile of its own.
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      # If npm links node_modules/@melodicdev/core to the repo root (it can,
+      # since the root package satisfies the components' peer dependency),
+      # the components build resolves core types from ./lib — build it first.
+      - name: Build core lib (dependency of components build)
+        run: npm run build:lib
+
+      - name: Unit tests
+        run: npm --workspace @melodicdev/components run test
+
+      # `build` runs tsc (typecheck+emit), CSS generation, and the Vite bundles.
+      - name: Build
+        run: npm --workspace @melodicdev/components run build
+
+  # ── @melodicdev/cli ──────────────────────────────────────────────────────
+  cli:
+    name: CLI (typecheck/build)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      # The CLI's only script is `build` (tsc -p tsconfig.json), which is also
+      # its typecheck.
+      - name: Build
+        run: npm --workspace @melodicdev/cli run build
+
+  # ── Scaffold smoke test ──────────────────────────────────────────────────
+  # Builds the CLI, scaffolds fresh projects with it, and builds them exactly
+  # the way a new user would. Permanently catches CLI-template drift.
+  scaffold-smoke:
+    name: Scaffold smoke test (melodic init)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Build CLI
+        run: npm --workspace @melodicdev/cli run build
+
+      # ── basic project ──
+      - name: Scaffold basic project (melodic init)
+        run: node "$GITHUB_WORKSPACE/packages/cli/dist/index.js" init "$RUNNER_TEMP/smoke-app"
+
+      - name: Install scaffolded basic project
+        run: npm install --no-audit --no-fund
+        working-directory: ${{ runner.temp }}/smoke-app
+
+      # KNOWN BUG (found while adding CI; same class as TODO-REVIEW.md P2 CLI
+      # "Template dependency pinning"): the app-basic template's tsconfig sets
+      # `"types": ["node"]` but the template's package.json has no @types/node
+      # devDependency, so `tsc -b` fails with TS2688. Flip continue-on-error
+      # off once the template is fixed.
+      - name: Build scaffolded basic project (non-blocking — known template bug)
+        run: npm run build
+        continue-on-error: true
+        working-directory: ${{ runner.temp }}/smoke-app
+
+      # ── monorepo project ──
+      # Positional argument intentionally comes BEFORE --monorepo: the CLI's
+      # hand-rolled parser treats the token after a boolean flag as its value
+      # (TODO-REVIEW.md P2 CLI "Argument parser eats positionals after boolean
+      # flags").
+      - name: Scaffold monorepo project (melodic init --monorepo)
+        run: node "$GITHUB_WORKSPACE/packages/cli/dist/index.js" init "$RUNNER_TEMP/smoke-mono" --monorepo --app-name web
+
+      - name: Install scaffolded monorepo project
+        run: npm install --no-audit --no-fund
+        working-directory: ${{ runner.temp }}/smoke-mono
+
+      # KNOWN BUG (TODO-REVIEW.md P0 "CLI monorepo scaffold is dead on arrival
+      # under Vite"): a fresh `melodic init --monorepo` does not build — the
+      # app imports @config/@shared via root tsconfig paths that the project
+      # references don't satisfy (tsc -b fails with TS6307) and Vite has no
+      # matching resolve.alias. Flip continue-on-error off once fixed.
+      - name: Build scaffolded monorepo project (non-blocking — known P0 bug)
+        run: npm run build
+        continue-on-error: true
+        working-directory: ${{ runner.temp }}/smoke-mono
