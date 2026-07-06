@@ -7,8 +7,47 @@ import { resolveInjectedParams } from '../../injection/function/resolve-injected
 import { getActiveComponent, setActiveComponent } from '../functions/active-component.functions';
 import type { Signal } from '../../signals/types/signal.type';
 
+/**
+ * Names that contain a hyphen but are reserved by the HTML/SVG/MathML specs and
+ * therefore may not be used as custom element names.
+ */
+const RESERVED_SELECTORS = new Set([
+	'annotation-xml',
+	'color-profile',
+	'font-face',
+	'font-face-src',
+	'font-face-uri',
+	'font-face-format',
+	'font-face-name',
+	'missing-glyph'
+]);
+
+/**
+ * Validates that a selector is a usable custom element name before it reaches
+ * `customElements.define`, which would otherwise throw a cryptic DOMException.
+ */
+function assertValidSelector(selector: unknown): void {
+	if (typeof selector !== 'string' || selector.length === 0) {
+		throw new Error('@MelodicComponent: "selector" is required and must be a non-empty string (e.g. "app-card").');
+	}
+	if (!selector.includes('-')) {
+		throw new Error(
+			`@MelodicComponent: invalid selector "${selector}". Custom element names must contain a hyphen — use a prefixed name such as "app-${selector}".`
+		);
+	}
+	if (!/^[a-z]/.test(selector) || /[A-Z]/.test(selector) || /\s/.test(selector)) {
+		throw new Error(
+			`@MelodicComponent: invalid selector "${selector}". Custom element names must start with a lowercase letter and must not contain uppercase letters or whitespace.`
+		);
+	}
+	if (RESERVED_SELECTORS.has(selector)) {
+		throw new Error(`@MelodicComponent: "${selector}" is a reserved name and cannot be used as a custom element selector.`);
+	}
+}
+
 export function MelodicComponent<C extends Component>(meta: TypedComponentMeta<C>): (component: INewable<C>) => void {
 	return function (component: INewable<C>): void {
+		assertValidSelector(meta.selector);
 		if (customElements.get(meta.selector) === undefined) {
 			const webComponent = class extends ComponentBase {
 				constructor() {
