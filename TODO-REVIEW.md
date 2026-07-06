@@ -4,11 +4,11 @@ Findings from a whole-repo review (2026-06-09), merged with a second six-agent d
 
 ## P0 — Correctness bugs with real user impact
 
-- [ ] **Effect exceptions corrupt global tracking state permanently**
+- [x] **Effect exceptions corrupt global tracking state permanently**
   `src/signals/classes/signal-effect.class.ts:61-66` — `runNow()` calls `setActiveEffect(this); this.execute(); setActiveEffect(prevEffect)` with no `try/finally`. A throwing template/computed leaves `activeEffect` pointing at the dead effect forever and `_isRunning` stuck `true`.
   **Fix:** wrap `this.execute()` in `try/finally` restoring `prevEffect`; reset `_isRunning` in a `finally` around the do/while.
 
-- [ ] **Directive/event cleanups never run for content removed by `when`, `repeat`, or nested templates**
+- [x] **Directive/event cleanups never run for content removed by `when`, `repeat`, or nested templates**
   - `src/template/classes/template-result.class.ts:503-512` — `clearRenderedNodes()` drops `part.nestedContainer` without running `cleanupParts()` on its `__parts`.
   - `src/template/directives/builtin/when.directive.ts:136-142` — `removeContent()` removes nodes without cleanup. Every false→true→false toggle of a `when` containing `:formControl` or `clickOutside` leaks subscriptions/document listeners.
   - `src/template/directives/builtin/repeat.directive.ts:229-241` — `removeItemRange()` same problem for removed items.
@@ -16,24 +16,24 @@ Findings from a whole-repo review (2026-06-09), merged with a second six-agent d
   *2026-07-05 confirmation:* traced end-to-end against `:formControl` (`src/forms/directives/form-control.directive.ts:76-91` — three signal subscriptions + input/blur listeners leak per removal), `:tooltip`, `:portal`. Leak fires on both removal AND host destroy.
   **Fix:** make part disposal recursive (a `dispose()` that walks `nestedContainer.__parts`, array items, and directive state) and call it from all four sites.
 
-- [ ] **[NEW] `when` loses updates when the branch template's STRUCTURE changes**
+- [x] **[NEW] `when` loses updates when the branch template's STRUCTURE changes**
   `src/template/directives/builtin/when.directive.ts:94-109` — on the still-true/still-false path, `newTemplate.renderInto(previousState.container)` targets the fragment whose children were already moved into the DOM (`renderContent:130-133`). If the returned template has a different `templateKey` (e.g. `when(open, () => cond ? html\`<a>\` : html\`<b>\`)`), `renderInto` takes its first-render branch and builds the new nodes INSIDE the detached fragment — the DOM silently keeps the old structure.
   **Fix:** detect templateKey change and re-insert between the markers (mirror `renderNestedTemplate`, `template-result.class.ts:601-614`).
 
-- [ ] **[NEW] Switching a node binding between two directive types passes stale state**
+- [x] **[NEW] Switching a node binding between two directive types passes stale state**
   `src/template/classes/template-result.class.ts:814-816` — the directive→directive transition calls `value.render(part.node, part.directiveState)` with the PREVIOUS directive's state. `${cond ? repeat(items,…) : when(true,…)}` hands a `WhenState` to `repeat`, which skips setup and crashes/corrupts. directive↔non-directive transitions are handled; directive-type switches are not.
   **Fix:** stamp state with the owning directive identity; on mismatch, run old cleanup and pass `undefined`.
 
-- [ ] **Guards run twice per programmatic navigation; resolver skip-flag is fragile**
+- [x] **Guards run twice per programmatic navigation; resolver skip-flag is fragile**
   `src/routing/services/router.service.ts:217-240` runs guards/resolvers, then `pushState` → `NavigationEvent` → outlet `matchAndRender()` runs guards **again** (`src/routing/components/router-outlet/router-outlet.component.ts:239-252`). The `_resolversExecutedForPath` flag compares raw strings and misses on path normalization differences (double data fetch).
   **Fix (architectural):** move the whole match→guards→resolvers→commit pipeline into `RouterService` (including popstate); outlets become dumb renderers reacting to a committed-route signal. Deletes the skip-flag and the outlet's guard call.
 
-- [ ] **Numeric attributes never coerced — `offset` silently broken on ml-popover/ml-dropdown**
+- [x] **Numeric attributes never coerced — `offset` silently broken on ml-popover/ml-dropdown**
   `src/components/classes/component-base.class.ts:118-127` only coerces booleans. `<ml-popover offset="12">` passes the string into `offset.middleware.ts:14-16`'s object branch → resolves to 0. Pagination defends with `Number()` everywhere (`pagination.component.ts:38-40, 74-84`).
   *2026-07-05 addendum:* boolean coercion itself only applies when the property's INITIAL value was a boolean (`component-base.class.ts:115-134`) — `open?: boolean` (initially undefined) gets the raw string `"false"` (truthy).
   **Fix:** add a `_numberProperties` set in `ComponentBase` mirroring boolean handling; coerce by declared type, not initial-value type; delete per-component `Number()` boilerplate.
 
-- [ ] **[NEW] Config env overrides shallow-merge while `extends` deep-merges**
+- [x] **[NEW] Config env overrides shallow-merge while `extends` deep-merges**
   `src/config/define-config.ts:40` — `{ ...definition.base, ...envOverrides }` is one level deep, but `extends` (line 43) uses `deepMerge`. `base:{api:{url,timeout}}` + `prod:{api:{url}}` yields `api:{url}` — `timeout` silently lost.
   **Fix:** deep-merge env overrides too (one merge strategy everywhere).
 
@@ -57,36 +57,36 @@ Findings from a whole-repo review (2026-06-09), merged with a second six-agent d
   `packages/melodic-components/src/components/forms/autocomplete/autocomplete.component.ts:443-453` — `this.asyncOptions = await this.searchFn(query)` with no sequencing/cancellation; a slow earlier request resolving late shows results for the wrong query.
   **Fix:** request-generation counter; ignore resolutions that aren't the latest.
 
-- [ ] **CLI monorepo scaffold is dead on arrival under Vite**
+- [x] **CLI monorepo scaffold is dead on arrival under Vite**
   `packages/cli/templates/monorepo-basic/apps/__APP_NAME__/` — app imports `@config`, which exists only in root tsconfig `paths`; Vite has no matching `resolve.alias`, so `npm run dev` fails on a fresh `melodic init --monorepo`. Same for every `melodic add lib` (`packages/cli/src/index.ts:183-229, 289-326`).
   **Fix:** add matching `resolve.alias` entries to the app vite.config template and keep them updated from `addLib`/`addApp` — or drop tsconfig path aliases and import via workspace package names with proper `exports` maps. Make tsconfig and Vite agree on one strategy.
 
-- [ ] **[NEW] CLI `generate`/`add` path traversal — names and `--path` unsanitized**
+- [x] **[NEW] CLI `generate`/`add` path traversal — names and `--path` unsanitized**
   `packages/cli/src/index.ts:426-497` (routed from 575-599) — `melodic generate component ../../evil` passes through `toKebabCase` unchanged and `path.join` normalizes the `..`, writing files OUTSIDE the project root; same via `--path`. Also covers quote-breakout into generated source (`melodic g service "o'brien"` → syntax-broken file; `index.ts:127-134,468-475`). No shell is ever invoked (verified — zero `child_process`), so this is file-write/malformed-output, not command injection.
   **Fix:** validate names against `^[a-z][a-z0-9-]*$`, reject path separators/`..` in names and `--path`; escape interpolated values.
 
-- [ ] **CLI `generate interceptor` emits code that fails typecheck against v2 API**
+- [x] **CLI `generate interceptor` emits code that fails typecheck against v2 API**
   `packages/cli/src/index.ts:484` — generates `error: async (error: Error): Promise<unknown>`; v2 interface (`src/http/interfaces/ihttp-response-interceptor.interface.ts`) requires `(error, context) => Promise<IHttpResponse<T> | void>`.
 
-- [ ] **CLI `generate component` can produce an invalid custom element selector**
+- [x] **CLI `generate component` can produce an invalid custom element selector**
   `packages/cli/src/index.ts:426-447` — `melodic g component card` → `selector: 'card'` → `customElements.define` throws. Error or auto-prefix when the kebab name has no hyphen; validate in the decorator too (`src/components/decorators/melodic-component.decorator.ts:49`).
 
-- [ ] **`@melodicdev/core` root index omits forms**
+- [x] **`@melodicdev/core` root index omits forms**
   `src/index.ts` exports ten modules but not `export * from './forms';` — the only subpath module excluded. Add it (or document why it's intentional).
 
 ## P1 — Security hardening [NEW section]
 
 *2026-07-05 security sweep verdict: no critical/high vulnerabilities. Template engine verified XSS-safe (values never enter parsed markup; text via `createTextNode`/`textContent`, attributes via `setAttribute`; attribute/event names only from static template text). Router `pushState` can't open-redirect cross-origin. No `eval`/`exec`/ReDoS. Items below are misuse-prone APIs and defense-in-depth.*
 
-- [ ] **[NEW] `routerLink` accepts `javascript:` URLs — protocol-validate**
+- [x] **[NEW] `routerLink` accepts `javascript:` URLs — protocol-validate**
   `src/routing/directives/router-link.directive.ts:82,124` — value is assigned to `anchor.href` and passed to `window.open()` with no scheme check; `window.open("javascript:…")` on a modified-click is direct script exec if the target is ever data-driven (route params, API data). Same class: `action-href` on `ml-page-section` (`packages/melodic-components/src/components/sections/page-section/page-section.template.ts:21`).
   **Fix:** allow only http(s)/relative before assigning href or calling `window.open` (Angular-style sanitization).
 
-- [ ] **[NEW] `.innerHTML=${…}` property binding is a one-line XSS footgun**
+- [x] **[NEW] `.innerHTML=${…}` property binding is a one-line XSS footgun**
   `src/template/classes/template-result.class.ts:895` — property binding assigns `node[name] = value` for any name; `.innerHTML`/`.outerHTML` bypass the safe text path while looking like a normal bind.
   **Fix:** dev-mode warn (or block) `innerHTML`/`outerHTML` property names; document the hazard next to `unsafeHTML`.
 
-- [ ] **[NEW] `deepMerge` lacks prototype-pollution guards**
+- [x] **[NEW] `deepMerge` lacks prototype-pollution guards**
   `src/config/define-config.ts:12-34` — `result[key] = …` for every own source key. Inert today (dev-authored literals), exploitable the moment config comes from `JSON.parse` (which DOES produce an own `__proto__` key).
   **Fix:** skip `__proto__`, `constructor`, `prototype` keys.
 
@@ -94,7 +94,7 @@ Findings from a whole-repo review (2026-06-09), merged with a second six-agent d
   `packages/melodic-components/src/theme/functions/create-theme.function.ts:14` — `[data-theme="${name}"]` — a name containing `"]{…}` injects arbitrary CSS rules (no script exec; dev-controlled → low).
   **Fix:** validate name against `^[a-z0-9-]+$`; escape override values.
 
-- [ ] **CLI name validation** — covered by the P0 path-traversal item above (listed here for the security checklist).
+- [x] **CLI name validation** — covered by the P0 path-traversal item above (listed here for the security checklist).
 
 ## P1 — Accessibility (components library)
 
@@ -164,54 +164,54 @@ Findings from a whole-repo review (2026-06-09), merged with a second six-agent d
 
 ## P2 — Framework improvements
 
-- [ ] **State: `dispatchWithoutKey` effects lack `.catch`** (`signal-store.service.ts:145-159`) — its twin `dispatchWithKey` (108-129) was already fixed. Extract a shared `runEffects` helper.
+- [x] **State: `dispatchWithoutKey` effects lack `.catch`** (`signal-store.service.ts:145-159`) — its twin `dispatchWithKey` (108-129) was already fixed. Extract a shared `runEffects` helper.
 
-- [ ] **[NEW] State: effects discovered via reducer-map keys — effect-only slices never fire on keyless dispatch**
+- [x] **[NEW] State: effects discovered via reducer-map keys — effect-only slices never fire on keyless dispatch**
   `signal-store.service.ts:198-213` — `getEffectsForActionWithoutKey` iterates `Object.keys(this._reducerMap)` then looks up `_effectMap[key]`; a slice registered in `effectMap` but not `reducerMap` is skipped entirely. Iterate the union (fold into the `runEffects` extraction above).
 
-- [ ] **State: keyless dispatch only hits the first matching slice** (`signal-store.service.ts:163-178, 195-214`) — an action registered in two slices (e.g. `logout`) updates only one, plus linear-scan perf. *2026-07-05 addendum:* effect-produced actions from a KEYED dispatch are re-dispatched keyless (`:121,156`), so they inherit this first-slice-wins bug regardless of which slice owned the effect. Build a `Map<actionType, Array<{key, reducer}>>` index at `provideRX` time; apply all matches inside `batch()`.
+- [x] **State: keyless dispatch only hits the first matching slice** (`signal-store.service.ts:163-178, 195-214`) — an action registered in two slices (e.g. `logout`) updates only one, plus linear-scan perf. *2026-07-05 addendum:* effect-produced actions from a KEYED dispatch are re-dispatched keyless (`:121,156`), so they inherit this first-slice-wins bug regardless of which slice owned the effect. Build a `Map<actionType, Array<{key, reducer}>>` index at `provideRX` time; apply all matches inside `batch()`.
 
-- [ ] **[NEW] HTTP: retried requests run later response interceptors twice**
+- [x] **[NEW] HTTP: retried requests run later response interceptors twice**
   `http-client.class.ts:138-151` — `retry()`'s `internalRequest()` already runs the FULL interceptor chain on the new response; `handleResponseError` then re-runs interceptors `[i+1..n]` on that already-intercepted response. Data-unwrap/logging interceptors apply twice on every retry. Skip the re-run (or have retry return a raw response).
 
-- [ ] **HTTP: dedup runs response interceptors N times on one shared response; later callers' abort controllers ignored** (`http-client.class.ts:200-264`, `request-manager.class.ts:38-49`). Dedupe the post-interceptor promise; ref-count cancellation with `AbortSignal.any`.
+- [x] **HTTP: dedup runs response interceptors N times on one shared response; later callers' abort controllers ignored** (`http-client.class.ts:200-264`, `request-manager.class.ts:38-49`). Dedupe the post-interceptor promise; ref-count cancellation with `AbortSignal.any`.
 
-- [ ] **HTTP: error-interceptor exceptions silently swallowed** (`http-client.class.ts:147-155`) — "catch HttpError, throw domain error" is impossible. Rethrow the last interceptor-thrown error, or add `context.replaceError()`.
+- [x] **HTTP: error-interceptor exceptions silently swallowed** (`http-client.class.ts:147-155`) — "catch HttpError, throw domain error" is impossible. Rethrow the last interceptor-thrown error, or add `context.replaceError()`.
 
-- [ ] **[NEW] HTTP: supplying `onProgress` silently changes text responses to Blob**
+- [x] **[NEW] HTTP: supplying `onProgress` silently changes text responses to Blob**
   `http-client.class.ts:360-392` — the progress branch only special-cases JSON; `text/*` returns a Blob instead of the string the non-progress path returns. Honor content-type in both paths.
 
-- [ ] **[NEW] Routing: `:param` matches an empty segment** (`route-matcher.class.ts:49-51`) — compiles to `([^/]*)`; a top-level `{path:':id'}` matches the root URL with `id=''`. Use `([^/]+)`.
+- [x] **[NEW] Routing: `:param` matches an empty segment** (`route-matcher.class.ts:49-51`) — compiles to `([^/]*)`; a top-level `{path:':id'}` matches the root URL with `id=''`. Use `([^/]+)`.
 
-- [ ] **[NEW] Routing: no sibling backtracking after a failed child match** (`match-route-level.function.ts:69-97`) — once a parent prefix-matches, the function returns the child recursion even when it 404s, never trying later siblings (e.g. `[{path:'a',children:[b]},{path:':x',children:[c]}]` with URL `a/c`). Backtrack to remaining siblings on child-match failure.
+- [x] **[NEW] Routing: no sibling backtracking after a failed child match** (`match-route-level.function.ts:69-97`) — once a parent prefix-matches, the function returns the child recursion even when it 404s, never trying later siblings (e.g. `[{path:'a',children:[b]},{path:':x',children:[c]}]` with URL `a/c`). Backtrack to remaining siblings on child-match failure.
 
-- [ ] **[NEW] Routing: path building doesn't URL-encode params** (`build-path-from-route.function.ts:11`, `route-matcher.class.ts:131-142`) — raw `String.replace` with the param value: `/` breaks segment structure, spaces unencoded, and `$`-sequences in values are mangled by replace semantics. `encodeURIComponent` + replacer-function form.
+- [x] **[NEW] Routing: path building doesn't URL-encode params** (`build-path-from-route.function.ts:11`, `route-matcher.class.ts:131-142`) — raw `String.replace` with the param value: `/` breaks segment structure, spaces unencoded, and `$`-sequences in values are mangled by replace semantics. `encodeURIComponent` + replacer-function form.
 
-- [ ] **[NEW] Routing: `navigate()` builds `?a=1?b=2` when path already has a query** (`router.service.ts:177-181`) — unconditional `` `${path}?${params}` ``; merge with `includes('?') ? '&' : '?'` (HttpClient's `buildUrl` already does this).
+- [x] **[NEW] Routing: `navigate()` builds `?a=1?b=2` when path already has a query** (`router.service.ts:177-181`) — unconditional `` `${path}?${params}` ``; merge with `includes('?') ? '&' : '?'` (HttpClient's `buildUrl` already does this).
 
-- [ ] **Reactive sources are a construction-time snapshot** (`component-base.class.ts:259-271`) — reassigning `this.form = createFormGroup(...)` in `onCreate` silently breaks reactivity and leaks the old subscription. Wrap signal/control fields with a swapping setter, or warn on reassignment.
+- [x] **Reactive sources are a construction-time snapshot** (`component-base.class.ts:259-271`) — reassigning `this.form = createFormGroup(...)` in `onCreate` silently breaks reactivity and leaks the old subscription. Wrap signal/control fields with a swapping setter, or warn on reassignment.
 
-- [ ] **Attribute → property reflection drops values and lacks numeric coercion** (`component-base.class.ts:115-134`) — only assigns when the current value `!== undefined`; coercion depends on initial value type. Track declared props from metadata; coerce by declared type; skip render on `Object.is`-equal. (Coercion halves promoted to P0 above.)
+- [x] **Attribute → property reflection drops values and lacks numeric coercion** (`component-base.class.ts:115-134`) — only assigns when the current value `!== undefined`; coercion depends on initial value type. Track declared props from metadata; coerce by declared type; skip render on `Object.is`-equal. (Coercion halves promoted to P0 above.)
 
-- [ ] **`computed()` is eager and writable** (`src/signals/functions/computed.function.ts:6-29`) — recomputes on every source change even unread; still exposes `.set()`/`.update()`. Implement lazy (dirty-flag) computeds; return `ReadonlySignal<T>` (also apply to `select()`).
+- [x] **`computed()` is eager and writable** (`src/signals/functions/computed.function.ts:6-29`) — recomputes on every source change even unread; still exposes `.set()`/`.update()`. Implement lazy (dirty-flag) computeds; return `ReadonlySignal<T>` (also apply to `select()`).
 
-- [ ] **`@Inject` metadata array shared across the inheritance chain** (`src/injection/decorators/inject.decorator.ts:5-11`) — `target.params` found via prototype chain; subclasses mutate the parent's array. Use `Object.getOwnPropertyDescriptor` or a `WeakMap<ctor, tokens[]>`.
+- [x] **`@Inject` metadata array shared across the inheritance chain** (`src/injection/decorators/inject.decorator.ts:5-11`) — `target.params` found via prototype chain; subclasses mutate the parent's array. Use `Object.getOwnPropertyDescriptor` or a `WeakMap<ctor, tokens[]>`.
 
-- [ ] **[NEW] `@Service` getter caches by truthiness** (`src/injection/decorators/service.decorator.ts:13`) — `if (!(this)[cacheKey])` re-resolves on every access for falsy resolutions (a transient/factory binding returning falsy is re-constructed each access). Use an `in`/sentinel check.
+- [x] **[NEW] `@Service` getter caches by truthiness** (`src/injection/decorators/service.decorator.ts:13`) — `if (!(this)[cacheKey])` re-resolves on every access for falsy resolutions (a transient/factory binding returning falsy is re-constructed each access). Use an `in`/sentinel check.
 
-- [ ] **`history` monkey-patching at module import** (`router.service.ts:36-55`) — unconditional, un-unpatchable, double-patch risk; also the mechanism behind the double-guard P0. Move into `provideRouter()` init with an idempotence guard; longer-term, adopt the Navigation API.
+- [x] **`history` monkey-patching at module import** (`router.service.ts:36-55`) — unconditional, un-unpatchable, double-patch risk; also the mechanism behind the double-guard P0. Move into `provideRouter()` init with an idempotence guard; longer-term, adopt the Navigation API.
 
 - [ ] **Event parts re-bind every render; no listener options** (`template-result.class.ts:900-918`) — attach one stable wrapper listener per part and swap `previousValue`; accept `{handleEvent, ...options}`.
 
-- [ ] **[NEW] Composite-attribute "unchanged" fast-path corrupts `previousValue`** (`template-result.class.ts:850-861,962`) — the skip-path falls through to `part.previousValue = value` (single segment value overwrites the composed string), so the skip never fires again and `setAttribute` runs every render. Perf only; `continue` like the changed-path does.
+- [x] **[NEW] Composite-attribute "unchanged" fast-path corrupts `previousValue`** (`template-result.class.ts:850-861,962`) — the skip-path falls through to `part.previousValue = value` (single segment value overwrites the composed string), so the skip never fires again and `setAttribute` runs every render. Perf only; `continue` like the changed-path does.
 
 - [ ] **Per-instance `<style>` element instead of shared constructed stylesheet** (`component-base.class.ts:172-181`) — build one `CSSStyleSheet` per component class and adopt it per instance (global styles already do this).
 
-- [ ] **`router-link` defeats native modifier-click behavior** (`router-link.component.ts:54-64`) — return early without `preventDefault` on ctrl/cmd/shift/middle click; handle `auxclick`. *2026-07-05 addendum:* the element and the `:routerLink` directive are two near-complete, independently-drifting implementations (directive handles modifier clicks correctly at `router-link.directive.ts:118-126`) — consolidate on one core.
+- [x] **`router-link` defeats native modifier-click behavior** (`router-link.component.ts:54-64`) — return early without `preventDefault` on ctrl/cmd/shift/middle click; handle `auxclick`. *2026-07-05 addendum:* the element and the `:routerLink` directive are two near-complete, independently-drifting implementations (directive handles modifier clicks correctly at `router-link.directive.ts:118-126`) — consolidate on one core.
 
-- [ ] **`select()` default cache key is `selectFn.toString()`** (`signal-store.service.ts:52`, `component-state-base.service.ts:49`) — distinct closures can stringify identically (esp. minified) and return the wrong cached signal. Key by function identity via `WeakMap`; require explicit `cacheKey` otherwise.
+- [x] **`select()` default cache key is `selectFn.toString()`** (`signal-store.service.ts:52`, `component-state-base.service.ts:49`) — distinct closures can stringify identically (esp. minified) and return the wrong cached signal. Key by function identity via `WeakMap`; require explicit `cacheKey` otherwise.
 
-- [ ] **HTTP timeout plumbing:** replace hand-rolled `setTimeout` + shared controller (`http-client.class.ts:210-216`) with `AbortSignal.timeout()` + `AbortSignal.any()`; accept a plain `signal?: AbortSignal` in `IRequestConfig`.
+- [x] **HTTP timeout plumbing:** replace hand-rolled `setTimeout` + shared controller (`http-client.class.ts:210-216`) with `AbortSignal.timeout()` + `AbortSignal.any()`; accept a plain `signal?: AbortSignal` in `IRequestConfig`.
 
 ## P2 — Components library (new 2026-07-05)
 
@@ -247,24 +247,24 @@ Findings from a whole-repo review (2026-06-09), merged with a second six-agent d
 
 ## P2 — CLI cleanup
 
-- [ ] **Argument parser eats positionals after boolean flags** (`packages/cli/src/index.ts:31-55`) — `melodic init --monorepo my-repo` parses `my-repo` as the flag's value. Use a known-boolean-flags set or Node's `util.parseArgs`.
-- [ ] **Delete or wire up dead `templates/basic/`** (~1,500-line unreferenced near-clone of app-basic). Update CLAUDE.md's template list.
-- [ ] **`add app` produces an app inconsistent with the monorepo's seeded app** (`index.ts:280-327`) — copies `app-basic` with dev-tooling files the monorepo app doesn't have; also `copyTemplate`'s recursion drops the `exclude` param (`index.ts:99`). Add a `monorepo-app` template; thread `exclude` through.
-- [ ] **Generated components don't follow the repo's own structure convention** — three flat files, no directory, no `index.ts` barrel, no `Component` suffix dedup (`UserCardComponentComponent`).
-- [ ] **Template dependency pinning:** `"@melodicdev/core": "latest"` (non-reproducible) and `"vite": "^5.4.0"` (repo is on 7). Pin `^2.0.0` / current Vite.
-- [ ] **Non-atomic generation + raw error leaks** (`index.ts:109-117, 136-142, 433-446`) — precheck all targets before writing; wrap fs/JSON errors with path + hint; use a JSONC-tolerant parser for tsconfig edits (comments are legal in tsconfig).
-- [ ] **`add app`/`add lib` don't validate workspace root; names unsanitized** (`index.ts:280-338`) — require a workspaces `package.json`; kebab-case the name; don't scope user libs under `@melodicdev/`. (Name sanitization itself promoted to P0 — path traversal.)
-- [ ] **Generator template quality:** directive generator emits `return undefined` (contradicts CLAUDE.md's "always return state") and snake_case identifiers; starter app's `repeat` key embeds mutable `completed` state (`templates/app-basic/src/components/app.component.ts:59`), defeating keyed reconciliation — key by `task.id` (same anti-pattern as the tabs/steps P1 a11y bug).
-- [ ] **Missing generators:** `generate guard`/`resolver` (core ships `createGuard`); `add components`; `--force`/`--dry-run`; interactive prompts.
-- [ ] **README drift:** says `--dir packages` (default is `libs`), wrong monorepo layout, omits `add config`/`version`/`g` alias.
+- [x] **Argument parser eats positionals after boolean flags** (`packages/cli/src/index.ts:31-55`) — `melodic init --monorepo my-repo` parses `my-repo` as the flag's value. Use a known-boolean-flags set or Node's `util.parseArgs`.
+- [x] **Delete or wire up dead `templates/basic/`** (~1,500-line unreferenced near-clone of app-basic). Update CLAUDE.md's template list.
+- [x] **`add app` produces an app inconsistent with the monorepo's seeded app** (`index.ts:280-327`) — copies `app-basic` with dev-tooling files the monorepo app doesn't have; also `copyTemplate`'s recursion drops the `exclude` param (`index.ts:99`). Add a `monorepo-app` template; thread `exclude` through.
+- [x] **Generated components don't follow the repo's own structure convention** — three flat files, no directory, no `index.ts` barrel, no `Component` suffix dedup (`UserCardComponentComponent`).
+- [x] **Template dependency pinning:** `"@melodicdev/core": "latest"` (non-reproducible) and `"vite": "^5.4.0"` (repo is on 7). Pin `^2.0.0` / current Vite.
+- [x] **Non-atomic generation + raw error leaks** (`index.ts:109-117, 136-142, 433-446`) — precheck all targets before writing; wrap fs/JSON errors with path + hint; use a JSONC-tolerant parser for tsconfig edits (comments are legal in tsconfig).
+- [x] **`add app`/`add lib` don't validate workspace root; names unsanitized** (`index.ts:280-338`) — require a workspaces `package.json`; kebab-case the name; don't scope user libs under `@melodicdev/`. (Name sanitization itself promoted to P0 — path traversal.)
+- [x] **Generator template quality:** directive generator emits `return undefined` (contradicts CLAUDE.md's "always return state") and snake_case identifiers; starter app's `repeat` key embeds mutable `completed` state (`templates/app-basic/src/components/app.component.ts:59`), defeating keyed reconciliation — key by `task.id` (same anti-pattern as the tabs/steps P1 a11y bug).
+- [x] **Missing generators:** `generate guard`/`resolver` (core ships `createGuard`); `--force`/`--dry-run` — done. `add components` and interactive prompts deliberately deferred (noted in CLI README).
+- [x] **README drift:** says `--dir packages` (default is `libs`), wrong monorepo layout, omits `add config`/`version`/`g` alias.
 
 ## P2 — Infrastructure
 
-- [ ] **Add CI** — no workflows exist. Minimum: lint + typecheck + test + build per package on push/PR, plus a scaffold smoke test (`melodic init` → `npm run build`) that would permanently catch CLI template drift. Add a release workflow later.
+- [x] **Add CI** — no workflows exist. Minimum: lint + typecheck + test + build per package on push/PR, plus a scaffold smoke test (`melodic init` → `npm run build`) that would permanently catch CLI template drift. Add a release workflow later.
 - [ ] **CLI and melodic-html packages have no test/lint/typecheck scripts and zero tests.** CLI snapshot tests of generated trees are cheap and would have caught the interceptor bug.
 - [ ] **Component test coverage:** ~16 test files for ~72 components. Establish a baseline for the top-10 most-used (button, input, select, dialog, table…).
 - [ ] **Version/doc drift:** align package versions (core 2.0.2 / components 2.0.3 / CLI 2.0.0); add CHANGELOG entries for 2.0.1–2.0.3; update README CDN URLs (still reference 1.3.2/1.0.4); add `engines` field; consider `"sideEffects": false` after auditing for top-level side effects.
-- [ ] **Repo hygiene:** `src/forms/` is mode 700 and a couple of test files are mode 600 — `chmod 755`/`644` so collaborators aren't blocked.
+- [x] **Repo hygiene:** `src/forms/` is mode 700 and a couple of test files are mode 600 — `chmod 755`/`644` so collaborators aren't blocked.
 
 ## Smaller / opportunistic
 
