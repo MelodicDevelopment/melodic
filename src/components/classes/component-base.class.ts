@@ -15,21 +15,37 @@ export interface PendingComponentScope {
 	selectCache: Map<string, Signal<unknown>>;
 }
 
+/** Attribute coercion types a component may declare via `static propertyTypes`. */
+export type PropertyType = 'boolean' | 'number' | 'string';
+
+/**
+ * A reactive source property (a component field holding a Signal or an
+ * AbstractControl). Tracks the signals to (re)subscribe on connect and the
+ * live unsubscribers, so the subscription can follow a reassignment of the
+ * field (e.g. `this.form = createFormGroup(...)`).
+ */
+interface ReactiveSourceEntry {
+	signals: Array<Signal<unknown>>;
+	unsubscribers: Array<Unsubscriber>;
+}
+
 export abstract class ComponentBase extends HTMLElement {
 	private readonly _meta: ComponentMeta;
 	private readonly _component: Component;
 	private readonly _root: ShadowRoot;
 	private readonly _style: HTMLStyleElement;
-	private _unsubscribers: Array<Unsubscriber> = [];
 	private _renderScheduled = false;
 	private readonly _booleanProperties: Set<string> = new Set();
+	private readonly _numberProperties: Set<string> = new Set();
+	private readonly _stringProperties: Set<string> = new Set();
 	private readonly _disposables: Set<{ destroy(): void }>;
 	private readonly _selectCache: Map<string, Signal<unknown>>;
 
 	// Reactive signal/control sources discovered during observe(). Subscribed on
 	// every connect and torn down on every disconnect, so reactivity survives the
-	// element being moved in the DOM.
-	private readonly _reactiveSources: Array<Signal<unknown>> = [];
+	// element being moved in the DOM. Entries are swapped in place when the
+	// component reassigns a source field, so reactivity follows reassignment.
+	private readonly _reactiveSourceEntries: Array<ReactiveSourceEntry> = [];
 
 	private _created = false;
 	private _destroyed = false;
@@ -41,6 +57,18 @@ export abstract class ComponentBase extends HTMLElement {
 		this._meta = meta;
 		this._component = component;
 		this._component.elementRef = this;
+
+		// Components may declare attribute→property coercion types explicitly for
+		// properties whose initial value doesn't reveal the type (e.g. `open?: boolean`):
+		//   static propertyTypes = { open: 'boolean', offset: 'number' };
+		const declaredTypes = (component.constructor as { propertyTypes?: Record<string, PropertyType> }).propertyTypes;
+		if (declaredTypes) {
+			for (const [prop, type] of Object.entries(declaredTypes)) {
+				if (type === 'boolean') this._booleanProperties.add(prop);
+				else if (type === 'number') this._numberProperties.add(prop);
+				else if (type === 'string') this._stringProperties.add(prop);
+			}
+		}
 		// Adopt the same Set/Map the decorator used during Reflect.construct so
 		// disposables and cache entries from class-field initializers belong to us.
 		this._disposables = pending?.disposables ?? new Set();
@@ -94,8 +122,12 @@ export abstract class ComponentBase extends HTMLElement {
 	public disconnectedCallback(): void {
 		// Tear down reactive subscriptions immediately so a detached element stops
 		// reacting; they are re-established on the next connect.
-		this._unsubscribers.forEach((unsubscribe) => unsubscribe());
-		this._unsubscribers = [];
+		for (const entry of this._reactiveSourceEntries) {
+			for (const unsubscribe of entry.unsubscribers) {
+				unsubscribe();
+			}
+			entry.unsubscribers = [];
+		}
 
 		this._component.onDisconnect?.();
 
@@ -115,23 +147,59 @@ export abstract class ComponentBase extends HTMLElement {
 
 	public attributeChangedCallback(attribute: string, oldVal: unknown, newVal: unknown): void {
 		const prop = attribute.replace(/-([a-z])/g, (_, ch: string) => ch.toUpperCase());
+		const component = this._component as unknown as Record<string, unknown>;
 
-		if ((this._component as any)[prop] !== undefined) {
-			let value = newVal;
+		const current = component[prop];
+		const value = this.coerceAttributeValue(prop, newVal as string | null, current);
 
-			// Convert boolean attributes: present (any value including "") = true, null/absent = false
-			if (this._booleanProperties.has(prop)) {
-				value = newVal !== null && newVal !== 'false';
-			}
-
-			(this._component as any)[prop] = value;
+		// Skip the assignment and re-render when the reflected value is
+		// identical — avoids render churn from equal attribute writes.
+		if (!Object.is(current, value)) {
+			component[prop] = value;
+			this.scheduleRender();
 		}
-
-		this.scheduleRender();
 
 		if (this._component.onAttributeChange !== undefined) {
 			this._component.onAttributeChange(attribute, oldVal, newVal);
 		}
+	}
+
+	/**
+	 * Coerce an observed attribute's string value by the property's declared
+	 * type. Type is determined by, in order: an explicit `static propertyTypes`
+	 * declaration, the property's initial value type (captured in observe()),
+	 * or the property's CURRENT value type. Properties with no type information
+	 * (e.g. `open?: boolean` with no initializer) recognize the canonical
+	 * boolean literals "true"/"false"; everything else passes through raw.
+	 */
+	private coerceAttributeValue(prop: string, raw: string | null, current: unknown): unknown {
+		// Explicitly declared string properties are never coerced.
+		if (this._stringProperties.has(prop)) {
+			return raw;
+		}
+
+		// Boolean: present (any value except the literal "false") = true, absent = false.
+		if (this._booleanProperties.has(prop) || typeof current === 'boolean') {
+			return raw !== null && raw !== 'false';
+		}
+
+		// Number: coerce numeric strings; leave null (attribute removed) and
+		// non-numeric garbage untouched rather than producing NaN.
+		if (this._numberProperties.has(prop) || typeof current === 'number') {
+			if (raw === null || raw.trim() === '') {
+				return raw;
+			}
+			const parsed = Number(raw);
+			return Number.isNaN(parsed) ? raw : parsed;
+		}
+
+		// No type information: recognize canonical boolean literals so an
+		// initially-undefined `open?: boolean` never receives the truthy string "false".
+		if ((current === undefined || current === null) && (raw === 'true' || raw === 'false')) {
+			return raw === 'true';
+		}
+
+		return raw;
 	}
 
 	/** Final destruction — runs once when the element is permanently removed. */
@@ -228,6 +296,10 @@ export abstract class ComponentBase extends HTMLElement {
 		// as lazy passthroughs after the reactive props are wired (see below).
 		const getterOnly: string[] = [];
 
+		// Properties holding a reactive source (Signal / AbstractControl). Wired
+		// after the data props so reassignment swaps the render subscription.
+		const sourceProps: string[] = [];
+
 		const filtered = properties.filter((prop) => {
 			// Skip private properties (convention) and framework-internal fields.
 			if (prop.startsWith('_') || prop === 'elementRef' || prop === 'constructor') {
@@ -248,18 +320,9 @@ export abstract class ComponentBase extends HTMLElement {
 			const value = (this._component as any)[prop];
 
 			// Signals and form controls are reactive sources, not reactive data —
-			// collect them to subscribe on connect, but don't wrap them.
-			if (isSignal(value)) {
-				this._reactiveSources.push(value as Signal<unknown>);
-				return false;
-			}
-
-			if (value instanceof AbstractControl) {
-				// Re-render when either the control's value OR its status (state)
-				// changes, so templates reading control.value() stay in sync even
-				// when the value change doesn't alter dirty/touched/validity.
-				this._reactiveSources.push(value.value as Signal<unknown>);
-				this._reactiveSources.push(value.state as Signal<unknown>);
+			// subscribe to them for re-renders, but don't wrap them as data.
+			if (isSignal(value) || value instanceof AbstractControl) {
+				sourceProps.push(prop);
 				return false;
 			}
 
@@ -270,6 +333,10 @@ export abstract class ComponentBase extends HTMLElement {
 			return true;
 		});
 
+		for (const prop of sourceProps) {
+			this.observeReactiveSource(prop);
+		}
+
 		for (const prop of filtered) {
 			const descriptor = this.getPropertyDescriptor(this._component, prop);
 
@@ -277,9 +344,12 @@ export abstract class ComponentBase extends HTMLElement {
 			const wrapperValue = Object.getOwnPropertyDescriptor(this, prop)?.value;
 			let value = wrapperValue === undefined ? (this._component as any)[prop] : wrapperValue;
 
-			// Track boolean properties for attribute conversion
+			// Track boolean/number properties for attribute coercion (explicit
+			// `static propertyTypes` declarations were seeded in the constructor).
 			if (typeof value === 'boolean') {
 				this._booleanProperties.add(prop);
+			} else if (typeof value === 'number') {
+				this._numberProperties.add(prop);
 			}
 
 			// Build getter/setter for the component's property
@@ -373,8 +443,79 @@ export abstract class ComponentBase extends HTMLElement {
 			return;
 		}
 
-		for (const source of this._reactiveSources) {
-			this._unsubscribers.push(source.subscribe(() => this.scheduleRender()));
+		for (const entry of this._reactiveSourceEntries) {
+			// Defensive: never double-subscribe an entry.
+			for (const unsubscribe of entry.unsubscribers) {
+				unsubscribe();
+			}
+			entry.unsubscribers = entry.signals.map((signal) => signal.subscribe(() => this.scheduleRender()));
 		}
+	}
+
+	/** The signals a reactive-source value contributes re-render subscriptions for. */
+	private collectSourceSignals(value: unknown): Array<Signal<unknown>> {
+		if (isSignal(value)) {
+			return [value as Signal<unknown>];
+		}
+
+		if (value instanceof AbstractControl) {
+			// Re-render when either the control's value OR its status (state)
+			// changes, so templates reading control.value() stay in sync even
+			// when the value change doesn't alter dirty/touched/validity.
+			return [value.value as Signal<unknown>, value.state as Signal<unknown>];
+		}
+
+		return [];
+	}
+
+	/**
+	 * Wire a component field holding a Signal/AbstractControl so its render
+	 * subscription follows reassignment: `this.form = createFormGroup(...)`
+	 * after construction unsubscribes the old source and subscribes the new one
+	 * instead of silently going inert.
+	 */
+	private observeReactiveSource(prop: string): void {
+		const component = this._component as unknown as Record<string, unknown>;
+		const entry: ReactiveSourceEntry = {
+			signals: this.collectSourceSignals(component[prop]),
+			unsubscribers: []
+		};
+		this._reactiveSourceEntries.push(entry);
+
+		const descriptor = this.getPropertyDescriptor(this._component, prop);
+		if (descriptor && (descriptor.get || descriptor.set)) {
+			// Custom accessor — leave it intact and subscribe to the
+			// construction-time snapshot only (pre-existing behavior).
+			return;
+		}
+
+		let current = component[prop];
+
+		Object.defineProperty(this._component, prop, {
+			get: () => current,
+			set: (newVal: unknown) => {
+				if (Object.is(current, newVal)) {
+					return;
+				}
+
+				this._component.onPropertyChange?.(prop, current, newVal);
+				current = newVal;
+
+				// Swap the render subscription to the new source.
+				for (const unsubscribe of entry.unsubscribers) {
+					unsubscribe();
+				}
+				entry.unsubscribers = [];
+				entry.signals = this.collectSourceSignals(newVal);
+
+				if (this.isConnected && !this._destroyed) {
+					entry.unsubscribers = entry.signals.map((signal) => signal.subscribe(() => this.scheduleRender()));
+				}
+
+				this.scheduleRender();
+			},
+			enumerable: true,
+			configurable: true
+		});
 	}
 }
