@@ -1,9 +1,13 @@
 import { MelodicComponent } from '../../../components/decorators/melodic-component.decorator';
-import { Service } from '../../../injection/decorators/service.decorator';
 import { css, html } from '../../../template/functions/html.function';
-import type { INavigationOptions } from '../../interfaces/inavigation-options.interface';
-import { RouterService } from '../../services/router.service';
+import { RouterLinkCore } from '../../classes/router-link-core.class';
 
+/**
+ * `<router-link>` element. Thin wrapper over `RouterLinkCore` — the same
+ * implementation that powers the `:routerLink` directive — so both stay in
+ * sync (safe-URL enforcement, native modifier/middle-click behavior, active
+ * class management).
+ */
 @MelodicComponent({
 	selector: 'router-link',
 	template: () => html`<a part="link"><slot></slot></a>`,
@@ -22,11 +26,8 @@ import { RouterService } from '../../services/router.service';
 	attributes: ['href', 'active-class']
 })
 export class RouterLinkComponent {
-	@Service(RouterService) private _router!: RouterService;
-
 	private _anchorElement: HTMLAnchorElement | null = null;
-	private _navigationCleanup: (() => void) | null = null;
-	private _clickCleanup: (() => void) | null = null;
+	private _core: RouterLinkCore | null = null;
 
 	public href: string = '';
 	public data: unknown = null;
@@ -49,49 +50,29 @@ export class RouterLinkComponent {
 			this.activeClass = initialActiveClass;
 		}
 
-		this.updateAnchorHref();
-
-		const clickHandler = (e: MouseEvent): void => {
-			e.preventDefault();
-
-			// Don't navigate if modifier keys are pressed (allow new tab, etc.)
-			if (e.ctrlKey || e.metaKey || e.shiftKey) {
-				window.open(this.buildFullPath(), '_blank');
-				return;
-			}
-
-			this.navigate();
-		};
-		this.elementRef.addEventListener('click', clickHandler as EventListener, false);
-		this._clickCleanup = () => this.elementRef.removeEventListener('click', clickHandler as EventListener, false);
-
-		const handler = () => this.updateActiveState();
-		window.addEventListener('NavigationEvent', handler);
-		this._navigationCleanup = () => window.removeEventListener('NavigationEvent', handler);
-
-		this.updateActiveState();
+		this._core = new RouterLinkCore(this.elementRef, () => this._anchorElement);
+		this.syncCore();
 	}
 
 	public onDestroy(): void {
-		this._navigationCleanup?.();
-		this._clickCleanup?.();
+		this._core?.destroy();
+		this._core = null;
 	}
 
 	public onAttributeChange(attribute: string, _: unknown, newVal: unknown): void {
 		if (attribute === 'href') {
 			this.href = newVal as string;
-			this.updateAnchorHref();
-			this.updateActiveState();
+			this.syncCore();
 		} else if (attribute === 'active-class') {
 			this.activeClass = newVal as string;
-			this.updateActiveState();
+			this.syncCore();
 		}
 	}
 
 	public onPropertyChange(name: string): void {
-		if (name === 'href' || name === 'queryParams') {
-			this.updateAnchorHref();
-			this.updateActiveState();
+		if (name === 'href' || name === 'queryParams' || name === 'activeClass' || name === 'exactMatch' || name === 'replace' || name === 'data') {
+			// Property changes land after this hook returns — sync on microtask.
+			queueMicrotask(() => this.syncCore());
 		}
 	}
 
@@ -106,53 +87,14 @@ export class RouterLinkComponent {
 		return currentPath.startsWith(linkPath);
 	}
 
-	private buildFullPath(): string {
-		let path = this.href;
-
-		if (this.queryParams && Object.keys(this.queryParams).length > 0) {
-			const params = new URLSearchParams(this.queryParams);
-			path = `${path}?${params.toString()}`;
-		}
-
-		return path;
-	}
-
-	private updateAnchorHref(): void {
-		if (this._anchorElement) {
-			this._anchorElement.href = this.buildFullPath();
-		}
-	}
-
-	private async navigate(): Promise<void> {
-		const options: INavigationOptions = {
-			data: this.data,
+	private syncCore(): void {
+		this._core?.setOptions({
+			href: this.href,
+			activeClass: this.activeClass,
+			exactMatch: this.exactMatch,
 			replace: this.replace,
+			data: this.data,
 			queryParams: this.queryParams
-		};
-
-		await this._router.navigate(this.href, options);
-	}
-
-	private updateActiveState(): void {
-		const currentPath = window.location.pathname;
-		const linkPath = this.href.startsWith('/') ? this.href : `/${this.href}`;
-		const normalizedCurrentPath = currentPath.replace(/\/$/, '') || '/';
-		const normalizedLinkPath = linkPath.replace(/\/$/, '') || '/';
-
-		let isActive: boolean;
-
-		if (this.exactMatch) {
-			isActive = normalizedCurrentPath === normalizedLinkPath;
-		} else {
-			isActive = normalizedCurrentPath === normalizedLinkPath || normalizedCurrentPath.startsWith(normalizedLinkPath + '/');
-		}
-
-		if (isActive) {
-			this.elementRef.classList.add(this.activeClass);
-			this._anchorElement?.setAttribute('aria-current', 'page');
-		} else {
-			this.elementRef.classList.remove(this.activeClass);
-			this._anchorElement?.removeAttribute('aria-current');
-		}
+		});
 	}
 }

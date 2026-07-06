@@ -32,11 +32,15 @@ export type { INavigationResult } from './interfaces/inavigation-result.interfac
 // Classes
 export { RouteMatcher } from './classes/route-matcher.class';
 export { RouteContextEvent, ROUTE_CONTEXT_EVENT } from './classes/route-context-event.class';
+export { RouterLinkCore } from './classes/router-link-core.class';
 
 // Functions
 export { matchRouteTree } from './functions/match-route-tree.function';
 export { findRouteByName } from './functions/find-route-by-name.function';
 export { buildPathFromRoute } from './functions/build-path-from-route.function';
+export { provideRouter } from './functions/provide-router.function';
+export { installHistoryEvents } from './functions/install-history-events.function';
+export { isSafeUrl } from './functions/is-safe-url.function';
 
 // Services
 export { RouterService } from './services/router.service';
