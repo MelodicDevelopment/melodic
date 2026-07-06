@@ -2,6 +2,7 @@ import { MelodicComponent } from '@melodicdev/core';
 import type { IElementRef, OnCreate, OnDestroy } from '@melodicdev/core';
 import type { Placement } from '../../../types/index.js';
 import { computePosition, autoUpdate, offset, flip, shift, arrow as arrowMiddleware } from '../../../utils/positioning/index.js';
+import { createFocusTrap, getDeepActiveElement, type FocusTrap } from '../../../utils/accessibility/focus-trap.js';
 import { popoverTemplate } from './popover.template.js';
 import { popoverStyles } from './popover.styles.js';
 
@@ -26,6 +27,8 @@ import { popoverStyles } from './popover.styles.js';
  *
  * @slot trigger - The element that toggles the popover
  * @slot default - The popover content
+ * @fires ml:open - Emitted when the popover opens
+ * @fires ml:close - Emitted when the popover closes
  */
 @MelodicComponent({
 	selector: 'ml-popover',
@@ -52,6 +55,7 @@ export class PopoverComponent implements IElementRef, OnCreate, OnDestroy {
 	public isOpen = false;
 
 	private _cleanupAutoUpdate: (() => void) | null = null;
+	private _focusTrap: FocusTrap | null = null;
 	// Set when the popover light-dismisses, consumed by the next toggle() so a
 	// click on the trigger that just dismissed it doesn't immediately reopen it.
 	private _justDismissed = false;
@@ -65,6 +69,8 @@ export class PopoverComponent implements IElementRef, OnCreate, OnDestroy {
 
 	public onDestroy(): void {
 		this._cleanupAutoUpdate?.();
+		this._focusTrap?.deactivate({ returnFocus: false });
+		this._focusTrap = null;
 		const popoverEl = this.getPopoverEl();
 		if (popoverEl) {
 			popoverEl.removeEventListener('toggle', this.handleToggle);
@@ -106,14 +112,45 @@ export class PopoverComponent implements IElementRef, OnCreate, OnDestroy {
 		if (toggleEvent.newState === 'open') {
 			this.isOpen = true;
 			this.startPositioning();
+			this.activateFocusTrap();
+			this.elementRef.dispatchEvent(
+				new CustomEvent('ml:open', { bubbles: true, composed: true })
+			);
 		} else {
 			this.isOpen = false;
 			this._justDismissed = true;
 			setTimeout(() => { this._justDismissed = false; }, 0);
 			this._cleanupAutoUpdate?.();
 			this._cleanupAutoUpdate = null;
+			// Restore focus only when it is still inside the popover (keyboard
+			// dismiss / focus parked in the content); a pointer light-dismiss
+			// that moved focus elsewhere must not have it yanked back.
+			this._focusTrap?.deactivate({ returnFocus: this.isFocusWithin() });
+			this._focusTrap = null;
+			this.elementRef.dispatchEvent(
+				new CustomEvent('ml:close', { bubbles: true, composed: true })
+			);
 		}
 	};
+
+	private activateFocusTrap(): void {
+		const popoverEl = this.getPopoverEl();
+		if (!popoverEl) return;
+
+		this._focusTrap?.deactivate({ returnFocus: false });
+		this._focusTrap = createFocusTrap(popoverEl);
+		this._focusTrap.activate();
+	}
+
+	/** True when the (deep) focused element is inside this popover. */
+	private isFocusWithin(): boolean {
+		let node: Node | null = getDeepActiveElement();
+		while (node) {
+			if (node === this.elementRef) return true;
+			node = node instanceof ShadowRoot ? node.host : node.parentNode;
+		}
+		return false;
+	}
 
 	private startPositioning(): void {
 		const triggerEl = this.getTriggerEl();

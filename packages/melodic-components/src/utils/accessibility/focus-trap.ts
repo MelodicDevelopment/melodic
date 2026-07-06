@@ -67,21 +67,27 @@ export function createFocusTrap(container: HTMLElement, options: FocusTrapOption
 	let active = false;
 	let previouslyFocused: HTMLElement | null = null;
 
-	function getActiveElement(): Element | null {
-		// document.activeElement is always the outer shadow host for content
-		// inside shadow DOM; resolve against the container's own root instead.
-		return (container.getRootNode() as Document | ShadowRoot).activeElement;
-	}
+	// When the container lives in a shadow root, keydown events from slotted
+	// (light DOM) content bubble through the host element's tree; listen there
+	// too so projected content is trapped.
+	const containerRoot = container.getRootNode();
+	const hostEl: HTMLElement | null = containerRoot instanceof ShadowRoot ? (containerRoot.host as HTMLElement) : null;
+	const handledEvents = new WeakSet<Event>();
 
 	function handleKeydown(event: KeyboardEvent): void {
 		if (event.key !== 'Tab' || !active) return;
+		// The same event can reach both the container and the host listener.
+		if (handledEvents.has(event)) return;
+		handledEvents.add(event);
 
 		const focusables = collectFocusables(container);
 		if (focusables.length === 0) return;
 
 		const first = focusables[0];
 		const last = focusables[focusables.length - 1];
-		const activeElement = getActiveElement();
+		// document.activeElement is always the outer shadow host for content
+		// inside shadow DOM; resolve the deep active element instead.
+		const activeElement = getDeepActiveElement();
 
 		if (event.shiftKey) {
 			// Shift + Tab: going backwards
@@ -104,8 +110,9 @@ export function createFocusTrap(container: HTMLElement, options: FocusTrapOption
 		active = true;
 		previouslyFocused = getDeepActiveElement() as HTMLElement | null;
 
-		// Add keydown listener
+		// Add keydown listeners
 		container.addEventListener('keydown', handleKeydown);
+		hostEl?.addEventListener('keydown', handleKeydown);
 
 		// Focus initial element
 		if (initialFocus) {
@@ -123,6 +130,7 @@ export function createFocusTrap(container: HTMLElement, options: FocusTrapOption
 
 		active = false;
 		container.removeEventListener('keydown', handleKeydown);
+		hostEl?.removeEventListener('keydown', handleKeydown);
 
 		// Return focus
 		if (deactivateOptions.returnFocus === false) {
