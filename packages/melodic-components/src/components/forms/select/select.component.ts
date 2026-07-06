@@ -3,7 +3,8 @@ import type { IElementRef, OnCreate, OnDestroy } from '@melodicdev/core';
 import { registerAdapter } from '@melodicdev/core/forms';
 import type { Size } from '../../../types/index.js';
 import type { SelectOption } from './select.types.js';
-import { computePosition, offset, flip, shift } from '../../../utils/positioning/index.js';
+import { computePosition, autoUpdate, offset, flip, shift } from '../../../utils/positioning/index.js';
+import { newID } from '../../../functions/index.js';
 import { selectTemplate } from './select.template.js';
 import { selectStyles } from './select.styles.js';
 
@@ -108,7 +109,8 @@ export class SelectComponent implements IElementRef, OnCreate, OnDestroy {
 	/** Bound event handlers for cleanup */
 	private readonly _handleKeyDown = this.onKeyDown.bind(this);
 	private readonly _handlePopoverToggle = this.onPopoverToggle.bind(this);
-	private _handleScroll: ((event: Event) => void) | null = null;
+	private readonly _uid = newID();
+	private _cleanupAutoUpdate: (() => void) | null = null;
 	private _lastCloseTime = 0;
 	private _syncingValues = false;
 
@@ -119,7 +121,7 @@ export class SelectComponent implements IElementRef, OnCreate, OnDestroy {
 
 	public onDestroy(): void {
 		this.elementRef.removeEventListener('keydown', this._handleKeyDown);
-		this.removeScrollListener();
+		this.stopPositioning();
 		this.getDropdownEl()?.removeEventListener('toggle', this._handlePopoverToggle);
 	}
 
@@ -215,16 +217,29 @@ export class SelectComponent implements IElementRef, OnCreate, OnDestroy {
 		return this.multiple ? this.values.length > 0 : !!this.value;
 	}
 
+	/** Unique id of the label element (for aria-labelledby) */
+	public get labelId(): string {
+		return `ml-select-label-${this._uid}`;
+	}
+
+	/** Unique id of the listbox element (for aria-controls) */
+	public get listboxId(): string {
+		return `ml-select-listbox-${this._uid}`;
+	}
+
+	/** Unique id for the option at the given display index */
+	public optionId = (index: number): string => {
+		return `${this.listboxId}-option-${index}`;
+	};
+
+	/** Id of the keyboard-focused option, or undefined when none (omits the attribute) */
+	public get activeDescendant(): string | undefined {
+		return this.isOpen && this.focusedIndex >= 0 ? this.optionId(this.focusedIndex) : undefined;
+	}
+
 	/** Toggle dropdown open/close */
 	public toggle = (): void => {
 		if (this.disabled) return;
-
-		if (this.multiple) {
-			if (!this.isOpen) {
-				this.open();
-			}
-			return;
-		}
 
 		if (this.isOpen) {
 			this.close();
@@ -324,8 +339,7 @@ export class SelectComponent implements IElementRef, OnCreate, OnDestroy {
 		if (toggleEvent.newState === 'open') {
 			this.isOpen = true;
 			this.focusedIndex = this.getInitialFocusIndex();
-			this.positionDropdown();
-			this.addScrollListener();
+			this.startPositioning();
 			this.elementRef.dispatchEvent(
 				new CustomEvent('ml:open', { bubbles: true, composed: true })
 			);
@@ -334,19 +348,32 @@ export class SelectComponent implements IElementRef, OnCreate, OnDestroy {
 			this.focusedIndex = -1;
 			this.search = '';
 			this._lastCloseTime = Date.now();
-			this.removeScrollListener();
+			this.stopPositioning();
 			this.elementRef.dispatchEvent(
 				new CustomEvent('ml:close', { bubbles: true, composed: true })
 			);
 		}
 	}
 
-	/** Position the dropdown relative to the trigger using fixed positioning */
-	private positionDropdown(): void {
+	/** Keep the dropdown positioned while open (repositions on scroll/resize). */
+	private startPositioning(): void {
 		const triggerEl = this.elementRef.shadowRoot?.querySelector('.ml-select__trigger') as HTMLElement | null;
 		const dropdownEl = this.getDropdownEl();
 		if (!triggerEl || !dropdownEl) return;
 
+		const update = () => this.updatePosition(triggerEl, dropdownEl);
+		this.stopPositioning();
+		this._cleanupAutoUpdate = autoUpdate(triggerEl, dropdownEl, update);
+		// Position immediately; harmless if autoUpdate also runs an initial update.
+		update();
+	}
+
+	private stopPositioning(): void {
+		this._cleanupAutoUpdate?.();
+		this._cleanupAutoUpdate = null;
+	}
+
+	private updatePosition(triggerEl: HTMLElement, dropdownEl: HTMLElement): void {
 		dropdownEl.style.width = `${triggerEl.offsetWidth}px`;
 
 		const { x, y } = computePosition(triggerEl, dropdownEl, {
@@ -356,23 +383,6 @@ export class SelectComponent implements IElementRef, OnCreate, OnDestroy {
 
 		dropdownEl.style.left = `${x}px`;
 		dropdownEl.style.top = `${y}px`;
-	}
-
-	/** Close dropdown when any ancestor scrolls */
-	private addScrollListener(): void {
-		this._handleScroll = (event: Event) => {
-			const dropdownEl = this.getDropdownEl();
-			if (dropdownEl?.contains(event.target as Node)) return;
-			this.close();
-		};
-		window.addEventListener('scroll', this._handleScroll, true);
-	}
-
-	private removeScrollListener(): void {
-		if (this._handleScroll) {
-			window.removeEventListener('scroll', this._handleScroll, true);
-			this._handleScroll = null;
-		}
 	}
 
 	private getDropdownEl(): HTMLElement | null {
