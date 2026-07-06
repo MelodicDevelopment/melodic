@@ -38,6 +38,7 @@ export function autocompleteTemplate(c: AutocompleteComponent) {
 				</div>
 
 				<div
+					id=${c.listboxId}
 					class="ml-autocomplete__dropdown"
 					role="listbox"
 					popover="manual"
@@ -74,6 +75,12 @@ function renderSingleValue(c: AutocompleteComponent) {
 		<input
 			class="ml-autocomplete__input"
 			type="text"
+			role="combobox"
+			aria-expanded=${c.isOpen}
+			aria-controls=${c.listboxId}
+			aria-autocomplete="list"
+			aria-haspopup="listbox"
+			aria-activedescendant=${c.activeDescendant}
 			placeholder=${c.hasValue ? c.displayText : c.placeholder}
 			aria-label=${c.label || c.placeholder || 'Search'}
 			.value=${c.hasValue && !c.search ? c.displayText : c.search}
@@ -117,6 +124,12 @@ function renderMultiValue(c: AutocompleteComponent) {
 		<input
 			class="ml-autocomplete__input"
 			type="text"
+			role="combobox"
+			aria-expanded=${c.isOpen}
+			aria-controls=${c.listboxId}
+			aria-autocomplete="list"
+			aria-haspopup="listbox"
+			aria-activedescendant=${c.activeDescendant}
 			placeholder=${c.values.length ? '' : c.placeholder}
 			aria-label=${c.label || c.placeholder || 'Search'}
 			.value=${c.search}
@@ -135,6 +148,7 @@ function renderOption(c: AutocompleteComponent, option: AutocompleteOption, inde
 
 	return html`
 		<div
+			id=${c.optionId(index)}
 			class=${classMap({
 				'ml-autocomplete__option': true,
 				'ml-autocomplete__option--selected': isSelected,
