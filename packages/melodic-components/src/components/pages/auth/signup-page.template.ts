@@ -9,20 +9,15 @@ export function signupPageTemplate(c: SignupPageComponent) {
 			<slot name="logo"></slot>
 		</div>
 
-		${when(
-			c.hasHeaderSlot,
-			() => html`
-				<div class="ml-auth__header">
-					<slot name="header"></slot>
-				</div>
-			`,
-			() => html`
-				<div class="ml-auth__header">
-					<h1 class="ml-auth__title">${c.pageTitle}</h1>
-					<p class="ml-auth__description">${c.description}</p>
-				</div>
-			`
-		)}
+		<div class="ml-auth__header">
+			<!-- Native slot fallback keeps header-slot presence reactive: content
+			     assigned after mount projects and hides the default title, with no
+			     render-time querySelector snapshot involved. -->
+			<slot name="header">
+				<h1 class="ml-auth__title">${c.pageTitle}</h1>
+				<p class="ml-auth__description">${c.description}</p>
+			</slot>
+		</div>
 
 		<div class="ml-auth__social">
 			<slot name="social"></slot>

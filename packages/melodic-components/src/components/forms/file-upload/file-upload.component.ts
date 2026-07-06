@@ -1,9 +1,42 @@
 import { MelodicComponent } from '@melodicdev/core';
 import type { IElementRef } from '@melodicdev/core';
+import { registerAdapter } from '@melodicdev/core/forms';
 import type { FileValidationError } from './file-upload.types.js';
 import { fileUploadTemplate } from './file-upload.template.js';
 import { fileUploadStyles } from './file-upload.styles.js';
 
+// Forms adapter: lets `:formControl` bind to ml-file-upload. The control value
+// is the selected File[] in `multiple` mode, or a single File | null otherwise.
+// Validator messages auto-populate the existing `error` attribute via the
+// directive's standard error sync.
+registerAdapter<File[] | File | null>((el) => el.tagName === 'ML-FILE-UPLOAD', {
+	inputEvent: 'ml:change',
+	blurEvent: 'focusout',
+	getValue: (el) => {
+		const e = el as unknown as { files: File[]; multiple: boolean };
+		return e.multiple ? e.files : (e.files[0] ?? null);
+	},
+	setValue: (el, value) => {
+		const e = el as unknown as { files: File[] };
+		if (value === null || value === undefined) {
+			if (e.files.length > 0) e.files = [];
+		} else if (Array.isArray(value)) {
+			e.files = value;
+		} else {
+			e.files = [value];
+		}
+	},
+	setDisabled: (el, disabled) => {
+		(el as unknown as { disabled: boolean }).disabled = disabled;
+	}
+});
+
+/**
+ * ml-file-upload - Drag-and-drop / click-to-browse file selection dropzone
+ *
+ * @fires ml:change - Emitted when valid files are selected. Detail: { files }
+ * @fires ml:error - Emitted when files fail validation. Detail: { errors }
+ */
 @MelodicComponent({
 	selector: 'ml-file-upload',
 	template: fileUploadTemplate,
@@ -26,6 +59,27 @@ export class FileUploadComponent implements IElementRef {
 
 	public dragOver = false;
 	private _dragCounter = 0;
+
+	/**
+	 * The currently selected (valid) files. Accumulates across selections in
+	 * `multiple` mode and is replaced by the latest selection otherwise. This
+	 * backs the forms adapter, so a bound FormControl stays in sync; it can
+	 * also be set programmatically (e.g. control.setValue([]) to reset).
+	 */
+	public files: File[] = [];
+
+	/** Remove a previously selected file (keeps a bound FormControl in sync). */
+	public removeFile = (file: File): void => {
+		if (!this.files.includes(file)) return;
+		this.files = this.files.filter((f) => f !== file);
+		this.elementRef.dispatchEvent(
+			new CustomEvent('ml:change', {
+				bubbles: true,
+				composed: true,
+				detail: { files: this.files }
+			})
+		);
+	};
 
 	public handleClick = (): void => {
 		if (this.disabled) return;
@@ -122,6 +176,10 @@ export class FileUploadComponent implements IElementRef {
 		}
 
 		if (validFiles.length > 0) {
+			// Track selection state (backs the forms adapter): accumulate in
+			// multiple mode, replace in single mode.
+			this.files = this.multiple ? [...this.files, ...validFiles] : validFiles.slice(0, 1);
+
 			this.elementRef.dispatchEvent(
 				new CustomEvent('ml:change', {
 					bubbles: true,

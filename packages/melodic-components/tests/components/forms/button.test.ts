@@ -194,3 +194,25 @@ describe('ml-button', () => {
 		});
 	});
 });
+
+describe('ml-button danger/error variant alias', () => {
+	let el: any;
+
+	afterEach(() => {
+		if (el) removeComponent(el);
+		el = null;
+	});
+
+	it("renders variant='danger' with the danger class", async () => {
+		el = createComponent('ml-button', { attributes: { variant: 'danger' } });
+		await flush();
+		expect(shadowHasClass(el, 'button', 'ml-button--danger')).toBe(true);
+	});
+
+	it("renders the canonical variant='error' identically to 'danger'", async () => {
+		el = createComponent('ml-button', { attributes: { variant: 'error' } });
+		await flush();
+		expect(shadowHasClass(el, 'button', 'ml-button--danger')).toBe(true);
+		expect(shadowHasClass(el, 'button', 'ml-button--error')).toBe(false);
+	});
+});

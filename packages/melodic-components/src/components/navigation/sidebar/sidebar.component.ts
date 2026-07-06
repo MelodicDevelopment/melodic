@@ -243,6 +243,10 @@ export class SidebarComponent implements IElementRef, OnCreate, OnDestroy, OnRen
 
 	/** Handle item click from slotted children */
 	private onItemClick(event: CustomEvent): void {
+		// ml:sidebar-item-click is internal item→sidebar coordination; consumers
+		// get ml:change + ml:item-click (re-emitted by activateItem). Stop the
+		// original so it never escapes the ml-sidebar host.
+		event.stopPropagation();
 		const { value, href } = event.detail;
 		this.activateItem(value, href);
 	}

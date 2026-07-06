@@ -1,7 +1,7 @@
 import { MelodicComponent } from '@melodicdev/core';
 import type { IElementRef } from '@melodicdev/core';
 import { registerAdapter } from '@melodicdev/core/forms';
-import type { Size } from '../../../types/index.js';
+import type { ControlSize } from '../../../types/index.js';
 import { sliderTemplate } from './slider.template.js';
 import { sliderStyles } from './slider.styles.js';
 
@@ -50,7 +50,7 @@ export class SliderComponent implements IElementRef {
 	public step = 1;
 
 	/** Slider size */
-	public size: Size = 'md';
+	public size: ControlSize = 'md';
 
 	/** Disable the slider */
 	public disabled = false;

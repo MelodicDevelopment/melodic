@@ -1,7 +1,7 @@
 import { MelodicComponent } from '@melodicdev/core';
 import type { IElementRef, OnCreate, OnDestroy } from '@melodicdev/core';
 import { registerAdapter } from '@melodicdev/core/forms';
-import type { Size } from '../../../types/index.js';
+import type { ControlSize } from '../../../types/index.js';
 import { buttonGroupTemplate } from './button-group.template.js';
 import { buttonGroupStyles } from './button-group.styles.js';
 
@@ -58,7 +58,7 @@ export class ButtonGroupComponent implements IElementRef, OnCreate, OnDestroy {
 	public variant: 'outline' | 'solid' = 'outline';
 
 	/** Size variant */
-	public size: Size = 'md';
+	public size: ControlSize = 'md';
 
 	/** Disable the entire group */
 	public disabled = false;

@@ -148,6 +148,9 @@ export class StepsComponent implements IElementRef, OnCreate, OnDestroy, OnRende
 
 	/** Handle slotted step click event */
 	private handleSlottedStepClick = (event: CustomEvent): void => {
+		// ml:step-click is internal step→steps coordination; consumers get
+		// ml:change. Stop it here so it never escapes the ml-steps host.
+		event.stopPropagation();
 		const { value, href } = event.detail;
 		this.handleStepClick(value, href);
 	};

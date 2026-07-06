@@ -69,12 +69,16 @@ export class LoginPageComponent implements IElementRef {
 		this.pageTitle = value;
 	}
 
-	/** Check if header slot has content */
+	/**
+	 * Whether the header slot has content. The template no longer reads this at
+	 * render time (it uses native slot fallback, which stays reactive on its
+	 * own); this is a live query kept for imperative consumers.
+	 */
 	public get hasHeaderSlot(): boolean {
 		return this.elementRef?.querySelector('[slot="header"]') !== null;
 	}
 
-	/** Check if brand slot has content */
+	/** Whether the brand slot has content (live query for imperative consumers). */
 	public get hasBrandSlot(): boolean {
 		return this.elementRef?.querySelector('[slot="brand"]') !== null;
 	}

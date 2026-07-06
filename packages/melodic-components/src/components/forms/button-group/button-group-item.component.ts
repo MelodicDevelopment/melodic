@@ -1,6 +1,6 @@
 import { MelodicComponent } from '@melodicdev/core';
 import type { IElementRef } from '@melodicdev/core';
-import type { Size } from '../../../types/index.js';
+import type { ControlSize } from '../../../types/index.js';
 import { buttonGroupItemTemplate } from './button-group-item.template.js';
 import { buttonGroupItemStyles } from './button-group-item.styles.js';
 
@@ -39,7 +39,7 @@ export class ButtonGroupItemComponent implements IElementRef {
 	public groupDisabled = false;
 
 	/** Size from parent group */
-	public groupSize: Size = 'md';
+	public groupSize: ControlSize = 'md';
 
 	public get isDisabled(): boolean {
 		return this.disabled || this.groupDisabled;

@@ -3,7 +3,7 @@ import type { TagComponent } from './tag.component.js';
 
 export function tagTemplate(c: TagComponent) {
 	const avatarSrc = c['avatar-src'];
-	const dotColor = c['dot-color'];
+	const dotColor = c.resolvedDotColor;
 
 	return html`
 		<span

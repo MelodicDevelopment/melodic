@@ -92,3 +92,52 @@ describe('ml-pagination page list', () => {
 		expect(el.page).toBe(2);
 	});
 });
+
+describe('ml-pagination attribute coercion (declarative propertyTypes)', () => {
+	let el: any;
+
+	afterEach(() => {
+		if (el) removeComponent(el);
+		el = null;
+	});
+
+	it('coerces page/total-pages/siblings attributes to numbers', async () => {
+		el = createComponent('ml-pagination', {
+			attributes: { page: '2', 'total-pages': '9', siblings: '2' }
+		});
+		await flush();
+
+		expect(el.page).toBe(2);
+		expect(el.totalPages).toBe(9);
+		expect(el.siblings).toBe(2);
+	});
+
+	it('navigates correctly from attribute-provided numbers', async () => {
+		el = createComponent('ml-pagination', {
+			attributes: { page: '2', 'total-pages': '3' }
+		});
+		await flush();
+
+		expect(el.hasPrevious).toBe(true);
+		expect(el.hasNext).toBe(true);
+
+		const changed = captureEvent<{ page: number }>(el, 'ml:page-change');
+		el.component.next();
+		expect((await changed).detail.page).toBe(3);
+		expect(el.hasNext).toBe(false);
+	});
+
+	it('does not navigate past the attribute-coerced bounds', async () => {
+		el = createComponent('ml-pagination', {
+			attributes: { page: '1', 'total-pages': '2' }
+		});
+		await flush();
+
+		el.component.previous();
+		expect(el.page).toBe(1);
+
+		el.component.next();
+		el.component.next();
+		expect(el.page).toBe(2);
+	});
+});

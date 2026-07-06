@@ -1,7 +1,6 @@
 import { MelodicComponent } from '@melodicdev/core';
 import type { IElementRef } from '@melodicdev/core';
-import type { Size } from '../../../types/index.js';
-import type { BadgeVariant } from './badge.types.js';
+import type { BadgeVariant, BadgeSize } from './badge.types.js';
 import { badgeTemplate } from './badge.template.js';
 import { badgeStyles } from './badge.styles.js';
 
@@ -30,7 +29,7 @@ export class BadgeComponent implements IElementRef {
 	public variant: BadgeVariant = 'default';
 
 	/** Badge size */
-	public size: Size = 'md';
+	public size: BadgeSize = 'md';
 
 	/** Show dot indicator */
 	public dot = false;

@@ -1,5 +1,5 @@
 import { MelodicComponent } from '@melodicdev/core';
-import type { IElementRef } from '@melodicdev/core';
+import type { IElementRef, OnCreate, OnDestroy } from '@melodicdev/core';
 import { dashboardPageTemplate } from './dashboard-page.template.js';
 import { dashboardPageStyles } from './dashboard-page.styles.js';
 
@@ -44,7 +44,7 @@ function warnDeprecatedTitle(): void {
 	styles: dashboardPageStyles,
 	attributes: ['page-title', 'title', 'description', 'layout']
 })
-export class DashboardPageComponent implements IElementRef {
+export class DashboardPageComponent implements IElementRef, OnCreate, OnDestroy {
 	public elementRef!: HTMLElement;
 
 	/** Page title (attribute: page-title) */
@@ -65,18 +65,44 @@ export class DashboardPageComponent implements IElementRef {
 	/** Content layout variant */
 	public layout: DashboardLayout = 'default';
 
-	/** Check if metrics slot has content */
-	public get hasMetrics(): boolean {
-		return this.elementRef?.querySelector('[slot="metrics"]') !== null;
+	/** Whether the metrics slot has content (kept in sync via MutationObserver) */
+	public hasMetrics = false;
+
+	/** Whether the aside slot has content (kept in sync via MutationObserver) */
+	public hasAside = false;
+
+	/** Whether the header-actions slot has content (kept in sync via MutationObserver) */
+	public hasHeaderActions = false;
+
+	private _slotObserver: MutationObserver | null = null;
+
+	public onCreate(): void {
+		// Slot presence must be reactive so content added or removed after mount
+		// projects correctly (same bug class fixed with slotchange in
+		// profile-card/page-header). The slotchange pattern cannot be used here:
+		// these shadow slots are conditionally rendered (chicken-and-egg — the
+		// slot that would fire slotchange only exists once the flag is already
+		// true), and the header-actions slot is chained into ml-page-header's
+		// actions slot, so rendering it unconditionally would make page-header
+		// consider its actions section non-empty. Watch the light DOM instead.
+		this._slotObserver = new MutationObserver(() => this.syncSlotFlags());
+		this._slotObserver.observe(this.elementRef, {
+			childList: true,
+			subtree: true,
+			attributes: true,
+			attributeFilter: ['slot']
+		});
+		this.syncSlotFlags();
 	}
 
-	/** Check if aside slot has content */
-	public get hasAside(): boolean {
-		return this.elementRef?.querySelector('[slot="aside"]') !== null;
+	public onDestroy(): void {
+		this._slotObserver?.disconnect();
+		this._slotObserver = null;
 	}
 
-	/** Check if header-actions slot has content */
-	public get hasHeaderActions(): boolean {
-		return this.elementRef?.querySelector('[slot="header-actions"]') !== null;
+	private syncSlotFlags(): void {
+		this.hasMetrics = this.elementRef.querySelector('[slot="metrics"]') !== null;
+		this.hasAside = this.elementRef.querySelector('[slot="aside"]') !== null;
+		this.hasHeaderActions = this.elementRef.querySelector('[slot="header-actions"]') !== null;
 	}
 }

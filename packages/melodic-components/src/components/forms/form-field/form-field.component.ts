@@ -1,6 +1,6 @@
 import { MelodicComponent } from '@melodicdev/core';
 import type { IElementRef, OnCreate, OnRender } from '@melodicdev/core';
-import type { Size } from '../../../types/index.js';
+import type { ControlSize } from '../../../types/index.js';
 import type { FormFieldOrientation } from './form-field.types.js';
 import { formFieldTemplate } from './form-field.template.js';
 import { formFieldStyles } from './form-field.styles.js';
@@ -44,7 +44,7 @@ export class FormFieldComponent implements IElementRef, OnCreate, OnRender {
 	public error = '';
 
 	/** Field size */
-	public size: Size = 'md';
+	public size: ControlSize = 'md';
 
 	/** Layout orientation */
 	public orientation: FormFieldOrientation = 'vertical';
