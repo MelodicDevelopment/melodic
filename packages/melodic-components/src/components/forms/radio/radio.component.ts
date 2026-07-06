@@ -1,6 +1,6 @@
 import { MelodicComponent } from '@melodicdev/core';
 import type { IElementRef } from '@melodicdev/core';
-import type { Size } from '../../../types/index.js';
+import type { ControlSize } from '../../../types/index.js';
 import { radioTemplate } from './radio.template.js';
 import { radioStyles } from './radio.styles.js';
 
@@ -37,7 +37,7 @@ export class RadioComponent implements IElementRef {
 	public hint = '';
 
 	/** Radio size */
-	public size: Size = 'md';
+	public size: ControlSize = 'md';
 
 	/** Checked state */
 	public checked = false;

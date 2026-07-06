@@ -80,6 +80,15 @@ export class ButtonComponent implements IElementRef {
 		return this.disabled || this.loading;
 	}
 
+	/**
+	 * Variant with the canonical 'error' name resolved to this component's
+	 * historical 'danger' style class. The two are interchangeable aliases;
+	 * the stylesheet keys off `ml-button--danger`.
+	 */
+	public get resolvedVariant(): ButtonVariant {
+		return this.variant === 'error' ? 'danger' : this.variant;
+	}
+
 	/** Handle click events */
 	public handleClick = (event: MouseEvent): void => {
 		if (this.isDisabled) {

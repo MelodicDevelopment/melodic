@@ -1,7 +1,7 @@
 import { MelodicComponent } from '@melodicdev/core';
 import type { IElementRef } from '@melodicdev/core';
 import { registerAdapter } from '@melodicdev/core/forms';
-import type { Size } from '../../../types/index.js';
+import type { ControlSize } from '../../../types/index.js';
 import { checkboxTemplate } from './checkbox.template.js';
 import { checkboxStyles } from './checkbox.styles.js';
 
@@ -44,7 +44,7 @@ export class CheckboxComponent implements IElementRef {
 	public error = '';
 
 	/** Checkbox size */
-	public size: Size = 'md';
+	public size: ControlSize = 'md';
 
 	/** Checked state */
 	public checked = false;
