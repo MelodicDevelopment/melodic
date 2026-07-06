@@ -252,18 +252,36 @@ export class StepsComponent implements IElementRef, OnCreate, OnDestroy, OnRende
 	private updatePanelVisibility(): void {
 		if (this.routed) return;
 
+		const steps = this.getAllSteps();
 		const panels = this.elementRef.querySelectorAll('ml-step-panel');
 		panels.forEach((panel) => {
-			const isActive = panel.getAttribute('value') === this.active;
+			const value = panel.getAttribute('value');
+			const isActive = value === this.active;
 			(panel as HTMLElement).style.display = isActive ? '' : 'none';
+
+			// Name the panel after its step. ARIA id references cannot cross
+			// shadow-root boundaries, so the association is made by accessible
+			// name instead of aria-labelledby/aria-controls (see tabs.component).
+			const label = steps.find((s) => s.value === value)?.label;
+			if (label) {
+				(panel as HTMLElement & { panelLabel?: string }).panelLabel = label;
+			}
 		});
 	}
 
-	/** Focus a specific step button */
+	/** Focus a specific step (config-mode shadow element or slotted ml-step) */
 	private focusStep(value: string): void {
 		const stepList = this.elementRef.shadowRoot?.querySelector('.ml-steps__list');
-		const button = stepList?.querySelector(`[data-value="${value}"]`) as HTMLElement;
-		button?.focus();
+		const button = stepList?.querySelector(`[data-value="${value}"]`) as HTMLElement | null;
+		if (button) {
+			button.focus();
+			return;
+		}
+
+		// Slotted mode: the focusable element lives inside the ml-step's shadow root.
+		const host = this._slottedSteps.find((step) => step.getAttribute('value') === value);
+		const slottedStep = host?.shadowRoot?.querySelector('.ml-step') as HTMLElement | null;
+		slottedStep?.focus();
 	}
 
 	/** Sync active step with current route */

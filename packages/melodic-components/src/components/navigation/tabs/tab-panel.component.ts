@@ -27,4 +27,12 @@ export class TabPanelComponent implements IElementRef {
 
 	/** Panel identifier (must match ml-tab value) */
 	public value = '';
+
+	/**
+	 * Accessible name for the tabpanel, kept in sync with the matching tab's
+	 * label by the parent ml-tabs. ARIA id references cannot cross shadow-root
+	 * boundaries, so the tab/panel association is carried by name (aria-label)
+	 * rather than aria-labelledby.
+	 */
+	public panelLabel = '';
 }

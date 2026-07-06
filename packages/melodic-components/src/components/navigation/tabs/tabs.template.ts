@@ -23,7 +23,11 @@ export function tabsTemplate(c: TabsComponent) {
 				${hasTabs
 					? repeat(
 							c.tabs,
-							(tab) => `${tab.value}-${c.value === tab.value}`,
+							// Key by value ALONE — encoding the active state in the key
+							// forces repeat to destroy/recreate both the old and new
+							// active tab on every selection change, dropping keyboard
+							// focus to <body> mid arrow-navigation.
+							(tab) => tab.value,
 							(tab) => renderTabButton(c, tab)
 						)
 					: html`<slot name="tab" @slotchange=${c.handleTabSlotChange}></slot>`}

@@ -212,18 +212,38 @@ export class TabsComponent implements IElementRef, OnCreate, OnDestroy, OnRender
 	private updatePanelVisibility(): void {
 		if (this.routed) return;
 
+		const tabs = this.getAllTabs();
 		const panels = this.elementRef.querySelectorAll('ml-tab-panel');
 		panels.forEach((panel) => {
-			const isActive = panel.getAttribute('value') === this.value;
+			const value = panel.getAttribute('value');
+			const isActive = value === this.value;
 			(panel as HTMLElement).style.display = isActive ? '' : 'none';
+
+			// Name the panel after its tab. ARIA id references cannot cross
+			// shadow-root boundaries (the tab's role="tab" element and the
+			// panel's role="tabpanel" element live in different shadow trees),
+			// so the association is made by accessible name instead of
+			// aria-labelledby/aria-controls.
+			const label = tabs.find((t) => t.value === value)?.label;
+			if (label) {
+				(panel as HTMLElement & { panelLabel?: string }).panelLabel = label;
+			}
 		});
 	}
 
-	/** Focus a specific tab */
+	/** Focus a specific tab (config-mode shadow button or slotted ml-tab) */
 	private focusTab(value: string): void {
 		const tabList = this.elementRef.shadowRoot?.querySelector('.ml-tabs__list');
-		const button = tabList?.querySelector(`[data-value="${value}"]`) as HTMLElement;
-		button?.focus();
+		const button = tabList?.querySelector(`[data-value="${value}"]`) as HTMLElement | null;
+		if (button) {
+			button.focus();
+			return;
+		}
+
+		// Slotted mode: the focusable button lives inside the ml-tab's shadow root.
+		const host = this._slottedTabs.find((tab) => tab.getAttribute('value') === value);
+		const slottedButton = host?.shadowRoot?.querySelector('.ml-tab') as HTMLElement | null;
+		slottedButton?.focus();
 	}
 
 	/** Sync active tab with current route (for routed mode) */
