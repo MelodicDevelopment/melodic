@@ -88,6 +88,75 @@ describe('DialogService registration identity', () => {
 	});
 });
 
+describe('DialogService robustness', () => {
+	let service: DialogService;
+	const created: HTMLDialogElement[] = [];
+
+	beforeEach(() => {
+		service = new DialogService();
+	});
+
+	afterEach(() => {
+		created.splice(0).forEach((el) => el.remove());
+		vi.restoreAllMocks();
+	});
+
+	function makeDialogEl(id: string): HTMLDialogElement {
+		const el = document.createElement('dialog') as HTMLDialogElement;
+		el.id = id;
+		stubDialogModalApi(el);
+		document.body.appendChild(el);
+		created.push(el);
+		return el;
+	}
+
+	it('open() with an unregistered id warns and returns undefined instead of throwing', () => {
+		const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+		let result: unknown = 'sentinel';
+		expect(() => {
+			result = service.open('nope' as any);
+		}).not.toThrow();
+
+		expect(result).toBeUndefined();
+		expect(warn).toHaveBeenCalledTimes(1);
+		expect(String(warn.mock.calls[0][0])).toContain('nope');
+	});
+
+	it('close() with an unregistered id warns and does not throw', () => {
+		const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+		expect(() => service.close('missing' as any)).not.toThrow();
+		expect(warn).toHaveBeenCalledTimes(1);
+	});
+
+	it('re-registering the same id removes the previous element close listener (no accumulation)', () => {
+		const oldEl = makeDialogEl('x');
+		const removeSpy = vi.spyOn(oldEl, 'removeEventListener');
+		service.addDialog('x' as any, oldEl);
+
+		const newEl = makeDialogEl('x');
+		service.addDialog('x' as any, newEl);
+
+		const closeRemovals = removeSpy.mock.calls.filter(([type]) => type === 'close');
+		expect(closeRemovals.length).toBe(1);
+	});
+
+	it('removeDialog removes the service close listener from the element', () => {
+		const el = makeDialogEl('x');
+		const addSpy = vi.spyOn(el, 'addEventListener');
+		const removeSpy = vi.spyOn(el, 'removeEventListener');
+		service.addDialog('x' as any, el);
+
+		const addedCloseListeners = addSpy.mock.calls.filter(([type]) => type === 'close').map(([, listener]) => listener);
+		service.removeDialog('x' as any);
+
+		const removedCloseListeners = removeSpy.mock.calls.filter(([type]) => type === 'close').map(([, listener]) => listener);
+		// The service-registered close listener must be among the removed ones.
+		expect(addedCloseListeners.some((l) => removedCloseListeners.includes(l))).toBe(true);
+	});
+});
+
 describe('inline <ml-dialog> survives a re-render that recreates it', () => {
 	let service: DialogService;
 	const hosts: HTMLElement[] = [];
