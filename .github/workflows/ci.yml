@@ -121,12 +121,21 @@ jobs:
       - name: Build CLI
         run: npm --workspace @melodicdev/cli run build
 
+      # Scaffolded projects depend on @melodicdev/core@^3.0.0, which isn't on
+      # the registry until the release is published — and the smoke test should
+      # exercise THIS commit's core anyway. Pack the local core and install the
+      # tarball into each scaffolded project (same layout as a registry install).
+      - name: Pack local core
+        run: |
+          npm run build:lib
+          npm pack --pack-destination "$RUNNER_TEMP"
+
       # ── basic project ──
       - name: Scaffold basic project (melodic init)
         run: node "$GITHUB_WORKSPACE/packages/cli/dist/index.js" init "$RUNNER_TEMP/smoke-app"
 
       - name: Install scaffolded basic project
-        run: npm install --no-audit --no-fund
+        run: npm install --no-audit --no-fund "$RUNNER_TEMP"/melodicdev-core-*.tgz
         working-directory: ${{ runner.temp }}/smoke-app
 
       - name: Build scaffolded basic project
@@ -138,7 +147,7 @@ jobs:
         run: node "$GITHUB_WORKSPACE/packages/cli/dist/index.js" init "$RUNNER_TEMP/smoke-mono" --monorepo --app-name web
 
       - name: Install scaffolded monorepo project
-        run: npm install --no-audit --no-fund
+        run: npm install --no-audit --no-fund "$RUNNER_TEMP"/melodicdev-core-*.tgz
         working-directory: ${{ runner.temp }}/smoke-mono
 
       - name: Build scaffolded monorepo project

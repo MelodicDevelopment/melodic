@@ -65,6 +65,7 @@
 			"@melodicdev/components/time-picker": ["packages/melodic-components/src/components/forms/time-picker/index.ts"],
 			"@melodicdev/components/date-time-picker": ["packages/melodic-components/src/components/forms/date-time-picker/index.ts"],
 			"@melodicdev/components/table": ["packages/melodic-components/src/components/data-display/table/index.ts"],
+			"@melodicdev/components/tabs": ["packages/melodic-components/src/components/navigation/tabs/index.ts"],
 			"@melodicdev/components/calendar-view": ["packages/melodic-components/src/components/data-display/calendar-view/index.ts"],
 			"@melodicdev/components/activity-feed": ["packages/melodic-components/src/components/data-display/activity-feed/index.ts"],
 			"@melodicdev/components/data-grid": ["packages/melodic-components/src/components/data-display/data-grid/index.ts"],
