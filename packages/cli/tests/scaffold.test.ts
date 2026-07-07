@@ -35,7 +35,7 @@ describe('initApp', () => {
 		await initApp(target);
 		const pkg = JSON.parse(await fs.readFile(path.join(target, 'package.json'), 'utf8'));
 		expect(pkg.name).toBe('my-app');
-		expect(pkg.dependencies['@melodicdev/core']).toBe('^2.0.0');
+		expect(pkg.dependencies['@melodicdev/core']).toBe('^3.0.0');
 		expect(pkg.dependencies['@melodicdev/core']).not.toBe('latest');
 		expect(pkg.devDependencies['@types/node']).toBeDefined();
 		expect(pkg.devDependencies.vite).toMatch(/^\^7\./);
@@ -57,7 +57,7 @@ describe('initMonorepo', () => {
 		const pkg = JSON.parse(await fs.readFile(path.join(target, 'package.json'), 'utf8'));
 		expect(pkg.workspaces).toEqual(['apps/*', 'libs/*']);
 		expect(pkg.scripts.dev).toBe('vite apps/web');
-		expect(pkg.dependencies['@melodicdev/core']).toBe('^2.0.0');
+		expect(pkg.dependencies['@melodicdev/core']).toBe('^3.0.0');
 
 		// Libs are npm workspace packages scoped to the repo, not @melodicdev
 		const configPkg = JSON.parse(await fs.readFile(path.join(target, 'libs/config/package.json'), 'utf8'));

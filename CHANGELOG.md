@@ -37,7 +37,7 @@ Whole-repo remediation release driven by the 2026 full-repo review: correctness 
 ### Infrastructure
 
 - GitHub Actions CI: per-package typecheck/test/build plus a scaffold smoke test (`melodic init` → `npm run build` for basic and monorepo projects).
-- `engines: { node: ">=20.19.0" }` on all published packages. **Publish-time step:** when releasing, bump `@melodicdev/components`' `@melodicdev/core` peer range and the CLI templates' pin from `^2.0.0` to `^3.0.0` (they can't reference 3.0.0 until core is published — components 3.0 runtime-requires core 3.0's `propertyTypes` support). `sideEffects: false` was evaluated and deliberately NOT set — importing component modules registers custom elements (inherently side-effectful).
+- `engines: { node: ">=20.19.0" }` on all published packages. `@melodicdev/components`' `@melodicdev/core` peer range and the CLI templates' pin are `^3.0.0` (components 3.0 runtime-requires core 3.0's `propertyTypes` support); locally the peer resolves to the workspace root via a `file:../..` devDependency, so installs work before core 3.0.0 is on the registry. **Publish order:** core first, then components/CLI. `sideEffects: false` was evaluated and deliberately NOT set — importing component modules registers custom elements (inherently side-effectful).
 
 ## 2.0.3
 

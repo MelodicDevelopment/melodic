@@ -181,7 +181,7 @@ export class RouterService {
 				return { success: false, error: 'Navigation blocked by guard' };
 			}
 
-			const resolverResult = await this.runResolvers(matchResult);
+			const resolverResult = await this.runResolvers(matchResult, () => this._navigationId === navId);
 			if (this._navigationId !== navId) {
 				return { success: false, error: 'Navigation superseded' };
 			}
@@ -257,7 +257,7 @@ export class RouterService {
 			}
 
 			if (!skipResolvers && matchResult.matches.length > 0) {
-				const resolverResult = await this.runResolvers(matchResult);
+				const resolverResult = await this.runResolvers(matchResult, () => this._navigationId === navId);
 				if (this._navigationId !== navId) {
 					return superseded();
 				}
@@ -412,9 +412,15 @@ export class RouterService {
 	 * Run the resolvers for a match result. The router pipeline (navigate /
 	 * initial navigation / popstate) calls this exactly once per navigation —
 	 * call it directly only when driving the router manually.
+	 *
+	 * Resolver output is collected locally and committed to the route context
+	 * atomically at the end, only when `isCurrent()` still holds. Writing
+	 * incrementally across the awaits would let a superseded (or failed)
+	 * navigation clear or overwrite the resolved data of the navigation that
+	 * actually won.
 	 */
-	public async runResolvers(matchResult: IRouteMatchResult): Promise<{ success: boolean; error?: string }> {
-		this._contextService.clearResolvedData();
+	public async runResolvers(matchResult: IRouteMatchResult, isCurrent: () => boolean = () => true): Promise<{ success: boolean; error?: string }> {
+		const collected: Array<{ depth: number; data: Record<string, unknown> }> = [];
 
 		for (let depth = 0; depth < matchResult.matches.length; depth++) {
 			const match = matchResult.matches[depth];
@@ -440,7 +446,16 @@ export class RouterService {
 				}
 			}
 
-			this._contextService.setResolvedData(depth, resolvedData);
+			collected.push({ depth, data: resolvedData });
+		}
+
+		if (!isCurrent()) {
+			return { success: false, error: 'Navigation superseded' };
+		}
+
+		this._contextService.clearResolvedData();
+		for (const { depth, data } of collected) {
+			this._contextService.setResolvedData(depth, data);
 		}
 
 		return { success: true };
@@ -492,7 +507,7 @@ export class RouterService {
 				return;
 			}
 
-			const resolverResult = await this.runResolvers(matchResult);
+			const resolverResult = await this.runResolvers(matchResult, () => this._navigationId === navId);
 			if (this._navigationId !== navId) {
 				return;
 			}

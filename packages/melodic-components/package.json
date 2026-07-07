@@ -280,9 +280,10 @@
 		"generate:icon-map": "node scripts/generate-icon-map.mjs"
 	},
 	"peerDependencies": {
-		"@melodicdev/core": "^2.0.0"
+		"@melodicdev/core": "^3.0.0"
 	},
 	"devDependencies": {
+		"@melodicdev/core": "file:../..",
 		"typescript": "~5.9.3",
 		"vite": "npm:rolldown-vite@7.2.5"
 	}

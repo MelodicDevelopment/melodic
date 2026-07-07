@@ -15,7 +15,7 @@
 		"lint:fix": "eslint . --fix"
 	},
 	"dependencies": {
-		"@melodicdev/core": "^2.0.0"
+		"@melodicdev/core": "^3.0.0"
 	},
 	"devDependencies": {
 		"@typescript-eslint/eslint-plugin": "^8.39.0",

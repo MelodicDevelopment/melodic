@@ -242,4 +242,47 @@ describe('router pipeline (service-owned, outlets as renderers)', () => {
 		expect(window.location.pathname).toBe('/');
 		expect(element.shadowRoot?.querySelector('pipe-denied')).toBeNull();
 	});
+
+	// Regression: resolver output used to be written into the route context
+	// incrementally across awaits, so a slow, superseded navigation could
+	// clear or overwrite the resolved data of the navigation that won.
+	it('a superseded navigation does not overwrite the winning navigation\'s resolved data', async () => {
+		let releaseSlow!: (value: string) => void;
+		const slowPromise = new Promise<string>((resolve) => {
+			releaseSlow = resolve;
+		});
+
+		mountOutlet([
+			{ path: '', component: 'pipe-home' },
+			{
+				path: 'slow',
+				component: 'pipe-slow',
+				resolve: { value: { resolve: () => slowPromise } }
+			},
+			{
+				path: 'fast',
+				component: 'pipe-fast',
+				resolve: { value: { resolve: () => 'fast' } }
+			}
+		]);
+
+		await settle();
+
+		// Start the slow navigation; its resolver parks on slowPromise.
+		const slowNav = router.navigate('/slow');
+		await tick();
+
+		// A newer navigation supersedes it and wins.
+		const fastResult = await router.navigate('/fast');
+		expect(fastResult.success).toBe(true);
+		expect(router.getResolvedData()).toEqual({ value: 'fast' });
+
+		// The loser's resolver completing must not touch the committed data.
+		releaseSlow('slow');
+		const slowResult = await slowNav;
+		expect(slowResult.success).toBe(false);
+		expect(slowResult.error).toBe('Navigation superseded');
+		expect(window.location.pathname).toBe('/fast');
+		expect(router.getResolvedData()).toEqual({ value: 'fast' });
+	});
 });
