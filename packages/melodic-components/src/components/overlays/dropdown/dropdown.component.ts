@@ -2,9 +2,12 @@ import { MelodicComponent } from '@melodicdev/core';
 import type { IElementRef, OnCreate, OnDestroy } from '@melodicdev/core';
 import type { Placement } from '../../../types/index.js';
 import type { DropdownItemComponent } from './dropdown-item.component.js';
-import { computePosition, autoUpdate, offset, flip, shift, arrow as arrowMiddleware } from '../../../utils/positioning/index.js';
+import { OverlayPositioner, ToggleDismissGuard } from '../../../utils/overlay/index.js';
+import { isDeepFocusWithin } from '../../../utils/accessibility/focus-trap.js';
 import { dropdownTemplate } from './dropdown.template.js';
 import { dropdownStyles } from './dropdown.styles.js';
+
+type DropdownItemElement = HTMLElement & DropdownItemComponent;
 
 /**
  * ml-dropdown - Dropdown menu component
@@ -46,10 +49,19 @@ export class DropdownComponent implements IElementRef, OnCreate, OnDestroy {
 	public isOpen = false;
 
 	private _focusedIndex = -1;
-	private _cleanupAutoUpdate: (() => void) | null = null;
-	// Set when the popover light-dismisses, consumed by the next toggle() so a
-	// click on the trigger that just dismissed the menu doesn't immediately reopen it.
-	private _justDismissed = false;
+	private readonly _positioner = new OverlayPositioner(() => ({
+		placement: this.placement,
+		offset: this.offset,
+		arrowElement: this.arrow ? (this.elementRef.shadowRoot?.querySelector('.ml-dropdown__arrow') as HTMLElement | null) : null,
+		placementAttribute: true
+	}));
+	// Swallows the trigger click that just light-dismissed the open menu so it
+	// doesn't immediately reopen it.
+	private readonly _dismissGuard = new ToggleDismissGuard();
+	// Set by keyboard-initiated closes (Escape/Tab/Enter selection) so focus is
+	// returned to the trigger only for keyboard or inside-overlay dismissals —
+	// never yanked away from an element the user just clicked outside the menu.
+	private _restoreFocusOnClose = false;
 
 	public onCreate(): void {
 		const menuEl = this.getMenuEl();
@@ -59,16 +71,19 @@ export class DropdownComponent implements IElementRef, OnCreate, OnDestroy {
 
 		this.elementRef.addEventListener('ml:item-select', this.handleItemSelect as EventListener);
 		this.elementRef.addEventListener('keydown', this.handleKeyDown);
+		this.elementRef.shadowRoot?.addEventListener('slotchange', this.syncTriggerAria);
+		this.syncTriggerAria();
 	}
 
 	public onDestroy(): void {
-		this._cleanupAutoUpdate?.();
+		this._positioner.stop();
 		const menuEl = this.getMenuEl();
 		if (menuEl) {
 			menuEl.removeEventListener('toggle', this.handleToggle);
 		}
 		this.elementRef.removeEventListener('ml:item-select', this.handleItemSelect as EventListener);
 		this.elementRef.removeEventListener('keydown', this.handleKeyDown);
+		this.elementRef.shadowRoot?.removeEventListener('slotchange', this.syncTriggerAria);
 	}
 
 	/** Open the menu */
@@ -91,8 +106,7 @@ export class DropdownComponent implements IElementRef, OnCreate, OnDestroy {
 	public toggle = (): void => {
 		// A click on the trigger that just light-dismissed the open menu would
 		// otherwise reopen it. Swallow that one toggle.
-		if (this._justDismissed) {
-			this._justDismissed = false;
+		if (this._dismissGuard.shouldSkipToggle()) {
 			return;
 		}
 		const menuEl = this.getMenuEl();
@@ -113,17 +127,23 @@ export class DropdownComponent implements IElementRef, OnCreate, OnDestroy {
 		} else {
 			this.isOpen = false;
 			// Guard the immediately-following trigger click (if this dismiss was
-			// caused by clicking the trigger). Cleared next macrotask otherwise.
-			this._justDismissed = true;
-			setTimeout(() => { this._justDismissed = false; }, 0);
+			// caused by clicking the trigger).
+			this._dismissGuard.dismissed();
+			// Restore trigger focus only for keyboard dismissals or when focus is
+			// still inside the dropdown (e.g. an item was clicked). A pointer
+			// light-dismiss that moved focus elsewhere must not steal it back.
+			const shouldRestoreFocus = this._restoreFocusOnClose || isDeepFocusWithin(this.elementRef);
+			this._restoreFocusOnClose = false;
 			this.clearFocus();
-			this._cleanupAutoUpdate?.();
-			this._cleanupAutoUpdate = null;
-			this.returnFocusToTrigger();
+			this._positioner.stop();
+			if (shouldRestoreFocus) {
+				this.returnFocusToTrigger();
+			}
 			this.elementRef.dispatchEvent(
 				new CustomEvent('ml:close', { bubbles: true, composed: true })
 			);
 		}
+		this.syncTriggerAria();
 	};
 
 	private readonly handleItemSelect = (event: CustomEvent): void => {
@@ -168,13 +188,18 @@ export class DropdownComponent implements IElementRef, OnCreate, OnDestroy {
 				if (this._focusedIndex >= 0 && this._focusedIndex < items.length) {
 					const item = items[this._focusedIndex];
 					if (!item.disabled) {
-						item.handleClick();
+						this._restoreFocusOnClose = true;
+						// Methods aren't reflected on the host element; fall back to
+						// the component instance when needed.
+						const instance = (item as unknown as { component?: DropdownItemComponent }).component ?? item;
+						instance.handleClick();
 					}
 				}
 				break;
 
 			case 'Escape':
 				event.preventDefault();
+				this._restoreFocusOnClose = true;
 				this.close();
 				break;
 
@@ -197,22 +222,22 @@ export class DropdownComponent implements IElementRef, OnCreate, OnDestroy {
 		}
 	};
 
-	private getNavigableItems(): DropdownItemComponent[] {
+	private getNavigableItems(): DropdownItemElement[] {
 		const slot = this.elementRef.shadowRoot?.querySelector('.ml-dropdown__menu slot:not([name])') as HTMLSlotElement | null;
 		if (!slot) return [];
 
-		const items: DropdownItemComponent[] = [];
+		const items: DropdownItemElement[] = [];
 		const assigned = slot.assignedElements();
 
 		for (const el of assigned) {
 			if (el.tagName === 'ML-DROPDOWN-ITEM') {
-				items.push(el as unknown as DropdownItemComponent);
+				items.push(el as unknown as DropdownItemElement);
 			} else if (el.tagName === 'ML-DROPDOWN-GROUP') {
 				const groupSlot = el.shadowRoot?.querySelector('slot:not([name])') as HTMLSlotElement | null;
 				if (groupSlot) {
 					for (const child of groupSlot.assignedElements()) {
 						if (child.tagName === 'ML-DROPDOWN-ITEM') {
-							items.push(child as unknown as DropdownItemComponent);
+							items.push(child as unknown as DropdownItemElement);
 						}
 					}
 				}
@@ -228,7 +253,7 @@ export class DropdownComponent implements IElementRef, OnCreate, OnDestroy {
 		this.focusItemAtIndex(items, index);
 	}
 
-	private focusNextItem(items: DropdownItemComponent[]): void {
+	private focusNextItem(items: DropdownItemElement[]): void {
 		let index = this._focusedIndex + 1;
 		while (index < items.length) {
 			if (!items[index].disabled) {
@@ -239,7 +264,7 @@ export class DropdownComponent implements IElementRef, OnCreate, OnDestroy {
 		}
 	}
 
-	private focusPreviousItem(items: DropdownItemComponent[]): void {
+	private focusPreviousItem(items: DropdownItemElement[]): void {
 		let index = this._focusedIndex - 1;
 		while (index >= 0) {
 			if (!items[index].disabled) {
@@ -250,13 +275,20 @@ export class DropdownComponent implements IElementRef, OnCreate, OnDestroy {
 		}
 	}
 
-	private focusItemAtIndex(items: DropdownItemComponent[], index: number): void {
+	private focusItemAtIndex(items: DropdownItemElement[], index: number): void {
 		if (index < 0) return;
 
 		for (let i = 0; i < items.length; i++) {
 			items[i].focused = i === index;
 		}
 		this._focusedIndex = index;
+
+		// The item host lives in the same tree as the trigger, so its id is a
+		// valid aria-activedescendant reference for screen readers.
+		const itemID = items[index].id;
+		if (itemID) {
+			this.getAssignedTrigger()?.setAttribute('aria-activedescendant', itemID);
+		}
 	}
 
 	private clearFocus(): void {
@@ -265,13 +297,14 @@ export class DropdownComponent implements IElementRef, OnCreate, OnDestroy {
 			item.focused = false;
 		}
 		this._focusedIndex = -1;
+		this.getAssignedTrigger()?.removeAttribute('aria-activedescendant');
 	}
 
-	private findFirstEnabled(items: DropdownItemComponent[]): number {
+	private findFirstEnabled(items: DropdownItemElement[]): number {
 		return items.findIndex((item) => !item.disabled);
 	}
 
-	private findLastEnabled(items: DropdownItemComponent[]): number {
+	private findLastEnabled(items: DropdownItemElement[]): number {
 		for (let i = items.length - 1; i >= 0; i--) {
 			if (!items[i].disabled) return i;
 		}
@@ -279,70 +312,32 @@ export class DropdownComponent implements IElementRef, OnCreate, OnDestroy {
 	}
 
 	private returnFocusToTrigger(): void {
-		const triggerSlot = this.elementRef.shadowRoot?.querySelector('slot[name="trigger"]') as HTMLSlotElement | null;
-		if (triggerSlot) {
-			const assigned = triggerSlot.assignedElements();
-			if (assigned.length > 0) {
-				(assigned[0] as HTMLElement).focus();
-			}
-		}
+		this.getAssignedTrigger()?.focus();
 	}
 
+	/** First element assigned to the trigger slot (light DOM). */
+	private getAssignedTrigger(): HTMLElement | null {
+		const triggerSlot = this.elementRef.shadowRoot?.querySelector('slot[name="trigger"]') as HTMLSlotElement | null;
+		const assigned = triggerSlot?.assignedElements() ?? [];
+		return (assigned[0] as HTMLElement) ?? null;
+	}
+
+	/** Keep the slotted trigger's menu-button ARIA in sync with open state. */
+	private readonly syncTriggerAria = (): void => {
+		const trigger = this.getAssignedTrigger();
+		if (!trigger) return;
+		trigger.setAttribute('aria-haspopup', 'menu');
+		trigger.setAttribute('aria-expanded', String(this.isOpen));
+	};
+
+	/** True when the (deep) focused element is inside this dropdown. */
 	private startPositioning(): void {
 		const triggerEl = this.getTriggerEl();
 		const menuEl = this.getMenuEl();
 
 		if (!triggerEl || !menuEl) return;
 
-		const update = () => this.updatePosition(triggerEl, menuEl);
-
-		this._cleanupAutoUpdate?.();
-		this._cleanupAutoUpdate = autoUpdate(triggerEl, menuEl, update);
-	}
-
-	private updatePosition(triggerEl: HTMLElement, menuEl: HTMLElement): void {
-		const arrowEl = this.arrow ? (this.elementRef.shadowRoot?.querySelector('.ml-dropdown__arrow') as HTMLElement) : null;
-
-		const middleware = [offset(this.offset), flip(), shift({ padding: 8 })];
-
-		if (arrowEl) {
-			middleware.push(arrowMiddleware({ element: arrowEl, padding: 8 }));
-		}
-
-		const { x, y, placement, middlewareData } = computePosition(triggerEl, menuEl, {
-			placement: this.placement,
-			middleware
-		});
-
-		menuEl.style.left = `${x}px`;
-		menuEl.style.top = `${y}px`;
-		menuEl.dataset.placement = placement;
-
-		if (arrowEl && middlewareData.arrow) {
-			this.positionArrow(arrowEl, placement, middlewareData.arrow as { x?: number; y?: number });
-		}
-	}
-
-	private positionArrow(arrowEl: HTMLElement, placement: string, arrowData: { x?: number; y?: number }): void {
-		const side = placement.split('-')[0];
-
-		arrowEl.style.left = arrowData.x === undefined ? '' : `${arrowData.x}px`;
-		arrowEl.style.right = '';
-		arrowEl.style.top = arrowData.y === undefined ? '' : `${arrowData.y}px`;
-		arrowEl.style.bottom = '';
-
-		if (side === 'top') {
-			arrowEl.style.bottom = '-4px';
-		}
-		if (side === 'bottom') {
-			arrowEl.style.top = '-4px';
-		}
-		if (side === 'left') {
-			arrowEl.style.right = '-4px';
-		}
-		if (side === 'right') {
-			arrowEl.style.left = '-4px';
-		}
+		this._positioner.start(triggerEl, menuEl);
 	}
 
 	private getTriggerEl(): HTMLElement | null {

@@ -6,7 +6,7 @@ const describeToken = (key) => {
 };
 function Inject(token) {
 	return function(target, _, index) {
-		if (!target.params) target.params = [];
+		if (!Object.getOwnPropertyDescriptor(target, "params")) target.params = Array.isArray(target.params) ? [...target.params] : [];
 		target.params[index] = { __injectionToken: getTokenKey(token) };
 	};
 }
@@ -211,7 +211,7 @@ function Service(token) {
 		Object.defineProperty(target, propertyKey, {
 			get() {
 				const cacheKey = `__cached_${String(propertyKey)}`;
-				if (!this[cacheKey]) this[cacheKey] = Injector.get(token);
+				if (!Object.prototype.hasOwnProperty.call(this, cacheKey)) this[cacheKey] = Injector.get(token);
 				return this[cacheKey];
 			},
 			enumerable: true,
@@ -287,6 +287,53 @@ const SIGNAL_MARKER = Symbol("melodic.signal");
 const isSignal = (value) => {
 	return typeof value === "function" && SIGNAL_MARKER in value;
 };
+function disposeDirectiveState(state) {
+	if (state !== null && typeof state === "object" && typeof state.__dispose === "function") try {
+		state.__dispose();
+	} catch (error) {
+		console.error("Directive state disposal failed:", error);
+	}
+}
+function disposePart(part) {
+	if (part.eventWrapper) {
+		if (part.eventAttached && part.node && part.name) part.node.removeEventListener(part.name, part.eventWrapper, part.eventOptions);
+		part.eventWrapper = void 0;
+		part.eventHandler = void 0;
+		part.eventOptions = void 0;
+		part.eventAttached = false;
+	}
+	if (part.actionCleanup) try {
+		part.actionCleanup();
+	} catch (error) {
+		console.error("Action directive cleanup failed:", error);
+	} finally {
+		part.actionCleanup = void 0;
+	}
+	if (part.nestedContainer) {
+		disposeContainerParts(part.nestedContainer);
+		part.nestedContainer = void 0;
+	}
+	if (part.renderedContainers) {
+		for (const container of part.renderedContainers) disposeContainerParts(container);
+		part.renderedContainers = void 0;
+	}
+	if (part.arrayState) {
+		for (const item of part.arrayState.items.values()) disposeContainerParts(item.container);
+		part.arrayState = void 0;
+	}
+	if (part.directiveState !== void 0) {
+		disposeDirectiveState(part.directiveState);
+		part.directiveState = void 0;
+		part.directiveType = void 0;
+	}
+}
+function disposeParts(parts) {
+	for (const part of parts) disposePart(part);
+}
+function disposeContainerParts(container) {
+	const parts = container.__parts;
+	if (parts) disposeParts(parts);
+}
 var globalStylesAttribute = "melodic-styles";
 var globalStyleSelector = `style[${globalStylesAttribute}], link[rel="stylesheet"][${globalStylesAttribute}]`;
 var cachedCssSheets = [];
@@ -331,6 +378,44 @@ var cacheCssSheet = (text) => {
 var hasCachedSheets = () => {
 	return cachedCssSheets.length > 0;
 };
+var cssTextCache = /* @__PURE__ */ new WeakMap();
+var sheetCache = /* @__PURE__ */ new Map();
+var constructedSheetsSupported;
+function supportsConstructedStyleSheets() {
+	if (constructedSheetsSupported === void 0) try {
+		constructedSheetsSupported = typeof CSSStyleSheet !== "undefined" && typeof CSSStyleSheet.prototype.replaceSync === "function" && typeof ShadowRoot !== "undefined" && "adoptedStyleSheets" in ShadowRoot.prototype && new CSSStyleSheet() instanceof CSSStyleSheet;
+	} catch {
+		constructedSheetsSupported = false;
+	}
+	return constructedSheetsSupported;
+}
+function getComponentStyleSheet(stylesFactory) {
+	if (!supportsConstructedStyleSheets()) return null;
+	let cssText = cssTextCache.get(stylesFactory);
+	if (cssText === void 0) {
+		cssText = renderStylesToText(stylesFactory());
+		cssTextCache.set(stylesFactory, cssText);
+	}
+	let sheet = sheetCache.get(cssText);
+	if (sheet === void 0) {
+		try {
+			const created = new CSSStyleSheet();
+			created.replaceSync(cssText);
+			sheet = created;
+		} catch {
+			sheet = null;
+		}
+		sheetCache.set(cssText, sheet);
+	}
+	return sheet;
+}
+function renderStylesToText(result) {
+	const host = document.createElement("style");
+	render(result, host);
+	const text = host.textContent ?? "";
+	disposeContainerParts(host);
+	return text;
+}
 var activeEffect = null;
 const setActiveEffect = (effect) => {
 	activeEffect = effect;
@@ -402,23 +487,28 @@ var SignalEffect = class {
 		}
 		this._isRunning = true;
 		let iterations = 0;
-		do {
-			if (++iterations > MAX_EFFECT_ITERATIONS) {
-				this._isRunning = false;
+		try {
+			do {
+				if (++iterations > MAX_EFFECT_ITERATIONS) {
+					this._needsRerun = false;
+					throw new Error(`Circular dependency detected in effect: exceeded ${MAX_EFFECT_ITERATIONS} synchronous re-runs. An effect is repeatedly writing to a signal it also reads.`);
+				}
 				this._needsRerun = false;
-				throw new Error(`Circular dependency detected in effect: exceeded ${MAX_EFFECT_ITERATIONS} synchronous re-runs. An effect is repeatedly writing to a signal it also reads.`);
-			}
-			this._needsRerun = false;
-			this._dependencies.forEach((signal$1) => {
-				signal$1.unsubscribe(this.run);
-			});
-			this._dependencies.clear();
-			const prevEffect = getActiveEffect();
-			setActiveEffect(this);
-			this.execute();
-			setActiveEffect(prevEffect);
-		} while (this._needsRerun);
-		this._isRunning = false;
+				this._dependencies.forEach((signal$1) => {
+					signal$1.unsubscribe(this.run);
+				});
+				this._dependencies.clear();
+				const prevEffect = getActiveEffect();
+				setActiveEffect(this);
+				try {
+					this.execute();
+				} finally {
+					setActiveEffect(prevEffect);
+				}
+			} while (this._needsRerun);
+		} finally {
+			this._isRunning = false;
+		}
 	}
 	addDependency(signal$1) {
 		this._dependencies.add(signal$1);
@@ -430,7 +520,7 @@ var SignalEffect = class {
 		this._dependencies.clear();
 	}
 };
-var DESTROYED_MESSAGE = "Signal accessed after destruction. Holding a signal beyond its owning component (e.g. cached on a long-lived service) is a bug — the signal is destroyed when its component disconnects.";
+var DESTROYED_MESSAGE$1 = "Signal accessed after destruction. Holding a signal beyond its owning component (e.g. cached on a long-lived service) is a bug — the signal is destroyed when its component disconnects.";
 function signal(initialValue) {
 	let value = initialValue;
 	let destroyed = false;
@@ -443,7 +533,7 @@ function signal(initialValue) {
 		[...subscribers].forEach((subscriber) => subscriber(value));
 	};
 	const read = (() => {
-		if (destroyed) throw new Error(DESTROYED_MESSAGE);
+		if (destroyed) throw new Error(DESTROYED_MESSAGE$1);
 		const activeEffect$1 = getActiveEffect();
 		if (activeEffect$1) {
 			activeEffect$1.addDependency(read);
@@ -452,18 +542,18 @@ function signal(initialValue) {
 		return value;
 	});
 	read.set = (newValue) => {
-		if (destroyed) throw new Error(DESTROYED_MESSAGE);
+		if (destroyed) throw new Error(DESTROYED_MESSAGE$1);
 		if (!Object.is(value, newValue)) {
 			value = newValue;
 			notify();
 		}
 	};
 	read.update = (updater) => {
-		if (destroyed) throw new Error(DESTROYED_MESSAGE);
+		if (destroyed) throw new Error(DESTROYED_MESSAGE$1);
 		read.set(updater(value));
 	};
 	read.subscribe = (subscriber) => {
-		if (destroyed) throw new Error(DESTROYED_MESSAGE);
+		if (destroyed) throw new Error(DESTROYED_MESSAGE$1);
 		subscribers.add(subscriber);
 		return () => subscribers.delete(subscriber);
 	};
@@ -482,19 +572,70 @@ function signal(initialValue) {
 	});
 	return read;
 }
+var DESTROYED_MESSAGE = "Signal accessed after destruction. Holding a signal beyond its owning component (e.g. cached on a long-lived service) is a bug — the signal is destroyed when its component disconnects.";
+var READ_ONLY_MESSAGE = "Cannot write to a computed signal — its value is derived from its sources. Update the source signal(s) instead.";
 function computed(computation) {
-	const computedSignal = signal(void 0);
-	const effect = new SignalEffect(() => {
-		computedSignal.set(computation());
-	});
-	effect.run();
-	const originalDestroy = computedSignal.destroy;
-	computedSignal.destroy = () => {
-		effect.destroy();
-		originalDestroy();
+	let value;
+	let dirty = true;
+	let destroyed = false;
+	const subscribers = /* @__PURE__ */ new Set();
+	const version = signal(0);
+	const recompute = () => {
+		tracker.destroy();
+		const prevEffect = getActiveEffect();
+		setActiveEffect(tracker);
+		try {
+			value = computation();
+			dirty = false;
+		} finally {
+			setActiveEffect(prevEffect);
+		}
 	};
-	getActiveComponent()?.registerDisposable(computedSignal);
-	return computedSignal;
+	const tracker = new SignalEffect(() => {
+		if (destroyed) return;
+		dirty = true;
+		const previous = value;
+		version.update((v) => (v ?? 0) + 1);
+		if (subscribers.size > 0) {
+			if (dirty) recompute();
+			if (!Object.is(previous, value)) [...subscribers].forEach((subscriber) => subscriber(value));
+		}
+	});
+	const read = (() => {
+		if (destroyed) throw new Error(DESTROYED_MESSAGE);
+		version();
+		if (dirty) recompute();
+		return value;
+	});
+	read.set = () => {
+		throw new Error(READ_ONLY_MESSAGE);
+	};
+	read.update = () => {
+		throw new Error(READ_ONLY_MESSAGE);
+	};
+	read.subscribe = (subscriber) => {
+		if (destroyed) throw new Error(DESTROYED_MESSAGE);
+		if (dirty) recompute();
+		subscribers.add(subscriber);
+		return () => subscribers.delete(subscriber);
+	};
+	read.unsubscribe = (subscriber) => {
+		subscribers.delete(subscriber);
+	};
+	read.destroy = () => {
+		if (destroyed) return;
+		destroyed = true;
+		tracker.destroy();
+		version.destroy();
+		subscribers.clear();
+	};
+	Object.defineProperty(read, SIGNAL_MARKER, {
+		value: true,
+		enumerable: false,
+		configurable: false
+	});
+	getActiveComponent()?.registerDisposable(read);
+	return read;
 }
 var globalMessages = {};
 function registerDefaultMessages(messages) {
@@ -707,16 +848,26 @@ var AbstractControl = class {
 var ComponentBase = class extends HTMLElement {
 	constructor(meta, component, pending) {
 		super();
-		this._unsubscribers = [];
 		this._renderScheduled = false;
 		this._booleanProperties = /* @__PURE__ */ new Set();
-		this._reactiveSources = [];
+		this._numberProperties = /* @__PURE__ */ new Set();
+		this._stringProperties = /* @__PURE__ */ new Set();
+		this._rendering = false;
+		this._selectEpoch = 0;
+		this._renderScopedSelects = /* @__PURE__ */ new Map();
+		this._reactiveSourceEntries = [];
 		this._created = false;
 		this._destroyed = false;
 		this._teardownScheduled = false;
 		this._meta = meta;
 		this._component = component;
 		this._component.elementRef = this;
+		const declaredTypes = component.constructor.propertyTypes;
+		if (declaredTypes) {
+			for (const [prop, type] of Object.entries(declaredTypes)) if (type === "boolean") this._booleanProperties.add(prop);
+			else if (type === "number") this._numberProperties.add(prop);
+			else if (type === "string") this._stringProperties.add(prop);
+		}
 		this._disposables = pending?.disposables ?? /* @__PURE__ */ new Set();
 		this._selectCache = pending?.selectCache ?? /* @__PURE__ */ new Map();
 		this._root = this.attachShadow({ mode: "open" });
@@ -733,6 +884,14 @@ var ComponentBase = class extends HTMLElement {
 	}
 	getSelectCache() {
 		return this._selectCache;
+	}
+	touchSelectEntry(fullKey) {
+		if (this._renderScopedSelects.has(fullKey)) this._renderScopedSelects.set(fullKey, this._selectEpoch);
+	}
+	trackSelectEntry(fullKey, sig) {
+		if (!this._rendering) return;
+		this._renderScopedSelects.set(fullKey, this._selectEpoch);
+		sig.subscribe(() => this.scheduleRender());
 	}
 	connectedCallback() {
 		this._teardownScheduled = false;
@@ -751,8 +910,10 @@ var ComponentBase = class extends HTMLElement {
 		}
 	}
 	disconnectedCallback() {
-		this._unsubscribers.forEach((unsubscribe) => unsubscribe());
-		this._unsubscribers = [];
+		for (const entry of this._reactiveSourceEntries) {
+			for (const unsubscribe of entry.unsubscribers) unsubscribe();
+			entry.unsubscribers = [];
+		}
 		this._component.onDisconnect?.();
 		if (!this._teardownScheduled && !this._destroyed) {
 			this._teardownScheduled = true;
@@ -764,26 +925,30 @@ var ComponentBase = class extends HTMLElement {
 	}
 	attributeChangedCallback(attribute, oldVal, newVal) {
 		const prop = attribute.replace(/-([a-z])/g, (_, ch) => ch.toUpperCase());
-		if (this._component[prop] !== void 0) {
-			let value = newVal;
-			if (this._booleanProperties.has(prop)) value = newVal !== null && newVal !== "false";
-			this._component[prop] = value;
+		const component = this._component;
+		const current = component[prop];
+		const value = this.coerceAttributeValue(prop, newVal, current);
+		if (!Object.is(current, value)) {
+			component[prop] = value;
+			this.scheduleRender();
 		}
-		this.scheduleRender();
 		if (this._component.onAttributeChange !== void 0) this._component.onAttributeChange(attribute, oldVal, newVal);
+	}
+	coerceAttributeValue(prop, raw, current) {
+		if (this._stringProperties.has(prop)) return raw;
+		if (this._booleanProperties.has(prop) || typeof current === "boolean") return raw !== null && raw !== "false";
+		if (this._numberProperties.has(prop) || typeof current === "number") {
+			if (raw === null || raw.trim() === "") return raw;
+			const parsed = Number(raw);
+			return Number.isNaN(parsed) ? raw : parsed;
+		}
+		if ((current === void 0 || current === null) && (raw === "true" || raw === "false")) return raw === "true";
+		return raw;
 	}
 	teardown() {
 		this._destroyed = true;
 		const parts = this._root.__parts;
-		if (parts) {
-			for (const part of parts) if (part.actionCleanup) try {
-				part.actionCleanup();
-			} catch (error) {
-				console.error("Action directive cleanup failed:", error);
-			} finally {
-				part.actionCleanup = void 0;
-			}
-		}
+		if (parts) disposeParts(parts);
 		if (this._component.onDestroy !== void 0) this._component.onDestroy();
 		for (const d of this._disposables) try {
 			d.destroy();
@@ -794,21 +959,43 @@ var ComponentBase = class extends HTMLElement {
 		this._selectCache.clear();
 	}
 	renderStyles() {
+		if (!this._meta.styles) return null;
+		const sheet = getComponentStyleSheet(this._meta.styles);
+		if (sheet) {
+			this._root.adoptedStyleSheets = [...this._root.adoptedStyleSheets, sheet];
+			return null;
+		}
 		const styleNode = document.createElement("style");
-		if (this._meta.styles) render(this._meta.styles(), styleNode);
+		render(this._meta.styles(), styleNode);
 		return this._root.appendChild(styleNode);
 	}
 	render() {
 		const prev = getActiveComponent();
 		setActiveComponent(this);
+		this._rendering = true;
+		this._selectEpoch++;
 		try {
 			if (this._meta.template) {
 				render(this._meta.template(this._component, this.getAttributeValues()), this._root);
-				if (this._style.parentNode !== this._root) this._root.appendChild(this._style);
+				if (this._style && this._style.parentNode !== this._root) this._root.appendChild(this._style);
 			}
 			if (this._component.onRender !== void 0) this._component.onRender();
 		} finally {
+			this._rendering = false;
 			setActiveComponent(prev);
+			this.sweepRenderScopedSelects();
+		}
+	}
+	sweepRenderScopedSelects() {
+		for (const [key, epoch] of this._renderScopedSelects) {
+			if (epoch === this._selectEpoch) continue;
+			const sig = this._selectCache.get(key);
+			this._renderScopedSelects.delete(key);
+			this._selectCache.delete(key);
+			if (sig) {
+				this._disposables.delete(sig);
+				sig.destroy();
+			}
 		}
 	}
 	scheduleRender() {
@@ -831,6 +1018,7 @@ var ComponentBase = class extends HTMLElement {
 			proto = Object.getPrototypeOf(proto);
 		}
 		const getterOnly = [];
+		const sourceProps = [];
 		const filtered = properties.filter((prop) => {
 			if (prop.startsWith("_") || prop === "elementRef" || prop === "constructor") return false;
 			const descriptor = this.getPropertyDescriptor(this._component, prop);
@@ -839,23 +1027,20 @@ var ComponentBase = class extends HTMLElement {
 				return false;
 			}
 			const value = this._component[prop];
-			if (isSignal(value)) {
-				this._reactiveSources.push(value);
-				return false;
-			}
-			if (value instanceof AbstractControl) {
-				this._reactiveSources.push(value.value);
-				this._reactiveSources.push(value.state);
+			if (isSignal(value) || value instanceof AbstractControl) {
+				sourceProps.push(prop);
 				return false;
 			}
 			if (typeof value === "function") return false;
 			return true;
 		});
+		for (const prop of sourceProps) this.observeReactiveSource(prop);
 		for (const prop of filtered) {
 			const descriptor = this.getPropertyDescriptor(this._component, prop);
 			const wrapperValue = Object.getOwnPropertyDescriptor(this, prop)?.value;
 			let value = wrapperValue === void 0 ? this._component[prop] : wrapperValue;
 			if (typeof value === "boolean") this._booleanProperties.add(prop);
+			else if (typeof value === "number") this._numberProperties.add(prop);
 			let componentGetter = () => value;
 			let componentSetter = (newVal) => {
 				if (!Object.is(value, newVal)) {
@@ -916,11 +1101,62 @@ var ComponentBase = class extends HTMLElement {
 	}
 	subscribeReactiveSources() {
 		if (this._destroyed) return;
-		for (const source of this._reactiveSources) this._unsubscribers.push(source.subscribe(() => this.scheduleRender()));
+		for (const entry of this._reactiveSourceEntries) {
+			for (const unsubscribe of entry.unsubscribers) unsubscribe();
+			entry.unsubscribers = entry.signals.map((signal$1) => signal$1.subscribe(() => this.scheduleRender()));
+		}
+	}
+	collectSourceSignals(value) {
+		if (isSignal(value)) return [value];
+		if (value instanceof AbstractControl) return [value.value, value.state];
+		return [];
+	}
+	observeReactiveSource(prop) {
+		const component = this._component;
+		const entry = {
+			signals: this.collectSourceSignals(component[prop]),
+			unsubscribers: []
+		};
+		this._reactiveSourceEntries.push(entry);
+		const descriptor = this.getPropertyDescriptor(this._component, prop);
+		if (descriptor && (descriptor.get || descriptor.set)) return;
+		let current = component[prop];
+		Object.defineProperty(this._component, prop, {
+			get: () => current,
+			set: (newVal) => {
+				if (Object.is(current, newVal)) return;
+				this._component.onPropertyChange?.(prop, current, newVal);
+				current = newVal;
+				for (const unsubscribe of entry.unsubscribers) unsubscribe();
+				entry.unsubscribers = [];
+				entry.signals = this.collectSourceSignals(newVal);
+				if (this.isConnected && !this._destroyed) entry.unsubscribers = entry.signals.map((signal$1) => signal$1.subscribe(() => this.scheduleRender()));
+				this.scheduleRender();
+			},
+			enumerable: true,
+			configurable: true
+		});
 	}
 };
+var RESERVED_SELECTORS = new Set([
+	"annotation-xml",
+	"color-profile",
+	"font-face",
+	"font-face-src",
+	"font-face-uri",
+	"font-face-format",
+	"font-face-name",
+	"missing-glyph"
+]);
+function assertValidSelector(selector) {
+	if (typeof selector !== "string" || selector.length === 0) throw new Error("@MelodicComponent: \"selector\" is required and must be a non-empty string (e.g. \"app-card\").");
+	if (!selector.includes("-")) throw new Error(`@MelodicComponent: invalid selector "${selector}". Custom element names must contain a hyphen — use a prefixed name such as "app-${selector}".`);
+	if (!/^[a-z]/.test(selector) || /[A-Z]/.test(selector) || /\s/.test(selector)) throw new Error(`@MelodicComponent: invalid selector "${selector}". Custom element names must start with a lowercase letter and must not contain uppercase letters or whitespace.`);
+	if (RESERVED_SELECTORS.has(selector)) throw new Error(`@MelodicComponent: "${selector}" is a reserved name and cannot be used as a custom element selector.`);
+}
 function MelodicComponent(meta) {
 	return function(component) {
+		assertValidSelector(meta.selector);
 		if (customElements.get(meta.selector) === void 0) {
 			const webComponent = class extends ComponentBase {
 				constructor() {
@@ -960,9 +1196,15 @@ function getEnvironment() {
 	return "prod";
 }
 const environment = getEnvironment();
+var UNSAFE_MERGE_KEYS = new Set([
+	"__proto__",
+	"constructor",
+	"prototype"
+]);
 function deepMerge(target, source) {
 	const result = { ...target };
 	for (const key of Object.keys(source)) {
+		if (UNSAFE_MERGE_KEYS.has(key)) continue;
 		const targetVal = result[key];
 		const sourceVal = source[key];
 		if (sourceVal !== null && typeof sourceVal === "object" && !Array.isArray(sourceVal) && targetVal !== null && typeof targetVal === "object" && !Array.isArray(targetVal)) result[key] = deepMerge(targetVal, sourceVal);
@@ -972,10 +1214,7 @@ function deepMerge(target, source) {
 }
 function defineConfig(definition) {
 	const envOverrides = definition[environment];
-	const resolved = {
-		...definition.base,
-		...envOverrides
-	};
+	const resolved = envOverrides ? deepMerge(definition.base, envOverrides) : { ...definition.base };
 	if (definition.extends) return deepMerge(definition.extends, resolved);
 	return resolved;
 }
@@ -985,2769 +1224,6 @@ function provideConfig(config) {
 		injector.bindValue(APP_CONFIG, config);
 	};
 }
-var HttpBaseError = class HttpBaseError extends Error {
-	constructor(message, config, code) {
-		super(message);
-		this.config = config;
-		this.code = code;
-		this.name = "HttpBaseError";
-		Object.setPrototypeOf(this, HttpBaseError.prototype);
-	}
-};
-var HttpError = class HttpError extends HttpBaseError {
-	constructor(message, response, config) {
-		super(message, config, `HTTP_${response.status}`);
-		this.response = response;
-		this.name = "HttpError";
-		Object.setPrototypeOf(this, HttpError.prototype);
-	}
-};
-var NetworkError = class NetworkError extends HttpBaseError {
-	constructor(message, config) {
-		super(message, config, "NETWORK_ERROR");
-		this.name = "NetworkError";
-		Object.setPrototypeOf(this, NetworkError.prototype);
-	}
-};
-var AbortError = class AbortError extends HttpBaseError {
-	constructor(message, config) {
-		super(message, config, "ABORTED");
-		this.name = "AbortError";
-		Object.setPrototypeOf(this, AbortError.prototype);
-	}
-};
-var RequestManager = class {
-	constructor() {
-		this._pendingRequests = /* @__PURE__ */ new Map();
-		this._opaqueCounter = 0;
-	}
-	generateRequestKey(method, url, body) {
-		let key = `${method}:${url}`;
-		if (body) key += `:${this.hashBody(body)}`;
-		return key;
-	}
-	hasPendingRequest(key) {
-		return this._pendingRequests.has(key);
-	}
-	getPendingRequest(key) {
-		const pending = this._pendingRequests.get(key);
-		if (!pending) return null;
-		return pending.promise;
-	}
-	addPendingRequest(requestConfig, promise) {
-		const key = this.generateRequestKey(requestConfig.method || "GET", requestConfig.url || "", requestConfig.body);
-		this._pendingRequests.set(key, {
-			promise,
-			abortController: requestConfig.abortController
-		});
-		promise.finally(() => {
-			this.removePendingRequest(key);
-		});
-	}
-	cancelPendingRequest(key, reason) {
-		const pending = this._pendingRequests.get(key);
-		if (pending) {
-			pending.abortController.abort(reason);
-			this._pendingRequests.delete(key);
-		}
-	}
-	cancelAllRequests(reason) {
-		this._pendingRequests.forEach((pending) => {
-			pending.abortController.abort(reason);
-		});
-		this._pendingRequests.clear();
-	}
-	removePendingRequest(key) {
-		if (!this._pendingRequests.get(key)) return;
-		this._pendingRequests.delete(key);
-	}
-	hashBody(body) {
-		if (body instanceof FormData || body instanceof Blob || body instanceof ArrayBuffer || body instanceof ReadableStream) return `opaque:${++this._opaqueCounter}`;
-		let str;
-		if (typeof body === "string") str = body;
-		else if (body instanceof URLSearchParams) str = body.toString();
-		else if (typeof body === "object" && body !== null) str = JSON.stringify(body);
-		else str = String(body);
-		return this.hashCode(str).toString();
-	}
-	hashCode(str) {
-		let hash = 0;
-		for (let i = 0; i < str.length; i++) {
-			const char = str.charCodeAt(i);
-			hash = (hash << 5) - hash + char;
-			hash = hash & hash;
-		}
-		return hash;
-	}
-};
-var MAX_RETRIES = 3;
-var HttpClient = class {
-	constructor(config) {
-		this._requestManager = new RequestManager();
-		this._interceptors = {
-			request: [],
-			response: []
-		};
-		this.interceptors = {
-			request: (interceptor) => {
-				this._interceptors.request.push(interceptor);
-			},
-			response: (interceptor) => {
-				this._interceptors.response.push(interceptor);
-			}
-		};
-		this._clientConfig = {
-			defaultHeaders: {},
-			...config
-		};
-	}
-	async get(url, config) {
-		return this.internalRequest({
-			method: "GET",
-			...config,
-			url,
-			deduplicate: config?.deduplicate ?? true
-		});
-	}
-	async post(url, body, config) {
-		return this.internalRequest({
-			method: "POST",
-			...config,
-			url,
-			body
-		});
-	}
-	async put(url, body, config) {
-		return this.internalRequest({
-			method: "PUT",
-			...config,
-			url,
-			body
-		});
-	}
-	async patch(url, body, config) {
-		return this.internalRequest({
-			method: "PATCH",
-			...config,
-			url,
-			body
-		});
-	}
-	async delete(url, config) {
-		return this.internalRequest({
-			method: "DELETE",
-			...config,
-			url
-		});
-	}
-	async internalRequest(config) {
-		const originalConfig = config;
-		let requestConfig = this.mergeConfig(config);
-		requestConfig = await this.executeRequestInterceptors(requestConfig);
-		if (requestConfig.cancel?.cancelled) {
-			let cancelledResponse = {
-				data: null,
-				status: 0,
-				statusText: "Request Cancelled",
-				headers: new Headers(),
-				config: requestConfig
-			};
-			if (requestConfig.cancel.cancelledResponse) cancelledResponse = {
-				...cancelledResponse,
-				...requestConfig.cancel.cancelledResponse
-			};
-			return Promise.resolve(cancelledResponse);
-		}
-		if (requestConfig.body instanceof FormData) {
-			const headers = { ...requestConfig.headers };
-			delete headers["Content-Type"];
-			delete headers["content-type"];
-			requestConfig.headers = headers;
-		} else if (this.shouldDefaultJsonContentType(requestConfig.body)) {
-			const headers = { ...requestConfig.headers };
-			if (!Object.keys(headers).some((k) => k.toLowerCase() === "content-type")) {
-				headers["Content-Type"] = "application/json";
-				requestConfig.headers = headers;
-			}
-		}
-		if (requestConfig.abortController === void 0) requestConfig.abortController = new AbortController();
-		try {
-			const response = await this.executeRequest(requestConfig);
-			return await this.executeResponseInterceptors(response, 0);
-		} catch (error) {
-			return this.handleResponseError(error, originalConfig);
-		}
-	}
-	async handleResponseError(error, originalConfig) {
-		const retryCount = originalConfig._retryCount ?? 0;
-		let retryInitiated = false;
-		for (let i = 0; i < this._interceptors.response.length; i++) {
-			const interceptor = this._interceptors.response[i];
-			if (!interceptor.error) continue;
-			const retry = async () => {
-				if (retryInitiated) throw new Error("[HttpClient] retry() may only be called once per error pass");
-				retryInitiated = true;
-				if (retryCount >= MAX_RETRIES) throw new Error(`[HttpClient] Max retries (${MAX_RETRIES}) exceeded`);
-				return this.internalRequest({
-					...originalConfig,
-					_retryCount: retryCount + 1,
-					abortController: void 0
-				});
-			};
-			const context = {
-				retry,
-				retryCount
-			};
-			try {
-				const result = await interceptor.error(error, context);
-				if (this.isHttpResponse(result)) return this.executeResponseInterceptors(result, i + 1);
-			} catch {}
-			if (retryInitiated) break;
-		}
-		throw error;
-	}
-	isHttpResponse(value) {
-		return !!value && typeof value === "object" && "data" in value && "status" in value && "headers" in value && "config" in value;
-	}
-	shouldDefaultJsonContentType(body) {
-		if (body === null || body === void 0) return false;
-		if (typeof body === "string") return false;
-		if (body instanceof FormData || body instanceof Blob || body instanceof ArrayBuffer || body instanceof URLSearchParams || body instanceof ReadableStream) return false;
-		return typeof body === "object";
-	}
-	async executeRequest(config) {
-		if (config.deduplicate === true) {
-			const requestKey = this._requestManager.generateRequestKey(config.method, config.url, config.body);
-			if (this._requestManager.hasPendingRequest(requestKey)) return this._requestManager.getPendingRequest(requestKey);
-		}
-		let timeoutId;
-		if (config.timeout && config.timeout > 0 && config.abortController) {
-			const controller = config.abortController;
-			timeoutId = setTimeout(() => {
-				controller.abort(new DOMException("Request timed out", "TimeoutError"));
-			}, config.timeout);
-		}
-		const fetchPromise = fetch(config.url, {
-			method: config.method,
-			headers: config.headers,
-			body: this.prepareBody(config.body),
-			credentials: config.credentials,
-			mode: config.mode,
-			signal: config.abortController?.signal
-		}).then(async (response) => {
-			const httpResponse = {
-				data: await this.parseResponse(response, config.onProgress),
-				status: response.status,
-				statusText: response.statusText,
-				headers: response.headers,
-				config
-			};
-			if (!response.ok) throw new HttpError(`HTTP Error: ${response.status} ${response.statusText}`, httpResponse, config);
-			return httpResponse;
-		}).catch((error) => {
-			if (error instanceof HttpError) throw error;
-			if (error instanceof Error && (error.name === "AbortError" || error.name === "TimeoutError")) throw new AbortError(error.name === "TimeoutError" ? "Request timed out" : "Request aborted", config);
-			throw new NetworkError((error instanceof Error ? error.message : "Network error") || "Network error", config);
-		}).finally(() => {
-			if (timeoutId !== void 0) clearTimeout(timeoutId);
-		});
-		if (config.deduplicate === true) this._requestManager.addPendingRequest(config, fetchPromise);
-		return await fetchPromise;
-	}
-	async executeRequestInterceptors(config) {
-		for (const interceptor of this._interceptors.request) try {
-			config = await interceptor.intercept(config);
-			if (config.cancel?.cancelled) break;
-		} catch (error) {
-			if (interceptor.error) await interceptor.error(error);
-			throw error;
-		}
-		return config;
-	}
-	async executeResponseInterceptors(response, startIndex) {
-		for (let i = startIndex; i < this._interceptors.response.length; i++) response = await this._interceptors.response[i].intercept(response);
-		return response;
-	}
-	mergeConfig(config) {
-		return {
-			...this._clientConfig,
-			...config,
-			headers: {
-				...this._clientConfig.defaultHeaders,
-				...config.headers
-			},
-			url: this.buildUrl(config.url ?? "", config.params)
-		};
-	}
-	buildUrl(url, params) {
-		const baseUrl = this._clientConfig.baseURL || "";
-		let fullUrl;
-		if (!baseUrl || /^[a-z][a-z\d+\-.]*:\/\//i.test(url)) fullUrl = url;
-		else fullUrl = `${baseUrl.replace(/\/+$/, "")}/${url.replace(/^\/+/, "")}`;
-		if (params) {
-			const pairs = [];
-			for (const [key, value] of Object.entries(params)) {
-				if (value === null || value === void 0) continue;
-				const values = Array.isArray(value) ? value : [value];
-				for (const v of values) {
-					if (v === null || v === void 0) continue;
-					pairs.push(`${encodeURIComponent(key)}=${encodeURIComponent(String(v))}`);
-				}
-			}
-			if (pairs.length > 0) fullUrl += `${fullUrl.includes("?") ? "&" : "?"}${pairs.join("&")}`;
-		}
-		return fullUrl;
-	}
-	prepareBody(body) {
-		if (body === null || body === void 0) return null;
-		if (body instanceof FormData || body instanceof Blob || body instanceof ArrayBuffer || body instanceof URLSearchParams || body instanceof ReadableStream || typeof body === "string") return body;
-		return JSON.stringify(body);
-	}
-	async parseResponse(response, onProgress) {
-		const contentType = response.headers.get("content-type") || "";
-		const contentLength = parseInt(response.headers.get("content-length") || "0", 10);
-		if (onProgress && response.body && contentLength > 0) {
-			const reader = response.body.getReader();
-			let loaded = 0;
-			const chunks = [];
-			while (true) {
-				const { done, value } = await reader.read();
-				if (done) break;
-				chunks.push(value);
-				loaded += value.length;
-				onProgress({
-					loaded,
-					total: contentLength,
-					percentage: loaded / contentLength * 100
-				});
-			}
-			const blob = new Blob(chunks);
-			if (contentType.includes("application/json")) {
-				const text = await blob.text();
-				return text ? JSON.parse(text) : null;
-			}
-			return blob;
-		}
-		if (contentType.includes("application/json")) {
-			const text = await response.text();
-			return text ? JSON.parse(text) : null;
-		}
-		if (contentType.includes("text/")) return await response.text();
-		if (this.isBinaryContentType(contentType)) return await response.blob();
-		return await response.text();
-	}
-	isBinaryContentType(contentType) {
-		return contentType.includes("application/octet-stream") || contentType.includes("application/pdf") || contentType.includes("application/zip") || contentType.startsWith("image/") || contentType.startsWith("audio/") || contentType.startsWith("video/") || contentType.startsWith("font/");
-	}
-};
-function provideHttp(httpClientConfig, interceptors) {
-	return (injector) => {
-		const httpClient = new HttpClient(httpClientConfig);
-		injector.bindValue(HttpClient, httpClient);
-		if (interceptors?.request) interceptors.request.forEach((interceptor) => {
-			httpClient.interceptors.request(interceptor);
-		});
-		if (interceptors?.response) interceptors.response.forEach((interceptor) => {
-			httpClient.interceptors.response(interceptor);
-		});
-	};
-}
-function createGuard(fn) {
-	return { canActivate: fn };
-}
-function createDeactivateGuard(fn) {
-	return { canDeactivate: fn };
-}
-function createResolver(fn) {
-	return { resolve: fn };
-}
-var RouteMatcher = class {
-	constructor(route, rules) {
-		this._reEscape = /[-[\]{}()+?.,\\^$|#\s*]/g;
-		this._reToken = /(\*\*)|:(\w+)|\*(\w+)|(\*)/g;
-		this._reParam = /([:*])(\w+)/g;
-		this._names = [];
-		this._isWildcard = false;
-		this._route = route;
-		this._rules = rules;
-		this._isWildcard = route.includes("*");
-		const escapedRoute = this.buildPattern(route);
-		this._routeRegex = /* @__PURE__ */ new RegExp("^" + escapedRoute + "$");
-		this._prefixRegex = /* @__PURE__ */ new RegExp("^" + escapedRoute + "(?:/|$)");
-	}
-	buildPattern(route) {
-		this._reToken.lastIndex = 0;
-		let pattern = "";
-		let lastIndex = 0;
-		let anonCount = 0;
-		let match;
-		while ((match = this._reToken.exec(route)) !== null) {
-			pattern += route.slice(lastIndex, match.index).replace(this._reEscape, "\\$&");
-			if (match[1] || match[4]) {
-				this._names.push(`_wildcard${anonCount++}`);
-				pattern += "(.*)";
-			} else if (match[2]) {
-				this._names.push(match[2]);
-				pattern += "([^/]*)";
-			} else if (match[3]) {
-				this._names.push(match[3]);
-				pattern += "(.*)";
-			}
-			lastIndex = this._reToken.lastIndex;
-		}
-		pattern += route.slice(lastIndex).replace(this._reEscape, "\\$&");
-		return pattern;
-	}
-	decode(value) {
-		try {
-			return decodeURIComponent(value);
-		} catch {
-			return value;
-		}
-	}
-	parse(url) {
-		let i = 0;
-		let param;
-		let value;
-		const params = {};
-		const matches = url.match(this._routeRegex);
-		if (!matches) return null;
-		while (i < this._names.length) {
-			param = this._names[i++];
-			value = this.decode(matches[i]);
-			if (this._rules && param in this._rules && !this.validateRule(this._rules[param], value)) return null;
-			params[param] = value;
-		}
-		return params;
-	}
-	parsePrefix(url) {
-		if (this._route === "") return {
-			params: {},
-			matchedPath: "",
-			remainingPath: url
-		};
-		const matches = url.match(this._prefixRegex);
-		if (!matches) return null;
-		const params = {};
-		for (let i = 0; i < this._names.length; i++) {
-			const name = this._names[i];
-			const value = this.decode(matches[i + 1]);
-			if (this._rules && name in this._rules && !this.validateRule(this._rules[name], value)) return null;
-			params[name] = value;
-		}
-		const matchedPath = this.calculateMatchedPath(url);
-		return {
-			params,
-			matchedPath,
-			remainingPath: url.slice(matchedPath.length).replace(/^\//, "")
-		};
-	}
-	stringify(params) {
-		let re;
-		let result = this._route;
-		for (const param in params) {
-			re = /* @__PURE__ */ new RegExp("[:*]" + param + "\\b");
-			result = result.replace(re, params[param]);
-		}
-		return result.replace(this._reParam, "").replace(/\*+/g, "");
-	}
-	calculateMatchedPath(url) {
-		if (this._isWildcard) return url;
-		const routeSegments = this._route.split("/").filter(Boolean);
-		return url.split("/").filter(Boolean).slice(0, routeSegments.length).join("/");
-	}
-	validateRule(rule, value) {
-		const type = Object.prototype.toString.call(rule).charAt(8);
-		return type === "R" ? rule.test(value) : type === "F" ? rule(value) : rule === value;
-	}
-};
-const ROUTE_CONTEXT_EVENT = "melodic:route-context";
-var RouteContextEvent = class extends CustomEvent {
-	constructor(context) {
-		super(ROUTE_CONTEXT_EVENT, {
-			bubbles: false,
-			composed: true,
-			detail: context
-		});
-	}
-};
-function resolveRedirectTarget(redirectTo, basePath) {
-	if (redirectTo.startsWith("/")) return redirectTo;
-	return basePath ? `/${basePath}/${redirectTo}` : `/${redirectTo}`;
-}
-function matchRouteLevel(routes, remainingPath, basePath, accumulatedMatches, accumulatedParams) {
-	for (const route of routes) {
-		const matcher = new RouteMatcher(route.path);
-		if (route.redirectTo && route.path === remainingPath) return {
-			matches: accumulatedMatches,
-			params: accumulatedParams,
-			isExactMatch: false,
-			redirectTo: resolveRedirectTarget(route.redirectTo, basePath)
-		};
-		const exactMatch = matcher.parse(remainingPath);
-		if (exactMatch !== null) {
-			const matchedPath = remainingPath;
-			const fullPath = basePath ? `${basePath}/${matchedPath}` : matchedPath;
-			const match = {
-				route,
-				params: exactMatch,
-				matchedPath,
-				remainingPath: "",
-				fullPath,
-				children: route.children
-			};
-			Object.assign(accumulatedParams, exactMatch);
-			accumulatedMatches.push(match);
-			if (route.children) {
-				const emptyRedirect = route.children.find((child) => child.path === "" && child.redirectTo);
-				if (emptyRedirect && emptyRedirect.redirectTo) return {
-					matches: accumulatedMatches,
-					params: accumulatedParams,
-					isExactMatch: false,
-					redirectTo: resolveRedirectTarget(emptyRedirect.redirectTo, fullPath)
-				};
-			}
-			return {
-				matches: accumulatedMatches,
-				params: accumulatedParams,
-				isExactMatch: true
-			};
-		}
-		if (route.children || route.loadChildren) {
-			const prefixResult = matcher.parsePrefix(remainingPath);
-			if (prefixResult && prefixResult.params !== null) {
-				const fullPath = basePath ? `${basePath}/${prefixResult.matchedPath}` : prefixResult.matchedPath;
-				const match = {
-					route,
-					params: prefixResult.params,
-					matchedPath: prefixResult.matchedPath,
-					remainingPath: prefixResult.remainingPath,
-					fullPath,
-					children: route.children
-				};
-				Object.assign(accumulatedParams, prefixResult.params);
-				accumulatedMatches.push(match);
-				if (route.children && prefixResult.remainingPath) return matchRouteLevel(route.children, prefixResult.remainingPath, fullPath, accumulatedMatches, accumulatedParams);
-				return {
-					matches: accumulatedMatches,
-					params: accumulatedParams,
-					isExactMatch: prefixResult.remainingPath === ""
-				};
-			}
-		}
-	}
-	return {
-		matches: accumulatedMatches,
-		params: accumulatedParams,
-		isExactMatch: false
-	};
-}
-function matchRouteTree(routes, path, basePath = "") {
-	const result = matchRouteLevel(routes, path.startsWith("/") ? path.slice(1) : path, basePath, [], {});
-	return {
-		matches: result.matches,
-		params: result.params,
-		isExactMatch: result.isExactMatch,
-		redirectTo: result.redirectTo
-	};
-}
-function findRouteByName(routes, name) {
-	for (const route of routes) {
-		if (route.name === name) return route;
-		if (route.children) {
-			const found = findRouteByName(route.children, name);
-			if (found) return found;
-		}
-	}
-	return null;
-}
-function buildPathFromRoute(routes, name, params = {}) {
-	const pathParts = [];
-	function findAndBuildPath(routeList, targetName) {
-		for (const route of routeList) {
-			if (route.name === targetName) {
-				const matcher = new RouteMatcher(route.path);
-				pathParts.push(matcher.stringify(params));
-				return true;
-			}
-			if (route.children) {
-				const segment = new RouteMatcher(route.path).stringify(params);
-				if (findAndBuildPath(route.children, targetName)) {
-					pathParts.unshift(segment);
-					return true;
-				}
-			}
-		}
-		return false;
-	}
-	if (findAndBuildPath(routes, name)) return "/" + pathParts.join("/").split("/").filter(Boolean).join("/");
-	return null;
-}
-function __decorate(decorators, target, key, desc) {
-	var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
-	if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
-	else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
-	return c > 3 && r && Object.defineProperty(target, key, r), r;
-}
-var RouteContextService = class RouteContextService$1 {
-	constructor() {
-		this._matchStack = [];
-		this._contexts = /* @__PURE__ */ new Map();
-		this._currentMatchResult = null;
-		this._resolvedData = /* @__PURE__ */ new Map();
-	}
-	setMatchResult(result) {
-		this._currentMatchResult = result;
-		this._matchStack = result.matches;
-		this._contexts.clear();
-		let basePath = "";
-		const ancestorMatches = [];
-		const accumulatedParams = {};
-		for (let i = 0; i < result.matches.length; i++) {
-			const match = result.matches[i];
-			ancestorMatches.push(match);
-			Object.assign(accumulatedParams, match.params);
-			const context = {
-				depth: i,
-				routes: match.children ?? [],
-				currentMatch: match,
-				ancestorMatches: [...ancestorMatches],
-				params: { ...accumulatedParams },
-				remainingPath: match.remainingPath,
-				basePath,
-				parent: i > 0 ? this._contexts.get(i - 1) : void 0
-			};
-			this._contexts.set(i, context);
-			basePath = match.fullPath;
-		}
-	}
-	setResolvedData(depth, data) {
-		this._resolvedData.set(depth, data);
-	}
-	clearResolvedData() {
-		this._resolvedData.clear();
-	}
-	getContextForDepth(depth) {
-		return this._contexts.get(depth);
-	}
-	getChildRoutesForDepth(depth) {
-		const parentContext = this._contexts.get(depth - 1);
-		if (depth === 0) return [];
-		return parentContext?.currentMatch?.children ?? [];
-	}
-	getRemainingPathForDepth(depth) {
-		if (depth === 0) return window.location.pathname;
-		return this._contexts.get(depth - 1)?.remainingPath ?? "";
-	}
-	getParamsForDepth(depth) {
-		return this._contexts.get(depth)?.params ?? {};
-	}
-	getCurrentParams() {
-		return this._currentMatchResult?.params ?? {};
-	}
-	getMatchStack() {
-		return [...this._matchStack];
-	}
-	getCurrentMatchResult() {
-		return this._currentMatchResult;
-	}
-	getMergedRouteData(depth) {
-		const maxDepth = depth ?? this._matchStack.length - 1;
-		const merged = {};
-		for (let i = 0; i <= maxDepth && i < this._matchStack.length; i++) {
-			const match = this._matchStack[i];
-			if (match.route.data) Object.assign(merged, match.route.data);
-		}
-		return merged;
-	}
-	getMergedResolvedData(depth) {
-		const maxDepth = depth ?? this._matchStack.length - 1;
-		const merged = {};
-		for (let i = 0; i <= maxDepth; i++) {
-			const data = this._resolvedData.get(i);
-			if (data) Object.assign(merged, data);
-		}
-		return merged;
-	}
-	getResolvedDataForDepth(depth) {
-		return this._resolvedData.get(depth);
-	}
-};
-RouteContextService = __decorate([Injectable()], RouteContextService);
-function __decorateMetadata(k, v) {
-	if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
-}
-var routerStateEvent = (type, data, title, url) => {
-	return new PopStateEvent("History", { state: {
-		type,
-		data,
-		url,
-		host: window.location.host,
-		hostName: window.location.hostname,
-		href: window.location.href,
-		pathName: window.location.pathname,
-		port: window.location.port,
-		protocol: window.location.protocol,
-		params: new URLSearchParams(window.location.search),
-		title
-	} });
-};
-var pushState = history.pushState;
-history.pushState = (data, title, url) => {
-	pushState.apply(history, [
-		data,
-		title,
-		url
-	]);
-	const navigationEvent = new CustomEvent("NavigationEvent", { detail: routerStateEvent("push", data, title, url) });
-	window.dispatchEvent(navigationEvent);
-};
-var replaceState = history.replaceState;
-history.replaceState = (data, title, url) => {
-	replaceState.apply(history, [
-		data,
-		title,
-		url
-	]);
-	const navigationEvent = new CustomEvent("NavigationEvent", { detail: routerStateEvent("replace", data, title, url) });
-	window.dispatchEvent(navigationEvent);
-};
-var RouterService = class RouterService$1 {
-	constructor() {
-		this._routes = [];
-		this._currentMatches = [];
-		this._resolversExecutedForPath = null;
-		this._currentPath = `${window.location.pathname}${window.location.search}`;
-		this._navigationId = 0;
-		this._pendingTarget = null;
-		this._contextService = new RouteContextService();
-		window.addEventListener("NavigationEvent", (event) => {
-			this._route = event.detail.state;
-		});
-		window.addEventListener("popstate", (event) => {
-			this.handlePopState(event);
-		});
-	}
-	setRoutes(routes) {
-		this._routes = routes;
-	}
-	getRoutes() {
-		return this._routes;
-	}
-	getContextService() {
-		return this._contextService;
-	}
-	getRoute() {
-		return this._route;
-	}
-	getParams() {
-		return this._contextService.getCurrentParams();
-	}
-	getParam(name) {
-		return this._contextService.getCurrentParams()[name];
-	}
-	getQueryParams() {
-		return this.targetQueryParams();
-	}
-	getCurrentMatches() {
-		return [...this._currentMatches];
-	}
-	getRouteData(depth) {
-		return this._contextService.getMergedRouteData(depth);
-	}
-	getResolvedData(depth) {
-		return this._contextService.getMergedResolvedData(depth);
-	}
-	matchPath(path) {
-		return matchRouteTree(this._routes, this.normalizePath(path));
-	}
-	parseUrl(url) {
-		const hashIndex = url.indexOf("#");
-		const hash = hashIndex >= 0 ? url.slice(hashIndex) : "";
-		const withoutHash = hashIndex >= 0 ? url.slice(0, hashIndex) : url;
-		const queryIndex = withoutHash.indexOf("?");
-		const search = queryIndex >= 0 ? withoutHash.slice(queryIndex) : "";
-		return {
-			pathname: queryIndex >= 0 ? withoutHash.slice(0, queryIndex) : withoutHash,
-			search,
-			hash
-		};
-	}
-	normalizePath(url) {
-		const { pathname } = this.parseUrl(url);
-		return pathname.length > 1 ? pathname.replace(/\/+$/, "") : pathname;
-	}
-	targetPathname() {
-		return this._pendingTarget ? this._pendingTarget.pathname : window.location.pathname;
-	}
-	targetQueryParams() {
-		return new URLSearchParams(this._pendingTarget ? this._pendingTarget.queryParams : window.location.search);
-	}
-	setCurrentMatches(result) {
-		this._currentMatches = result.matches;
-		this._contextService.setMatchResult(result);
-	}
-	async runResolvers(matchResult) {
-		const currentPath = `${window.location.pathname}${window.location.search}`;
-		if (this._resolversExecutedForPath === currentPath) {
-			this._resolversExecutedForPath = null;
-			return { success: true };
-		}
-		const result = await this.runResolversInternal(matchResult);
-		this._resolversExecutedForPath = null;
-		return result;
-	}
-	async navigate(path, options = {}) {
-		const { data, replace = false, queryParams, skipGuards = false, skipResolvers = false, scrollToTop = true } = options;
-		let fullPath = path;
-		if (queryParams && Object.keys(queryParams).length > 0) fullPath = `${path}?${new URLSearchParams(queryParams).toString()}`;
-		const navId = ++this._navigationId;
-		const { pathname, search } = this.parseUrl(fullPath);
-		this._pendingTarget = {
-			pathname,
-			queryParams: new URLSearchParams(search)
-		};
-		const superseded = () => ({
-			success: false,
-			error: "Navigation superseded"
-		});
-		try {
-			if (!skipGuards && this._currentMatches.length > 0) {
-				const deactivateResult = await this.runDeactivationGuards(fullPath);
-				if (this._navigationId !== navId) return superseded();
-				if (deactivateResult !== true) {
-					if (typeof deactivateResult === "string") return this.navigate(deactivateResult, {
-						...options,
-						skipGuards: true
-					});
-					return {
-						success: false,
-						error: "Navigation blocked by guard"
-					};
-				}
-			}
-			const matchResult = this.matchPath(path);
-			if (matchResult.redirectTo) return this.navigate(matchResult.redirectTo, options);
-			if (!skipGuards && matchResult.matches.length > 0) {
-				const guardResult = await this.runGuards(matchResult);
-				if (this._navigationId !== navId) return superseded();
-				if (guardResult !== true) {
-					if (typeof guardResult === "string") return this.navigate(guardResult, {
-						...options,
-						skipGuards: true
-					});
-					return {
-						success: false,
-						error: "Navigation blocked by guard"
-					};
-				}
-			}
-			if (!skipResolvers && matchResult.matches.length > 0) {
-				const resolverResult = await this.runResolversInternal(matchResult);
-				if (this._navigationId !== navId) return superseded();
-				if (!resolverResult.success) return {
-					success: false,
-					error: resolverResult.error ?? "Navigation blocked by resolver"
-				};
-				this._resolversExecutedForPath = fullPath;
-			}
-			this.setCurrentMatches(matchResult);
-			if (replace) history.replaceState(data, "", fullPath);
-			else history.pushState(data, "", fullPath);
-			this._currentPath = fullPath;
-			if (scrollToTop) {
-				const hash = fullPath.includes("#") ? fullPath.split("#")[1] : null;
-				if (hash) {
-					const element = document.getElementById(hash);
-					if (element) element.scrollIntoView();
-				} else window.scrollTo(0, 0);
-			}
-			return {
-				success: true,
-				url: fullPath
-			};
-		} finally {
-			if (this._navigationId === navId) this._pendingTarget = null;
-		}
-	}
-	async navigateByName(name, params = {}, options = {}) {
-		const path = buildPathFromRoute(this._routes, name, params);
-		if (!path) return {
-			success: false,
-			error: `Route with name '${name}' not found`
-		};
-		return this.navigate(path, options);
-	}
-	replace(path, data) {
-		history.replaceState(data, "", path);
-		this._currentPath = `${window.location.pathname}${window.location.search}`;
-	}
-	back() {
-		history.back();
-	}
-	forward() {
-		history.forward();
-	}
-	go(delta) {
-		history.go(delta);
-	}
-	async runDeactivationGuards(targetPath) {
-		for (const match of this._currentMatches) {
-			const guards = match.route.canDeactivate ?? [];
-			for (const guard of guards) {
-				const context = this.createGuardContext(match, {
-					matches: this._currentMatches,
-					params: this._contextService.getCurrentParams(),
-					isExactMatch: true
-				});
-				context.targetPath = targetPath;
-				const result = await this.executeGuard(guard, "canDeactivate", context);
-				if (result !== true) return result;
-			}
-		}
-		return true;
-	}
-	async runGuards(matchResult) {
-		for (const match of matchResult.matches) {
-			const guards = match.route.canActivate ?? [];
-			for (const guard of guards) {
-				const context = this.createGuardContext(match, matchResult);
-				const result = await this.executeGuard(guard, "canActivate", context);
-				if (result !== true) return result;
-			}
-		}
-		return true;
-	}
-	async executeGuard(guard, method, context) {
-		const fn = guard[method];
-		if (!fn) return true;
-		try {
-			const result = fn.call(guard, context);
-			return result instanceof Promise ? await result : result;
-		} catch (error) {
-			console.error(`Guard error:`, error);
-			return false;
-		}
-	}
-	createGuardContext(match, matchResult) {
-		return {
-			route: match,
-			matchedRoutes: matchResult.matches,
-			params: matchResult.params,
-			queryParams: this.targetQueryParams(),
-			targetPath: this.targetPathname(),
-			currentPath: window.location.pathname,
-			data: match.route.data
-		};
-	}
-	async runResolversInternal(matchResult) {
-		this._contextService.clearResolvedData();
-		for (let depth = 0; depth < matchResult.matches.length; depth++) {
-			const match = matchResult.matches[depth];
-			const resolvers = match.route.resolve;
-			if (!resolvers) continue;
-			const resolvedData = {};
-			const context = this.createResolverContext(match, matchResult);
-			for (const [key, resolver] of Object.entries(resolvers)) try {
-				resolvedData[key] = await this.executeResolver(resolver, context);
-			} catch (error) {
-				console.error(`Resolver '${key}' failed:`, error);
-				return {
-					success: false,
-					error: `Resolver '${key}' failed: ${error instanceof Error ? error.message : String(error)}`
-				};
-			}
-			this._contextService.setResolvedData(depth, resolvedData);
-		}
-		return { success: true };
-	}
-	async handlePopState(event) {
-		const targetPath = `${window.location.pathname}${window.location.search}`;
-		const guardResult = await this.runDeactivationGuards(targetPath);
-		if (guardResult !== true) {
-			if (typeof guardResult === "string") await this.navigate(guardResult, {
-				replace: true,
-				skipGuards: true
-			});
-			else history.replaceState(event.state, "", this._currentPath);
-			return;
-		}
-		this._currentPath = targetPath;
-		const matchResult = this.matchPath(window.location.pathname);
-		this.setCurrentMatches(matchResult);
-		const navigationEvent = new CustomEvent("NavigationEvent", { detail: routerStateEvent("push", event.state, "", window.location.pathname) });
-		window.dispatchEvent(navigationEvent);
-	}
-	async executeResolver(resolver, context) {
-		const result = resolver.resolve(context);
-		return result instanceof Promise ? await result : result;
-	}
-	createResolverContext(match, matchResult) {
-		return {
-			route: match,
-			matchedRoutes: matchResult.matches,
-			params: matchResult.params,
-			queryParams: this.targetQueryParams(),
-			targetPath: this.targetPathname()
-		};
-	}
-};
-RouterService = __decorate([Injectable(), __decorateMetadata("design:paramtypes", [])], RouterService);
-var directiveRegistry = /* @__PURE__ */ new Map();
-var findAttributeDirective = (name) => {
-	if (directiveRegistry.has(name)) return directiveRegistry.get(name);
-	const lowerName = name.toLowerCase();
-	for (const [key, value] of directiveRegistry) if (key.toLowerCase() === lowerName) return value;
-};
-function registerAttributeDirective(name, directive$1) {
-	directiveRegistry.set(name, directive$1);
-}
-function getAttributeDirective(name) {
-	return findAttributeDirective(name);
-}
-function hasAttributeDirective(name) {
-	return findAttributeDirective(name) !== void 0;
-}
-function unregisterAttributeDirective(name) {
-	return directiveRegistry.delete(name);
-}
-function getRegisteredDirectives() {
-	return Array.from(directiveRegistry.keys());
-}
-function isDirective(value) {
-	return typeof value === "object" && value !== null && value.__directive === true && typeof value.render === "function";
-}
-var MARKER = `m${Math.random().toString(36).slice(2, 9)}`;
-var COMMENT_NODE_MARKER = `<!--${MARKER}-->`;
-var ATTRIBUTE_MARKER_PREFIX = `__${MARKER}_`;
-var ATTRIBUTE_MARKER_REGEX = new RegExp(`${ATTRIBUTE_MARKER_PREFIX}(\\d+)__`, "g");
-var createAttributeMarker = (index) => `${ATTRIBUTE_MARKER_PREFIX}${index}__`;
-var templateCache = /* @__PURE__ */ new Map();
-var templateKeyCache = /* @__PURE__ */ new WeakMap();
-function getTemplateKey(strings) {
-	let key = templateKeyCache.get(strings);
-	if (key === void 0) {
-		key = strings.join(MARKER);
-		templateKeyCache.set(strings, key);
-	}
-	return key;
-}
-var TemplateResult = class TemplateResult {
-	constructor(strings, values) {
-		this.strings = strings;
-		this.values = values;
-	}
-	renderOnce(container) {
-		const templateKey = getTemplateKey(this.strings);
-		const cache = this.getTemplate(templateKey);
-		const clone = cache.element.content.cloneNode(true);
-		const parts = this.prepareParts(clone, cache);
-		this.commit(parts);
-		container.appendChild(clone);
-		container.__parts = parts;
-		container.__templateKey = templateKey;
-		return Array.from(container.childNodes);
-	}
-	renderInto(container) {
-		const templateKey = getTemplateKey(this.strings);
-		const { element: template } = this.getTemplate(templateKey);
-		const existingKey = container.__templateKey;
-		if (existingKey && existingKey !== templateKey) {
-			const existingParts = container.__parts;
-			if (existingParts) this.cleanupParts(existingParts);
-			delete container.__parts;
-		}
-		if (!container.__parts) {
-			const clone = template.content.cloneNode(true);
-			const parts$1 = this.prepareParts(clone, this.getTemplate(templateKey));
-			container.__parts = parts$1;
-			container.__templateKey = templateKey;
-			this.commit(parts$1);
-			container.textContent = "";
-			container.appendChild(clone);
-			return;
-		}
-		if (!container.__templateKey) container.__templateKey = templateKey;
-		const parts = container.__parts;
-		this.commit(parts);
-	}
-	getTemplate(key) {
-		let cached = templateCache.get(key);
-		if (cached) return cached;
-		const parts = [];
-		let html$1 = this.strings[0];
-		const attrPreProcessor = this.getAttributePreProcessor(parts);
-		let activeAttributeName = null;
-		let activeAttributeQuote = null;
-		for (let i = 1; i < this.strings.length; i++) {
-			const s = this.strings[i];
-			const valueIndex = i - 1;
-			const match = /([@.:?]?[\w:-]+)\s*=\s*["']?$/.exec(html$1);
-			const quotedAttrMatch = /([@.:?]?[\w:-]+)\s*=\s*(["'])([^"']*)$/.exec(html$1);
-			let attrKey = "___";
-			if (activeAttributeName) html$1 += createAttributeMarker(valueIndex);
-			else {
-				const quotedPrefix = (quotedAttrMatch?.[1])?.charAt(0);
-				const hasSpecialPrefix = quotedPrefix !== void 0 && Object.keys(attrPreProcessor).includes(quotedPrefix);
-				if (quotedAttrMatch && !hasSpecialPrefix) {
-					html$1 += createAttributeMarker(valueIndex);
-					activeAttributeName = quotedAttrMatch[1];
-					activeAttributeQuote = quotedAttrMatch[2];
-				} else {
-					if (match) {
-						attrKey = "__";
-						const attrPrefix = match[1].charAt(0);
-						if (Object.keys(attrPreProcessor).includes(attrPrefix)) attrKey = attrPrefix;
-					}
-					if (attrKey === "__" && match) {
-						html$1 += createAttributeMarker(valueIndex);
-						activeAttributeName = match[1];
-						const quoteMatch = /(["'])$/.exec(match[0]);
-						activeAttributeQuote = quoteMatch ? quoteMatch[1] : null;
-					} else html$1 = attrPreProcessor[attrKey](valueIndex, html$1, match ? match[1] : void 0, match);
-				}
-			}
-			html$1 += s;
-			if (activeAttributeName) {
-				if (activeAttributeQuote) {
-					if (s.includes(activeAttributeQuote)) {
-						activeAttributeName = null;
-						activeAttributeQuote = null;
-					}
-				} else if (/[\s>]/.test(s)) {
-					activeAttributeName = null;
-					activeAttributeQuote = null;
-				}
-			}
-		}
-		const element = document.createElement("template");
-		element.innerHTML = html$1;
-		const partPaths = [];
-		let nodePartCursor = 0;
-		const nodeParts = [];
-		const eventPartsByIndex = /* @__PURE__ */ new Map();
-		const propertyPartsByIndex = /* @__PURE__ */ new Map();
-		const actionPartsByIndex = /* @__PURE__ */ new Map();
-		const booleanPartsByIndex = /* @__PURE__ */ new Map();
-		for (const part of parts) switch (part.type) {
-			case "event":
-				eventPartsByIndex.set(part.index, part);
-				break;
-			case "property":
-				propertyPartsByIndex.set(part.index, part);
-				break;
-			case "action":
-				actionPartsByIndex.set(part.index, part);
-				break;
-			case "boolean-attribute":
-				booleanPartsByIndex.set(part.index, part);
-				break;
-			case "node":
-				nodeParts.push(part);
-				break;
-			default: break;
-		}
-		const walkTemplate = (node, path) => {
-			if (node.nodeType === Node.COMMENT_NODE) {
-				if (node.data === MARKER) {
-					const part = nodeParts[nodePartCursor++];
-					if (part) partPaths.push({
-						path: [...path],
-						type: "node",
-						index: part.index
-					});
-				}
-			} else if (node.nodeType === Node.ELEMENT_NODE) {
-				const el = node;
-				for (let i = el.attributes.length - 1; i >= 0; i--) {
-					const attr = el.attributes[i];
-					if (attr.name.startsWith("__event-")) {
-						const index = parseInt(attr.name.match(/__event-(\d+)__/)?.[1] || "0");
-						const part = eventPartsByIndex.get(index);
-						if (part) partPaths.push({
-							path: [...path],
-							type: "event",
-							index: part.index,
-							name: part.name
-						});
-					} else if (attr.name.startsWith("__prop-")) {
-						const index = parseInt(attr.name.match(/__prop-(\d+)__/)?.[1] || "0");
-						const part = propertyPartsByIndex.get(index);
-						if (part) partPaths.push({
-							path: [...path],
-							type: "property",
-							index: part.index,
-							name: part.name
-						});
-					} else if (attr.name.startsWith("__action-")) {
-						const index = parseInt(attr.name.match(/__action-(\d+)__/)?.[1] || "0");
-						const part = actionPartsByIndex.get(index);
-						if (part) partPaths.push({
-							path: [...path],
-							type: "action",
-							index: part.index,
-							name: part.name
-						});
-					} else if (attr.name.startsWith("__bool-")) {
-						const index = parseInt(attr.name.match(/__bool-(\d+)__/)?.[1] || "0");
-						const part = booleanPartsByIndex.get(index);
-						if (part) partPaths.push({
-							path: [...path],
-							type: "boolean-attribute",
-							index: part.index,
-							name: part.name
-						});
-					} else if (attr.name.startsWith(":")) partPaths.push({
-						path: [...path],
-						type: "action",
-						index: -1,
-						name: attr.name.slice(1),
-						staticValue: attr.value
-					});
-					else if (attr.value.includes(ATTRIBUTE_MARKER_PREFIX)) {
-						const attributeInfo = this.parseAttributeValue(attr.value);
-						if (attributeInfo) {
-							const isComposite = attributeInfo.indices.length > 1 || attributeInfo.strings.some((s) => s.length > 0);
-							partPaths.push({
-								path: [...path],
-								type: "attribute",
-								index: attributeInfo.indices[0],
-								name: attr.name,
-								attributeStrings: isComposite ? attributeInfo.strings : void 0,
-								attributeIndices: isComposite ? attributeInfo.indices : void 0
-							});
-						}
-					}
-				}
-			}
-			const children = node.childNodes;
-			for (let i = 0; i < children.length; i++) {
-				path.push(i);
-				walkTemplate(children[i], path);
-				path.pop();
-			}
-		};
-		walkTemplate(element.content, []);
-		cached = {
-			element,
-			parts,
-			partPaths
-		};
-		if (templateCache.size >= 500) {
-			const oldestKey = templateCache.keys().next().value;
-			if (oldestKey) templateCache.delete(oldestKey);
-		}
-		templateCache.set(key, cached);
-		return cached;
-	}
-	getAttributePreProcessor(parts) {
-		return {
-			"@": (index, html$1, attrName, match) => {
-				parts.push({
-					type: "event",
-					index,
-					name: attrName?.slice(1)
-				});
-				return html$1.slice(0, -(match?.[0].length ?? 0)) + `__event-${index}__=""`;
-			},
-			".": (index, html$1, attrName, match) => {
-				parts.push({
-					type: "property",
-					index,
-					name: attrName?.slice(1)
-				});
-				return html$1.slice(0, -(match?.[0].length ?? 0)) + `__prop-${index}__=""`;
-			},
-			":": (index, html$1, attrName, match) => {
-				parts.push({
-					type: "action",
-					index,
-					name: attrName?.slice(1)
-				});
-				return html$1.slice(0, -(match?.[0].length ?? 0)) + `__action-${index}__=""`;
-			},
-			"?": (index, html$1, attrName, match) => {
-				parts.push({
-					type: "boolean-attribute",
-					index,
-					name: attrName?.slice(1)
-				});
-				return html$1.slice(0, -(match?.[0].length ?? 0)) + `__bool-${index}__=""`;
-			},
-			"__": (index, html$1, _) => {
-				return html$1 + createAttributeMarker(index);
-			},
-			"___": (index, html$1) => {
-				parts.push({
-					type: "node",
-					index
-				});
-				return html$1 + COMMENT_NODE_MARKER;
-			}
-		};
-	}
-	prepareParts(clone, cache) {
-		const parts = [];
-		const { partPaths } = cache;
-		for (const partPath of partPaths) {
-			let node = clone;
-			for (const index of partPath.path) node = node.childNodes[index];
-			if (partPath.type === "node") {
-				const textNode = document.createTextNode("");
-				node.parentNode.replaceChild(textNode, node);
-				parts.push({
-					type: "node",
-					index: partPath.index,
-					node: textNode
-				});
-			} else if (partPath.type === "event") {
-				const element = node;
-				element.removeAttribute(`__event-${partPath.index}__`);
-				parts.push({
-					type: "event",
-					index: partPath.index,
-					name: partPath.name,
-					node: element
-				});
-			} else if (partPath.type === "property") {
-				const element = node;
-				element.removeAttribute(`__prop-${partPath.index}__`);
-				parts.push({
-					type: "property",
-					index: partPath.index,
-					name: partPath.name,
-					node: element
-				});
-			} else if (partPath.type === "action") {
-				const element = node;
-				if (partPath.index >= 0) element.removeAttribute(`__action-${partPath.index}__`);
-				else element.removeAttribute(`:${partPath.name}`);
-				parts.push({
-					type: "action",
-					index: partPath.index,
-					name: partPath.name,
-					node: element,
-					staticValue: partPath.staticValue
-				});
-			} else if (partPath.type === "boolean-attribute") {
-				const element = node;
-				element.removeAttribute(`__bool-${partPath.index}__`);
-				parts.push({
-					type: "boolean-attribute",
-					index: partPath.index,
-					name: partPath.name,
-					node: element
-				});
-			} else if (partPath.type === "attribute") {
-				const element = node;
-				element.removeAttribute(partPath.name);
-				parts.push({
-					type: "attribute",
-					index: partPath.index,
-					name: partPath.name,
-					node: element,
-					attributeStrings: partPath.attributeStrings,
-					attributeIndices: partPath.attributeIndices
-				});
-			}
-		}
-		return parts;
-	}
-	parseAttributeValue(value) {
-		const strings = [];
-		const indices = [];
-		let lastIndex = 0;
-		let match;
-		ATTRIBUTE_MARKER_REGEX.lastIndex = 0;
-		while ((match = ATTRIBUTE_MARKER_REGEX.exec(value)) !== null) {
-			strings.push(value.slice(lastIndex, match.index));
-			indices.push(Number(match[1]));
-			lastIndex = match.index + match[0].length;
-		}
-		if (indices.length === 0) return null;
-		strings.push(value.slice(lastIndex));
-		return {
-			strings,
-			indices
-		};
-	}
-	ensureMarkers(part) {
-		if (part.startMarker) return;
-		const parent = part.node.parentNode;
-		if (!parent) return;
-		const startMarker = document.createComment("part-start");
-		const endMarker = document.createComment("part-end");
-		parent.insertBefore(startMarker, part.node);
-		parent.insertBefore(endMarker, part.node.nextSibling);
-		part.startMarker = startMarker;
-		part.endMarker = endMarker;
-	}
-	clearRenderedNodes(part) {
-		if (!part.renderedNodes || part.renderedNodes.length === 0) return;
-		for (const node of part.renderedNodes) node.parentNode?.removeChild(node);
-		part.renderedNodes = [];
-		part.arrayState = void 0;
-		part.nestedContainer = void 0;
-	}
-	clearDirectiveDOM(part) {
-		const state = part.directiveState;
-		if (!state) return;
-		const startMarker = state.startMarker;
-		const endMarker = state.endMarker;
-		if (startMarker && endMarker && startMarker.parentNode) {
-			const parent = startMarker.parentNode;
-			let node = startMarker.nextSibling;
-			while (node && node !== endMarker) {
-				const next = node.nextSibling;
-				parent.removeChild(node);
-				node = next;
-			}
-			if (part.node) parent.insertBefore(part.node, endMarker);
-			parent.removeChild(startMarker);
-			parent.removeChild(endMarker);
-		}
-		part.directiveState = void 0;
-	}
-	cleanupParts(parts) {
-		for (const part of parts) {
-			if (part.actionCleanup) try {
-				part.actionCleanup();
-			} catch (error) {
-				console.error("Action directive cleanup failed:", error);
-			} finally {
-				part.actionCleanup = void 0;
-			}
-			if (part.renderedNodes && part.renderedNodes.length > 0) this.clearRenderedNodes(part);
-		}
-	}
-	renderNestedTemplate(part, template) {
-		this.ensureMarkers(part);
-		if (part.nestedContainer) {
-			if (part.nestedContainer.__templateKey === getTemplateKey(template.strings)) {
-				template.renderInto(part.nestedContainer);
-				return;
-			}
-			const oldParts = part.nestedContainer.__parts;
-			if (oldParts) this.cleanupParts(oldParts);
-		}
-		this.clearRenderedNodes(part);
-		part.node.textContent = "";
-		const container = document.createDocumentFragment();
-		template.renderInto(container);
-		part.nestedContainer = container;
-		part.renderedNodes = Array.from(container.childNodes);
-		part.endMarker.parentNode.insertBefore(container, part.endMarker);
-	}
-	renderNode(part, node) {
-		this.ensureMarkers(part);
-		this.clearRenderedNodes(part);
-		part.node.textContent = "";
-		part.renderedNodes = [node];
-		part.endMarker.parentNode.insertBefore(node, part.endMarker);
-	}
-	renderArray(part, values) {
-		this.ensureMarkers(part);
-		part.node.textContent = "";
-		const parent = part.endMarker.parentNode;
-		const keyedValues = this.getKeyedValues(values);
-		if (keyedValues) {
-			const state = part.arrayState ?? {
-				items: /* @__PURE__ */ new Map(),
-				keys: []
-			};
-			const newItems = /* @__PURE__ */ new Map();
-			const newKeys = [];
-			for (const item of keyedValues) {
-				const existing = state.items.get(item.key);
-				if (existing) {
-					this.updateArrayItem(existing, item.value, parent, part.endMarker);
-					newItems.set(item.key, existing);
-				} else {
-					const created = this.createArrayItem(item.value, parent, part.endMarker);
-					newItems.set(item.key, {
-						key: item.key,
-						value: item.value,
-						container: created.container,
-						nodes: created.nodes
-					});
-				}
-				newKeys.push(item.key);
-			}
-			for (const [key, oldItem] of state.items.entries()) if (!newItems.has(key)) for (const node of oldItem.nodes) node.parentNode?.removeChild(node);
-			let referenceNode = part.startMarker.nextSibling;
-			for (const key of newKeys) {
-				const item = newItems.get(key);
-				for (const node of item.nodes) {
-					if (node === referenceNode) {
-						referenceNode = referenceNode?.nextSibling ?? null;
-						continue;
-					}
-					parent.insertBefore(node, referenceNode ?? part.endMarker);
-				}
-			}
-			part.arrayState = {
-				items: newItems,
-				keys: newKeys
-			};
-			part.renderedNodes = newKeys.flatMap((key) => newItems.get(key).nodes);
-			return;
-		}
-		this.clearRenderedNodes(part);
-		const renderedNodes = [];
-		for (const value of values) if (value instanceof TemplateResult) {
-			const fragment = document.createDocumentFragment();
-			value.renderInto(fragment);
-			const nodes = Array.from(fragment.childNodes);
-			renderedNodes.push(...nodes);
-			parent.insertBefore(fragment, part.endMarker);
-		} else if (value instanceof Node) {
-			renderedNodes.push(value);
-			parent.insertBefore(value, part.endMarker);
-		} else if (value !== null && value !== void 0) {
-			const textNode = document.createTextNode(String(value));
-			renderedNodes.push(textNode);
-			parent.insertBefore(textNode, part.endMarker);
-		}
-		part.renderedNodes = renderedNodes;
-	}
-	getKeyedValues(values) {
-		if (values.length === 0) return null;
-		const keyedValues = [];
-		for (const value of values) if (value && typeof value === "object" && value.__keyed === true) {
-			const keyed = value;
-			keyedValues.push({
-				key: keyed.key,
-				value: keyed.value
-			});
-		} else return null;
-		return keyedValues;
-	}
-	createArrayItem(value, parent, endMarker) {
-		const container = document.createDocumentFragment();
-		if (value instanceof TemplateResult) value.renderInto(container);
-		else if (value instanceof Node) container.appendChild(value);
-		else if (value !== null && value !== void 0) container.appendChild(document.createTextNode(String(value)));
-		const nodes = Array.from(container.childNodes);
-		parent.insertBefore(container, endMarker);
-		return {
-			container,
-			nodes
-		};
-	}
-	updateArrayItem(item, value, parent, endMarker) {
-		if (value instanceof TemplateResult) {
-			value.renderInto(item.container);
-			item.value = value;
-			item.nodes = Array.from(item.container.childNodes);
-			return;
-		}
-		if (value === item.value) return;
-		for (const node of item.nodes) node.parentNode?.removeChild(node);
-		item.container = document.createDocumentFragment();
-		if (value instanceof Node) item.container.appendChild(value);
-		else if (value !== null && value !== void 0) item.container.appendChild(document.createTextNode(String(value)));
-		item.nodes = Array.from(item.container.childNodes);
-		parent.insertBefore(item.container, endMarker);
-		item.value = value;
-	}
-	commit(parts) {
-		for (const part of parts) {
-			const value = this.values[part.index];
-			const isCompositeAttribute = part.type === "attribute" && part.attributeIndices && part.attributeStrings;
-			if (!isCompositeAttribute && !isDirective(value) && part.type !== "action" && part.previousValue === value) continue;
-			switch (part.type) {
-				case "node":
-					if (part.node) {
-						const wasDirective = isDirective(part.previousValue);
-						const nowDirective = isDirective(value);
-						if (wasDirective && !nowDirective && part.directiveState) this.clearDirectiveDOM(part);
-						if (!wasDirective && nowDirective) this.clearRenderedNodes(part);
-						if (nowDirective) part.directiveState = value.render(part.node, part.directiveState);
-						else if (value instanceof TemplateResult) this.renderNestedTemplate(part, value);
-						else if (value instanceof Node) this.renderNode(part, value);
-						else if (Array.isArray(value)) this.renderArray(part, value);
-						else {
-							this.clearRenderedNodes(part);
-							part.node.textContent = String(value ?? "");
-						}
-					}
-					break;
-				case "attribute":
-					if (part.node && part.name) {
-						const element = part.node;
-						if (isDirective(value)) part.directiveState = value.render(element, part.directiveState);
-						else if (isCompositeAttribute) {
-							const strings = part.attributeStrings;
-							const indices = part.attributeIndices;
-							let composed = strings[0] ?? "";
-							for (let i = 0; i < indices.length; i++) {
-								const segmentValue = this.values[indices[i]];
-								composed += `${segmentValue ?? ""}${strings[i + 1] ?? ""}`;
-							}
-							if (part.previousValue === composed) break;
-							if (composed === "" && strings.every((segment) => segment === "")) element.removeAttribute(part.name);
-							else element.setAttribute(part.name, composed);
-							part.previousValue = composed;
-							continue;
-						} else if (typeof value === "boolean" && part.name.startsWith("aria-")) element.setAttribute(part.name, String(value));
-						else if (value === null || value === void 0 || value === false) element.removeAttribute(part.name);
-						else if (value === true) element.setAttribute(part.name, "");
-						else element.setAttribute(part.name, String(value));
-					}
-					break;
-				case "boolean-attribute":
-					if (part.node && part.name) {
-						const element = part.node;
-						if (value) element.setAttribute(part.name, "");
-						else element.removeAttribute(part.name);
-					}
-					break;
-				case "property":
-					if (part.node && part.name) if (isDirective(value)) part.directiveState = value.render(part.node, part.directiveState);
-					else part.node[part.name] = value;
-					break;
-				case "event":
-					if (part.node && part.name) {
-						const element = part.node;
-						if (part.previousValue === value) break;
-						if (part.previousValue && typeof part.previousValue === "function") element.removeEventListener(part.name, part.previousValue);
-						if (typeof value === "function") element.addEventListener(part.name, value);
-					}
-					break;
-				case "action":
-					if (part.node && part.name) {
-						const element = part.node;
-						const directiveValue = part.index >= 0 ? value : part.staticValue;
-						if (part.index >= 0 && part.previousValue === directiveValue) continue;
-						if (part.index < 0 && part.actionCleanup !== void 0) continue;
-						if (part.actionCleanup) {
-							part.actionCleanup();
-							part.actionCleanup = void 0;
-						}
-						const directive$1 = getAttributeDirective(part.name);
-						if (directive$1) {
-							const cleanup = directive$1(element, directiveValue, part.name);
-							if (typeof cleanup === "function") part.actionCleanup = cleanup;
-							else part.actionCleanup = () => {};
-						} else console.warn(`Attribute directive ':${part.name}' not found in registry`);
-					}
-					break;
-				default: break;
-			}
-			part.previousValue = value;
-		}
-	}
-};
-function html(strings, ...values) {
-	return new TemplateResult(strings, values);
-}
-const css = html;
-var _ref$2;
-var OUTLET_REGISTER_EVENT = "melodic:outlet-register";
-var RouterOutletComponent = class RouterOutletComponent$1 {
-	constructor() {
-		this._depth = 0;
-		this._context = null;
-		this._currentComponent = null;
-		this._currentElement = null;
-		this._childOutlets = /* @__PURE__ */ new Map();
-		this._parentOutlet = null;
-		this._initialized = false;
-		this._navigationCleanup = null;
-		this._renderToken = 0;
-		this.routes = [];
-		this.name = "primary";
-	}
-	onInit() {
-		const handler = () => this.onNavigate();
-		window.addEventListener("NavigationEvent", handler);
-		this._navigationCleanup = () => window.removeEventListener("NavigationEvent", handler);
-		this.elementRef.addEventListener(OUTLET_REGISTER_EVENT, ((event) => {
-			if (event.detail.outlet === this) return;
-			event.stopPropagation();
-			this.registerChildOutlet(event.detail);
-		}));
-	}
-	onCreate() {
-		this.findParentOutlet();
-		queueMicrotask(() => {
-			this._initialized = true;
-			if (this._depth === 0 && this.routes.length > 0) this._router.setRoutes(this.routes);
-			if (this._parentOutlet) this.requestContextFromParent();
-			else this.onNavigate();
-		});
-	}
-	onDestroy() {
-		this._navigationCleanup?.();
-		if (this._parentOutlet) this._parentOutlet.unregisterChildOutlet(this.name);
-	}
-	onPropertyChange(name) {
-		if (name === "routes" && this._initialized) {
-			if (this._depth === 0) this._router.setRoutes(this.routes);
-			this._currentComponent = null;
-			this.onNavigate();
-		}
-	}
-	getDepth() {
-		return this._depth;
-	}
-	getContext() {
-		return this._context;
-	}
-	findParentOutlet() {
-		let element = this.elementRef;
-		while (element) {
-			const root = element.getRootNode();
-			if (root instanceof ShadowRoot) {
-				element = root.host;
-				if (element.tagName.toLowerCase() !== "router-outlet") {
-					const parentOutlet = element.shadowRoot?.querySelector("router-outlet");
-					if (parentOutlet && parentOutlet !== this.elementRef) {
-						this._parentOutlet = parentOutlet.component;
-						this._depth = (this._parentOutlet?._depth ?? -1) + 1;
-						return;
-					}
-				}
-			} else {
-				const parentOutlet = element.closest?.("router-outlet");
-				if (parentOutlet && parentOutlet !== this.elementRef) {
-					this._parentOutlet = parentOutlet.component;
-					this._depth = (this._parentOutlet?._depth ?? -1) + 1;
-					return;
-				}
-				break;
-			}
-		}
-		this._depth = 0;
-	}
-	requestContextFromParent() {
-		const event = new CustomEvent(OUTLET_REGISTER_EVENT, {
-			bubbles: true,
-			composed: true,
-			detail: {
-				outlet: this,
-				callback: (context) => this.receiveContext(context)
-			}
-		});
-		this.elementRef.dispatchEvent(event);
-	}
-	registerChildOutlet(registration) {
-		this._childOutlets.set(registration.outlet.name, registration.outlet);
-		if (this._context?.currentMatch?.children) {
-			const childContext = this.createChildContext();
-			if (childContext) registration.callback(childContext);
-		}
-	}
-	unregisterChildOutlet(name) {
-		this._childOutlets.delete(name);
-	}
-	receiveContext(context) {
-		this._context = context;
-		this.routes = context.routes;
-		this.renderFromContext();
-	}
-	createChildContext() {
-		if (!this._context?.currentMatch) return null;
-		const match = this._context.currentMatch;
-		return {
-			depth: this._depth + 1,
-			routes: match.children ?? [],
-			currentMatch: void 0,
-			ancestorMatches: [...this._context.ancestorMatches],
-			params: { ...this._context.params },
-			remainingPath: match.remainingPath,
-			basePath: match.fullPath,
-			parent: this._context
-		};
-	}
-	onNavigate() {
-		if (!this._initialized) return;
-		if (this._depth === 0) this.matchAndRender(window.location.pathname);
-	}
-	async matchAndRender(fullPath) {
-		const token = ++this._renderToken;
-		const routes = this.routes.length > 0 ? this.routes : this._router.getRoutes();
-		if (routes.length === 0) return;
-		const matchResult = matchRouteTree(routes, fullPath);
-		if (matchResult.redirectTo) {
-			if (window.location.pathname !== matchResult.redirectTo) this._router.navigate(matchResult.redirectTo, { replace: true });
-			return;
-		}
-		if (matchResult.matches.length > 0) {
-			const guardResult = await this._router.runGuards(matchResult);
-			if (token !== this._renderToken) return;
-			if (guardResult !== true) {
-				if (typeof guardResult === "string") this._router.navigate(guardResult, {
-					replace: true,
-					skipGuards: true
-				});
-				return;
-			}
-		}
-		if (matchResult.matches.length > 0) {
-			const resolverResult = await this._router.runResolvers(matchResult);
-			if (token !== this._renderToken) return;
-			if (!resolverResult.success) {
-				console.error("Resolver failed:", resolverResult.error);
-				await this.render404();
-				return;
-			}
-		}
-		this._router.setCurrentMatches(matchResult);
-		if (matchResult.matches.length > 0) {
-			const match = matchResult.matches[0];
-			this._context = {
-				depth: 0,
-				routes,
-				currentMatch: match,
-				ancestorMatches: [match],
-				params: match.params,
-				remainingPath: match.remainingPath,
-				basePath: "",
-				parent: void 0
-			};
-			await this.renderMatch(match, matchResult);
-		} else await this.render404();
-	}
-	async renderFromContext() {
-		if (!this._context || this.routes.length === 0) return;
-		const remainingPath = this._context.remainingPath;
-		const matchResult = matchRouteTree(this.routes, remainingPath, this._context.basePath);
-		if (matchResult.redirectTo) {
-			if (window.location.pathname !== matchResult.redirectTo) this._router.navigate(matchResult.redirectTo, { replace: true });
-			return;
-		}
-		if (matchResult.matches.length > 0) {
-			const match = matchResult.matches[0];
-			this._context = {
-				...this._context,
-				currentMatch: match,
-				ancestorMatches: [...this._context.ancestorMatches, match],
-				params: {
-					...this._context.params,
-					...match.params
-				}
-			};
-			await this.renderMatch(match, matchResult);
-		} else await this.render404();
-	}
-	async renderMatch(match, _) {
-		const route = match.route;
-		if (route.component === this._currentComponent) {
-			this.updateChildOutlets();
-			return;
-		}
-		if (route.loadChildren && !match.children) try {
-			const module = await route.loadChildren();
-			match.children = module.routes;
-			route.children = module.routes;
-		} catch (error) {
-			console.error("Failed to load child routes:", error);
-			await this.render404();
-			return;
-		}
-		if (route.loadComponent) try {
-			await route.loadComponent();
-		} catch (error) {
-			console.error("Failed to load component:", error);
-			await this.render404();
-			return;
-		}
-		if (route.component) await this.renderComponent(route.component);
-	}
-	async renderComponent(componentTag) {
-		const shadowRoot = this.elementRef.shadowRoot;
-		if (!shadowRoot) return;
-		if (this._currentElement) {
-			this._currentElement.remove();
-			this._currentElement = null;
-		}
-		this._currentComponent = componentTag;
-		const component = document.createElement(componentTag);
-		component.__parentOutlet = this;
-		shadowRoot.appendChild(component);
-		this._currentElement = component;
-		queueMicrotask(() => this.updateChildOutlets());
-	}
-	updateChildOutlets() {
-		const childContext = this.createChildContext();
-		if (!childContext) return;
-		for (const [, childOutlet] of this._childOutlets) childOutlet.receiveContext(childContext);
-	}
-	async render404() {
-		const notFoundRoute = this.routes.find((r) => r.path === "404" || r.path === "**");
-		if (notFoundRoute?.component) await this.renderComponent(notFoundRoute.component);
-		else if (this._depth === 0) this._router.navigate("/404", { replace: true });
-	}
-};
-__decorate([Service(RouterService), __decorateMetadata("design:type", typeof (_ref$2 = typeof RouterService !== "undefined" && RouterService) === "function" ? _ref$2 : Object)], RouterOutletComponent.prototype, "_router", void 0);
-RouterOutletComponent = __decorate([MelodicComponent({
-	selector: "router-outlet",
-	template: () => html`<slot></slot>`
-})], RouterOutletComponent);
-var _ref$1;
-var RouterLinkComponent = class RouterLinkComponent$1 {
-	constructor() {
-		this._anchorElement = null;
-		this._navigationCleanup = null;
-		this._clickCleanup = null;
-		this.href = "";
-		this.data = null;
-		this.queryParams = {};
-		this.activeClass = "active";
-		this.exactMatch = false;
-		this.replace = false;
-	}
-	onCreate() {
-		this._anchorElement = this.elementRef.shadowRoot?.querySelector("a") ?? null;
-		const initialHref = this.elementRef.getAttribute("href");
-		if (initialHref) this.href = initialHref;
-		const initialActiveClass = this.elementRef.getAttribute("active-class");
-		if (initialActiveClass) this.activeClass = initialActiveClass;
-		this.updateAnchorHref();
-		const clickHandler = (e) => {
-			e.preventDefault();
-			if (e.ctrlKey || e.metaKey || e.shiftKey) {
-				window.open(this.buildFullPath(), "_blank");
-				return;
-			}
-			this.navigate();
-		};
-		this.elementRef.addEventListener("click", clickHandler, false);
-		this._clickCleanup = () => this.elementRef.removeEventListener("click", clickHandler, false);
-		const handler = () => this.updateActiveState();
-		window.addEventListener("NavigationEvent", handler);
-		this._navigationCleanup = () => window.removeEventListener("NavigationEvent", handler);
-		this.updateActiveState();
-	}
-	onDestroy() {
-		this._navigationCleanup?.();
-		this._clickCleanup?.();
-	}
-	onAttributeChange(attribute, _, newVal) {
-		if (attribute === "href") {
-			this.href = newVal;
-			this.updateAnchorHref();
-			this.updateActiveState();
-		} else if (attribute === "active-class") {
-			this.activeClass = newVal;
-			this.updateActiveState();
-		}
-	}
-	onPropertyChange(name) {
-		if (name === "href" || name === "queryParams") {
-			this.updateAnchorHref();
-			this.updateActiveState();
-		}
-	}
-	isActive() {
-		const currentPath = window.location.pathname;
-		const linkPath = this.href.startsWith("/") ? this.href : `/${this.href}`;
-		if (this.exactMatch) return currentPath === linkPath;
-		return currentPath.startsWith(linkPath);
-	}
-	buildFullPath() {
-		let path = this.href;
-		if (this.queryParams && Object.keys(this.queryParams).length > 0) {
-			const params = new URLSearchParams(this.queryParams);
-			path = `${path}?${params.toString()}`;
-		}
-		return path;
-	}
-	updateAnchorHref() {
-		if (this._anchorElement) this._anchorElement.href = this.buildFullPath();
-	}
-	async navigate() {
-		const options = {
-			data: this.data,
-			replace: this.replace,
-			queryParams: this.queryParams
-		};
-		await this._router.navigate(this.href, options);
-	}
-	updateActiveState() {
-		const currentPath = window.location.pathname;
-		const linkPath = this.href.startsWith("/") ? this.href : `/${this.href}`;
-		const normalizedCurrentPath = currentPath.replace(/\/$/, "") || "/";
-		const normalizedLinkPath = linkPath.replace(/\/$/, "") || "/";
-		let isActive;
-		if (this.exactMatch) isActive = normalizedCurrentPath === normalizedLinkPath;
-		else isActive = normalizedCurrentPath === normalizedLinkPath || normalizedCurrentPath.startsWith(normalizedLinkPath + "/");
-		if (isActive) {
-			this.elementRef.classList.add(this.activeClass);
-			this._anchorElement?.setAttribute("aria-current", "page");
-		} else {
-			this.elementRef.classList.remove(this.activeClass);
-			this._anchorElement?.removeAttribute("aria-current");
-		}
-	}
-};
-__decorate([Service(RouterService), __decorateMetadata("design:type", typeof (_ref$1 = typeof RouterService !== "undefined" && RouterService) === "function" ? _ref$1 : Object)], RouterLinkComponent.prototype, "_router", void 0);
-RouterLinkComponent = __decorate([MelodicComponent({
-	selector: "router-link",
-	template: () => html`<a part="link"><slot></slot></a>`,
-	styles: () => css`
-		:host {
-			display: inline-block;
-			cursor: pointer;
-		}
-		a {
-			color: inherit;
-			text-decoration: inherit;
-			font: inherit;
-			display: block;
-		}
-	`,
-	attributes: ["href", "active-class"]
-})], RouterLinkComponent);
-function routerLinkDirective(element, value, _) {
-	let options;
-	if (typeof value === "string") options = { href: value };
-	else if (value && typeof value === "object" && "href" in value) options = value;
-	else {
-		console.warn("routerLink: Invalid value. Expected string or { href: string, ... }");
-		return;
-	}
-	const { href, activeClass = "active", exactMatch = false, replace = false, data = null, queryParams = {} } = options;
-	const router = Injector.get(RouterService);
-	const buildFullPath = () => {
-		let path = href;
-		if (queryParams && Object.keys(queryParams).length > 0) {
-			const params = new URLSearchParams(queryParams);
-			path = `${path}?${params.toString()}`;
-		}
-		return path;
-	};
-	if (element.tagName.toLowerCase() === "a") element.href = buildFullPath();
-	const updateActiveState = () => {
-		const currentPath = window.location.pathname;
-		const linkPath = href.startsWith("/") ? href : `/${href}`;
-		const normalizedCurrentPath = currentPath.replace(/\/$/, "") || "/";
-		const normalizedLinkPath = linkPath.replace(/\/$/, "") || "/";
-		let isActive;
-		if (exactMatch) isActive = normalizedCurrentPath === normalizedLinkPath;
-		else isActive = normalizedCurrentPath === normalizedLinkPath || normalizedCurrentPath.startsWith(normalizedLinkPath + "/");
-		if (isActive) {
-			element.classList.add(activeClass);
-			if (element.tagName.toLowerCase() === "a") element.setAttribute("aria-current", "page");
-		} else {
-			element.classList.remove(activeClass);
-			element.removeAttribute("aria-current");
-		}
-		element.setAttribute("router-link", "");
-	};
-	const handleClick = (e) => {
-		const mouseEvent = e;
-		if (mouseEvent.ctrlKey || mouseEvent.metaKey || mouseEvent.shiftKey) {
-			if (element.tagName.toLowerCase() === "a") return;
-			window.open(buildFullPath(), "_blank");
-			return;
-		}
-		e.preventDefault();
-		const navOptions = {
-			data,
-			replace,
-			queryParams
-		};
-		router.navigate(href, navOptions);
-	};
-	const handleNavigation = () => {
-		updateActiveState();
-	};
-	element.addEventListener("click", handleClick);
-	window.addEventListener("NavigationEvent", handleNavigation);
-	updateActiveState();
-	return (() => {
-		element.removeEventListener("click", handleClick);
-		window.removeEventListener("NavigationEvent", handleNavigation);
-	});
-}
-registerAttributeDirective("routerLink", routerLinkDirective);
-const props = () => {
-	return () => ({});
-};
-const createAction = (type, payloadFn) => {
-	return ((payload) => ({
-		type,
-		payload: payload ?? (payloadFn ? payloadFn() : void 0)
-	}));
-};
-function createReducer(...actionReducers) {
-	return { reducers: actionReducers };
-}
-const createState = (initState) => {
-	const state = {};
-	Object.keys(initState).forEach((key) => {
-		state[key] = signal(initState[key]);
-	});
-	return state;
-};
-const onAction = (action, reducer) => {
-	return {
-		action: action(),
-		reducer
-	};
-};
-const RX_INIT_STATE = createToken("RX_INIT_STATE");
-const RX_ACTION_PROVIDERS = createToken("RX_ACTION_PROVIDERS");
-const RX_EFFECTS_PROVIDERS = createToken("RX_EFFECTS_PROVIDERS");
-const RX_STATE_DEBUG = createToken("RX_STATE_DEBUG");
-var EffectsBase = class {
-	constructor() {
-		this._effects = [];
-	}
-	addEffect(actions, effect) {
-		this._effects.push({
-			actions,
-			effect
-		});
-	}
-	getEffects() {
-		return this._effects;
-	}
-};
-var nextInstanceId = 0;
-var ComponentStateBaseService = class extends EffectsBase {
-	constructor(_initState, _reducerConfig = { reducers: [] }, _debug = false) {
-		super();
-		this._initState = _initState;
-		this._reducerConfig = _reducerConfig;
-		this._debug = _debug;
-		this._instanceId = ++nextInstanceId;
-		this._state = signal(_initState);
-	}
-	get state() {
-		return this._state();
-	}
-	resetState() {
-		this._state.set(this._initState);
-	}
-	select(selectFn, cacheKey) {
-		const consumer = getActiveComponent();
-		if (consumer) {
-			const cache = consumer.getSelectCache();
-			const fullKey = `cs:${this._instanceId}::${cacheKey ?? selectFn.toString()}`;
-			const cached = cache.get(fullKey);
-			if (cached) return cached;
-			const sig = computed(() => selectFn(this._state()));
-			cache.set(fullKey, sig);
-			consumer.registerDisposable(sig);
-			return sig;
-		}
-		return computed(() => selectFn(this._state()));
-	}
-	dispatch(action) {
-		if (this._debug) {
-			console.log(`[ComponentState] Action: ${action.type}`);
-			console.log(`[ComponentState] Payload:`, action.payload);
-			console.log(`[ComponentState] Before:`, this._state());
-		}
-		const reducer = this._reducerConfig.reducers.find((r) => r.action.type === action.type);
-		if (reducer) {
-			this._state.update((state) => reducer.reducer(state, action));
-			if (this._debug) console.log(`[ComponentState] After:`, this._state());
-		}
-		this.executeEffects(action);
-	}
-	patchState(partial) {
-		this._state.update((state) => ({
-			...state,
-			...partial
-		}));
-	}
-	executeEffects(action) {
-		this.getEffects().filter((effect) => effect.actions.some((a) => a().type === action.type)).forEach((effect) => {
-			effect.effect(action).then((newAction) => {
-				if (newAction === void 0) return;
-				(Array.isArray(newAction) ? newAction : [newAction]).forEach((na) => this.dispatch(na));
-			}).catch((error) => {
-				console.error(`[ComponentState] Effect for action '${action.type}' failed:`, error);
-			});
-		});
-	}
-};
-var SignalStoreService = class SignalStoreService$1 {
-	constructor() {
-		if (this._debug) console.info("RX State Debugging: Enabled");
-	}
-	select(key, selectFn, cacheKey) {
-		const consumer = getActiveComponent();
-		if (consumer) {
-			const cache = consumer.getSelectCache();
-			const fullKey = `${String(key)}::${cacheKey ?? selectFn.toString()}`;
-			const cached = cache.get(fullKey);
-			if (cached) return cached;
-			const sig = computed(() => selectFn(this._state[key]()));
-			cache.set(fullKey, sig);
-			consumer.registerDisposable(sig);
-			return sig;
-		}
-		return computed(() => selectFn(this._state[key]()));
-	}
-	logState() {
-		console.log(this.getCurrentState());
-	}
-	dispatch(x, y) {
-		const key = typeof x === "string" ? x : void 0;
-		const action = typeof x === "string" ? y : x;
-		if (this._debug) {
-			console.log(`Action: ${action.type}`);
-			console.log(`Payload:`, action.payload);
-			console.log(`Current State:`, this.getCurrentState());
-		}
-		if (key) this.dispatchWithKey(key, action);
-		else this.dispatchWithoutKey(action);
-	}
-	dispatchWithKey(key, action) {
-		if (!this._reducerMap[key]) throw new Error(`Reducer not found for key: ${key}`);
-		const reducer = this._reducerMap[key].reducers.find((reducer$1) => reducer$1.action.type === action.type);
-		if (reducer !== void 0) {
-			const newState = reducer.reducer(this._state[key](), action);
-			this._state[key].set(newState);
-			if (this._debug) console.log(`New State:`, this.getCurrentState());
-		}
-		this.getEffectsForAction(key, action).forEach((effect) => {
-			effect.effect(action).then((newAction) => {
-				if (newAction === void 0) return;
-				if (!Array.isArray(newAction)) newAction = [newAction];
-				newAction.forEach((na) => {
-					this.dispatch(na);
-				});
-			}).catch((error) => {
-				console.error(`[SignalStore] Effect for action '${action.type}' failed:`, error);
-			});
-		});
-	}
-	dispatchWithoutKey(action) {
-		const reducerWithKey = this.getReducerForAction(action);
-		if (reducerWithKey !== void 0) {
-			const newState = reducerWithKey.actionReducer.reducer(this._state[reducerWithKey.key](), action);
-			this._state[reducerWithKey.key].set(newState);
-			if (this._debug) console.log(`New State:`, this.getCurrentState());
-		}
-		const effectsWithKey = this.getEffectsForAction(action);
-		if (effectsWithKey !== void 0) effectsWithKey.actionEffects.forEach((effect) => {
-			effect.effect(action).then((newAction) => {
-				if (newAction === void 0) return;
-				if (!Array.isArray(newAction)) newAction = [newAction];
-				newAction.forEach((na) => {
-					this.dispatch(na);
-				});
-			});
-		});
-	}
-	getReducerForAction(action) {
-		const keys = Object.keys(this._reducerMap);
-		for (const key of keys) {
-			const reducer = (this._reducerMap[key]?.reducers || []).find((reducer$1) => reducer$1.action.type === action.type);
-			if (reducer) return {
-				key,
-				actionReducer: reducer
-			};
-		}
-	}
-	getEffectsForAction(key, action) {
-		if (typeof key === "string") return this.getEffectsForActionWithKey(key, action);
-		else return this.getEffectsForActionWithoutKey(key);
-	}
-	getEffectsForActionWithoutKey(action) {
-		const keys = Object.keys(this._reducerMap);
-		for (const key of keys) {
-			const effectClass = this._effectMap[key];
-			if (effectClass) {
-				const effects = Injector.get(effectClass).getEffects().filter((effect) => effect.actions.some((a) => a().type === action.type));
-				if (effects.length > 0) return {
-					key,
-					actionEffects: effects
-				};
-			}
-		}
-	}
-	getEffectsForActionWithKey(key, action) {
-		const effectClass = this._effectMap[key];
-		if (effectClass) return Injector.get(effectClass).getEffects().filter((effect) => effect.actions.some((a) => a().type === action.type));
-		return [];
-	}
-	getCurrentState() {
-		return Object.keys(this._state).reduce((acc, key) => {
-			acc[key] = this._state[key]();
-			return acc;
-		}, {});
-	}
-};
-__decorate([Service(RX_INIT_STATE), __decorateMetadata("design:type", Object)], SignalStoreService.prototype, "_state", void 0);
-__decorate([Service(RX_ACTION_PROVIDERS), __decorateMetadata("design:type", Object)], SignalStoreService.prototype, "_reducerMap", void 0);
-__decorate([Service(RX_EFFECTS_PROVIDERS), __decorateMetadata("design:type", Object)], SignalStoreService.prototype, "_effectMap", void 0);
-__decorate([Service(RX_STATE_DEBUG), __decorateMetadata("design:type", Boolean)], SignalStoreService.prototype, "_debug", void 0);
-SignalStoreService = __decorate([Injectable(), __decorateMetadata("design:paramtypes", [])], SignalStoreService);
-function provideRX(initState, actionReducers, effects, debug = false) {
-	return (injector) => {
-		injector.bindValue(RX_INIT_STATE, initState);
-		injector.bindValue(RX_ACTION_PROVIDERS, actionReducers);
-		injector.bindValue(RX_EFFECTS_PROVIDERS, effects);
-		injector.bindValue(RX_STATE_DEBUG, debug);
-		injector.bind(SignalStoreService, SignalStoreService, { dependencies: [
-			RX_INIT_STATE,
-			RX_ACTION_PROVIDERS,
-			RX_EFFECTS_PROVIDERS
-		] });
-	};
-}
-function directive(renderFn) {
-	return {
-		__directive: true,
-		render: renderFn
-	};
-}
-function repeat(items, keyFn, template) {
-	return directive((container, previousState) => {
-		if (!previousState) {
-			const parent = container.parentNode;
-			if (!parent) throw new Error("repeat() directive: container must be attached to a parent node");
-			const startMarker = document.createComment("repeat-start");
-			const endMarker = document.createComment("repeat-end");
-			parent.replaceChild(startMarker, container);
-			parent.insertBefore(endMarker, startMarker.nextSibling);
-			const state = {
-				keyToIndex: /* @__PURE__ */ new Map(),
-				items: [],
-				startMarker,
-				endMarker
-			};
-			updateList$1(items, keyFn, template, state);
-			return state;
-		}
-		updateList$1(items, keyFn, template, previousState);
-		return previousState;
-	});
-}
-function updateList$1(newItems, keyFn, template, state) {
-	const oldItems = state.items;
-	const newKeyToIndex = /* @__PURE__ */ new Map();
-	const newEntries = [];
-	for (let i = 0; i < newItems.length; i++) {
-		const key = keyFn(newItems[i], i);
-		newKeyToIndex.set(key, i);
-	}
-	if (oldItems.length === newItems.length) {
-		let allKeysMatch = true;
-		for (let i = 0; i < newItems.length; i++) {
-			const key = keyFn(newItems[i], i);
-			if (i >= oldItems.length || oldItems[i].key !== key) {
-				allKeysMatch = false;
-				break;
-			}
-		}
-		if (allKeysMatch) {
-			for (let i = 0; i < newItems.length; i++) template(newItems[i], i).renderInto(oldItems[i].container);
-			return;
-		}
-	}
-	const oldItemsByKey = /* @__PURE__ */ new Map();
-	const oldIndexByKey = /* @__PURE__ */ new Map();
-	for (const oldItem of oldItems) {
-		oldItemsByKey.set(oldItem.key, oldItem);
-		oldIndexByKey.set(oldItem.key, oldIndexByKey.size);
-	}
-	for (let i = 0; i < newItems.length; i++) {
-		const item = newItems[i];
-		const key = keyFn(item, i);
-		if (oldItemsByKey.has(key)) {
-			const oldItem = oldItemsByKey.get(key);
-			oldItemsByKey.delete(key);
-			template(item, i).renderInto(oldItem.container);
-			newEntries.push({
-				item: oldItem,
-				oldIndex: oldIndexByKey.get(key) ?? -1,
-				isNew: false
-			});
-		} else {
-			const repeatItem = createRepeatItem(item, i, key, template);
-			newEntries.push({
-				item: repeatItem,
-				oldIndex: -1,
-				isNew: true
-			});
-		}
-	}
-	for (const oldItem of oldItemsByKey.values()) removeItemRange(oldItem);
-	if (newEntries.length === 0) {
-		state.keyToIndex = newKeyToIndex;
-		state.items = [];
-		return;
-	}
-	const lisPositions = getLisPositions(newEntries);
-	const parent = state.startMarker.parentElement;
-	let nextSibling = state.endMarker;
-	for (let i = newEntries.length - 1; i >= 0; i--) {
-		const entry = newEntries[i];
-		if (entry.isNew) insertItemRange(entry.item, parent, nextSibling);
-		else if (!lisPositions.has(i)) moveItemRange(entry.item, nextSibling);
-		nextSibling = entry.item.start;
-	}
-	state.keyToIndex = newKeyToIndex;
-	state.items = newEntries.map((entry) => entry.item);
-}
-function createRepeatItem(item, index, key, template) {
-	const templateResult = template(item, index);
-	const container = document.createDocumentFragment();
-	return {
-		key,
-		value: item,
-		container,
-		nodes: templateResult.renderOnce(container),
-		start: document.createComment("repeat-item-start"),
-		end: document.createComment("repeat-item-end")
-	};
-}
-function insertItemRange(item, parent, referenceNode) {
-	const fragment = document.createDocumentFragment();
-	fragment.appendChild(item.start);
-	for (const node of item.nodes) fragment.appendChild(node);
-	fragment.appendChild(item.end);
-	parent.insertBefore(fragment, referenceNode);
-}
-function moveItemRange(item, referenceNode) {
-	const parent = referenceNode.parentNode;
-	if (!parent) return;
-	const fragment = document.createDocumentFragment();
-	let node = item.start;
-	const end = item.end;
-	while (node) {
-		const nextNode = node.nextSibling;
-		fragment.appendChild(node);
-		if (node === end) break;
-		node = nextNode;
-	}
-	parent.insertBefore(fragment, referenceNode);
-}
-function removeItemRange(item) {
-	let node = item.start;
-	const end = item.end;
-	while (node) {
-		const nextNode = node.nextSibling;
-		node.parentNode?.removeChild(node);
-		if (node === end) break;
-		node = nextNode;
-	}
-}
-function getLisPositions(entries) {
-	const oldIndexSequence = [];
-	const sequencePositions = [];
-	for (let i = 0; i < entries.length; i++) if (entries[i].oldIndex >= 0) {
-		oldIndexSequence.push(entries[i].oldIndex);
-		sequencePositions.push(i);
-	}
-	const lisIndices = longestIncreasingSubsequence(oldIndexSequence);
-	const lisPositions = /* @__PURE__ */ new Set();
-	for (const seqIndex of lisIndices) {
-		const position = sequencePositions[seqIndex];
-		if (position !== void 0) lisPositions.add(position);
-	}
-	return lisPositions;
-}
-function longestIncreasingSubsequence(sequence) {
-	if (sequence.length === 0) return [];
-	const predecessors = new Array(sequence.length).fill(-1);
-	const positions = new Array(sequence.length).fill(0);
-	let length = 0;
-	for (let i = 0; i < sequence.length; i++) {
-		const value = sequence[i];
-		let low = 0;
-		let high = length;
-		while (low < high) {
-			const mid = low + high >> 1;
-			if (sequence[positions[mid]] < value) low = mid + 1;
-			else high = mid;
-		}
-		if (low > 0) predecessors[i] = positions[low - 1];
-		positions[low] = i;
-		if (low === length) length++;
-	}
-	const result = new Array(length);
-	let k = positions[length - 1];
-	for (let i = length - 1; i >= 0; i--) {
-		result[i] = k;
-		k = predecessors[k];
-	}
-	return result;
-}
-function repeatRaw(items, keyFn, factory) {
-	return directive((container, previousState) => {
-		if (!previousState) {
-			const parent = container.parentNode;
-			if (!parent) throw new Error("repeatRaw() directive: container must be attached to a parent node");
-			const startMarker = document.createComment("repeat-raw-start");
-			const endMarker = document.createComment("repeat-raw-end");
-			parent.replaceChild(startMarker, container);
-			parent.insertBefore(endMarker, startMarker.nextSibling);
-			const state = {
-				keyToItem: /* @__PURE__ */ new Map(),
-				startMarker,
-				endMarker
-			};
-			const fragment = document.createDocumentFragment();
-			for (let i = 0; i < items.length; i++) {
-				const item = items[i];
-				const key = keyFn(item, i);
-				const element = factory(item, i);
-				state.keyToItem.set(key, {
-					key,
-					element
-				});
-				fragment.appendChild(element);
-			}
-			parent.insertBefore(fragment, endMarker);
-			return state;
-		}
-		updateList(items, keyFn, factory, previousState);
-		return previousState;
-	});
-}
-function updateList(newItems, keyFn, factory, state) {
-	const oldItems = state.keyToItem;
-	const newKeyToItem = /* @__PURE__ */ new Map();
-	const parent = state.startMarker.parentElement;
-	const endMarker = state.endMarker;
-	if (oldItems.size === newItems.length) {
-		let allMatch = true;
-		let i = 0;
-		for (const [key] of oldItems) {
-			if (key !== keyFn(newItems[i], i)) {
-				allMatch = false;
-				break;
-			}
-			i++;
-		}
-		if (allMatch) {
-			i = 0;
-			for (const [key, { element }] of oldItems) {
-				const item = newItems[i];
-				const newElement = factory(item, i);
-				if (element !== newElement) {
-					element.replaceWith(newElement);
-					newKeyToItem.set(key, {
-						key,
-						element: newElement
-					});
-				} else newKeyToItem.set(key, {
-					key,
-					element
-				});
-				i++;
-			}
-			state.keyToItem = newKeyToItem;
-			return;
-		}
-	}
-	const fragment = document.createDocumentFragment();
-	const usedKeys = /* @__PURE__ */ new Set();
-	for (let i = 0; i < newItems.length; i++) {
-		const item = newItems[i];
-		const key = keyFn(item, i);
-		usedKeys.add(key);
-		const existing = oldItems.get(key);
-		if (existing) {
-			const newElement = factory(item, i);
-			if (existing.element !== newElement) {
-				newKeyToItem.set(key, {
-					key,
-					element: newElement
-				});
-				fragment.appendChild(newElement);
-			} else {
-				newKeyToItem.set(key, existing);
-				fragment.appendChild(existing.element);
-			}
-		} else {
-			const element = factory(item, i);
-			newKeyToItem.set(key, {
-				key,
-				element
-			});
-			fragment.appendChild(element);
-		}
-	}
-	for (const [key, { element }] of oldItems) if (!usedKeys.has(key)) element.remove();
-	parent.insertBefore(fragment, endMarker);
-	state.keyToItem = newKeyToItem;
-}
-function when(condition, template, falseTemplate) {
-	return directive((container, previousState) => {
-		if (!previousState) {
-			const parent = container.parentNode;
-			if (!parent) throw new Error("when() directive: container must be attached to a parent node");
-			const startMarker = document.createComment("when-start");
-			const endMarker = document.createComment("when-end");
-			parent.replaceChild(startMarker, container);
-			parent.insertBefore(endMarker, startMarker.nextSibling);
-			const state = {
-				condition: false,
-				template: null,
-				falseTemplate: null,
-				container: null,
-				startMarker,
-				endMarker,
-				nodes: []
-			};
-			if (condition) {
-				state.template = template();
-				renderContent(state, true);
-			} else if (falseTemplate) {
-				state.falseTemplate = falseTemplate();
-				renderContent(state, false);
-			}
-			state.condition = condition;
-			return state;
-		}
-		if (!previousState.startMarker.parentNode) throw new Error("when() directive: markers were removed from DOM");
-		if (condition && !previousState.condition) {
-			removeContent(previousState);
-			previousState.template = template();
-			renderContent(previousState, true);
-		} else if (!condition && previousState.condition) {
-			removeContent(previousState);
-			if (falseTemplate) {
-				previousState.falseTemplate = falseTemplate();
-				renderContent(previousState, false);
-			}
-		} else if (condition && previousState.condition) {
-			const newTemplate = template();
-			if (previousState.container) newTemplate.renderInto(previousState.container);
-			previousState.template = newTemplate;
-		} else if (!condition && !previousState.condition && falseTemplate) {
-			const newFalseTemplate = falseTemplate();
-			if (previousState.container) newFalseTemplate.renderInto(previousState.container);
-			previousState.falseTemplate = newFalseTemplate;
-		}
-		previousState.condition = condition;
-		return previousState;
-	});
-}
-function renderContent(state, useTrueTemplate) {
-	const parent = state.startMarker.parentNode;
-	if (!parent) throw new Error("when() directive: markers not in DOM");
-	const templateToRender = useTrueTemplate ? state.template : state.falseTemplate;
-	if (!templateToRender) return;
-	const container = document.createDocumentFragment();
-	templateToRender.renderInto(container);
-	state.container = container;
-	state.nodes = Array.from(container.childNodes);
-	for (const node of state.nodes) parent.insertBefore(node, state.endMarker);
-}
-function removeContent(state) {
-	for (const node of state.nodes) node.parentNode?.removeChild(node);
-	state.nodes = [];
-	state.container = null;
-}
-function classMap(classes) {
-	return directive((container, previousClasses) => {
-		const element = container;
-		const currentClasses = /* @__PURE__ */ new Set();
-		for (const [className, shouldApply] of Object.entries(classes)) if (shouldApply) {
-			element.classList.add(className);
-			currentClasses.add(className);
-		}
-		if (previousClasses) {
-			for (const className of previousClasses) if (!currentClasses.has(className)) element.classList.remove(className);
-		}
-		return currentClasses;
-	});
-}
-function styleMap(styles) {
-	return directive((container, previousStyles) => {
-		const element = container;
-		const currentStyles = /* @__PURE__ */ new Set();
-		for (const [property, value] of Object.entries(styles)) if (value !== void 0) {
-			element.style.setProperty(property.replace(/([A-Z])/g, "-$1").toLowerCase(), String(value));
-			currentStyles.add(property);
-		}
-		if (previousStyles) {
-			for (const property of previousStyles) if (!currentStyles.has(property)) element.style.removeProperty(property.replace(/([A-Z])/g, "-$1").toLowerCase());
-		}
-		return currentStyles;
-	});
-}
-function unsafeHTML(html$1) {
-	return directive((container, previousState) => {
-		if (!previousState) {
-			const parent = container.parentNode;
-			if (!parent) throw new Error("unsafeHTML() directive: container must be attached to a parent node");
-			const startMarker = document.createComment("unsafeHTML-start");
-			const endMarker = document.createComment("unsafeHTML-end");
-			parent.replaceChild(startMarker, container);
-			parent.insertBefore(endMarker, startMarker.nextSibling);
-			const state = {
-				html: "",
-				startMarker,
-				endMarker,
-				nodes: []
-			};
-			renderHTML(html$1, state);
-			return state;
-		}
-		if (previousState.html === html$1) return previousState;
-		renderHTML(html$1, previousState);
-		return previousState;
-	});
-}
-function renderHTML(html$1, state) {
-	const parent = state.startMarker.parentNode;
-	if (!parent) throw new Error("unsafeHTML() directive: markers not in DOM");
-	for (const node of state.nodes) node.parentNode?.removeChild(node);
-	const temp = document.createElement("div");
-	temp.innerHTML = html$1;
-	const fragment = document.createDocumentFragment();
-	while (temp.firstChild) fragment.appendChild(temp.firstChild);
-	state.nodes = Array.from(fragment.childNodes);
-	for (const node of state.nodes) parent.insertBefore(node, state.endMarker);
-	state.html = html$1;
-}
-function resolveTarget(target) {
-	if (typeof target === "string") return document.querySelector(target);
-	return target;
-}
-function parsePortalValue(value) {
-	if (typeof value === "string") return {
-		target: value,
-		persist: false
-	};
-	if (value instanceof Element) return {
-		target: value,
-		persist: false
-	};
-	return {
-		target: value.target,
-		persist: value.persist ?? false
-	};
-}
-function portalDirective(element, value, _) {
-	if (!value) {
-		console.warn("portal directive: value is required");
-		return;
-	}
-	const options = parsePortalValue(value);
-	const targetElement = resolveTarget(options.target);
-	if (!targetElement) {
-		console.warn(`portal directive: target "${options.target}" not found`);
-		return;
-	}
-	if (element.parentNode === targetElement) return;
-	const placeholder = document.createComment("portal-placeholder");
-	element.parentNode?.insertBefore(placeholder, element);
-	element.removeAttribute(":portal");
-	targetElement.appendChild(element);
-	return () => {
-		if (!options.persist) element.remove();
-		placeholder.remove();
-	};
-}
-registerAttributeDirective("portal", portalDirective);
-var Directive = class {
-	constructor() {
-		this.__directive = true;
-	}
-};
 var FormControl = class extends AbstractControl {
 	constructor(initialValue, options = {}) {
 		super(initialValue, options);
@@ -4241,6 +1717,27 @@ function registerNativeAdapters() {
 	registerAdapter((el) => el.tagName === "INPUT" && el.type === "checkbox", checkboxAdapter);
 }
 registerNativeAdapters();
+var directiveRegistry = /* @__PURE__ */ new Map();
+var findAttributeDirective = (name) => {
+	if (directiveRegistry.has(name)) return directiveRegistry.get(name);
+	const lowerName = name.toLowerCase();
+	for (const [key, value] of directiveRegistry) if (key.toLowerCase() === lowerName) return value;
+};
+function registerAttributeDirective(name, directive$1) {
+	directiveRegistry.set(name, directive$1);
+}
+function getAttributeDirective(name) {
+	return findAttributeDirective(name);
+}
+function hasAttributeDirective(name) {
+	return findAttributeDirective(name) !== void 0;
+}
+function unregisterAttributeDirective(name) {
+	return directiveRegistry.delete(name);
+}
+function getRegisteredDirectives() {
+	return Array.from(directiveRegistry.keys());
+}
 function formControlDirective(element, value, _) {
 	if (!(value instanceof AbstractControl)) {
 		console.warn("formControl directive: value must be an AbstractControl");
@@ -4310,6 +1807,3074 @@ function formControlDirective(element, value, _) {
 	};
 }
 registerAttributeDirective("formControl", formControlDirective);
+var HttpBaseError = class HttpBaseError extends Error {
+	constructor(message, config, code) {
+		super(message);
+		this.config = config;
+		this.code = code;
+		this.name = "HttpBaseError";
+		Object.setPrototypeOf(this, HttpBaseError.prototype);
+	}
+};
+var HttpError = class HttpError extends HttpBaseError {
+	constructor(message, response, config) {
+		super(message, config, `HTTP_${response.status}`);
+		this.response = response;
+		this.name = "HttpError";
+		Object.setPrototypeOf(this, HttpError.prototype);
+	}
+};
+var NetworkError = class NetworkError extends HttpBaseError {
+	constructor(message, config) {
+		super(message, config, "NETWORK_ERROR");
+		this.name = "NetworkError";
+		Object.setPrototypeOf(this, NetworkError.prototype);
+	}
+};
+var AbortError = class AbortError extends HttpBaseError {
+	constructor(message, config) {
+		super(message, config, "ABORTED");
+		this.name = "AbortError";
+		Object.setPrototypeOf(this, AbortError.prototype);
+	}
+};
+var RequestManager = class {
+	constructor() {
+		this._pendingRequests = /* @__PURE__ */ new Map();
+		this._opaqueCounter = 0;
+	}
+	generateRequestKey(method, url, body) {
+		let key = `${method}:${url}`;
+		if (body) key += `:${this.hashBody(body)}`;
+		return key;
+	}
+	joinPendingRequest(key, signal$1) {
+		const pending = this._pendingRequests.get(key);
+		if (!pending) return null;
+		this.registerParticipant(pending, signal$1);
+		return pending.promise;
+	}
+	addPendingRequest(key, promise, abortController, signal$1) {
+		const pending = {
+			promise,
+			abortController,
+			remainingParticipants: 0
+		};
+		this._pendingRequests.set(key, pending);
+		this.registerParticipant(pending, signal$1);
+		promise.then(() => this.removePendingRequest(key), () => this.removePendingRequest(key));
+		return promise;
+	}
+	cancelPendingRequest(key, reason) {
+		const pending = this._pendingRequests.get(key);
+		if (pending) {
+			pending.abortController.abort(reason);
+			this._pendingRequests.delete(key);
+		}
+	}
+	cancelAllRequests(reason) {
+		this._pendingRequests.forEach((pending) => {
+			pending.abortController.abort(reason);
+		});
+		this._pendingRequests.clear();
+	}
+	registerParticipant(pending, signal$1) {
+		pending.remainingParticipants++;
+		if (!signal$1) return;
+		const leave = () => {
+			pending.remainingParticipants--;
+			if (pending.remainingParticipants === 0) pending.abortController.abort(signal$1.reason);
+		};
+		if (signal$1.aborted) leave();
+		else signal$1.addEventListener("abort", leave, { once: true });
+	}
+	removePendingRequest(key) {
+		this._pendingRequests.delete(key);
+	}
+	hashBody(body) {
+		if (body instanceof FormData || body instanceof Blob || body instanceof ArrayBuffer || body instanceof ReadableStream) return `opaque:${++this._opaqueCounter}`;
+		let str;
+		if (typeof body === "string") str = body;
+		else if (body instanceof URLSearchParams) str = body.toString();
+		else if (typeof body === "object" && body !== null) str = JSON.stringify(body);
+		else str = String(body);
+		return this.hashCode(str).toString();
+	}
+	hashCode(str) {
+		let hash = 0;
+		for (let i = 0; i < str.length; i++) {
+			const char = str.charCodeAt(i);
+			hash = (hash << 5) - hash + char;
+			hash = hash & hash;
+		}
+		return hash;
+	}
+};
+var MAX_RETRIES = 3;
+function combineSignals(signals) {
+	if (signals.length === 0) return;
+	if (signals.length === 1) return signals[0];
+	if (typeof AbortSignal.any === "function") return AbortSignal.any(signals);
+	const controller = new AbortController();
+	for (const signal$1 of signals) {
+		if (signal$1.aborted) {
+			controller.abort(signal$1.reason);
+			break;
+		}
+		signal$1.addEventListener("abort", () => controller.abort(signal$1.reason), { once: true });
+	}
+	return controller.signal;
+}
+function createTimeoutSignal(ms) {
+	if (typeof AbortSignal.timeout === "function") return AbortSignal.timeout(ms);
+	const controller = new AbortController();
+	setTimeout(() => controller.abort(new DOMException("Request timed out", "TimeoutError")), ms);
+	return controller.signal;
+}
+var HttpClient = class {
+	constructor(config) {
+		this._requestManager = new RequestManager();
+		this._interceptors = {
+			request: [],
+			response: []
+		};
+		this.interceptors = {
+			request: (interceptor) => {
+				this._interceptors.request.push(interceptor);
+			},
+			response: (interceptor) => {
+				this._interceptors.response.push(interceptor);
+			}
+		};
+		this._clientConfig = {
+			defaultHeaders: {},
+			...config
+		};
+	}
+	async get(url, config) {
+		return this.internalRequest({
+			method: "GET",
+			...config,
+			url,
+			deduplicate: config?.deduplicate ?? true
+		});
+	}
+	async post(url, body, config) {
+		return this.internalRequest({
+			method: "POST",
+			...config,
+			url,
+			body
+		});
+	}
+	async put(url, body, config) {
+		return this.internalRequest({
+			method: "PUT",
+			...config,
+			url,
+			body
+		});
+	}
+	async patch(url, body, config) {
+		return this.internalRequest({
+			method: "PATCH",
+			...config,
+			url,
+			body
+		});
+	}
+	async delete(url, config) {
+		return this.internalRequest({
+			method: "DELETE",
+			...config,
+			url
+		});
+	}
+	async internalRequest(config) {
+		const originalConfig = config;
+		let requestConfig = this.mergeConfig(config);
+		requestConfig = await this.executeRequestInterceptors(requestConfig);
+		if (requestConfig.cancel?.cancelled) {
+			let cancelledResponse = {
+				data: null,
+				status: 0,
+				statusText: "Request Cancelled",
+				headers: new Headers(),
+				config: requestConfig
+			};
+			if (requestConfig.cancel.cancelledResponse) cancelledResponse = {
+				...cancelledResponse,
+				...requestConfig.cancel.cancelledResponse
+			};
+			return Promise.resolve(cancelledResponse);
+		}
+		if (requestConfig.body instanceof FormData) {
+			const headers = { ...requestConfig.headers };
+			delete headers["Content-Type"];
+			delete headers["content-type"];
+			requestConfig.headers = headers;
+		} else if (this.shouldDefaultJsonContentType(requestConfig.body)) {
+			const headers = { ...requestConfig.headers };
+			if (!Object.keys(headers).some((k) => k.toLowerCase() === "content-type")) {
+				headers["Content-Type"] = "application/json";
+				requestConfig.headers = headers;
+			}
+		}
+		const callerSignals = [];
+		if (requestConfig.signal) callerSignals.push(requestConfig.signal);
+		if (requestConfig.abortController) callerSignals.push(requestConfig.abortController.signal);
+		if (requestConfig.timeout && requestConfig.timeout > 0) callerSignals.push(createTimeoutSignal(requestConfig.timeout));
+		const callerSignal = combineSignals(callerSignals);
+		try {
+			if (requestConfig.deduplicate === true) return await this.executeDeduplicatedRequest(requestConfig, callerSignal);
+			const response = await this.executeRequest(requestConfig, callerSignal);
+			return await this.executeResponseInterceptors(response, 0);
+		} catch (error) {
+			return this.handleResponseError(error, originalConfig);
+		}
+	}
+	async executeDeduplicatedRequest(config, callerSignal) {
+		const requestKey = this._requestManager.generateRequestKey(config.method, config.url, config.body);
+		let shared = this._requestManager.joinPendingRequest(requestKey, callerSignal);
+		if (!shared) {
+			const sharedController = new AbortController();
+			const promise = this.executeRequest(config, sharedController.signal).then((response) => this.executeResponseInterceptors(response, 0));
+			shared = this._requestManager.addPendingRequest(requestKey, promise, sharedController, callerSignal);
+		}
+		return this.raceCallerAbort(shared, callerSignal, config);
+	}
+	raceCallerAbort(promise, signal$1, config) {
+		if (!signal$1) return promise;
+		const toAbortError = () => {
+			return new AbortError(signal$1.reason instanceof DOMException && signal$1.reason.name === "TimeoutError" ? "Request timed out" : "Request aborted", config);
+		};
+		if (signal$1.aborted) return Promise.reject(toAbortError());
+		return new Promise((resolve, reject) => {
+			const onAbort = () => reject(toAbortError());
+			signal$1.addEventListener("abort", onAbort, { once: true });
+			promise.then((value) => {
+				signal$1.removeEventListener("abort", onAbort);
+				resolve(value);
+			}, (error) => {
+				signal$1.removeEventListener("abort", onAbort);
+				reject(error);
+			});
+		});
+	}
+	async handleResponseError(error, originalConfig) {
+		const retryCount = originalConfig._retryCount ?? 0;
+		let retryInitiated = false;
+		let currentError = error;
+		for (let i = 0; i < this._interceptors.response.length; i++) {
+			const interceptor = this._interceptors.response[i];
+			if (!interceptor.error) continue;
+			const retry = async () => {
+				if (retryInitiated) throw new Error("[HttpClient] retry() may only be called once per error pass");
+				retryInitiated = true;
+				if (retryCount >= MAX_RETRIES) throw new Error(`[HttpClient] Max retries (${MAX_RETRIES}) exceeded`);
+				return this.internalRequest({
+					...originalConfig,
+					_retryCount: retryCount + 1,
+					abortController: void 0
+				});
+			};
+			const context = {
+				retry,
+				retryCount
+			};
+			try {
+				const result = await interceptor.error(currentError, context);
+				if (this.isHttpResponse(result)) return retryInitiated ? result : this.executeResponseInterceptors(result, i + 1);
+			} catch (interceptorError) {
+				currentError = interceptorError;
+			}
+			if (retryInitiated) break;
+		}
+		throw currentError;
+	}
+	isHttpResponse(value) {
+		return !!value && typeof value === "object" && "data" in value && "status" in value && "headers" in value && "config" in value;
+	}
+	shouldDefaultJsonContentType(body) {
+		if (body === null || body === void 0) return false;
+		if (typeof body === "string") return false;
+		if (body instanceof FormData || body instanceof Blob || body instanceof ArrayBuffer || body instanceof URLSearchParams || body instanceof ReadableStream) return false;
+		return typeof body === "object";
+	}
+	async executeRequest(config, signal$1) {
+		return fetch(config.url, {
+			method: config.method,
+			headers: config.headers,
+			body: this.prepareBody(config.body),
+			credentials: config.credentials,
+			mode: config.mode,
+			signal: signal$1
+		}).then(async (response) => {
+			const httpResponse = {
+				data: await this.parseResponse(response, config.onProgress),
+				status: response.status,
+				statusText: response.statusText,
+				headers: response.headers,
+				config
+			};
+			if (!response.ok) throw new HttpError(`HTTP Error: ${response.status} ${response.statusText}`, httpResponse, config);
+			return httpResponse;
+		}).catch((error) => {
+			if (error instanceof HttpError) throw error;
+			if (error instanceof Error && (error.name === "AbortError" || error.name === "TimeoutError")) throw new AbortError(error.name === "TimeoutError" ? "Request timed out" : "Request aborted", config);
+			throw new NetworkError((error instanceof Error ? error.message : "Network error") || "Network error", config);
+		});
+	}
+	async executeRequestInterceptors(config) {
+		for (const interceptor of this._interceptors.request) try {
+			config = await interceptor.intercept(config);
+			if (config.cancel?.cancelled) break;
+		} catch (error) {
+			if (interceptor.error) await interceptor.error(error);
+			throw error;
+		}
+		return config;
+	}
+	async executeResponseInterceptors(response, startIndex) {
+		for (let i = startIndex; i < this._interceptors.response.length; i++) response = await this._interceptors.response[i].intercept(response);
+		return response;
+	}
+	mergeConfig(config) {
+		return {
+			...this._clientConfig,
+			...config,
+			headers: {
+				...this._clientConfig.defaultHeaders,
+				...config.headers
+			},
+			url: this.buildUrl(config.url ?? "", config.params)
+		};
+	}
+	buildUrl(url, params) {
+		const baseUrl = this._clientConfig.baseURL || "";
+		let fullUrl;
+		if (!baseUrl || /^[a-z][a-z\d+\-.]*:\/\//i.test(url)) fullUrl = url;
+		else fullUrl = `${baseUrl.replace(/\/+$/, "")}/${url.replace(/^\/+/, "")}`;
+		if (params) {
+			const pairs = [];
+			for (const [key, value] of Object.entries(params)) {
+				if (value === null || value === void 0) continue;
+				const values = Array.isArray(value) ? value : [value];
+				for (const v of values) {
+					if (v === null || v === void 0) continue;
+					pairs.push(`${encodeURIComponent(key)}=${encodeURIComponent(String(v))}`);
+				}
+			}
+			if (pairs.length > 0) fullUrl += `${fullUrl.includes("?") ? "&" : "?"}${pairs.join("&")}`;
+		}
+		return fullUrl;
+	}
+	prepareBody(body) {
+		if (body === null || body === void 0) return null;
+		if (body instanceof FormData || body instanceof Blob || body instanceof ArrayBuffer || body instanceof URLSearchParams || body instanceof ReadableStream || typeof body === "string") return body;
+		return JSON.stringify(body);
+	}
+	async parseResponse(response, onProgress) {
+		const contentType = response.headers.get("content-type") || "";
+		const contentLength = parseInt(response.headers.get("content-length") || "0", 10);
+		if (onProgress && response.body && contentLength > 0) {
+			const reader = response.body.getReader();
+			let loaded = 0;
+			const chunks = [];
+			while (true) {
+				const { done, value } = await reader.read();
+				if (done) break;
+				chunks.push(value);
+				loaded += value.length;
+				onProgress({
+					loaded,
+					total: contentLength,
+					percentage: loaded / contentLength * 100
+				});
+			}
+			const blob = new Blob(chunks);
+			if (contentType.includes("application/json")) {
+				const text = await blob.text();
+				return text ? JSON.parse(text) : null;
+			}
+			if (contentType.includes("text/")) return await blob.text();
+			if (this.isBinaryContentType(contentType)) return blob;
+			return await blob.text();
+		}
+		if (contentType.includes("application/json")) {
+			const text = await response.text();
+			return text ? JSON.parse(text) : null;
+		}
+		if (contentType.includes("text/")) return await response.text();
+		if (this.isBinaryContentType(contentType)) return await response.blob();
+		return await response.text();
+	}
+	isBinaryContentType(contentType) {
+		return contentType.includes("application/octet-stream") || contentType.includes("application/pdf") || contentType.includes("application/zip") || contentType.startsWith("image/") || contentType.startsWith("audio/") || contentType.startsWith("video/") || contentType.startsWith("font/");
+	}
+};
+function provideHttp(httpClientConfig, interceptors) {
+	return (injector) => {
+		const httpClient = new HttpClient(httpClientConfig);
+		injector.bindValue(HttpClient, httpClient);
+		if (interceptors?.request) interceptors.request.forEach((interceptor) => {
+			httpClient.interceptors.request(interceptor);
+		});
+		if (interceptors?.response) interceptors.response.forEach((interceptor) => {
+			httpClient.interceptors.response(interceptor);
+		});
+	};
+}
+function createGuard(fn) {
+	return { canActivate: fn };
+}
+function createDeactivateGuard(fn) {
+	return { canDeactivate: fn };
+}
+function createResolver(fn) {
+	return { resolve: fn };
+}
+var RouteMatcher = class {
+	constructor(route, rules) {
+		this._reEscape = /[-[\]{}()+?.,\\^$|#\s*]/g;
+		this._reToken = /(\*\*)|:(\w+)|\*(\w+)|(\*)/g;
+		this._reParam = /([:*])(\w+)/g;
+		this._names = [];
+		this._isWildcard = false;
+		this._route = route;
+		this._rules = rules;
+		this._isWildcard = route.includes("*");
+		const escapedRoute = this.buildPattern(route);
+		this._routeRegex = /* @__PURE__ */ new RegExp("^" + escapedRoute + "$");
+		this._prefixRegex = /* @__PURE__ */ new RegExp("^" + escapedRoute + "(?:/|$)");
+	}
+	buildPattern(route) {
+		this._reToken.lastIndex = 0;
+		let pattern = "";
+		let lastIndex = 0;
+		let anonCount = 0;
+		let match;
+		while ((match = this._reToken.exec(route)) !== null) {
+			pattern += route.slice(lastIndex, match.index).replace(this._reEscape, "\\$&");
+			if (match[1] || match[4]) {
+				this._names.push(`_wildcard${anonCount++}`);
+				pattern += "(.*)";
+			} else if (match[2]) {
+				this._names.push(match[2]);
+				pattern += "([^/]+)";
+			} else if (match[3]) {
+				this._names.push(match[3]);
+				pattern += "(.*)";
+			}
+			lastIndex = this._reToken.lastIndex;
+		}
+		pattern += route.slice(lastIndex).replace(this._reEscape, "\\$&");
+		return pattern;
+	}
+	decode(value) {
+		try {
+			return decodeURIComponent(value);
+		} catch {
+			return value;
+		}
+	}
+	parse(url) {
+		let i = 0;
+		let param;
+		let value;
+		const params = {};
+		const matches = url.match(this._routeRegex);
+		if (!matches) return null;
+		while (i < this._names.length) {
+			param = this._names[i++];
+			value = this.decode(matches[i]);
+			if (this._rules && param in this._rules && !this.validateRule(this._rules[param], value)) return null;
+			params[param] = value;
+		}
+		return params;
+	}
+	parsePrefix(url) {
+		if (this._route === "") return {
+			params: {},
+			matchedPath: "",
+			remainingPath: url
+		};
+		const matches = url.match(this._prefixRegex);
+		if (!matches) return null;
+		const params = {};
+		for (let i = 0; i < this._names.length; i++) {
+			const name = this._names[i];
+			const value = this.decode(matches[i + 1]);
+			if (this._rules && name in this._rules && !this.validateRule(this._rules[name], value)) return null;
+			params[name] = value;
+		}
+		const matchedPath = this.calculateMatchedPath(url);
+		return {
+			params,
+			matchedPath,
+			remainingPath: url.slice(matchedPath.length).replace(/^\//, "")
+		};
+	}
+	stringify(params) {
+		let re;
+		let result = this._route;
+		for (const param in params) {
+			re = /* @__PURE__ */ new RegExp("[:*]" + param + "\\b");
+			result = result.replace(re, (token) => token.charAt(0) === "*" ? params[param].split("/").map(encodeURIComponent).join("/") : encodeURIComponent(params[param]));
+		}
+		return result.replace(this._reParam, "").replace(/\*+/g, "");
+	}
+	calculateMatchedPath(url) {
+		if (this._isWildcard) return url;
+		const routeSegments = this._route.split("/").filter(Boolean);
+		return url.split("/").filter(Boolean).slice(0, routeSegments.length).join("/");
+	}
+	validateRule(rule, value) {
+		const type = Object.prototype.toString.call(rule).charAt(8);
+		return type === "R" ? rule.test(value) : type === "F" ? rule(value) : rule === value;
+	}
+};
+const ROUTE_CONTEXT_EVENT = "melodic:route-context";
+var RouteContextEvent = class extends CustomEvent {
+	constructor(context) {
+		super(ROUTE_CONTEXT_EVENT, {
+			bubbles: false,
+			composed: true,
+			detail: context
+		});
+	}
+};
+function __decorate(decorators, target, key, desc) {
+	var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
+	if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
+	else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
+	return c > 3 && r && Object.defineProperty(target, key, r), r;
+}
+var RouteContextService = class RouteContextService$1 {
+	constructor() {
+		this._matchStack = [];
+		this._contexts = /* @__PURE__ */ new Map();
+		this._currentMatchResult = null;
+		this._resolvedData = /* @__PURE__ */ new Map();
+	}
+	setMatchResult(result) {
+		this._currentMatchResult = result;
+		this._matchStack = result.matches;
+		this._contexts.clear();
+		let basePath = "";
+		const ancestorMatches = [];
+		const accumulatedParams = {};
+		for (let i = 0; i < result.matches.length; i++) {
+			const match = result.matches[i];
+			ancestorMatches.push(match);
+			Object.assign(accumulatedParams, match.params);
+			const context = {
+				depth: i,
+				routes: match.children ?? [],
+				currentMatch: match,
+				ancestorMatches: [...ancestorMatches],
+				params: { ...accumulatedParams },
+				remainingPath: match.remainingPath,
+				basePath,
+				parent: i > 0 ? this._contexts.get(i - 1) : void 0
+			};
+			this._contexts.set(i, context);
+			basePath = match.fullPath;
+		}
+	}
+	setResolvedData(depth, data) {
+		this._resolvedData.set(depth, data);
+	}
+	clearResolvedData() {
+		this._resolvedData.clear();
+	}
+	getContextForDepth(depth) {
+		return this._contexts.get(depth);
+	}
+	getChildRoutesForDepth(depth) {
+		const parentContext = this._contexts.get(depth - 1);
+		if (depth === 0) return [];
+		return parentContext?.currentMatch?.children ?? [];
+	}
+	getRemainingPathForDepth(depth) {
+		if (depth === 0) return window.location.pathname;
+		return this._contexts.get(depth - 1)?.remainingPath ?? "";
+	}
+	getParamsForDepth(depth) {
+		return this._contexts.get(depth)?.params ?? {};
+	}
+	getCurrentParams() {
+		return this._currentMatchResult?.params ?? {};
+	}
+	getMatchStack() {
+		return [...this._matchStack];
+	}
+	getCurrentMatchResult() {
+		return this._currentMatchResult;
+	}
+	getMergedRouteData(depth) {
+		const maxDepth = depth ?? this._matchStack.length - 1;
+		const merged = {};
+		for (let i = 0; i <= maxDepth && i < this._matchStack.length; i++) {
+			const match = this._matchStack[i];
+			if (match.route.data) Object.assign(merged, match.route.data);
+		}
+		return merged;
+	}
+	getMergedResolvedData(depth) {
+		const maxDepth = depth ?? this._matchStack.length - 1;
+		const merged = {};
+		for (let i = 0; i <= maxDepth; i++) {
+			const data = this._resolvedData.get(i);
+			if (data) Object.assign(merged, data);
+		}
+		return merged;
+	}
+	getResolvedDataForDepth(depth) {
+		return this._resolvedData.get(depth);
+	}
+};
+RouteContextService = __decorate([Injectable()], RouteContextService);
+function resolveRedirectTarget(redirectTo, basePath) {
+	if (redirectTo.startsWith("/")) return redirectTo;
+	return basePath ? `/${basePath}/${redirectTo}` : `/${redirectTo}`;
+}
+function matchRouteLevel(routes, remainingPath, basePath, accumulatedMatches, accumulatedParams) {
+	let partialFallback = null;
+	for (const route of routes) {
+		const matcher = new RouteMatcher(route.path);
+		if (route.redirectTo && route.path === remainingPath) return {
+			matches: accumulatedMatches,
+			params: accumulatedParams,
+			isExactMatch: false,
+			redirectTo: resolveRedirectTarget(route.redirectTo, basePath)
+		};
+		const exactMatch = matcher.parse(remainingPath);
+		if (exactMatch !== null) {
+			const matchedPath = remainingPath;
+			const fullPath = basePath ? `${basePath}/${matchedPath}` : matchedPath;
+			const match = {
+				route,
+				params: exactMatch,
+				matchedPath,
+				remainingPath: "",
+				fullPath,
+				children: route.children
+			};
+			Object.assign(accumulatedParams, exactMatch);
+			accumulatedMatches.push(match);
+			if (route.children) {
+				const emptyRedirect = route.children.find((child) => child.path === "" && child.redirectTo);
+				if (emptyRedirect && emptyRedirect.redirectTo) return {
+					matches: accumulatedMatches,
+					params: accumulatedParams,
+					isExactMatch: false,
+					redirectTo: resolveRedirectTarget(emptyRedirect.redirectTo, fullPath)
+				};
+			}
+			return {
+				matches: accumulatedMatches,
+				params: accumulatedParams,
+				isExactMatch: true
+			};
+		}
+		if (route.children || route.loadChildren) {
+			const prefixResult = matcher.parsePrefix(remainingPath);
+			if (prefixResult && prefixResult.params !== null) {
+				const fullPath = basePath ? `${basePath}/${prefixResult.matchedPath}` : prefixResult.matchedPath;
+				const match = {
+					route,
+					params: prefixResult.params,
+					matchedPath: prefixResult.matchedPath,
+					remainingPath: prefixResult.remainingPath,
+					fullPath,
+					children: route.children
+				};
+				if (route.children && prefixResult.remainingPath) {
+					const matchesLengthBefore = accumulatedMatches.length;
+					const paramsSnapshot = { ...accumulatedParams };
+					Object.assign(accumulatedParams, prefixResult.params);
+					accumulatedMatches.push(match);
+					const childResult = matchRouteLevel(route.children, prefixResult.remainingPath, fullPath, accumulatedMatches, accumulatedParams);
+					if (childResult.isExactMatch || childResult.redirectTo) return childResult;
+					if (!partialFallback) partialFallback = {
+						matches: [...childResult.matches],
+						params: { ...childResult.params },
+						isExactMatch: false
+					};
+					accumulatedMatches.length = matchesLengthBefore;
+					for (const key of Object.keys(accumulatedParams)) delete accumulatedParams[key];
+					Object.assign(accumulatedParams, paramsSnapshot);
+					continue;
+				}
+				Object.assign(accumulatedParams, prefixResult.params);
+				accumulatedMatches.push(match);
+				return {
+					matches: accumulatedMatches,
+					params: accumulatedParams,
+					isExactMatch: prefixResult.remainingPath === ""
+				};
+			}
+		}
+	}
+	return partialFallback ?? {
+		matches: accumulatedMatches,
+		params: accumulatedParams,
+		isExactMatch: false
+	};
+}
+function matchRouteTree(routes, path, basePath = "") {
+	const result = matchRouteLevel(routes, path.startsWith("/") ? path.slice(1) : path, basePath, [], {});
+	return {
+		matches: result.matches,
+		params: result.params,
+		isExactMatch: result.isExactMatch,
+		redirectTo: result.redirectTo
+	};
+}
+function buildPathFromRoute(routes, name, params = {}) {
+	const pathParts = [];
+	function findAndBuildPath(routeList, targetName) {
+		for (const route of routeList) {
+			if (route.name === targetName) {
+				const matcher = new RouteMatcher(route.path);
+				pathParts.push(matcher.stringify(params));
+				return true;
+			}
+			if (route.children) {
+				const segment = new RouteMatcher(route.path).stringify(params);
+				if (findAndBuildPath(route.children, targetName)) {
+					pathParts.unshift(segment);
+					return true;
+				}
+			}
+		}
+		return false;
+	}
+	if (findAndBuildPath(routes, name)) return "/" + pathParts.join("/").split("/").filter(Boolean).join("/");
+	return null;
+}
+const routerStateEvent = (type, data, title, url) => {
+	return new PopStateEvent("History", { state: {
+		type,
+		data,
+		url,
+		host: window.location.host,
+		hostName: window.location.hostname,
+		href: window.location.href,
+		pathName: window.location.pathname,
+		port: window.location.port,
+		protocol: window.location.protocol,
+		params: new URLSearchParams(window.location.search),
+		title
+	} });
+};
+var historyEventsInstalled = false;
+function installHistoryEvents() {
+	if (historyEventsInstalled) return;
+	historyEventsInstalled = true;
+	const pushState = history.pushState;
+	history.pushState = (data, title, url) => {
+		pushState.apply(history, [
+			data,
+			title,
+			url
+		]);
+		const navigationEvent = new CustomEvent("NavigationEvent", { detail: routerStateEvent("push", data, title, url) });
+		window.dispatchEvent(navigationEvent);
+	};
+	const replaceState = history.replaceState;
+	history.replaceState = (data, title, url) => {
+		replaceState.apply(history, [
+			data,
+			title,
+			url
+		]);
+		const navigationEvent = new CustomEvent("NavigationEvent", { detail: routerStateEvent("replace", data, title, url) });
+		window.dispatchEvent(navigationEvent);
+	};
+}
+function __decorateMetadata(k, v) {
+	if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
+}
+var RouterService = class RouterService$1 {
+	constructor() {
+		this._routes = [];
+		this._currentMatches = [];
+		this._currentPath = `${window.location.pathname}${window.location.search}`;
+		this._navigationId = 0;
+		this._pendingTarget = null;
+		installHistoryEvents();
+		this._contextService = new RouteContextService();
+		this._committedRoute = signal(null);
+		this._navigationListener = (event) => {
+			this._route = event.detail.state;
+		};
+		window.addEventListener("NavigationEvent", this._navigationListener);
+		this._popStateListener = (event) => {
+			this.handlePopState(event);
+		};
+		window.addEventListener("popstate", this._popStateListener);
+	}
+	get committedRoute() {
+		return this._committedRoute;
+	}
+	destroy() {
+		window.removeEventListener("NavigationEvent", this._navigationListener);
+		window.removeEventListener("popstate", this._popStateListener);
+	}
+	setRoutes(routes) {
+		this._routes = routes;
+	}
+	getRoutes() {
+		return this._routes;
+	}
+	getContextService() {
+		return this._contextService;
+	}
+	getRoute() {
+		return this._route;
+	}
+	getParams() {
+		return this._contextService.getCurrentParams();
+	}
+	getParam(name) {
+		return this._contextService.getCurrentParams()[name];
+	}
+	getQueryParams() {
+		return this.targetQueryParams();
+	}
+	getCurrentMatches() {
+		return [...this._currentMatches];
+	}
+	getRouteData(depth) {
+		return this._contextService.getMergedRouteData(depth);
+	}
+	getResolvedData(depth) {
+		return this._contextService.getMergedResolvedData(depth);
+	}
+	matchPath(path) {
+		return matchRouteTree(this._routes, this.normalizePath(path));
+	}
+	parseUrl(url) {
+		const hashIndex = url.indexOf("#");
+		const hash = hashIndex >= 0 ? url.slice(hashIndex) : "";
+		const withoutHash = hashIndex >= 0 ? url.slice(0, hashIndex) : url;
+		const queryIndex = withoutHash.indexOf("?");
+		const search = queryIndex >= 0 ? withoutHash.slice(queryIndex) : "";
+		return {
+			pathname: queryIndex >= 0 ? withoutHash.slice(0, queryIndex) : withoutHash,
+			search,
+			hash
+		};
+	}
+	normalizePath(url) {
+		const { pathname } = this.parseUrl(url);
+		return pathname.length > 1 ? pathname.replace(/\/+$/, "") : pathname;
+	}
+	targetPathname() {
+		return this._pendingTarget ? this._pendingTarget.pathname : window.location.pathname;
+	}
+	targetQueryParams() {
+		return new URLSearchParams(this._pendingTarget ? this._pendingTarget.queryParams : window.location.search);
+	}
+	setCurrentMatches(result) {
+		this._currentMatches = result.matches;
+		this._contextService.setMatchResult(result);
+	}
+	commit(result) {
+		this.setCurrentMatches(result);
+		this._committedRoute.set(result);
+	}
+	async initialNavigation() {
+		const navId = ++this._navigationId;
+		const currentUrl = `${window.location.pathname}${window.location.search}`;
+		const matchResult = this.matchPath(window.location.pathname);
+		if (matchResult.redirectTo) {
+			if (this.normalizePath(window.location.pathname) !== this.normalizePath(matchResult.redirectTo)) return this.navigate(matchResult.redirectTo, { replace: true });
+		}
+		if (matchResult.matches.length > 0) {
+			const guardResult = await this.runGuards(matchResult);
+			if (this._navigationId !== navId) return {
+				success: false,
+				error: "Navigation superseded"
+			};
+			if (guardResult !== true) {
+				if (typeof guardResult === "string") return this.navigate(guardResult, {
+					replace: true,
+					skipGuards: true
+				});
+				return {
+					success: false,
+					error: "Navigation blocked by guard"
+				};
+			}
+			const resolverResult = await this.runResolvers(matchResult, () => this._navigationId === navId);
+			if (this._navigationId !== navId) return {
+				success: false,
+				error: "Navigation superseded"
+			};
+			if (!resolverResult.success) {
+				this.commit({
+					matches: [],
+					params: {},
+					isExactMatch: false
+				});
+				return {
+					success: false,
+					error: resolverResult.error ?? "Navigation blocked by resolver"
+				};
+			}
+		}
+		this._currentPath = currentUrl;
+		this.commit(matchResult);
+		return {
+			success: true,
+			url: currentUrl
+		};
+	}
+	async navigate(path, options = {}) {
+		const { data, replace = false, queryParams, skipGuards = false, skipResolvers = false, scrollToTop = true } = options;
+		let fullPath = path;
+		if (queryParams && Object.keys(queryParams).length > 0) {
+			const params = new URLSearchParams(queryParams);
+			fullPath = `${path}${path.includes("?") ? "&" : "?"}${params.toString()}`;
+		}
+		const navId = ++this._navigationId;
+		const { pathname, search } = this.parseUrl(fullPath);
+		this._pendingTarget = {
+			pathname,
+			queryParams: new URLSearchParams(search)
+		};
+		const superseded = () => ({
+			success: false,
+			error: "Navigation superseded"
+		});
+		try {
+			if (!skipGuards && this._currentMatches.length > 0) {
+				const deactivateResult = await this.runDeactivationGuards(fullPath);
+				if (this._navigationId !== navId) return superseded();
+				if (deactivateResult !== true) {
+					if (typeof deactivateResult === "string") return this.navigate(deactivateResult, {
+						...options,
+						skipGuards: true
+					});
+					return {
+						success: false,
+						error: "Navigation blocked by guard"
+					};
+				}
+			}
+			const matchResult = this.matchPath(path);
+			if (matchResult.redirectTo) return this.navigate(matchResult.redirectTo, options);
+			if (!skipGuards && matchResult.matches.length > 0) {
+				const guardResult = await this.runGuards(matchResult);
+				if (this._navigationId !== navId) return superseded();
+				if (guardResult !== true) {
+					if (typeof guardResult === "string") return this.navigate(guardResult, {
+						...options,
+						skipGuards: true
+					});
+					return {
+						success: false,
+						error: "Navigation blocked by guard"
+					};
+				}
+			}
+			if (!skipResolvers && matchResult.matches.length > 0) {
+				const resolverResult = await this.runResolvers(matchResult, () => this._navigationId === navId);
+				if (this._navigationId !== navId) return superseded();
+				if (!resolverResult.success) return {
+					success: false,
+					error: resolverResult.error ?? "Navigation blocked by resolver"
+				};
+			}
+			this.setCurrentMatches(matchResult);
+			if (replace) history.replaceState(data, "", fullPath);
+			else history.pushState(data, "", fullPath);
+			this._currentPath = fullPath;
+			this._committedRoute.set(matchResult);
+			if (scrollToTop) {
+				const hash = fullPath.includes("#") ? fullPath.split("#")[1] : null;
+				if (hash) {
+					const element = document.getElementById(hash);
+					if (element) element.scrollIntoView();
+				} else window.scrollTo(0, 0);
+			}
+			return {
+				success: true,
+				url: fullPath
+			};
+		} finally {
+			if (this._navigationId === navId) this._pendingTarget = null;
+		}
+	}
+	async navigateByName(name, params = {}, options = {}) {
+		const path = buildPathFromRoute(this._routes, name, params);
+		if (!path) return {
+			success: false,
+			error: `Route with name '${name}' not found`
+		};
+		return this.navigate(path, options);
+	}
+	replace(path, data) {
+		this.navigate(path, {
+			replace: true,
+			data
+		});
+	}
+	back() {
+		history.back();
+	}
+	forward() {
+		history.forward();
+	}
+	go(delta) {
+		history.go(delta);
+	}
+	async runDeactivationGuards(targetPath) {
+		for (const match of this._currentMatches) {
+			const guards = match.route.canDeactivate ?? [];
+			for (const guard of guards) {
+				const context = this.createGuardContext(match, {
+					matches: this._currentMatches,
+					params: this._contextService.getCurrentParams(),
+					isExactMatch: true
+				});
+				context.targetPath = targetPath;
+				const result = await this.executeGuard(guard, "canDeactivate", context);
+				if (result !== true) return result;
+			}
+		}
+		return true;
+	}
+	async runGuards(matchResult) {
+		for (const match of matchResult.matches) {
+			const guards = match.route.canActivate ?? [];
+			for (const guard of guards) {
+				const context = this.createGuardContext(match, matchResult);
+				const result = await this.executeGuard(guard, "canActivate", context);
+				if (result !== true) return result;
+			}
+		}
+		return true;
+	}
+	async executeGuard(guard, method, context) {
+		const fn = guard[method];
+		if (!fn) return true;
+		try {
+			const result = fn.call(guard, context);
+			return result instanceof Promise ? await result : result;
+		} catch (error) {
+			console.error(`Guard error:`, error);
+			return false;
+		}
+	}
+	createGuardContext(match, matchResult) {
+		return {
+			route: match,
+			matchedRoutes: matchResult.matches,
+			params: matchResult.params,
+			queryParams: this.targetQueryParams(),
+			targetPath: this.targetPathname(),
+			currentPath: window.location.pathname,
+			data: match.route.data
+		};
+	}
+	async runResolvers(matchResult, isCurrent = () => true) {
+		const collected = [];
+		for (let depth = 0; depth < matchResult.matches.length; depth++) {
+			const match = matchResult.matches[depth];
+			const resolvers = match.route.resolve;
+			if (!resolvers) continue;
+			const resolvedData = {};
+			const context = this.createResolverContext(match, matchResult);
+			for (const [key, resolver] of Object.entries(resolvers)) try {
+				resolvedData[key] = await this.executeResolver(resolver, context);
+			} catch (error) {
+				console.error(`Resolver '${key}' failed:`, error);
+				return {
+					success: false,
+					error: `Resolver '${key}' failed: ${error instanceof Error ? error.message : String(error)}`
+				};
+			}
+			collected.push({
+				depth,
+				data: resolvedData
+			});
+		}
+		if (!isCurrent()) return {
+			success: false,
+			error: "Navigation superseded"
+		};
+		this._contextService.clearResolvedData();
+		for (const { depth, data } of collected) this._contextService.setResolvedData(depth, data);
+		return { success: true };
+	}
+	async handlePopState(event) {
+		const navId = ++this._navigationId;
+		const targetPath = `${window.location.pathname}${window.location.search}`;
+		const previousPath = this._currentPath;
+		const deactivateResult = await this.runDeactivationGuards(targetPath);
+		if (this._navigationId !== navId) return;
+		if (deactivateResult !== true) {
+			if (typeof deactivateResult === "string") await this.navigate(deactivateResult, {
+				replace: true,
+				skipGuards: true
+			});
+			else history.replaceState(event.state, "", previousPath);
+			return;
+		}
+		const matchResult = this.matchPath(window.location.pathname);
+		if (matchResult.redirectTo) {
+			await this.navigate(matchResult.redirectTo, { replace: true });
+			return;
+		}
+		if (matchResult.matches.length > 0) {
+			const guardResult = await this.runGuards(matchResult);
+			if (this._navigationId !== navId) return;
+			if (guardResult !== true) {
+				if (typeof guardResult === "string") await this.navigate(guardResult, {
+					replace: true,
+					skipGuards: true
+				});
+				else history.replaceState(event.state, "", previousPath);
+				return;
+			}
+			const resolverResult = await this.runResolvers(matchResult, () => this._navigationId === navId);
+			if (this._navigationId !== navId) return;
+			if (!resolverResult.success) {
+				this._currentPath = targetPath;
+				this.commit({
+					matches: [],
+					params: {},
+					isExactMatch: false
+				});
+				return;
+			}
+		}
+		this._currentPath = targetPath;
+		this.commit(matchResult);
+		const navigationEvent = new CustomEvent("NavigationEvent", { detail: routerStateEvent("push", event.state, "", window.location.pathname) });
+		window.dispatchEvent(navigationEvent);
+	}
+	async executeResolver(resolver, context) {
+		const result = resolver.resolve(context);
+		return result instanceof Promise ? await result : result;
+	}
+	createResolverContext(match, matchResult) {
+		return {
+			route: match,
+			matchedRoutes: matchResult.matches,
+			params: matchResult.params,
+			queryParams: this.targetQueryParams(),
+			targetPath: this.targetPathname()
+		};
+	}
+};
+RouterService = __decorate([Injectable(), __decorateMetadata("design:paramtypes", [])], RouterService);
+var SAFE_SCHEMES = new Set(["http", "https"]);
+function isSafeUrl(url) {
+	if (!url) return true;
+	const normalized = url.replace(/[\t\n\r]/g, "").replace(/^[\u0000-\u0020]+/, "");
+	const schemeMatch = /^([a-z][a-z0-9+.-]*):/i.exec(normalized);
+	if (!schemeMatch) return true;
+	return SAFE_SCHEMES.has(schemeMatch[1].toLowerCase());
+}
+var RouterLinkCore = class {
+	constructor(host, getAnchor) {
+		this._options = { href: "" };
+		this._appliedActiveClass = null;
+		this._cleanups = [];
+		this._host = host;
+		this._getAnchor = getAnchor ?? (() => host.tagName.toLowerCase() === "a" ? host : null);
+		this._router = Injector.get(RouterService);
+		const clickHandler = (e) => this.handleClick(e);
+		const auxClickHandler = (e) => this.handleAuxClick(e);
+		const navigationHandler = () => this.updateActiveState();
+		host.addEventListener("click", clickHandler);
+		host.addEventListener("auxclick", auxClickHandler);
+		window.addEventListener("NavigationEvent", navigationHandler);
+		this._cleanups.push(() => host.removeEventListener("click", clickHandler), () => host.removeEventListener("auxclick", auxClickHandler), () => window.removeEventListener("NavigationEvent", navigationHandler));
+	}
+	setOptions(options) {
+		this._options = options;
+		this.applyHref();
+		this.updateActiveState();
+	}
+	destroy() {
+		this._cleanups.forEach((cleanup) => cleanup());
+		this._cleanups = [];
+	}
+	buildFullPath() {
+		let path = this._options.href ?? "";
+		const queryParams = this._options.queryParams;
+		if (queryParams && Object.keys(queryParams).length > 0) {
+			const params = new URLSearchParams(queryParams);
+			path = `${path}${path.includes("?") ? "&" : "?"}${params.toString()}`;
+		}
+		return path;
+	}
+	isSafe() {
+		return isSafeUrl(this._options.href ?? "") && isSafeUrl(this.buildFullPath());
+	}
+	warnUnsafe() {
+		console.warn(`routerLink: blocked unsafe URL '${this._options.href}'. Only http(s), relative, query and hash URLs are allowed.`);
+	}
+	applyHref() {
+		const anchor = this._getAnchor();
+		if (!anchor) return;
+		if (this.isSafe()) anchor.href = this.buildFullPath();
+		else {
+			this.warnUnsafe();
+			anchor.removeAttribute("href");
+		}
+	}
+	handleClick(e) {
+		if (e.defaultPrevented) return;
+		if (e.button !== void 0 && e.button !== 0) return;
+		if (e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) {
+			if (!this._getAnchor()) this.openInNewTab();
+			return;
+		}
+		e.preventDefault();
+		if (!this.isSafe()) {
+			this.warnUnsafe();
+			return;
+		}
+		const { href, data = null, replace = false, queryParams = {} } = this._options;
+		const navOptions = {
+			data,
+			replace,
+			queryParams
+		};
+		this._router.navigate(href, navOptions);
+	}
+	handleAuxClick(e) {
+		if (e.defaultPrevented || e.button !== 1) return;
+		if (this._getAnchor()) return;
+		e.preventDefault();
+		this.openInNewTab();
+	}
+	openInNewTab() {
+		if (!this.isSafe()) {
+			this.warnUnsafe();
+			return;
+		}
+		window.open(this.buildFullPath(), "_blank");
+	}
+	updateActiveState() {
+		const { href = "", activeClass = "active", exactMatch = false } = this._options;
+		const currentPath = window.location.pathname;
+		const linkPath = (href.startsWith("/") ? href : `/${href}`).split(/[?#]/)[0];
+		const normalizedCurrentPath = currentPath.replace(/\/$/, "") || "/";
+		const normalizedLinkPath = linkPath.replace(/\/$/, "") || "/";
+		let isActive;
+		if (exactMatch) isActive = normalizedCurrentPath === normalizedLinkPath;
+		else isActive = normalizedCurrentPath === normalizedLinkPath || normalizedCurrentPath.startsWith(normalizedLinkPath + "/");
+		if (this._appliedActiveClass && this._appliedActiveClass !== activeClass) this._host.classList.remove(this._appliedActiveClass);
+		const ariaTarget = this._getAnchor();
+		if (isActive) {
+			this._host.classList.add(activeClass);
+			this._appliedActiveClass = activeClass;
+			ariaTarget?.setAttribute("aria-current", "page");
+		} else {
+			this._host.classList.remove(activeClass);
+			this._appliedActiveClass = null;
+			ariaTarget?.removeAttribute("aria-current");
+		}
+	}
+};
+function findRouteByName(routes, name) {
+	for (const route of routes) {
+		if (route.name === name) return route;
+		if (route.children) {
+			const found = findRouteByName(route.children, name);
+			if (found) return found;
+		}
+	}
+	return null;
+}
+function provideRouter(routes) {
+	return (injector) => {
+		installHistoryEvents();
+		const router = injector.get(RouterService);
+		if (routes && routes.length > 0) router.setRoutes(routes);
+	};
+}
+function isDirective(value) {
+	return typeof value === "object" && value !== null && value.__directive === true && typeof value.render === "function";
+}
+function renderDetachedItem(template, container, liveNodes, fallbackAnchor) {
+	const target = container;
+	const structureChanged = target.__parts !== void 0 && target.__templateKey !== template.templateKey;
+	template.renderInto(container);
+	if (!structureChanged) return liveNodes;
+	const newNodes = Array.from(container.childNodes);
+	let anchor = null;
+	for (const node of liveNodes) if (node.parentNode) {
+		anchor = node;
+		break;
+	}
+	if (!anchor && fallbackAnchor?.parentNode) anchor = fallbackAnchor;
+	if (anchor?.parentNode) {
+		const parent = anchor.parentNode;
+		for (const node of newNodes) parent.insertBefore(node, anchor);
+	}
+	for (const node of liveNodes) node.parentNode?.removeChild(node);
+	return newNodes;
+}
+var MARKER = `m${Math.random().toString(36).slice(2, 9)}`;
+var COMMENT_NODE_MARKER = `<!--${MARKER}-->`;
+var ATTRIBUTE_MARKER_PREFIX = `__${MARKER}_`;
+var ATTRIBUTE_MARKER_REGEX = new RegExp(`${ATTRIBUTE_MARKER_PREFIX}(\\d+)__`, "g");
+var createAttributeMarker = (index) => `${ATTRIBUTE_MARKER_PREFIX}${index}__`;
+var templateCache = /* @__PURE__ */ new Map();
+var warnedUnsafeProperties = /* @__PURE__ */ new Set();
+function warnUnsafePropertyBinding(name) {
+	if (warnedUnsafeProperties.has(name)) return;
+	if (typeof import.meta !== "undefined" && true) return;
+	warnedUnsafeProperties.add(name);
+	console.warn(`[melodic] Property binding ".${name}" assigns raw HTML and is an XSS hazard if the value is not fully trusted. Prefer text interpolation, or unsafeHTML() with sanitized content.`);
+}
+function isDevMode() {
+	return !(typeof import.meta !== "undefined" && true);
+}
+var ANY_MARKER_REGEX = /* @__PURE__ */ new RegExp(`${COMMENT_NODE_MARKER}|${ATTRIBUTE_MARKER_PREFIX}\\d+__|__(?:event|prop|action|bool)-\\d+__`);
+function describeSnippet(html$1, index) {
+	const start = Math.max(0, index - 40);
+	const end = Math.min(html$1.length, index + 80);
+	const snippet = html$1.slice(start, end).replace(new RegExp(`${COMMENT_NODE_MARKER}|${ATTRIBUTE_MARKER_PREFIX}\\d+__|__(?:event|prop|action|bool)-\\d+__=""`, "g"), "${…}").replace(/\s+/g, " ").trim();
+	return `${start > 0 ? "…" : ""}${snippet}${end < html$1.length ? "…" : ""}`;
+}
+function warnUnsupportedBinding(position, html$1, index) {
+	console.warn(`[melodic] Template contains a binding in an unsupported position (${position}). The parser cannot track bindings here, so the value will not render or update. Offending template: ${describeSnippet(html$1, index)}`);
+}
+function warnUnsupportedBindingPositions(html$1) {
+	if (!isDevMode()) return;
+	const rawTextRegex = /<(textarea|title)(?:\s[^>]*)?>([\s\S]*?)<\/\1\s*>/gi;
+	let rawTextMatch;
+	while ((rawTextMatch = rawTextRegex.exec(html$1)) !== null) if (ANY_MARKER_REGEX.test(rawTextMatch[2])) warnUnsupportedBinding(`inside <${rawTextMatch[1].toLowerCase()}> content`, html$1, rawTextMatch.index);
+	const tagNameIndex = html$1.search(/* @__PURE__ */ new RegExp(`</?${COMMENT_NODE_MARKER}`));
+	if (tagNameIndex !== -1) warnUnsupportedBinding("tag-name position", html$1, tagNameIndex);
+	let searchFrom = 0;
+	for (;;) {
+		const open = html$1.indexOf("<!--", searchFrom);
+		if (open === -1) break;
+		if (html$1.startsWith(COMMENT_NODE_MARKER, open)) {
+			searchFrom = open + COMMENT_NODE_MARKER.length;
+			continue;
+		}
+		const close = html$1.indexOf("-->", open + 4);
+		const content = close === -1 ? html$1.slice(open + 4) : html$1.slice(open + 4, close);
+		if (content.includes(MARKER) || /__(?:event|prop|action|bool)-\d+__/.test(content)) warnUnsupportedBinding("inside an HTML comment", html$1, open);
+		searchFrom = close === -1 ? html$1.length : close + 3;
+	}
+}
+function extractListenerOptions(value) {
+	const { capture, once, passive } = value;
+	if (capture === void 0 && once === void 0 && passive === void 0) return;
+	const options = {};
+	if (capture !== void 0) options.capture = capture;
+	if (once !== void 0) options.once = once;
+	if (passive !== void 0) options.passive = passive;
+	return options;
+}
+function sameListenerOptions(a, b) {
+	return !!a?.capture === !!b?.capture && !!a?.once === !!b?.once && !!a?.passive === !!b?.passive;
+}
+var templateKeyCache = /* @__PURE__ */ new WeakMap();
+function getTemplateKey(strings) {
+	let key = templateKeyCache.get(strings);
+	if (key === void 0) {
+		key = strings.join(MARKER);
+		templateKeyCache.set(strings, key);
+	}
+	return key;
+}
+var TemplateResult = class TemplateResult {
+	constructor(strings, values) {
+		this.strings = strings;
+		this.values = values;
+	}
+	get templateKey() {
+		return getTemplateKey(this.strings);
+	}
+	renderOnce(container) {
+		const target = container;
+		const templateKey = getTemplateKey(this.strings);
+		const cache = this.getTemplate(templateKey);
+		const clone = cache.element.content.cloneNode(true);
+		const parts = this.prepareParts(clone, cache);
+		this.commit(parts);
+		target.appendChild(clone);
+		target.__parts = parts;
+		target.__templateKey = templateKey;
+		return Array.from(target.childNodes);
+	}
+	renderInto(container) {
+		const target = container;
+		const templateKey = getTemplateKey(this.strings);
+		const existingKey = target.__templateKey;
+		if (existingKey && existingKey !== templateKey) {
+			if (target.__parts) disposeParts(target.__parts);
+			delete target.__parts;
+		}
+		if (!target.__parts) {
+			const cache = this.getTemplate(templateKey);
+			const clone = cache.element.content.cloneNode(true);
+			const parts = this.prepareParts(clone, cache);
+			target.__parts = parts;
+			target.__templateKey = templateKey;
+			this.commit(parts);
+			target.textContent = "";
+			target.appendChild(clone);
+			return;
+		}
+		if (!target.__templateKey) target.__templateKey = templateKey;
+		this.commit(target.__parts);
+	}
+	getTemplate(key) {
+		let cached = templateCache.get(key);
+		if (cached) {
+			templateCache.delete(key);
+			templateCache.set(key, cached);
+			return cached;
+		}
+		const parts = [];
+		let html$1 = this.strings[0];
+		const attrPreProcessor = this.getAttributePreProcessor(parts);
+		let activeAttributeName = null;
+		let activeAttributeQuote = null;
+		for (let i = 1; i < this.strings.length; i++) {
+			const s = this.strings[i];
+			const valueIndex = i - 1;
+			const match = /([@.:?]?[\w:-]+)\s*=\s*["']?$/.exec(html$1);
+			const quotedAttrMatch = /([@.:?]?[\w:-]+)\s*=\s*(["'])([^"']*)$/.exec(html$1);
+			let attrKey = "___";
+			if (activeAttributeName) html$1 += createAttributeMarker(valueIndex);
+			else {
+				const quotedPrefix = (quotedAttrMatch?.[1])?.charAt(0);
+				const hasSpecialPrefix = quotedPrefix !== void 0 && Object.keys(attrPreProcessor).includes(quotedPrefix);
+				if (quotedAttrMatch && !hasSpecialPrefix) {
+					html$1 += createAttributeMarker(valueIndex);
+					activeAttributeName = quotedAttrMatch[1];
+					activeAttributeQuote = quotedAttrMatch[2];
+				} else {
+					if (match) {
+						attrKey = "__";
+						const attrPrefix = match[1].charAt(0);
+						if (Object.keys(attrPreProcessor).includes(attrPrefix)) attrKey = attrPrefix;
+					}
+					if (attrKey === "__" && match) {
+						html$1 += createAttributeMarker(valueIndex);
+						activeAttributeName = match[1];
+						const quoteMatch = /(["'])$/.exec(match[0]);
+						activeAttributeQuote = quoteMatch ? quoteMatch[1] : null;
+					} else html$1 = attrPreProcessor[attrKey](valueIndex, html$1, match ? match[1] : void 0, match);
+				}
+			}
+			html$1 += s;
+			if (activeAttributeName) {
+				if (activeAttributeQuote) {
+					if (s.includes(activeAttributeQuote)) {
+						activeAttributeName = null;
+						activeAttributeQuote = null;
+					}
+				} else if (/[\s>]/.test(s)) {
+					activeAttributeName = null;
+					activeAttributeQuote = null;
+				}
+			}
+		}
+		warnUnsupportedBindingPositions(html$1);
+		const element = document.createElement("template");
+		element.innerHTML = html$1;
+		const partPaths = [];
+		let nodePartCursor = 0;
+		const nodeParts = [];
+		const eventPartsByIndex = /* @__PURE__ */ new Map();
+		const propertyPartsByIndex = /* @__PURE__ */ new Map();
+		const actionPartsByIndex = /* @__PURE__ */ new Map();
+		const booleanPartsByIndex = /* @__PURE__ */ new Map();
+		for (const part of parts) switch (part.type) {
+			case "event":
+				eventPartsByIndex.set(part.index, part);
+				break;
+			case "property":
+				propertyPartsByIndex.set(part.index, part);
+				break;
+			case "action":
+				actionPartsByIndex.set(part.index, part);
+				break;
+			case "boolean-attribute":
+				booleanPartsByIndex.set(part.index, part);
+				break;
+			case "node":
+				nodeParts.push(part);
+				break;
+			default: break;
+		}
+		const walkTemplate = (node, path) => {
+			if (node.nodeType === Node.COMMENT_NODE) {
+				if (node.data === MARKER) {
+					const part = nodeParts[nodePartCursor++];
+					if (part) partPaths.push({
+						path: [...path],
+						type: "node",
+						index: part.index
+					});
+				}
+			} else if (node.nodeType === Node.ELEMENT_NODE) {
+				const el = node;
+				for (let i = el.attributes.length - 1; i >= 0; i--) {
+					const attr = el.attributes[i];
+					if (attr.name.startsWith("__event-")) {
+						const index = parseInt(attr.name.match(/__event-(\d+)__/)?.[1] || "0");
+						const part = eventPartsByIndex.get(index);
+						if (part) partPaths.push({
+							path: [...path],
+							type: "event",
+							index: part.index,
+							name: part.name
+						});
+					} else if (attr.name.startsWith("__prop-")) {
+						const index = parseInt(attr.name.match(/__prop-(\d+)__/)?.[1] || "0");
+						const part = propertyPartsByIndex.get(index);
+						if (part) partPaths.push({
+							path: [...path],
+							type: "property",
+							index: part.index,
+							name: part.name
+						});
+					} else if (attr.name.startsWith("__action-")) {
+						const index = parseInt(attr.name.match(/__action-(\d+)__/)?.[1] || "0");
+						const part = actionPartsByIndex.get(index);
+						if (part) partPaths.push({
+							path: [...path],
+							type: "action",
+							index: part.index,
+							name: part.name
+						});
+					} else if (attr.name.startsWith("__bool-")) {
+						const index = parseInt(attr.name.match(/__bool-(\d+)__/)?.[1] || "0");
+						const part = booleanPartsByIndex.get(index);
+						if (part) partPaths.push({
+							path: [...path],
+							type: "boolean-attribute",
+							index: part.index,
+							name: part.name
+						});
+					} else if (attr.name.startsWith(":")) partPaths.push({
+						path: [...path],
+						type: "action",
+						index: -1,
+						name: attr.name.slice(1),
+						staticValue: attr.value
+					});
+					else if (attr.value.includes(ATTRIBUTE_MARKER_PREFIX)) {
+						const attributeInfo = this.parseAttributeValue(attr.value);
+						if (attributeInfo) {
+							const isComposite = attributeInfo.indices.length > 1 || attributeInfo.strings.some((s) => s.length > 0);
+							partPaths.push({
+								path: [...path],
+								type: "attribute",
+								index: attributeInfo.indices[0],
+								name: attr.name,
+								attributeStrings: isComposite ? attributeInfo.strings : void 0,
+								attributeIndices: isComposite ? attributeInfo.indices : void 0
+							});
+						}
+					}
+				}
+			}
+			const children = node.childNodes;
+			for (let i = 0; i < children.length; i++) {
+				path.push(i);
+				walkTemplate(children[i], path);
+				path.pop();
+			}
+		};
+		walkTemplate(element.content, []);
+		cached = {
+			element,
+			parts,
+			partPaths
+		};
+		if (templateCache.size >= 500) {
+			const oldestKey = templateCache.keys().next().value;
+			if (oldestKey) templateCache.delete(oldestKey);
+		}
+		templateCache.set(key, cached);
+		return cached;
+	}
+	getAttributePreProcessor(parts) {
+		return {
+			"@": (index, html$1, attrName, match) => {
+				parts.push({
+					type: "event",
+					index,
+					name: attrName?.slice(1)
+				});
+				return html$1.slice(0, -(match?.[0].length ?? 0)) + `__event-${index}__=""`;
+			},
+			".": (index, html$1, attrName, match) => {
+				parts.push({
+					type: "property",
+					index,
+					name: attrName?.slice(1)
+				});
+				return html$1.slice(0, -(match?.[0].length ?? 0)) + `__prop-${index}__=""`;
+			},
+			":": (index, html$1, attrName, match) => {
+				parts.push({
+					type: "action",
+					index,
+					name: attrName?.slice(1)
+				});
+				return html$1.slice(0, -(match?.[0].length ?? 0)) + `__action-${index}__=""`;
+			},
+			"?": (index, html$1, attrName, match) => {
+				parts.push({
+					type: "boolean-attribute",
+					index,
+					name: attrName?.slice(1)
+				});
+				return html$1.slice(0, -(match?.[0].length ?? 0)) + `__bool-${index}__=""`;
+			},
+			"__": (index, html$1, _) => {
+				return html$1 + createAttributeMarker(index);
+			},
+			"___": (index, html$1) => {
+				parts.push({
+					type: "node",
+					index
+				});
+				return html$1 + COMMENT_NODE_MARKER;
+			}
+		};
+	}
+	prepareParts(clone, cache) {
+		const parts = [];
+		const { partPaths } = cache;
+		for (const partPath of partPaths) {
+			let node = clone;
+			for (const index of partPath.path) node = node.childNodes[index];
+			if (partPath.type === "node") {
+				const textNode = document.createTextNode("");
+				node.parentNode.replaceChild(textNode, node);
+				parts.push({
+					type: "node",
+					index: partPath.index,
+					node: textNode
+				});
+			} else if (partPath.type === "event") {
+				const element = node;
+				element.removeAttribute(`__event-${partPath.index}__`);
+				parts.push({
+					type: "event",
+					index: partPath.index,
+					name: partPath.name,
+					node: element
+				});
+			} else if (partPath.type === "property") {
+				const element = node;
+				element.removeAttribute(`__prop-${partPath.index}__`);
+				parts.push({
+					type: "property",
+					index: partPath.index,
+					name: partPath.name,
+					node: element
+				});
+			} else if (partPath.type === "action") {
+				const element = node;
+				if (partPath.index >= 0) element.removeAttribute(`__action-${partPath.index}__`);
+				else element.removeAttribute(`:${partPath.name}`);
+				parts.push({
+					type: "action",
+					index: partPath.index,
+					name: partPath.name,
+					node: element,
+					staticValue: partPath.staticValue
+				});
+			} else if (partPath.type === "boolean-attribute") {
+				const element = node;
+				element.removeAttribute(`__bool-${partPath.index}__`);
+				parts.push({
+					type: "boolean-attribute",
+					index: partPath.index,
+					name: partPath.name,
+					node: element
+				});
+			} else if (partPath.type === "attribute") {
+				const element = node;
+				element.removeAttribute(partPath.name);
+				parts.push({
+					type: "attribute",
+					index: partPath.index,
+					name: partPath.name,
+					node: element,
+					attributeStrings: partPath.attributeStrings,
+					attributeIndices: partPath.attributeIndices
+				});
+			}
+		}
+		return parts;
+	}
+	parseAttributeValue(value) {
+		const strings = [];
+		const indices = [];
+		let lastIndex = 0;
+		let match;
+		ATTRIBUTE_MARKER_REGEX.lastIndex = 0;
+		while ((match = ATTRIBUTE_MARKER_REGEX.exec(value)) !== null) {
+			strings.push(value.slice(lastIndex, match.index));
+			indices.push(Number(match[1]));
+			lastIndex = match.index + match[0].length;
+		}
+		if (indices.length === 0) return null;
+		strings.push(value.slice(lastIndex));
+		return {
+			strings,
+			indices
+		};
+	}
+	ensureMarkers(part) {
+		if (part.startMarker) return;
+		const parent = part.node.parentNode;
+		if (!parent) return;
+		const startMarker = document.createComment("part-start");
+		const endMarker = document.createComment("part-end");
+		parent.insertBefore(startMarker, part.node);
+		parent.insertBefore(endMarker, part.node.nextSibling);
+		part.startMarker = startMarker;
+		part.endMarker = endMarker;
+	}
+	clearRenderedNodes(part) {
+		if (part.nestedContainer) {
+			disposeContainerParts(part.nestedContainer);
+			part.nestedContainer = void 0;
+		}
+		if (part.renderedContainers) {
+			for (const container of part.renderedContainers) disposeContainerParts(container);
+			part.renderedContainers = void 0;
+		}
+		if (part.arrayState) {
+			for (const item of part.arrayState.items.values()) disposeContainerParts(item.container);
+			part.arrayState = void 0;
+		}
+		if (part.renderedNodes && part.renderedNodes.length > 0) for (const node of part.renderedNodes) node.parentNode?.removeChild(node);
+		part.renderedNodes = [];
+	}
+	clearDirectiveDOM(part) {
+		const state = part.directiveState;
+		if (!state) return;
+		disposeDirectiveState(state);
+		if (typeof state !== "object") {
+			part.directiveState = void 0;
+			part.directiveType = void 0;
+			return;
+		}
+		const { startMarker, endMarker } = state;
+		if (startMarker && endMarker && startMarker.parentNode) {
+			const parent = startMarker.parentNode;
+			let node = startMarker.nextSibling;
+			while (node && node !== endMarker) {
+				const next = node.nextSibling;
+				parent.removeChild(node);
+				node = next;
+			}
+			if (part.node) parent.insertBefore(part.node, endMarker);
+			parent.removeChild(startMarker);
+			parent.removeChild(endMarker);
+		}
+		part.directiveState = void 0;
+		part.directiveType = void 0;
+	}
+	renderNestedTemplate(part, template) {
+		this.ensureMarkers(part);
+		if (part.nestedContainer) {
+			if (part.nestedContainer.__templateKey === getTemplateKey(template.strings)) {
+				template.renderInto(part.nestedContainer);
+				return;
+			}
+		}
+		this.clearRenderedNodes(part);
+		part.node.textContent = "";
+		const container = document.createDocumentFragment();
+		template.renderInto(container);
+		part.nestedContainer = container;
+		part.renderedNodes = Array.from(container.childNodes);
+		part.endMarker.parentNode.insertBefore(container, part.endMarker);
+	}
+	renderNode(part, node) {
+		this.ensureMarkers(part);
+		this.clearRenderedNodes(part);
+		part.node.textContent = "";
+		part.renderedNodes = [node];
+		part.endMarker.parentNode.insertBefore(node, part.endMarker);
+	}
+	renderArray(part, values) {
+		this.ensureMarkers(part);
+		part.node.textContent = "";
+		const parent = part.endMarker.parentNode;
+		const keyedValues = this.getKeyedValues(values);
+		if (keyedValues) {
+			const state = part.arrayState ?? {
+				items: /* @__PURE__ */ new Map(),
+				keys: []
+			};
+			const newItems = /* @__PURE__ */ new Map();
+			const newKeys = [];
+			for (const item of keyedValues) {
+				const existing = state.items.get(item.key);
+				if (existing) {
+					this.updateArrayItem(existing, item.value, parent, part.endMarker);
+					newItems.set(item.key, existing);
+				} else {
+					const created = this.createArrayItem(item.value, parent, part.endMarker);
+					newItems.set(item.key, {
+						key: item.key,
+						value: item.value,
+						container: created.container,
+						nodes: created.nodes
+					});
+				}
+				newKeys.push(item.key);
+			}
+			for (const [key, oldItem] of state.items.entries()) if (!newItems.has(key)) {
+				disposeContainerParts(oldItem.container);
+				for (const node of oldItem.nodes) node.parentNode?.removeChild(node);
+			}
+			let referenceNode = part.startMarker.nextSibling;
+			for (const key of newKeys) {
+				const item = newItems.get(key);
+				for (const node of item.nodes) {
+					if (node === referenceNode) {
+						referenceNode = referenceNode?.nextSibling ?? null;
+						continue;
+					}
+					parent.insertBefore(node, referenceNode ?? part.endMarker);
+				}
+			}
+			part.arrayState = {
+				items: newItems,
+				keys: newKeys
+			};
+			part.renderedNodes = newKeys.flatMap((key) => newItems.get(key).nodes);
+			return;
+		}
+		this.clearRenderedNodes(part);
+		const renderedNodes = [];
+		const renderedContainers = [];
+		for (const value of values) if (value instanceof TemplateResult) {
+			const fragment = document.createDocumentFragment();
+			value.renderInto(fragment);
+			const nodes = Array.from(fragment.childNodes);
+			renderedNodes.push(...nodes);
+			renderedContainers.push(fragment);
+			parent.insertBefore(fragment, part.endMarker);
+		} else if (value instanceof Node) {
+			renderedNodes.push(value);
+			parent.insertBefore(value, part.endMarker);
+		} else if (value !== null && value !== void 0) {
+			const textNode = document.createTextNode(String(value));
+			renderedNodes.push(textNode);
+			parent.insertBefore(textNode, part.endMarker);
+		}
+		part.renderedNodes = renderedNodes;
+		part.renderedContainers = renderedContainers.length > 0 ? renderedContainers : void 0;
+	}
+	getKeyedValues(values) {
+		if (values.length === 0) return null;
+		const keyedValues = [];
+		for (const value of values) if (value && typeof value === "object" && value.__keyed === true) {
+			const keyed = value;
+			keyedValues.push({
+				key: keyed.key,
+				value: keyed.value
+			});
+		} else return null;
+		return keyedValues;
+	}
+	createArrayItem(value, parent, endMarker) {
+		const container = document.createDocumentFragment();
+		if (value instanceof TemplateResult) value.renderInto(container);
+		else if (value instanceof Node) container.appendChild(value);
+		else if (value !== null && value !== void 0) container.appendChild(document.createTextNode(String(value)));
+		const nodes = Array.from(container.childNodes);
+		parent.insertBefore(container, endMarker);
+		return {
+			container,
+			nodes
+		};
+	}
+	updateArrayItem(item, value, parent, endMarker) {
+		if (value instanceof TemplateResult) {
+			item.nodes = renderDetachedItem(value, item.container, item.nodes, endMarker);
+			item.value = value;
+			return;
+		}
+		if (value === item.value) return;
+		disposeContainerParts(item.container);
+		for (const node of item.nodes) node.parentNode?.removeChild(node);
+		item.container = document.createDocumentFragment();
+		if (value instanceof Node) item.container.appendChild(value);
+		else if (value !== null && value !== void 0) item.container.appendChild(document.createTextNode(String(value)));
+		item.nodes = Array.from(item.container.childNodes);
+		parent.insertBefore(item.container, endMarker);
+		item.value = value;
+	}
+	commitEventPart(part, value) {
+		const element = part.node;
+		const name = part.name;
+		const isFunctionHandler = typeof value === "function";
+		const isHandleEventObject = !isFunctionHandler && value !== null && typeof value === "object" && typeof value.handleEvent === "function";
+		const active = isFunctionHandler || isHandleEventObject;
+		const newOptions = isHandleEventObject ? extractListenerOptions(value) : void 0;
+		if (!part.eventWrapper) part.eventWrapper = function(event) {
+			const handler = part.eventHandler;
+			if (typeof handler === "function") handler.call(this, event);
+			else if (handler !== null && typeof handler === "object") handler.handleEvent(event);
+		};
+		const optionsChanged = !sameListenerOptions(part.eventOptions, newOptions);
+		if (part.eventAttached && (!active || optionsChanged)) {
+			element.removeEventListener(name, part.eventWrapper, part.eventOptions);
+			part.eventAttached = false;
+		}
+		part.eventHandler = active ? value : void 0;
+		part.eventOptions = newOptions;
+		if (active && (!part.eventAttached || newOptions?.once)) {
+			element.addEventListener(name, part.eventWrapper, newOptions);
+			part.eventAttached = true;
+		}
+	}
+	commit(parts) {
+		for (const part of parts) {
+			const value = this.values[part.index];
+			const isCompositeAttribute = part.type === "attribute" && part.attributeIndices && part.attributeStrings;
+			if (!isCompositeAttribute && !isDirective(value) && part.type !== "action" && part.previousValue === value) continue;
+			switch (part.type) {
+				case "node":
+					if (part.node) {
+						const wasDirective = isDirective(part.previousValue);
+						const nowDirective = isDirective(value);
+						if (wasDirective && !nowDirective && part.directiveState) this.clearDirectiveDOM(part);
+						if (!wasDirective && nowDirective) this.clearRenderedNodes(part);
+						if (nowDirective) {
+							if (part.directiveState !== void 0 && part.directiveType !== value.type) this.clearDirectiveDOM(part);
+							part.directiveState = value.render(part.node, part.directiveState);
+							part.directiveType = value.type;
+						} else if (value instanceof TemplateResult) this.renderNestedTemplate(part, value);
+						else if (value instanceof Node) this.renderNode(part, value);
+						else if (Array.isArray(value)) this.renderArray(part, value);
+						else {
+							this.clearRenderedNodes(part);
+							part.node.textContent = String(value ?? "");
+						}
+					}
+					break;
+				case "attribute":
+					if (part.node && part.name) {
+						const element = part.node;
+						if (isDirective(value)) {
+							if (part.directiveState !== void 0 && part.directiveType !== value.type) {
+								disposeDirectiveState(part.directiveState);
+								part.directiveState = void 0;
+							}
+							part.directiveState = value.render(element, part.directiveState);
+							part.directiveType = value.type;
+						} else if (isCompositeAttribute) {
+							const strings = part.attributeStrings;
+							const indices = part.attributeIndices;
+							let composed = strings[0] ?? "";
+							for (let i = 0; i < indices.length; i++) {
+								const segmentValue = this.values[indices[i]];
+								composed += `${segmentValue ?? ""}${strings[i + 1] ?? ""}`;
+							}
+							if (part.previousValue === composed) continue;
+							if (composed === "" && strings.every((segment) => segment === "")) element.removeAttribute(part.name);
+							else element.setAttribute(part.name, composed);
+							part.previousValue = composed;
+							continue;
+						} else if (typeof value === "boolean" && part.name.startsWith("aria-")) element.setAttribute(part.name, String(value));
+						else if (value === null || value === void 0 || value === false) element.removeAttribute(part.name);
+						else if (value === true) element.setAttribute(part.name, "");
+						else element.setAttribute(part.name, String(value));
+					}
+					break;
+				case "boolean-attribute":
+					if (part.node && part.name) {
+						const element = part.node;
+						if (value) element.setAttribute(part.name, "");
+						else element.removeAttribute(part.name);
+					}
+					break;
+				case "property":
+					if (part.node && part.name) if (isDirective(value)) {
+						if (part.directiveState !== void 0 && part.directiveType !== value.type) {
+							disposeDirectiveState(part.directiveState);
+							part.directiveState = void 0;
+						}
+						part.directiveState = value.render(part.node, part.directiveState);
+						part.directiveType = value.type;
+					} else {
+						if (part.name === "innerHTML" || part.name === "outerHTML") warnUnsafePropertyBinding(part.name);
+						part.node[part.name] = value;
+					}
+					break;
+				case "event":
+					if (part.node && part.name) this.commitEventPart(part, value);
+					break;
+				case "action":
+					if (part.node && part.name) {
+						const element = part.node;
+						const directiveValue = part.index >= 0 ? value : part.staticValue;
+						if (part.index >= 0 && part.previousValue === directiveValue) continue;
+						if (part.index < 0 && part.actionCleanup !== void 0) continue;
+						if (part.actionCleanup) {
+							part.actionCleanup();
+							part.actionCleanup = void 0;
+						}
+						const directive$1 = getAttributeDirective(part.name);
+						if (directive$1) {
+							const cleanup = directive$1(element, directiveValue, part.name);
+							if (typeof cleanup === "function") part.actionCleanup = cleanup;
+							else part.actionCleanup = () => {};
+						} else console.warn(`Attribute directive ':${part.name}' not found in registry`);
+					}
+					break;
+				default: break;
+			}
+			part.previousValue = value;
+		}
+	}
+};
+function html(strings, ...values) {
+	return new TemplateResult(strings, values);
+}
+const css = html;
+var _ref$1;
+var OUTLET_REGISTER_EVENT = "melodic:outlet-register";
+var RouterOutletComponent = class RouterOutletComponent$1 {
+	constructor() {
+		this._depth = 0;
+		this._context = null;
+		this._currentComponent = null;
+		this._currentElement = null;
+		this._childOutlets = /* @__PURE__ */ new Map();
+		this._parentOutlet = null;
+		this._initialized = false;
+		this._routeSubscriptionCleanup = null;
+		this.routes = [];
+		this.name = "primary";
+	}
+	onInit() {
+		this.elementRef.addEventListener(OUTLET_REGISTER_EVENT, ((event) => {
+			if (event.detail.outlet === this) return;
+			event.stopPropagation();
+			this.registerChildOutlet(event.detail);
+		}));
+	}
+	onCreate() {
+		this.findParentOutlet();
+		queueMicrotask(() => {
+			this._initialized = true;
+			if (this._depth === 0 && this.routes.length > 0) this._router.setRoutes(this.routes);
+			if (this._parentOutlet) this.requestContextFromParent();
+			else {
+				this._routeSubscriptionCleanup = this._router.committedRoute.subscribe((result) => {
+					this.renderCommitted(result ?? null);
+				});
+				const committed = this._router.committedRoute();
+				if (committed) this.renderCommitted(committed);
+				else this._router.initialNavigation();
+			}
+		});
+	}
+	onDestroy() {
+		this._routeSubscriptionCleanup?.();
+		this._routeSubscriptionCleanup = null;
+		if (this._parentOutlet) this._parentOutlet.unregisterChildOutlet(this.name);
+	}
+	onPropertyChange(name) {
+		if (name === "routes" && this._initialized) {
+			this._currentComponent = null;
+			if (this._depth === 0) {
+				this._router.setRoutes(this.routes);
+				this._router.initialNavigation();
+			}
+		}
+	}
+	getDepth() {
+		return this._depth;
+	}
+	getContext() {
+		return this._context;
+	}
+	findParentOutlet() {
+		let element = this.elementRef;
+		while (element) {
+			const root = element.getRootNode();
+			if (root instanceof ShadowRoot) {
+				element = root.host;
+				if (element.tagName.toLowerCase() !== "router-outlet") {
+					const parentOutlet = element.shadowRoot?.querySelector("router-outlet");
+					if (parentOutlet && parentOutlet !== this.elementRef) {
+						this._parentOutlet = parentOutlet.component;
+						this._depth = (this._parentOutlet?._depth ?? -1) + 1;
+						return;
+					}
+				}
+			} else {
+				const parentOutlet = element.closest?.("router-outlet");
+				if (parentOutlet && parentOutlet !== this.elementRef) {
+					this._parentOutlet = parentOutlet.component;
+					this._depth = (this._parentOutlet?._depth ?? -1) + 1;
+					return;
+				}
+				break;
+			}
+		}
+		this._depth = 0;
+	}
+	requestContextFromParent() {
+		const event = new CustomEvent(OUTLET_REGISTER_EVENT, {
+			bubbles: true,
+			composed: true,
+			detail: {
+				outlet: this,
+				callback: (context) => this.receiveContext(context)
+			}
+		});
+		this.elementRef.dispatchEvent(event);
+	}
+	registerChildOutlet(registration) {
+		this._childOutlets.set(registration.outlet.name, registration.outlet);
+		if (this._context?.currentMatch?.children) {
+			const childContext = this.createChildContext();
+			if (childContext) registration.callback(childContext);
+		}
+	}
+	unregisterChildOutlet(name) {
+		this._childOutlets.delete(name);
+	}
+	receiveContext(context) {
+		this._context = context;
+		this.routes = context.routes;
+		this.renderFromContext();
+	}
+	createChildContext() {
+		if (!this._context?.currentMatch) return null;
+		const match = this._context.currentMatch;
+		return {
+			depth: this._depth + 1,
+			routes: match.children ?? [],
+			currentMatch: void 0,
+			ancestorMatches: [...this._context.ancestorMatches],
+			params: { ...this._context.params },
+			remainingPath: match.remainingPath,
+			basePath: match.fullPath,
+			parent: this._context
+		};
+	}
+	async renderCommitted(result) {
+		if (!this._initialized || !result) return;
+		const routes = this.routes.length > 0 ? this.routes : this._router.getRoutes();
+		if (routes.length === 0) return;
+		if (result.matches.length > 0) {
+			const match = result.matches[0];
+			this._context = {
+				depth: 0,
+				routes,
+				currentMatch: match,
+				ancestorMatches: [match],
+				params: match.params,
+				remainingPath: match.remainingPath,
+				basePath: "",
+				parent: void 0
+			};
+			await this.renderMatch(match, result);
+		} else await this.render404();
+	}
+	async renderFromContext() {
+		if (!this._context || this.routes.length === 0) return;
+		const remainingPath = this._context.remainingPath;
+		const matchResult = matchRouteTree(this.routes, remainingPath, this._context.basePath);
+		if (matchResult.redirectTo) {
+			if (window.location.pathname !== matchResult.redirectTo) this._router.navigate(matchResult.redirectTo, { replace: true });
+			return;
+		}
+		if (matchResult.matches.length > 0) {
+			const match = matchResult.matches[0];
+			this._context = {
+				...this._context,
+				currentMatch: match,
+				ancestorMatches: [...this._context.ancestorMatches, match],
+				params: {
+					...this._context.params,
+					...match.params
+				}
+			};
+			await this.renderMatch(match, matchResult);
+		} else await this.render404();
+	}
+	async renderMatch(match, _) {
+		const route = match.route;
+		if (route.component === this._currentComponent) {
+			this.updateChildOutlets();
+			return;
+		}
+		if (route.loadChildren && !match.children) try {
+			const module = await route.loadChildren();
+			match.children = module.routes;
+			route.children = module.routes;
+		} catch (error) {
+			console.error("Failed to load child routes:", error);
+			await this.render404();
+			return;
+		}
+		if (route.loadComponent) try {
+			await route.loadComponent();
+		} catch (error) {
+			console.error("Failed to load component:", error);
+			await this.render404();
+			return;
+		}
+		if (route.component) await this.renderComponent(route.component);
+	}
+	async renderComponent(componentTag) {
+		const shadowRoot = this.elementRef.shadowRoot;
+		if (!shadowRoot) return;
+		if (this._currentElement) {
+			this._currentElement.remove();
+			this._currentElement = null;
+		}
+		this._currentComponent = componentTag;
+		const component = document.createElement(componentTag);
+		component.__parentOutlet = this;
+		shadowRoot.appendChild(component);
+		this._currentElement = component;
+		queueMicrotask(() => this.updateChildOutlets());
+	}
+	updateChildOutlets() {
+		const childContext = this.createChildContext();
+		if (!childContext) return;
+		for (const [, childOutlet] of this._childOutlets) childOutlet.receiveContext(childContext);
+	}
+	async render404() {
+		const notFoundRoute = this.routes.find((r) => r.path === "404" || r.path === "**");
+		if (notFoundRoute?.component) await this.renderComponent(notFoundRoute.component);
+		else if (this._depth === 0 && window.location.pathname !== "/404") this._router.navigate("/404", { replace: true });
+	}
+};
+__decorate([Service(RouterService), __decorateMetadata("design:type", typeof (_ref$1 = typeof RouterService !== "undefined" && RouterService) === "function" ? _ref$1 : Object)], RouterOutletComponent.prototype, "_router", void 0);
+RouterOutletComponent = __decorate([MelodicComponent({
+	selector: "router-outlet",
+	template: () => html`<slot></slot>`
+})], RouterOutletComponent);
+var RouterLinkComponent = class RouterLinkComponent$1 {
+	constructor() {
+		this._anchorElement = null;
+		this._core = null;
+		this.href = "";
+		this.data = null;
+		this.queryParams = {};
+		this.activeClass = "active";
+		this.exactMatch = false;
+		this.replace = false;
+	}
+	onCreate() {
+		this._anchorElement = this.elementRef.shadowRoot?.querySelector("a") ?? null;
+		const initialHref = this.elementRef.getAttribute("href");
+		if (initialHref) this.href = initialHref;
+		const initialActiveClass = this.elementRef.getAttribute("active-class");
+		if (initialActiveClass) this.activeClass = initialActiveClass;
+		this._core = new RouterLinkCore(this.elementRef, () => this._anchorElement);
+		this.syncCore();
+	}
+	onDestroy() {
+		this._core?.destroy();
+		this._core = null;
+	}
+	onAttributeChange(attribute, _, newVal) {
+		if (attribute === "href") {
+			this.href = newVal;
+			this.syncCore();
+		} else if (attribute === "active-class") {
+			this.activeClass = newVal;
+			this.syncCore();
+		}
+	}
+	onPropertyChange(name) {
+		if (name === "href" || name === "queryParams" || name === "activeClass" || name === "exactMatch" || name === "replace" || name === "data") queueMicrotask(() => this.syncCore());
+	}
+	syncCore() {
+		this._core?.setOptions({
+			href: this.href,
+			activeClass: this.activeClass,
+			exactMatch: this.exactMatch,
+			replace: this.replace,
+			data: this.data,
+			queryParams: this.queryParams
+		});
+	}
+};
+RouterLinkComponent = __decorate([MelodicComponent({
+	selector: "router-link",
+	template: () => html`<a part="link"><slot></slot></a>`,
+	styles: () => css`
+		:host {
+			display: inline-block;
+			cursor: pointer;
+		}
+		a {
+			color: inherit;
+			text-decoration: inherit;
+			font: inherit;
+			display: block;
+		}
+	`,
+	attributes: ["href", "active-class"]
+})], RouterLinkComponent);
+function routerLinkDirective(element, value, _) {
+	let options;
+	if (typeof value === "string") options = { href: value };
+	else if (value && typeof value === "object" && "href" in value) options = value;
+	else {
+		console.warn("routerLink: Invalid value. Expected string or { href: string, ... }");
+		return;
+	}
+	const core = new RouterLinkCore(element);
+	core.setOptions(options);
+	element.setAttribute("router-link", "");
+	return (() => {
+		core.destroy();
+	});
+}
+registerAttributeDirective("routerLink", routerLinkDirective);
+const props = () => {
+	return () => ({});
+};
+const createAction = (type, payloadFn) => {
+	return ((payload) => ({
+		type,
+		payload: payload ?? (payloadFn ? payloadFn() : void 0)
+	}));
+};
+function createReducer(...actionReducers) {
+	return { reducers: actionReducers };
+}
+const createState = (initState) => {
+	const state = {};
+	Object.keys(initState).forEach((key) => {
+		state[key] = signal(initState[key]);
+	});
+	return state;
+};
+const onAction = (action, reducer) => {
+	return {
+		action: action(),
+		reducer
+	};
+};
+const RX_INIT_STATE = createToken("RX_INIT_STATE");
+const RX_ACTION_PROVIDERS = createToken("RX_ACTION_PROVIDERS");
+const RX_EFFECTS_PROVIDERS = createToken("RX_EFFECTS_PROVIDERS");
+const RX_STATE_DEBUG = createToken("RX_STATE_DEBUG");
+var EffectsBase = class {
+	constructor() {
+		this._effects = [];
+	}
+	addEffect(actions, effect) {
+		this._effects.push({
+			actions,
+			effect
+		});
+	}
+	getEffects() {
+		return this._effects;
+	}
+};
+var nextSelectorId = 0;
+var selectorKeys = /* @__PURE__ */ new WeakMap();
+function getSelectorCacheKey(selectFn) {
+	let key = selectorKeys.get(selectFn);
+	if (key === void 0) {
+		key = `fn#${++nextSelectorId}`;
+		selectorKeys.set(selectFn, key);
+	}
+	return key;
+}
+function getComponentCachedSelect(consumer, fullKey, create) {
+	const cache = consumer.getSelectCache();
+	const cached = cache.get(fullKey);
+	if (cached) {
+		consumer.touchSelectEntry?.(fullKey);
+		return cached;
+	}
+	const sig = create();
+	cache.set(fullKey, sig);
+	consumer.registerDisposable(sig);
+	consumer.trackSelectEntry?.(fullKey, sig);
+	return sig;
+}
+var nextInstanceId = 0;
+var ComponentStateBaseService = class extends EffectsBase {
+	constructor(_initState, _reducerConfig = { reducers: [] }, _debug = false) {
+		super();
+		this._initState = _initState;
+		this._reducerConfig = _reducerConfig;
+		this._debug = _debug;
+		this._instanceId = ++nextInstanceId;
+		this._state = signal(_initState);
+	}
+	get state() {
+		return this._state();
+	}
+	resetState() {
+		this._state.set(this._initState);
+	}
+	select(selectFn, cacheKey) {
+		const consumer = getActiveComponent();
+		if (consumer) return getComponentCachedSelect(consumer, `cs:${this._instanceId}::${cacheKey ?? getSelectorCacheKey(selectFn)}`, () => computed(() => selectFn(this._state())));
+		return computed(() => selectFn(this._state()));
+	}
+	dispatch(action) {
+		if (this._debug) {
+			console.log(`[ComponentState] Action: ${action.type}`);
+			console.log(`[ComponentState] Payload:`, action.payload);
+			console.log(`[ComponentState] Before:`, this._state());
+		}
+		const reducer = this._reducerConfig.reducers.find((r) => r.action.type === action.type);
+		if (reducer) {
+			this._state.update((state) => reducer.reducer(state, action));
+			if (this._debug) console.log(`[ComponentState] After:`, this._state());
+		}
+		this.executeEffects(action);
+	}
+	patchState(partial) {
+		this._state.update((state) => ({
+			...state,
+			...partial
+		}));
+	}
+	executeEffects(action) {
+		this.getEffects().filter((effect) => effect.actions.some((a) => a().type === action.type)).forEach((effect) => {
+			effect.effect(action).then((newAction) => {
+				if (newAction === void 0) return;
+				(Array.isArray(newAction) ? newAction : [newAction]).forEach((na) => this.dispatch(na));
+			}).catch((error) => {
+				console.error(`[ComponentState] Effect for action '${action.type}' failed:`, error);
+			});
+		});
+	}
+};
+var SignalStoreService = class SignalStoreService$1 {
+	constructor() {
+		if (this._debug) console.info("RX State Debugging: Enabled");
+	}
+	select(key, selectFn, cacheKey) {
+		const consumer = getActiveComponent();
+		if (consumer) return getComponentCachedSelect(consumer, `${String(key)}::${cacheKey ?? getSelectorCacheKey(selectFn)}`, () => computed(() => selectFn(this._state[key]())));
+		return computed(() => selectFn(this._state[key]()));
+	}
+	logState() {
+		console.log(this.getCurrentState());
+	}
+	dispatch(x, y) {
+		const key = typeof x === "string" ? x : void 0;
+		const action = typeof x === "string" ? y : x;
+		if (this._debug) {
+			console.log(`Action: ${action.type}`);
+			console.log(`Payload:`, action.payload);
+			console.log(`Current State:`, this.getCurrentState());
+		}
+		if (key) this.dispatchWithKey(key, action);
+		else this.dispatchWithoutKey(action);
+	}
+	dispatchWithKey(key, action) {
+		if (!this._reducerMap[key]) throw new Error(`Reducer not found for key: ${key}`);
+		const reducer = this._reducerMap[key].reducers.find((reducer$1) => reducer$1.action.type === action.type);
+		if (reducer !== void 0) {
+			const newState = reducer.reducer(this._state[key](), action);
+			this._state[key].set(newState);
+			if (this._debug) console.log(`New State:`, this.getCurrentState());
+		}
+		const actionEffects = this.getEffectsForActionType(action.type).filter((entry) => entry.key === key).map((entry) => entry.effect);
+		this.runEffects(actionEffects, action);
+	}
+	dispatchWithoutKey(action) {
+		const reducerEntries = this.getReducersForActionType(action.type);
+		if (reducerEntries.length > 0) {
+			batch(() => {
+				for (const { key, reducer } of reducerEntries) {
+					const newState = reducer.reducer(this._state[key](), action);
+					this._state[key].set(newState);
+				}
+			});
+			if (this._debug) console.log(`New State:`, this.getCurrentState());
+		}
+		const actionEffects = this.getEffectsForActionType(action.type).map((entry) => entry.effect);
+		this.runEffects(actionEffects, action);
+	}
+	runEffects(actionEffects, action) {
+		actionEffects.forEach((effect) => {
+			effect.effect(action).then((newAction) => {
+				if (newAction === void 0) return;
+				(Array.isArray(newAction) ? newAction : [newAction]).forEach((na) => {
+					this.dispatch(na);
+				});
+			}).catch((error) => {
+				console.error(`[SignalStore] Effect for action '${action.type}' failed:`, error);
+			});
+		});
+	}
+	getReducersForActionType(actionType) {
+		if (!this._reducerIndex) {
+			const index = /* @__PURE__ */ new Map();
+			for (const key of Object.keys(this._reducerMap)) for (const reducer of this._reducerMap[key]?.reducers ?? []) {
+				const type = reducer.action.type;
+				let entries = index.get(type);
+				if (!entries) {
+					entries = [];
+					index.set(type, entries);
+				}
+				entries.push({
+					key,
+					reducer
+				});
+			}
+			this._reducerIndex = index;
+		}
+		return this._reducerIndex.get(actionType) ?? [];
+	}
+	getEffectsForActionType(actionType) {
+		if (!this._effectIndex) {
+			const index = /* @__PURE__ */ new Map();
+			for (const key of Object.keys(this._effectMap)) {
+				const effectClass = this._effectMap[key];
+				if (!effectClass) continue;
+				const effectService = Injector.get(effectClass);
+				for (const effect of effectService.getEffects()) for (const actionRef of effect.actions) {
+					const type = actionRef().type;
+					let entries = index.get(type);
+					if (!entries) {
+						entries = [];
+						index.set(type, entries);
+					}
+					if (!entries.some((entry) => entry.key === key && entry.effect === effect)) entries.push({
+						key,
+						effect
+					});
+				}
+			}
+			this._effectIndex = index;
+		}
+		return this._effectIndex.get(actionType) ?? [];
+	}
+	getCurrentState() {
+		return Object.keys(this._state).reduce((acc, key) => {
+			acc[key] = this._state[key]();
+			return acc;
+		}, {});
+	}
+};
+__decorate([Service(RX_INIT_STATE), __decorateMetadata("design:type", Object)], SignalStoreService.prototype, "_state", void 0);
+__decorate([Service(RX_ACTION_PROVIDERS), __decorateMetadata("design:type", Object)], SignalStoreService.prototype, "_reducerMap", void 0);
+__decorate([Service(RX_EFFECTS_PROVIDERS), __decorateMetadata("design:type", Object)], SignalStoreService.prototype, "_effectMap", void 0);
+__decorate([Service(RX_STATE_DEBUG), __decorateMetadata("design:type", Boolean)], SignalStoreService.prototype, "_debug", void 0);
+SignalStoreService = __decorate([Injectable(), __decorateMetadata("design:paramtypes", [])], SignalStoreService);
+function provideRX(initState, actionReducers, effects, debug = false) {
+	return (injector) => {
+		injector.bindValue(RX_INIT_STATE, initState);
+		injector.bindValue(RX_ACTION_PROVIDERS, actionReducers);
+		injector.bindValue(RX_EFFECTS_PROVIDERS, effects);
+		injector.bindValue(RX_STATE_DEBUG, debug);
+		injector.bind(SignalStoreService, SignalStoreService, { dependencies: [
+			RX_INIT_STATE,
+			RX_ACTION_PROVIDERS,
+			RX_EFFECTS_PROVIDERS
+		] });
+	};
+}
+function directive(renderFn, type) {
+	return {
+		__directive: true,
+		type,
+		render: renderFn
+	};
+}
+function repeat(items, keyFn, template) {
+	return directive((container, previousState) => {
+		if (!previousState) {
+			const parent = container.parentNode;
+			if (!parent) throw new Error("repeat() directive: container must be attached to a parent node");
+			const startMarker = document.createComment("repeat-start");
+			const endMarker = document.createComment("repeat-end");
+			parent.replaceChild(startMarker, container);
+			parent.insertBefore(endMarker, startMarker.nextSibling);
+			const state = {
+				keyToIndex: /* @__PURE__ */ new Map(),
+				items: [],
+				startMarker,
+				endMarker,
+				__dispose: () => {
+					for (const item of state.items) disposeContainerParts(item.container);
+					state.items = [];
+					state.keyToIndex.clear();
+				}
+			};
+			updateList$1(items, keyFn, template, state);
+			return state;
+		}
+		updateList$1(items, keyFn, template, previousState);
+		return previousState;
+	}, "repeat");
+}
+function updateList$1(newItems, keyFn, template, state) {
+	const oldItems = state.items;
+	const newKeyToIndex = /* @__PURE__ */ new Map();
+	const newEntries = [];
+	for (let i = 0; i < newItems.length; i++) {
+		const key = keyFn(newItems[i], i);
+		newKeyToIndex.set(key, i);
+	}
+	if (oldItems.length === newItems.length) {
+		let allKeysMatch = true;
+		for (let i = 0; i < newItems.length; i++) {
+			const key = keyFn(newItems[i], i);
+			if (i >= oldItems.length || oldItems[i].key !== key) {
+				allKeysMatch = false;
+				break;
+			}
+		}
+		if (allKeysMatch) {
+			for (let i = 0; i < newItems.length; i++) {
+				const templateResult = template(newItems[i], i);
+				oldItems[i].nodes = renderDetachedItem(templateResult, oldItems[i].container, oldItems[i].nodes, oldItems[i].end);
+			}
+			return;
+		}
+	}
+	const oldItemsByKey = /* @__PURE__ */ new Map();
+	const oldIndexByKey = /* @__PURE__ */ new Map();
+	for (const oldItem of oldItems) {
+		oldItemsByKey.set(oldItem.key, oldItem);
+		oldIndexByKey.set(oldItem.key, oldIndexByKey.size);
+	}
+	for (let i = 0; i < newItems.length; i++) {
+		const item = newItems[i];
+		const key = keyFn(item, i);
+		if (oldItemsByKey.has(key)) {
+			const oldItem = oldItemsByKey.get(key);
+			oldItemsByKey.delete(key);
+			oldItem.nodes = renderDetachedItem(template(item, i), oldItem.container, oldItem.nodes, oldItem.end);
+			newEntries.push({
+				item: oldItem,
+				oldIndex: oldIndexByKey.get(key) ?? -1,
+				isNew: false
+			});
+		} else {
+			const repeatItem = createRepeatItem(item, i, key, template);
+			newEntries.push({
+				item: repeatItem,
+				oldIndex: -1,
+				isNew: true
+			});
+		}
+	}
+	for (const oldItem of oldItemsByKey.values()) removeItemRange(oldItem);
+	if (newEntries.length === 0) {
+		state.keyToIndex = newKeyToIndex;
+		state.items = [];
+		return;
+	}
+	const lisPositions = getLisPositions(newEntries);
+	const parent = state.startMarker.parentElement;
+	let nextSibling = state.endMarker;
+	for (let i = newEntries.length - 1; i >= 0; i--) {
+		const entry = newEntries[i];
+		if (entry.isNew) insertItemRange(entry.item, parent, nextSibling);
+		else if (!lisPositions.has(i)) moveItemRange(entry.item, nextSibling);
+		nextSibling = entry.item.start;
+	}
+	state.keyToIndex = newKeyToIndex;
+	state.items = newEntries.map((entry) => entry.item);
+}
+function createRepeatItem(item, index, key, template) {
+	const templateResult = template(item, index);
+	const container = document.createDocumentFragment();
+	return {
+		key,
+		value: item,
+		container,
+		nodes: templateResult.renderOnce(container),
+		start: document.createComment("repeat-item-start"),
+		end: document.createComment("repeat-item-end")
+	};
+}
+function insertItemRange(item, parent, referenceNode) {
+	const fragment = document.createDocumentFragment();
+	fragment.appendChild(item.start);
+	for (const node of item.nodes) fragment.appendChild(node);
+	fragment.appendChild(item.end);
+	parent.insertBefore(fragment, referenceNode);
+}
+function moveItemRange(item, referenceNode) {
+	const parent = referenceNode.parentNode;
+	if (!parent) return;
+	const fragment = document.createDocumentFragment();
+	let node = item.start;
+	const end = item.end;
+	while (node) {
+		const nextNode = node.nextSibling;
+		fragment.appendChild(node);
+		if (node === end) break;
+		node = nextNode;
+	}
+	parent.insertBefore(fragment, referenceNode);
+}
+function removeItemRange(item) {
+	disposeContainerParts(item.container);
+	let node = item.start;
+	const end = item.end;
+	while (node) {
+		const nextNode = node.nextSibling;
+		node.parentNode?.removeChild(node);
+		if (node === end) break;
+		node = nextNode;
+	}
+}
+function getLisPositions(entries) {
+	const oldIndexSequence = [];
+	const sequencePositions = [];
+	for (let i = 0; i < entries.length; i++) if (entries[i].oldIndex >= 0) {
+		oldIndexSequence.push(entries[i].oldIndex);
+		sequencePositions.push(i);
+	}
+	const lisIndices = longestIncreasingSubsequence(oldIndexSequence);
+	const lisPositions = /* @__PURE__ */ new Set();
+	for (const seqIndex of lisIndices) {
+		const position = sequencePositions[seqIndex];
+		if (position !== void 0) lisPositions.add(position);
+	}
+	return lisPositions;
+}
+function longestIncreasingSubsequence(sequence) {
+	if (sequence.length === 0) return [];
+	const predecessors = new Array(sequence.length).fill(-1);
+	const positions = new Array(sequence.length).fill(0);
+	let length = 0;
+	for (let i = 0; i < sequence.length; i++) {
+		const value = sequence[i];
+		let low = 0;
+		let high = length;
+		while (low < high) {
+			const mid = low + high >> 1;
+			if (sequence[positions[mid]] < value) low = mid + 1;
+			else high = mid;
+		}
+		if (low > 0) predecessors[i] = positions[low - 1];
+		positions[low] = i;
+		if (low === length) length++;
+	}
+	const result = new Array(length);
+	let k = positions[length - 1];
+	for (let i = length - 1; i >= 0; i--) {
+		result[i] = k;
+		k = predecessors[k];
+	}
+	return result;
+}
+function repeatRaw(items, keyFn, factory) {
+	return directive((container, previousState) => {
+		if (!previousState) {
+			const parent = container.parentNode;
+			if (!parent) throw new Error("repeatRaw() directive: container must be attached to a parent node");
+			const startMarker = document.createComment("repeat-raw-start");
+			const endMarker = document.createComment("repeat-raw-end");
+			parent.replaceChild(startMarker, container);
+			parent.insertBefore(endMarker, startMarker.nextSibling);
+			const state = {
+				keyToItem: /* @__PURE__ */ new Map(),
+				startMarker,
+				endMarker
+			};
+			const fragment = document.createDocumentFragment();
+			for (let i = 0; i < items.length; i++) {
+				const item = items[i];
+				const key = keyFn(item, i);
+				const element = factory(item, i);
+				state.keyToItem.set(key, {
+					key,
+					element
+				});
+				fragment.appendChild(element);
+			}
+			parent.insertBefore(fragment, endMarker);
+			return state;
+		}
+		updateList(items, keyFn, factory, previousState);
+		return previousState;
+	}, "repeatRaw");
+}
+function updateList(newItems, keyFn, factory, state) {
+	const oldItems = state.keyToItem;
+	const newKeyToItem = /* @__PURE__ */ new Map();
+	const parent = state.startMarker.parentElement;
+	const endMarker = state.endMarker;
+	if (oldItems.size === newItems.length) {
+		let allMatch = true;
+		let i = 0;
+		for (const [key] of oldItems) {
+			if (key !== keyFn(newItems[i], i)) {
+				allMatch = false;
+				break;
+			}
+			i++;
+		}
+		if (allMatch) {
+			i = 0;
+			for (const [key, { element }] of oldItems) {
+				const item = newItems[i];
+				const newElement = factory(item, i);
+				if (element !== newElement) {
+					element.replaceWith(newElement);
+					newKeyToItem.set(key, {
+						key,
+						element: newElement
+					});
+				} else newKeyToItem.set(key, {
+					key,
+					element
+				});
+				i++;
+			}
+			state.keyToItem = newKeyToItem;
+			return;
+		}
+	}
+	const fragment = document.createDocumentFragment();
+	const usedKeys = /* @__PURE__ */ new Set();
+	for (let i = 0; i < newItems.length; i++) {
+		const item = newItems[i];
+		const key = keyFn(item, i);
+		usedKeys.add(key);
+		const existing = oldItems.get(key);
+		if (existing) {
+			const newElement = factory(item, i);
+			if (existing.element !== newElement) {
+				newKeyToItem.set(key, {
+					key,
+					element: newElement
+				});
+				fragment.appendChild(newElement);
+			} else {
+				newKeyToItem.set(key, existing);
+				fragment.appendChild(existing.element);
+			}
+		} else {
+			const element = factory(item, i);
+			newKeyToItem.set(key, {
+				key,
+				element
+			});
+			fragment.appendChild(element);
+		}
+	}
+	for (const [key, { element }] of oldItems) if (!usedKeys.has(key)) element.remove();
+	parent.insertBefore(fragment, endMarker);
+	state.keyToItem = newKeyToItem;
+}
+function when(condition, template, falseTemplate) {
+	return directive((container, previousState) => {
+		if (!previousState) {
+			const parent = container.parentNode;
+			if (!parent) throw new Error("when() directive: container must be attached to a parent node");
+			const startMarker = document.createComment("when-start");
+			const endMarker = document.createComment("when-end");
+			parent.replaceChild(startMarker, container);
+			parent.insertBefore(endMarker, startMarker.nextSibling);
+			const state = {
+				condition: false,
+				template: null,
+				falseTemplate: null,
+				container: null,
+				startMarker,
+				endMarker,
+				nodes: [],
+				__dispose: () => {
+					if (state.container) {
+						disposeContainerParts(state.container);
+						state.container = null;
+					}
+				}
+			};
+			if (condition) {
+				state.template = template();
+				renderContent(state, true);
+			} else if (falseTemplate) {
+				state.falseTemplate = falseTemplate();
+				renderContent(state, false);
+			}
+			state.condition = condition;
+			return state;
+		}
+		if (!previousState.startMarker.parentNode) throw new Error("when() directive: markers were removed from DOM");
+		if (condition && !previousState.condition) {
+			removeContent(previousState);
+			previousState.template = template();
+			renderContent(previousState, true);
+		} else if (!condition && previousState.condition) {
+			removeContent(previousState);
+			if (falseTemplate) {
+				previousState.falseTemplate = falseTemplate();
+				renderContent(previousState, false);
+			}
+		} else if (condition && previousState.condition) updateContent(previousState, template(), true);
+		else if (!condition && !previousState.condition && falseTemplate) updateContent(previousState, falseTemplate(), false);
+		previousState.condition = condition;
+		return previousState;
+	}, "when");
+}
+function renderContent(state, useTrueTemplate) {
+	const parent = state.startMarker.parentNode;
+	if (!parent) throw new Error("when() directive: markers not in DOM");
+	const templateToRender = useTrueTemplate ? state.template : state.falseTemplate;
+	if (!templateToRender) return;
+	const container = document.createDocumentFragment();
+	templateToRender.renderInto(container);
+	state.container = container;
+	state.nodes = Array.from(container.childNodes);
+	for (const node of state.nodes) parent.insertBefore(node, state.endMarker);
+}
+function updateContent(state, newTemplate, useTrueTemplate) {
+	const container = state.container;
+	if (container && container.__templateKey === newTemplate.templateKey) newTemplate.renderInto(container);
+	else {
+		removeContent(state);
+		if (useTrueTemplate) state.template = newTemplate;
+		else state.falseTemplate = newTemplate;
+		renderContent(state, useTrueTemplate);
+	}
+	if (useTrueTemplate) state.template = newTemplate;
+	else state.falseTemplate = newTemplate;
+}
+function removeContent(state) {
+	if (state.container) disposeContainerParts(state.container);
+	for (const node of state.nodes) node.parentNode?.removeChild(node);
+	state.nodes = [];
+	state.container = null;
+}
+function classMap(classes) {
+	return directive((container, previousClasses) => {
+		const element = container;
+		const currentClasses = /* @__PURE__ */ new Set();
+		for (const [className, shouldApply] of Object.entries(classes)) if (shouldApply) {
+			element.classList.add(className);
+			currentClasses.add(className);
+		}
+		if (previousClasses) {
+			for (const className of previousClasses) if (!currentClasses.has(className)) element.classList.remove(className);
+		}
+		return currentClasses;
+	}, "classMap");
+}
+function styleMap(styles) {
+	return directive((container, previousStyles) => {
+		const element = container;
+		const currentStyles = /* @__PURE__ */ new Set();
+		for (const [property, value] of Object.entries(styles)) if (value !== void 0) {
+			element.style.setProperty(property.replace(/([A-Z])/g, "-$1").toLowerCase(), String(value));
+			currentStyles.add(property);
+		}
+		if (previousStyles) {
+			for (const property of previousStyles) if (!currentStyles.has(property)) element.style.removeProperty(property.replace(/([A-Z])/g, "-$1").toLowerCase());
+		}
+		return currentStyles;
+	}, "styleMap");
+}
+function unsafeHTML(html$1) {
+	return directive((container, previousState) => {
+		if (!previousState) {
+			const parent = container.parentNode;
+			if (!parent) throw new Error("unsafeHTML() directive: container must be attached to a parent node");
+			const startMarker = document.createComment("unsafeHTML-start");
+			const endMarker = document.createComment("unsafeHTML-end");
+			parent.replaceChild(startMarker, container);
+			parent.insertBefore(endMarker, startMarker.nextSibling);
+			const state = {
+				html: "",
+				startMarker,
+				endMarker,
+				nodes: []
+			};
+			renderHTML(html$1, state);
+			return state;
+		}
+		if (previousState.html === html$1) return previousState;
+		renderHTML(html$1, previousState);
+		return previousState;
+	}, "unsafeHTML");
+}
+function renderHTML(html$1, state) {
+	const parent = state.startMarker.parentNode;
+	if (!parent) throw new Error("unsafeHTML() directive: markers not in DOM");
+	for (const node of state.nodes) node.parentNode?.removeChild(node);
+	const temp = document.createElement("div");
+	temp.innerHTML = html$1;
+	const fragment = document.createDocumentFragment();
+	while (temp.firstChild) fragment.appendChild(temp.firstChild);
+	state.nodes = Array.from(fragment.childNodes);
+	for (const node of state.nodes) parent.insertBefore(node, state.endMarker);
+	state.html = html$1;
+}
+function resolveTarget(target) {
+	if (typeof target === "string") return document.querySelector(target);
+	return target;
+}
+function parsePortalValue(value) {
+	if (typeof value === "string") return {
+		target: value,
+		persist: false
+	};
+	if (value instanceof Element) return {
+		target: value,
+		persist: false
+	};
+	return {
+		target: value.target,
+		persist: value.persist ?? false
+	};
+}
+function portalDirective(element, value, _) {
+	if (!value) {
+		console.warn("portal directive: value is required");
+		return;
+	}
+	const options = parsePortalValue(value);
+	const targetElement = resolveTarget(options.target);
+	if (!targetElement) {
+		console.warn(`portal directive: target "${options.target}" not found`);
+		return;
+	}
+	if (element.parentNode === targetElement) return;
+	const placeholder = document.createComment("portal-placeholder");
+	element.parentNode?.insertBefore(placeholder, element);
+	element.removeAttribute(":portal");
+	targetElement.appendChild(element);
+	return () => {
+		if (!options.persist) element.remove();
+		placeholder.remove();
+	};
+}
+registerAttributeDirective("portal", portalDirective);
+var Directive = class {
+	constructor() {
+		this.__directive = true;
+	}
+};
 const primitiveColors = {
 	"--ml-white": "#ffffff",
 	"--ml-black": "#000000",
@@ -4808,8 +5373,23 @@ function notifyListeners(theme, resolved) {
 function toggleTheme() {
 	applyTheme(getResolvedTheme() === "light" ? "dark" : "light");
 }
+var THEME_NAME_PATTERN = /^[a-z0-9-]+$/;
+var TOKEN_NAME_PATTERN = /^--[a-zA-Z0-9_-]+$/;
+var UNSAFE_VALUE_PATTERN = /[;{}<>\u0000-\u001f\u007f]/;
+function assertValidThemeName(name) {
+	if (!THEME_NAME_PATTERN.test(name)) throw new Error(`[melodic] Invalid theme name "${name}". Theme names may only contain lowercase letters, digits, and hyphens (matching ${THEME_NAME_PATTERN}).`);
+}
+function assertValidOverride(key, value) {
+	if (!TOKEN_NAME_PATTERN.test(key)) throw new Error(`[melodic] Invalid theme token "${key}". Token names must be CSS custom properties (e.g. "--ml-color-primary") matching ${TOKEN_NAME_PATTERN}.`);
+	if (UNSAFE_VALUE_PATTERN.test(value)) throw new Error(`[melodic] Invalid value for theme token "${key}". Values must not contain ";", "{", "}", "<", ">", or control characters.`);
+}
 function createTheme(name, overrides) {
-	return `[data-theme="${name}"] {\n\t${Object.entries(overrides).map(([key, value]) => `${key}: ${value};`).join("\n	")}\n}`;
+	assertValidThemeName(name);
+	return `[data-theme="${name}"] {\n\t${Object.entries(overrides).map(([key, value]) => {
+		const stringValue = String(value ?? "");
+		assertValidOverride(key, stringValue);
+		return `${key}: ${stringValue};`;
+	}).join("\n	")}\n}`;
 }
 function injectTheme(name, overrides) {
 	if (typeof document === "undefined") throw new Error("injectTheme requires a DOM (document is undefined).");
@@ -4822,19 +5402,22 @@ function injectTheme(name, overrides) {
 	document.head.appendChild(style);
 	return style;
 }
-function setColorWithVariants(overrides, token, color) {
+function setColorWithVariants(overrides, token, color, mode) {
+	const interactionMix = mode === "dark" ? "white" : "black";
+	const subtleMix = mode === "dark" ? "black" : "white";
 	overrides[token] = color;
-	overrides[`${token}-hover`] = `color-mix(in srgb, ${color}, black 12%)`;
-	overrides[`${token}-active`] = `color-mix(in srgb, ${color}, black 22%)`;
-	overrides[`${token}-subtle`] = `color-mix(in srgb, ${color}, white 88%)`;
+	overrides[`${token}-hover`] = `color-mix(in srgb, ${color}, ${interactionMix} 12%)`;
+	overrides[`${token}-active`] = `color-mix(in srgb, ${color}, ${interactionMix} 22%)`;
+	overrides[`${token}-subtle`] = `color-mix(in srgb, ${color}, ${subtleMix} 88%)`;
 }
 function createBrandTheme(name, options) {
 	const overrides = {};
-	if (options.primary) setColorWithVariants(overrides, "--ml-color-primary", options.primary);
-	if (options.secondary) setColorWithVariants(overrides, "--ml-color-secondary", options.secondary);
-	if (options.success) setColorWithVariants(overrides, "--ml-color-success", options.success);
-	if (options.warning) setColorWithVariants(overrides, "--ml-color-warning", options.warning);
-	if (options.danger) setColorWithVariants(overrides, "--ml-color-danger", options.danger);
+	const mode = options.mode ?? "light";
+	if (options.primary) setColorWithVariants(overrides, "--ml-color-primary", options.primary, mode);
+	if (options.secondary) setColorWithVariants(overrides, "--ml-color-secondary", options.secondary, mode);
+	if (options.success) setColorWithVariants(overrides, "--ml-color-success", options.success, mode);
+	if (options.warning) setColorWithVariants(overrides, "--ml-color-warning", options.warning, mode);
+	if (options.danger) setColorWithVariants(overrides, "--ml-color-danger", options.danger, mode);
 	return createTheme(name, overrides);
 }
 function getBasePlacement(reference, floating, placement) {
@@ -4901,13 +5484,14 @@ function computePosition(reference, floating, config = {}) {
 	for (const mw of middleware) {
 		const result = mw.fn(state);
 		if (result) {
+			const { middlewareData: resultData, ...rest } = result;
 			state = {
 				...state,
-				...result
-			};
-			if (result.middlewareData) state.middlewareData = {
-				...state.middlewareData,
-				...result.middlewareData
+				...rest,
+				middlewareData: resultData ? {
+					...state.middlewareData,
+					...resultData
+				} : state.middlewareData
 			};
 		}
 	}
@@ -4971,6 +5555,7 @@ function autoUpdate(reference, floating, update, options = {}) {
 		observer.observe(floating);
 		cleanups.push(() => observer.disconnect());
 	}
+	update();
 	if (animationFrame) {
 		let frameId;
 		const frameLoop = () => {
@@ -5015,9 +5600,40 @@ function offset(options = 0) {
 			}
 			return {
 				x: newX,
-				y: newY
+				y: newY,
+				middlewareData: { offset: {
+					mainAxis,
+					crossAxis
+				} }
 			};
 		}
+	};
+}
+function applyOffsetToPosition(position, side, offsetData) {
+	const { mainAxis, crossAxis } = offsetData;
+	let { x, y } = position;
+	switch (side) {
+		case "top":
+			y -= mainAxis;
+			x += crossAxis;
+			break;
+		case "bottom":
+			y += mainAxis;
+			x += crossAxis;
+			break;
+		case "left":
+			x -= mainAxis;
+			y += crossAxis;
+			break;
+		case "right":
+			x += mainAxis;
+			y += crossAxis;
+			break;
+		default: break;
+	}
+	return {
+		x,
+		y
 	};
 }
 function detectOverflow(x, y, floating, padding) {
@@ -5046,14 +5662,17 @@ function flip(options = {}) {
 	return {
 		name: "flip",
 		fn(state) {
-			const { x, y, placement, rects } = state;
+			const { x, y, placement, rects, middlewareData } = state;
 			const side = getSide(placement);
 			if (!hasOverflow(detectOverflow(x, y, rects.floating, padding), side)) return;
+			const offsetData = middlewareData.offset;
 			const oppositePlacement = getOppositePlacement(placement);
 			const fallbacks = options.fallbackPlacements ?? [oppositePlacement];
 			for (const fallback of fallbacks) {
-				const newPos = getBasePlacementForFlip(rects.reference, rects.floating, fallback);
-				if (!hasOverflow(detectOverflow(newPos.x, newPos.y, rects.floating, padding), getSide(fallback))) return {
+				const newSide = getSide(fallback);
+				let newPos = getBasePlacementForFlip(rects.reference, rects.floating, fallback);
+				if (offsetData) newPos = applyOffsetToPosition(newPos, newSide, offsetData);
+				if (!hasOverflow(detectOverflow(newPos.x, newPos.y, rects.floating, padding), newSide)) return {
 					x: newPos.x,
 					y: newPos.y,
 					placement: fallback
@@ -5105,23 +5724,27 @@ function getBasePlacementForFlip(reference, floating, placement) {
 	};
 }
 function shift(options = {}) {
-	const { padding = 0, mainAxis = true, crossAxis = true } = options;
+	const { padding = 0, mainAxis = false, crossAxis = true } = options;
 	return {
 		name: "shift",
 		fn(state) {
-			const { x, y, rects } = state;
+			const { x, y, placement, rects } = state;
 			const viewport = {
 				width: window.innerWidth,
 				height: window.innerHeight
 			};
+			const side = getSide(placement);
+			const isVerticalPlacement = side === "top" || side === "bottom";
+			const shiftX = isVerticalPlacement ? crossAxis : mainAxis;
+			const shiftY = isVerticalPlacement ? mainAxis : crossAxis;
 			let newX = x;
 			let newY = y;
-			if (crossAxis || mainAxis) {
+			if (shiftX) {
 				const minX = padding;
 				const maxX = viewport.width - rects.floating.width - padding;
 				newX = Math.max(minX, Math.min(newX, maxX));
 			}
-			if (crossAxis || mainAxis) {
+			if (shiftY) {
 				const minY = padding;
 				const maxY = viewport.height - rects.floating.height - padding;
 				newY = Math.max(minY, Math.min(newY, maxY));
@@ -5207,22 +5830,51 @@ function focusLast(container) {
 	}
 	return false;
 }
+function getDeepActiveElement() {
+	let active = document.activeElement;
+	while (active?.shadowRoot?.activeElement) active = active.shadowRoot.activeElement;
+	return active;
+}
+function isDeepFocusWithin(container) {
+	let node = getDeepActiveElement();
+	while (node) {
+		if (node === container) return true;
+		node = node instanceof ShadowRoot ? node.host : node.parentNode;
+	}
+	return false;
+}
+function collectFocusables(container) {
+	const slots = Array.from(container.querySelectorAll("slot"));
+	if (slots.length === 0) return getFocusableElements(container);
+	const focusables = getFocusableElements(container);
+	for (const slot of slots) for (const assigned of slot.assignedElements({ flatten: true })) if (assigned instanceof HTMLElement) {
+		focusables.push(...getFocusableElements(assigned));
+		if (assigned.matches("a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex=\"-1\"])")) focusables.push(assigned);
+	}
+	return focusables;
+}
 function createFocusTrap(container, options = {}) {
 	const { initialFocus = null, returnFocus = null, autoFocus = true } = options;
 	let active = false;
 	let previouslyFocused = null;
+	const containerRoot = container.getRootNode();
+	const hostEl = containerRoot instanceof ShadowRoot ? containerRoot.host : null;
+	const handledEvents = /* @__PURE__ */ new WeakSet();
 	function handleKeydown(event) {
 		if (event.key !== "Tab" || !active) return;
-		const focusables = getFocusableElements(container);
+		if (handledEvents.has(event)) return;
+		handledEvents.add(event);
+		const focusables = collectFocusables(container);
 		if (focusables.length === 0) return;
 		const first = focusables[0];
 		const last = focusables[focusables.length - 1];
+		const activeElement = getDeepActiveElement();
 		if (event.shiftKey) {
-			if (document.activeElement === first) {
+			if (activeElement === first) {
 				event.preventDefault();
 				last.focus();
 			}
-		} else if (document.activeElement === last) {
+		} else if (activeElement === last) {
 			event.preventDefault();
 			first.focus();
 		}
@@ -5230,18 +5882,21 @@ function createFocusTrap(container, options = {}) {
 	function activate() {
 		if (active) return;
 		active = true;
-		previouslyFocused = document.activeElement;
+		previouslyFocused = getDeepActiveElement();
 		container.addEventListener("keydown", handleKeydown);
+		hostEl?.addEventListener("keydown", handleKeydown);
 		if (initialFocus) initialFocus.focus();
 		else if (autoFocus) {
-			const first = getFirstFocusable(container);
+			const first = collectFocusables(container)[0];
 			if (first) first.focus();
 		}
 	}
-	function deactivate() {
+	function deactivate(deactivateOptions = {}) {
 		if (!active) return;
 		active = false;
 		container.removeEventListener("keydown", handleKeydown);
+		hostEl?.removeEventListener("keydown", handleKeydown);
+		if (deactivateOptions.returnFocus === false) return;
 		const focusTarget = returnFocus ?? previouslyFocused;
 		if (focusTarget && typeof focusTarget.focus === "function") focusTarget.focus();
 	}
@@ -5294,15 +5949,22 @@ function focusVisible(element, className = "focus-visible") {
 		element.classList.remove(className);
 	};
 }
-var liveRegion = null;
-function getLiveRegion() {
-	if (liveRegion && document.body.contains(liveRegion)) return liveRegion;
-	liveRegion = document.createElement("div");
-	liveRegion.id = "ml-live-region";
-	liveRegion.setAttribute("aria-live", "polite");
-	liveRegion.setAttribute("aria-atomic", "true");
-	liveRegion.setAttribute("role", "status");
-	Object.assign(liveRegion.style, {
+var CLEAR_DELAY_MS = 50;
+var MESSAGE_GAP_MS = 150;
+var regions = {
+	polite: {
+		element: null,
+		queue: [],
+		flushing: false
+	},
+	assertive: {
+		element: null,
+		queue: [],
+		flushing: false
+	}
+};
+function applyVisuallyHiddenStyles(element) {
+	Object.assign(element.style, {
 		position: "absolute",
 		width: "1px",
 		height: "1px",
@@ -5313,16 +5975,39 @@ function getLiveRegion() {
 		whiteSpace: "nowrap",
 		border: "0"
 	});
-	document.body.appendChild(liveRegion);
-	return liveRegion;
 }
-function announce(message, priority = "polite") {
-	const region = getLiveRegion();
+function getLiveRegion(priority) {
+	const state = regions[priority];
+	if (state.element && document.body.contains(state.element)) return state.element;
+	const region = document.createElement("div");
+	region.id = priority === "polite" ? "ml-live-region" : "ml-live-region-assertive";
 	region.setAttribute("aria-live", priority);
+	region.setAttribute("aria-atomic", "true");
+	region.setAttribute("role", priority === "assertive" ? "alert" : "status");
+	applyVisuallyHiddenStyles(region);
+	document.body.appendChild(region);
+	state.element = region;
+	return region;
+}
+function flushQueue(priority) {
+	const state = regions[priority];
+	const message = state.queue.shift();
+	if (message === void 0) {
+		state.flushing = false;
+		return;
+	}
+	state.flushing = true;
+	const region = getLiveRegion(priority);
 	region.textContent = "";
 	setTimeout(() => {
 		region.textContent = message;
-	}, 50);
+		setTimeout(() => flushQueue(priority), MESSAGE_GAP_MS);
+	}, CLEAR_DELAY_MS);
+}
+function announce(message, priority = "polite") {
+	const state = regions[priority];
+	state.queue.push(message);
+	if (!state.flushing) flushQueue(priority);
 }
 function createLiveRegion(options = {}) {
 	const { id, priority = "polite", atomic = true } = options;
@@ -5331,17 +6016,7 @@ function createLiveRegion(options = {}) {
 	region.setAttribute("aria-live", priority);
 	region.setAttribute("aria-atomic", atomic.toString());
 	region.setAttribute("role", "status");
-	Object.assign(region.style, {
-		position: "absolute",
-		width: "1px",
-		height: "1px",
-		padding: "0",
-		margin: "-1px",
-		overflow: "hidden",
-		clip: "rect(0, 0, 0, 0)",
-		whiteSpace: "nowrap",
-		border: "0"
-	});
+	applyVisuallyHiddenStyles(region);
 	return region;
 }
 const resetStyles = `
@@ -5448,8 +6123,7 @@ const componentBaseStyles = `
 `;
 function clickOutside(element, callback) {
 	function handleClick(event) {
-		const target = event.target;
-		if (!element.contains(target)) callback(event);
+		if (!event.composedPath().includes(element)) callback(event);
 	}
 	document.addEventListener("click", handleClick, true);
 	return () => {
@@ -5504,23 +6178,393 @@ const newID = () => {
 		return (c === "x" ? r : r & 3 | 8).toString(16);
 	});
 };
+function watchSlotPresence(shadow, onChange) {
+	shadow.querySelectorAll("slot").forEach((slot) => {
+		const update = () => {
+			const hasContent = slot.assignedNodes().some((node) => node.nodeType === Node.ELEMENT_NODE || (node.textContent ?? "").trim() !== "");
+			onChange(slot.name, hasContent);
+		};
+		slot.addEventListener("slotchange", update);
+		update();
+	});
+}
+var warned = /* @__PURE__ */ new Set();
+function warnDeprecatedOnce(key, message) {
+	if (warned.has(key)) return;
+	warned.add(key);
+	console.warn(message);
+}
+function warnDeprecatedTitleOnce(tag, replacement) {
+	warnDeprecatedOnce(`${tag}.title`, `[${tag}] The "title" attribute/property is deprecated because it collides with the global HTML title attribute (native tooltip). Use "${replacement}" instead. The "title" shim will be removed in the next major release.`);
+}
+function defineLegacyAliases(proto, tag, aliases) {
+	for (const [alias, prop] of Object.entries(aliases)) Object.defineProperty(proto, alias, {
+		get() {
+			return this[prop];
+		},
+		set(value) {
+			warnDeprecatedOnce(`${tag}.${alias}`, `[${tag}] The quoted "${alias}" property is deprecated — use the camelCase property "${prop}" (attribute "${alias}"). The alias will be removed in the next major release.`);
+			this[prop] = value;
+		},
+		enumerable: false,
+		configurable: true
+	});
+}
+var OverlayPositioner = class {
+	constructor(_getConfig) {
+		this._getConfig = _getConfig;
+		this._cleanupAutoUpdate = null;
+	}
+	get active() {
+		return this._cleanupAutoUpdate !== null;
+	}
+	start(triggerEl, floatingEl) {
+		this.stop();
+		this._cleanupAutoUpdate = autoUpdate(triggerEl, floatingEl, () => this.position(triggerEl, floatingEl));
+	}
+	stop() {
+		this._cleanupAutoUpdate?.();
+		this._cleanupAutoUpdate = null;
+	}
+	position(triggerEl, floatingEl) {
+		const config = this._getConfig();
+		if (config.matchTriggerWidth) floatingEl.style.width = `${triggerEl.offsetWidth}px`;
+		const middleware = [
+			offset(config.offset),
+			flip(),
+			shift({ padding: config.shiftPadding ?? 8 })
+		];
+		const arrowEl = config.arrowElement ?? null;
+		if (arrowEl) middleware.push(arrow({
+			element: arrowEl,
+			padding: config.arrowPadding ?? 8
+		}));
+		const { x, y, placement, middlewareData } = computePosition(triggerEl, floatingEl, {
+			placement: config.placement,
+			middleware
+		});
+		floatingEl.style.left = `${x}px`;
+		floatingEl.style.top = `${y}px`;
+		if (config.placementAttribute) floatingEl.dataset.placement = placement;
+		if (arrowEl && middlewareData.arrow) positionOverlayArrow(arrowEl, placement, middlewareData.arrow);
+	}
+};
+function positionOverlayArrow(arrowEl, placement, arrowData) {
+	const side = placement.split("-")[0];
+	arrowEl.style.left = arrowData.x === void 0 ? "" : `${arrowData.x}px`;
+	arrowEl.style.right = "";
+	arrowEl.style.top = arrowData.y === void 0 ? "" : `${arrowData.y}px`;
+	arrowEl.style.bottom = "";
+	if (side === "top") arrowEl.style.bottom = "-4px";
+	if (side === "bottom") arrowEl.style.top = "-4px";
+	if (side === "left") arrowEl.style.right = "-4px";
+	if (side === "right") arrowEl.style.left = "-4px";
+}
+var ToggleDismissGuard = class {
+	constructor() {
+		this._justDismissed = false;
+	}
+	dismissed() {
+		this._justDismissed = true;
+		setTimeout(() => {
+			this._justDismissed = false;
+		}, 0);
+	}
+	shouldSkipToggle() {
+		if (this._justDismissed) {
+			this._justDismissed = false;
+			return true;
+		}
+		return false;
+	}
+};
+function tooltipTemplate(c) {
+	return html`
+		<div class="ml-tooltip">
+			<div
+				class="ml-tooltip__trigger"
+				@mouseenter=${c.show}
+				@mouseleave=${c.hide}
+				@focusin=${c.show}
+				@focusout=${c.hide}
+			>
+				<slot></slot>
+			</div>
+			<div
+				id=${c.tooltipID}
+				class=${classMap({
+		"ml-tooltip__content": true,
+		"ml-tooltip__content--visible": c.isVisible
+	})}
+				role="tooltip"
+				aria-hidden=${!c.isVisible}
+			>
+				${c.content}
+				<div class="ml-tooltip__arrow"></div>
+			</div>
+		</div>
+	`;
+}
+const tooltipStyles = () => css`
+	:host {
+		/* ── Tooltip: content ──
+		   --ml-tooltip-max-width, --ml-tooltip-padding-y, --ml-tooltip-padding-x,
+		   --ml-tooltip-color, --ml-tooltip-font-size, --ml-tooltip-font-weight,
+		   --ml-tooltip-line-height, --ml-tooltip-radius, --ml-tooltip-shadow,
+		   --ml-tooltip-z-index, --ml-tooltip-transition-duration,
+		   --ml-tooltip-transition-easing
+		   ── Tooltip: arrow ──
+		   --ml-tooltip-arrow-size
+		   ── Theme-level ──
+		   --ml-tooltip-bg / --ml-tooltip-text are defined by the THEME (light and
+		   dark presets) and intentionally NOT re-declared here: shadowing
+		   --ml-tooltip-bg on :host would override the theme's dark value and
+		   consumer overrides, and a same-name alias would be self-referential.
+		   Rules reference var(--ml-tooltip-bg, fallback) directly. */
+		--ml-tooltip-max-width: 320px;
+		--ml-tooltip-padding-y: var(--ml-space-2);
+		--ml-tooltip-padding-x: var(--ml-space-3);
+		--ml-tooltip-color: var(--ml-tooltip-text, var(--ml-white));
+		--ml-tooltip-font-size: var(--ml-text-xs);
+		--ml-tooltip-font-weight: var(--ml-font-medium);
+		--ml-tooltip-line-height: var(--ml-leading-snug);
+		--ml-tooltip-radius: var(--ml-radius);
+		--ml-tooltip-shadow: var(--ml-shadow-lg);
+		--ml-tooltip-z-index: 9999;
+		--ml-tooltip-transition-duration: var(--ml-duration-150);
+		--ml-tooltip-transition-easing: var(--ml-ease-out);
+
+		/* Arrow */
+		--ml-tooltip-arrow-size: 8px;
+
+		display: inline-block;
+	}
+
+	.ml-tooltip {
+		position: relative;
+		display: inline-block;
+	}
+
+	.ml-tooltip__trigger {
+		display: inline-block;
+	}
+
+	.ml-tooltip__content {
+		position: fixed;
+		z-index: var(--ml-tooltip-z-index);
+		max-width: var(--ml-tooltip-max-width);
+		padding: var(--ml-tooltip-padding-y) var(--ml-tooltip-padding-x);
+		background-color: var(--ml-tooltip-bg, var(--ml-gray-900));
+		color: var(--ml-tooltip-color);
+		font-size: var(--ml-tooltip-font-size);
+		font-weight: var(--ml-tooltip-font-weight);
+		line-height: var(--ml-tooltip-line-height);
+		border-radius: var(--ml-tooltip-radius);
+		box-shadow: var(--ml-tooltip-shadow);
+		text-align: center;
+		word-wrap: break-word;
+		pointer-events: none;
+		opacity: 0;
+		transform: scale(0.95);
+		transition:
+			opacity var(--ml-tooltip-transition-duration) var(--ml-tooltip-transition-easing),
+			transform var(--ml-tooltip-transition-duration) var(--ml-tooltip-transition-easing);
+	}
+
+	.ml-tooltip__content--visible {
+		opacity: 1;
+		transform: scale(1);
+	}
+
+	.ml-tooltip__arrow {
+		position: absolute;
+		width: var(--ml-tooltip-arrow-size);
+		height: var(--ml-tooltip-arrow-size);
+		background-color: var(--ml-tooltip-bg, var(--ml-gray-900));
+		transform: rotate(45deg);
+	}
+
+	.ml-tooltip__content[data-placement^='top'] .ml-tooltip__arrow {
+		bottom: -4px;
+	}
+
+	.ml-tooltip__content[data-placement^='bottom'] .ml-tooltip__arrow {
+		top: -4px;
+	}
+
+	.ml-tooltip__content[data-placement^='left'] .ml-tooltip__arrow {
+		right: -4px;
+	}
+
+	.ml-tooltip__content[data-placement^='right'] .ml-tooltip__arrow {
+		left: -4px;
+	}
+`;
+var TooltipComponent = class TooltipComponent$1 {
+	constructor() {
+		this.content = "";
+		this.placement = "top";
+		this.delay = 200;
+		this.isVisible = false;
+		this.anchorEl = null;
+		this.tooltipID = newID();
+		this._showTimeout = null;
+		this._hideTimeout = null;
+		this._positioner = new OverlayPositioner(() => ({
+			placement: this.placement,
+			offset: 8,
+			arrowElement: this.elementRef.shadowRoot?.querySelector(".ml-tooltip__arrow"),
+			placementAttribute: true
+		}));
+		this.show = () => {
+			if (this._hideTimeout) {
+				clearTimeout(this._hideTimeout);
+				this._hideTimeout = null;
+			}
+			this._showTimeout = window.setTimeout(() => {
+				this.isVisible = true;
+				this.startPositioning();
+				document.addEventListener("keydown", this.handleDocumentKeydown, true);
+			}, this.delay);
+		};
+		this.hide = () => {
+			if (this._showTimeout) {
+				clearTimeout(this._showTimeout);
+				this._showTimeout = null;
+			}
+			this._hideTimeout = window.setTimeout(() => {
+				this.dismiss();
+			}, 100);
+		};
+		this.handleDocumentKeydown = (event) => {
+			if (event.key !== "Escape") return;
+			if (this._showTimeout) {
+				clearTimeout(this._showTimeout);
+				this._showTimeout = null;
+			}
+			if (this._hideTimeout) {
+				clearTimeout(this._hideTimeout);
+				this._hideTimeout = null;
+			}
+			this.dismiss();
+		};
+		this.syncTriggerAria = () => {
+			const trigger = ((this.elementRef.shadowRoot?.querySelector(".ml-tooltip__trigger slot"))?.assignedElements() ?? [])[0];
+			if (trigger && !trigger.hasAttribute("aria-describedby")) trigger.setAttribute("aria-describedby", this.tooltipID);
+		};
+	}
+	onCreate() {
+		this.elementRef.shadowRoot?.addEventListener("slotchange", this.syncTriggerAria);
+		this.syncTriggerAria();
+	}
+	onDestroy() {
+		if (this._showTimeout) clearTimeout(this._showTimeout);
+		if (this._hideTimeout) clearTimeout(this._hideTimeout);
+		this.stopPositioning();
+		document.removeEventListener("keydown", this.handleDocumentKeydown, true);
+		this.elementRef.shadowRoot?.removeEventListener("slotchange", this.syncTriggerAria);
+	}
+	dismiss() {
+		this.isVisible = false;
+		this.stopPositioning();
+		document.removeEventListener("keydown", this.handleDocumentKeydown, true);
+	}
+	startPositioning() {
+		const trigger = this.getReferenceEl();
+		const tooltip = this.elementRef.shadowRoot?.querySelector(".ml-tooltip__content");
+		if (!trigger || !tooltip) return;
+		this._positioner.start(trigger, tooltip);
+	}
+	stopPositioning() {
+		this._positioner.stop();
+	}
+	getReferenceEl() {
+		return this.anchorEl ?? this.elementRef.shadowRoot?.querySelector(".ml-tooltip__trigger");
+	}
+};
+TooltipComponent = __decorate([MelodicComponent({
+	selector: "ml-tooltip",
+	template: tooltipTemplate,
+	styles: tooltipStyles,
+	attributes: [
+		"content",
+		"placement",
+		"delay"
+	]
+})], TooltipComponent);
+var tooltipStates = /* @__PURE__ */ new WeakMap();
 function parseValue(value) {
 	if (typeof value === "string") return { content: value };
 	if (value && typeof value === "object" && "content" in value) return value;
 	return { content: String(value ?? "") };
 }
+function ensureInserted(element, tooltip) {
+	if (tooltip.isConnected || !element.parentNode) return;
+	element.parentNode.insertBefore(tooltip, element.nextSibling);
+}
+function createState$1(element) {
+	const tooltip = document.createElement("ml-tooltip");
+	tooltip.style.position = "absolute";
+	tooltip.style.width = "0";
+	tooltip.style.height = "0";
+	tooltip.style.overflow = "visible";
+	tooltip.anchorEl = element;
+	const component = tooltip.component;
+	const show = () => {
+		ensureInserted(element, tooltip);
+		component?.show();
+	};
+	const hide = () => {
+		component?.hide();
+	};
+	element.addEventListener("mouseenter", show);
+	element.addEventListener("mouseleave", hide);
+	element.addEventListener("focusin", show);
+	element.addEventListener("focusout", hide);
+	const state = {
+		tooltip,
+		pendingRemoval: false,
+		ownsDescribedBy: false,
+		show,
+		hide
+	};
+	const contentID = component?.tooltipID;
+	if (contentID && !element.hasAttribute("aria-describedby")) {
+		element.setAttribute("aria-describedby", contentID);
+		state.ownsDescribedBy = true;
+	}
+	return state;
+}
+function destroyState(element, state) {
+	element.removeEventListener("mouseenter", state.show);
+	element.removeEventListener("mouseleave", state.hide);
+	element.removeEventListener("focusin", state.show);
+	element.removeEventListener("focusout", state.hide);
+	if (state.ownsDescribedBy) element.removeAttribute("aria-describedby");
+	state.tooltip.anchorEl = null;
+	state.tooltip.remove();
+	if (tooltipStates.get(element) === state) tooltipStates.delete(element);
+}
 function tooltipDirective(element, value) {
 	if (!value) return;
 	const { content, placement } = parseValue(value);
 	if (!content) return;
-	const tooltip = document.createElement("ml-tooltip");
-	tooltip.setAttribute("content", content);
-	if (placement) tooltip.setAttribute("placement", placement);
-	element.parentNode?.insertBefore(tooltip, element);
-	tooltip.appendChild(element);
+	let state = tooltipStates.get(element);
+	if (state) state.pendingRemoval = false;
+	else {
+		state = createState$1(element);
+		tooltipStates.set(element, state);
+	}
+	if (state.tooltip.getAttribute("content") !== content) state.tooltip.setAttribute("content", content);
+	const resolvedPlacement = placement ?? "top";
+	if (state.tooltip.getAttribute("placement") !== resolvedPlacement) state.tooltip.setAttribute("placement", resolvedPlacement);
+	ensureInserted(element, state.tooltip);
+	const currentState = state;
 	return () => {
-		tooltip.parentNode?.insertBefore(element, tooltip);
-		tooltip.remove();
+		currentState.pendingRemoval = true;
+		queueMicrotask(() => {
+			if (currentState.pendingRemoval) destroyState(element, currentState);
+		});
 	};
 }
 registerAttributeDirective("tooltip", tooltipDirective);
@@ -5650,7 +6694,7 @@ SpinnerComponent = __decorate([MelodicComponent({
 function buttonTemplate(c) {
 	const classes = classMap({
 		"ml-button": true,
-		[`ml-button--${c.variant}`]: true,
+		[`ml-button--${c.resolvedVariant}`]: true,
 		[`ml-button--${c.size}`]: true,
 		"ml-button--disabled": c.isDisabled,
 		"ml-button--loading": c.loading,
@@ -5961,6 +7005,8 @@ var ButtonComponent = class ButtonComponent$1 {
 		this.target = null;
 		this.rel = null;
 		this.download = null;
+		this._internals = null;
+		this._internalsAttached = false;
 		this.handleClick = (event) => {
 			if (this.isDisabled) {
 				event.preventDefault();
@@ -5972,13 +7018,50 @@ var ButtonComponent = class ButtonComponent$1 {
 				composed: true,
 				detail: { originalEvent: event }
 			}));
+			if (this.href == null && !event.defaultPrevented) {
+				if (this.type === "submit") this.submitForm();
+				else if (this.type === "reset") this.findForm()?.reset();
+			}
 		};
-	}
-	onInit() {
-		if (!this.elementRef.hasAttribute("role")) this.elementRef.setAttribute("role", "button");
 	}
 	get isDisabled() {
 		return this.disabled || this.loading;
+	}
+	get resolvedVariant() {
+		return this.variant === "error" ? "danger" : this.variant;
+	}
+	submitForm() {
+		const form = this.findForm();
+		if (!form) return;
+		if (typeof form.requestSubmit === "function") form.requestSubmit();
+		else form.submit();
+	}
+	findForm() {
+		const viaInternals = this.getInternalsForm();
+		if (viaInternals) return viaInternals;
+		let el = this.elementRef;
+		while (el) {
+			const form = el.closest("form");
+			if (form) return form;
+			const root = el.getRootNode();
+			el = root instanceof ShadowRoot ? root.host : null;
+		}
+		return null;
+	}
+	getInternalsForm() {
+		if (this._internals === null && !this._internalsAttached) {
+			this._internalsAttached = true;
+			try {
+				if (typeof this.elementRef.attachInternals === "function") this._internals = this.elementRef.attachInternals();
+			} catch {
+				this._internals = null;
+			}
+		}
+		try {
+			return this._internals?.form ?? null;
+		} catch {
+			return null;
+		}
 	}
 };
 ButtonComponent = __decorate([MelodicComponent({
@@ -6003,23 +7086,31 @@ function buttonGroupTemplate(c) {
 		<div
 			class=${classMap({
 		"ml-button-group": true,
-		"ml-button-group--disabled": c.disabled
+		"ml-button-group--disabled": c.disabled,
+		"ml-button-group--error": !!c.error
 	})}
 			role="group"
 		>
 			<slot @slotchange=${c.handleSlotChange}></slot>
 		</div>
+		${when(!!c.error, () => html`<span class="ml-button-group__error">${c.error}</span>`)}
 	`;
 }
 const buttonGroupStyles = () => css`
 	:host {
-		display: inline-flex;
+		display: inline-block;
 
 		/* --- Disabled --- */
 		--ml-button-group-disabled-opacity: 0.5;
 
 		/* --- Spacing --- */
 		--ml-button-group-item-offset: -1px;
+
+		/* --- Error --- */
+		--ml-button-group-error-font-size: var(--ml-text-sm);
+		--ml-button-group-error-color: var(--ml-color-danger);
+		--ml-button-group-error-margin-top: var(--ml-space-1);
+		--ml-button-group-error-line-height: var(--ml-leading-tight);
 	}
 
 	.ml-button-group {
@@ -6030,6 +7121,14 @@ const buttonGroupStyles = () => css`
 	.ml-button-group--disabled {
 		opacity: var(--ml-button-group-disabled-opacity);
 		pointer-events: none;
+	}
+
+	.ml-button-group__error {
+		display: block;
+		margin-top: var(--ml-button-group-error-margin-top);
+		font-size: var(--ml-button-group-error-font-size);
+		color: var(--ml-button-group-error-color);
+		line-height: var(--ml-button-group-error-line-height);
 	}
 
 	::slotted(ml-button-group-item) {
@@ -6064,6 +7163,7 @@ var ButtonGroupComponent = class ButtonGroupComponent$1 {
 		this.disabled = false;
 		this.multiple = false;
 		this.values = [];
+		this.error = "";
 		this.handleSlotChange = () => {
 			this.syncItems();
 		};
@@ -6117,7 +7217,8 @@ ButtonGroupComponent = __decorate([MelodicComponent({
 		"variant",
 		"size",
 		"disabled",
-		"multiple"
+		"multiple",
+		"error"
 	]
 })], ButtonGroupComponent);
 function buttonGroupItemTemplate(c) {
@@ -6879,7 +7980,8 @@ function checkboxTemplate(c) {
 		[`ml-checkbox--${c.size}`]: true,
 		"ml-checkbox--checked": c.checked,
 		"ml-checkbox--indeterminate": c.indeterminate,
-		"ml-checkbox--disabled": c.disabled
+		"ml-checkbox--disabled": c.disabled,
+		"ml-checkbox--error": !!c.error
 	})}
 		>
 			<input
@@ -6888,6 +7990,7 @@ function checkboxTemplate(c) {
 				.checked=${c.checked}
 				.indeterminate=${c.indeterminate}
 				?disabled=${c.disabled}
+				aria-invalid=${c.error ? "true" : void 0}
 				@change=${c.handleChange}
 			/>
 			<span class="ml-checkbox__box">
@@ -6904,7 +8007,7 @@ function checkboxTemplate(c) {
 			</span>
 			${when(!!c.label, () => html`<span class="ml-checkbox__label">${c.label}</span>`)}
 		</label>
-		${when(!!c.hint, () => html`<span class="ml-checkbox__hint">${c.hint}</span>`)}
+		${when(!!c.error, () => html`<span class="ml-checkbox__error">${c.error}</span>`, () => html`${when(!!c.hint, () => html`<span class="ml-checkbox__hint">${c.hint}</span>`)}`)}
 	`;
 }
 const checkboxStyles = () => css`
@@ -6941,6 +8044,12 @@ const checkboxStyles = () => css`
 		/* --- Hint --- */
 		--ml-checkbox-hint-font-size: var(--ml-text-sm);
 		--ml-checkbox-hint-color: var(--ml-color-text-muted);
+
+		/* --- Error --- */
+		--ml-checkbox-error-border-color: var(--ml-color-danger);
+		--ml-checkbox-error-color: var(--ml-color-danger);
+		--ml-checkbox-error-margin-top: var(--ml-space-0-5);
+		--ml-checkbox-error-line-height: var(--ml-leading-tight);
 
 		/* --- Gap --- */
 		--ml-checkbox-gap: var(--ml-space-3);
@@ -7019,6 +8128,19 @@ const checkboxStyles = () => css`
 		line-height: var(--ml-leading-tight);
 	}
 
+	.ml-checkbox__error {
+		display: block;
+		margin-top: var(--ml-checkbox-error-margin-top);
+		margin-left: calc(var(--ml-checkbox-box-size) + var(--ml-checkbox-gap));
+		font-size: var(--ml-checkbox-hint-font-size);
+		color: var(--ml-checkbox-error-color);
+		line-height: var(--ml-checkbox-error-line-height);
+	}
+
+	.ml-checkbox--error .ml-checkbox__box {
+		border-color: var(--ml-checkbox-error-border-color);
+	}
+
 	.ml-checkbox--disabled {
 		cursor: not-allowed;
 		pointer-events: none;
@@ -7071,6 +8193,7 @@ var CheckboxComponent = class CheckboxComponent$1 {
 	constructor() {
 		this.label = "";
 		this.hint = "";
+		this.error = "";
 		this.size = "md";
 		this.checked = false;
 		this.indeterminate = false;
@@ -7097,6 +8220,7 @@ CheckboxComponent = __decorate([MelodicComponent({
 	attributes: [
 		"label",
 		"hint",
+		"error",
 		"size",
 		"checked",
 		"indeterminate",
@@ -7118,6 +8242,7 @@ function radioTemplate(c) {
 				class="ml-radio__input"
 				name="${c.name}"
 				value="${c.value}"
+				tabindex=${c.tabbable ? "0" : "-1"}
 				.checked=${c.checked}
 				?disabled=${c.disabled}
 				@change=${c.handleChange}
@@ -7297,6 +8422,7 @@ var RadioComponent = class RadioComponent$1 {
 		this.size = "md";
 		this.checked = false;
 		this.disabled = false;
+		this.tabbable = true;
 		this.handleChange = () => {
 			this.checked = true;
 			this.elementRef.dispatchEvent(new CustomEvent("ml:change", {
@@ -7334,7 +8460,7 @@ function radioGroupTemplate(c) {
 		"ml-radio-group--error": !!c.error
 	})}
 			role="radiogroup"
-			aria-labelledby=${c.label ? "legend" : ""}
+			aria-labelledby=${c.label ? "legend" : void 0}
 		>
 			${when(!!c.label, () => html`
 					<legend id="legend" class="ml-radio-group__legend">
@@ -7434,6 +8560,7 @@ var RadioGroupComponent = class RadioGroupComponent$1 {
 		this.required = false;
 		this.handleChildChange = (event) => {
 			if (event.target === this.elementRef) return;
+			event.stopImmediatePropagation();
 			this.value = event.detail.value;
 			this.updateChildRadios();
 			this.elementRef.dispatchEvent(new CustomEvent("ml:change", {
@@ -7442,9 +8569,26 @@ var RadioGroupComponent = class RadioGroupComponent$1 {
 				detail: { value: this.value }
 			}));
 		};
+		this.handleKeyDown = (event) => {
+			if (this.disabled) return;
+			let direction = 0;
+			if (event.key === "ArrowRight" || event.key === "ArrowDown") direction = 1;
+			else if (event.key === "ArrowLeft" || event.key === "ArrowUp") direction = -1;
+			else return;
+			const radios = this.getEnabledRadios();
+			if (radios.length === 0) return;
+			event.preventDefault();
+			const originRadio = event.target?.closest?.("ml-radio") ?? null;
+			let index = originRadio ? radios.indexOf(originRadio) : -1;
+			if (index === -1) index = radios.findIndex((radio) => this.getRadioValue(radio) === this.value && this.value !== "");
+			if (index === -1) index = direction === 1 ? -1 : 0;
+			const next = radios[(index + direction + radios.length) % radios.length];
+			this.selectRadio(next);
+		};
 	}
 	onInit() {
 		this.elementRef.addEventListener("ml:change", this.handleChildChange);
+		this.elementRef.addEventListener("keydown", this.handleKeyDown);
 	}
 	onCreate() {
 		(this.elementRef.shadowRoot?.querySelector("slot"))?.addEventListener("slotchange", () => this.updateChildRadios());
@@ -7452,19 +8596,42 @@ var RadioGroupComponent = class RadioGroupComponent$1 {
 	onRender() {
 		this.updateChildRadios();
 	}
+	selectRadio(radio) {
+		this.value = this.getRadioValue(radio);
+		this.updateChildRadios();
+		this.focusRadio(radio);
+		this.elementRef.dispatchEvent(new CustomEvent("ml:change", {
+			bubbles: true,
+			composed: true,
+			detail: { value: this.value }
+		}));
+	}
+	focusRadio(radio) {
+		(radio.shadowRoot?.querySelector(".ml-radio__input"))?.focus();
+	}
+	getRadioValue(radio) {
+		return radio.value ?? radio.getAttribute("value") ?? "";
+	}
+	getEnabledRadios() {
+		return Array.from(this.elementRef.querySelectorAll("ml-radio")).filter((radio) => radio.disabled !== true && !radio.hasAttribute("disabled"));
+	}
 	updateChildRadios() {
 		const radios = this.elementRef.querySelectorAll("ml-radio");
 		if (this.value === "") {
 			for (const radio of radios) if (radio.checked === true || radio.hasAttribute("checked")) {
-				this.value = radio.value ?? radio.getAttribute("value") ?? "";
+				this.value = this.getRadioValue(radio);
 				break;
 			}
 		}
+		let tabbableRadio = null;
+		if (this.value !== "") tabbableRadio = Array.from(radios).find((radio) => this.getRadioValue(radio) === this.value && radio.disabled !== true && !radio.hasAttribute("disabled")) ?? null;
+		if (!tabbableRadio) tabbableRadio = this.getEnabledRadios()[0] ?? null;
 		radios.forEach((radio) => {
 			if (this.name) radio.name = this.name;
 			radio.disabled = this.disabled;
-			const radioValue = radio.value ?? radio.getAttribute("value") ?? "";
+			const radioValue = this.getRadioValue(radio);
 			radio.checked = this.value !== "" && radioValue === this.value;
+			radio.tabbable = radio === tabbableRadio;
 		});
 	}
 };
@@ -7960,16 +9127,24 @@ function toggleTemplate(c) {
 		"ml-toggle": true,
 		[`ml-toggle--${c.size}`]: true,
 		"ml-toggle--checked": c.checked,
-		"ml-toggle--disabled": c.disabled
+		"ml-toggle--disabled": c.disabled,
+		"ml-toggle--error": !!c.error
 	})}
 		>
-			<input type="checkbox" class="ml-toggle__input" .checked=${c.checked} ?disabled=${c.disabled} @change=${c.handleChange} />
+			<input
+				type="checkbox"
+				class="ml-toggle__input"
+				.checked=${c.checked}
+				?disabled=${c.disabled}
+				aria-invalid=${c.error ? "true" : void 0}
+				@change=${c.handleChange}
+			/>
 			<span class="ml-toggle__track">
 				<span class="ml-toggle__thumb"></span>
 			</span>
 			${when(!!c.label, () => html`<span class="ml-toggle__label">${c.label}</span>`)}
 		</label>
-		${when(!!c.hint, () => html`<span class="ml-toggle__hint">${c.hint}</span>`)}
+		${when(!!c.error, () => html`<span class="ml-toggle__error">${c.error}</span>`, () => html`${when(!!c.hint, () => html`<span class="ml-toggle__hint">${c.hint}</span>`)}`)}
 	`;
 }
 const toggleStyles = () => css`
@@ -8004,6 +9179,12 @@ const toggleStyles = () => css`
 		/* --- Hint --- */
 		--ml-toggle-hint-font-size: var(--ml-text-sm);
 		--ml-toggle-hint-color: var(--ml-color-text-muted);
+
+		/* --- Error --- */
+		--ml-toggle-error-track-bg: var(--ml-color-danger);
+		--ml-toggle-error-color: var(--ml-color-danger);
+		--ml-toggle-error-margin-top: var(--ml-space-1);
+		--ml-toggle-error-line-height: var(--ml-leading-tight);
 
 		/* --- Gap --- */
 		--ml-toggle-gap: var(--ml-space-3);
@@ -8131,6 +9312,19 @@ const toggleStyles = () => css`
 		color: var(--ml-toggle-hint-color);
 		line-height: var(--ml-leading-tight);
 	}
+
+	.ml-toggle__error {
+		display: block;
+		margin-top: var(--ml-toggle-error-margin-top);
+		margin-left: calc(var(--ml-toggle-track-width) + var(--ml-toggle-gap));
+		font-size: var(--ml-toggle-hint-font-size);
+		color: var(--ml-toggle-error-color);
+		line-height: var(--ml-toggle-error-line-height);
+	}
+
+	.ml-toggle--error.ml-toggle--checked .ml-toggle__track {
+		background-color: var(--ml-toggle-error-track-bg);
+	}
 `;
 registerAdapter((el) => el.tagName === "ML-TOGGLE", {
 	inputEvent: "ml:change",
@@ -8147,6 +9341,7 @@ var ToggleComponent = class ToggleComponent$1 {
 	constructor() {
 		this.label = "";
 		this.hint = "";
+		this.error = "";
 		this.size = "md";
 		this.checked = false;
 		this.disabled = false;
@@ -8171,6 +9366,7 @@ ToggleComponent = __decorate([MelodicComponent({
 	attributes: [
 		"label",
 		"hint",
+		"error",
 		"size",
 		"checked",
 		"disabled"
@@ -8190,7 +9386,7 @@ function selectTemplate(c) {
 	})}
 		>
 			${when(!!c.label, () => html`
-					<label class="ml-select__label">
+					<label id=${c.labelId} class="ml-select__label">
 						${c.label}
 						${when(c.required, () => html`<span class="ml-select__required">*</span>`)}
 					</label>
@@ -8203,7 +9399,9 @@ function selectTemplate(c) {
 					tabindex=${c.disabled ? "-1" : "0"}
 					aria-haspopup="listbox"
 					aria-expanded=${c.isOpen}
-					aria-labelledby=${c.label ? "label" : ""}
+					aria-controls=${c.listboxId}
+					aria-activedescendant=${c.activeDescendant}
+					aria-labelledby=${c.label ? c.labelId : void 0}
 					@click=${c.toggle}
 				>
 					<span class="ml-select__value">
@@ -8213,6 +9411,7 @@ function selectTemplate(c) {
 				</div>
 
 				<div
+					id=${c.listboxId}
 					class="ml-select__dropdown"
 					role="listbox"
 					popover="auto"
@@ -8262,6 +9461,7 @@ function renderOption(c, option, index) {
 	const isFocused = c.focusedIndex === index;
 	return html`
 		<div
+			id=${c.optionId(index)}
 			class=${classMap({
 		"ml-select__option": true,
 		"ml-select__option--selected": isSelected,
@@ -8743,15 +9943,19 @@ var SelectComponent = class SelectComponent$1 {
 		this.focusedIndex = -1;
 		this._handleKeyDown = this.onKeyDown.bind(this);
 		this._handlePopoverToggle = this.onPopoverToggle.bind(this);
-		this._handleScroll = null;
+		this._uid = newID();
+		this._positioner = new OverlayPositioner(() => ({
+			placement: "bottom-start",
+			offset: 4,
+			matchTriggerWidth: true
+		}));
 		this._lastCloseTime = 0;
 		this._syncingValues = false;
+		this.optionId = (index) => {
+			return `${this.listboxId}-option-${index}`;
+		};
 		this.toggle = () => {
 			if (this.disabled) return;
-			if (this.multiple) {
-				if (!this.isOpen) this.open();
-				return;
-			}
 			if (this.isOpen) this.close();
 			else if (Date.now() - this._lastCloseTime > 150) this.open();
 		};
@@ -8814,7 +10018,7 @@ var SelectComponent = class SelectComponent$1 {
 	}
 	onDestroy() {
 		this.elementRef.removeEventListener("keydown", this._handleKeyDown);
-		this.removeScrollListener();
+		this.stopPositioning();
 		this.getDropdownEl()?.removeEventListener("toggle", this._handlePopoverToggle);
 	}
 	onPropertyChange(name) {
@@ -8872,6 +10076,15 @@ var SelectComponent = class SelectComponent$1 {
 	get hasValue() {
 		return this.multiple ? this.values.length > 0 : !!this.value;
 	}
+	get labelId() {
+		return `ml-select-label-${this._uid}`;
+	}
+	get listboxId() {
+		return `ml-select-listbox-${this._uid}`;
+	}
+	get activeDescendant() {
+		return this.isOpen && this.focusedIndex >= 0 ? this.optionId(this.focusedIndex) : void 0;
+	}
 	toggleOption(option) {
 		this.values = this.values.includes(option.value) ? this.values.filter((value) => value !== option.value) : [...this.values, option.value];
 		this.elementRef.dispatchEvent(new CustomEvent("ml:change", {
@@ -8888,8 +10101,7 @@ var SelectComponent = class SelectComponent$1 {
 		if (event.newState === "open") {
 			this.isOpen = true;
 			this.focusedIndex = this.getInitialFocusIndex();
-			this.positionDropdown();
-			this.addScrollListener();
+			this.startPositioning();
 			this.elementRef.dispatchEvent(new CustomEvent("ml:open", {
 				bubbles: true,
 				composed: true
@@ -8899,41 +10111,21 @@ var SelectComponent = class SelectComponent$1 {
 			this.focusedIndex = -1;
 			this.search = "";
 			this._lastCloseTime = Date.now();
-			this.removeScrollListener();
+			this.stopPositioning();
 			this.elementRef.dispatchEvent(new CustomEvent("ml:close", {
 				bubbles: true,
 				composed: true
 			}));
 		}
 	}
-	positionDropdown() {
+	startPositioning() {
 		const triggerEl = this.elementRef.shadowRoot?.querySelector(".ml-select__trigger");
 		const dropdownEl = this.getDropdownEl();
 		if (!triggerEl || !dropdownEl) return;
-		dropdownEl.style.width = `${triggerEl.offsetWidth}px`;
-		const { x, y } = computePosition(triggerEl, dropdownEl, {
-			placement: "bottom-start",
-			middleware: [
-				offset(4),
-				flip(),
-				shift({ padding: 8 })
-			]
-		});
-		dropdownEl.style.left = `${x}px`;
-		dropdownEl.style.top = `${y}px`;
+		this._positioner.start(triggerEl, dropdownEl);
 	}
-	addScrollListener() {
-		this._handleScroll = (event) => {
-			if (this.getDropdownEl()?.contains(event.target)) return;
-			this.close();
-		};
-		window.addEventListener("scroll", this._handleScroll, true);
-	}
-	removeScrollListener() {
-		if (this._handleScroll) {
-			window.removeEventListener("scroll", this._handleScroll, true);
-			this._handleScroll = null;
-		}
+	stopPositioning() {
+		this._positioner.stop();
 	}
 	getDropdownEl() {
 		return this.elementRef.shadowRoot?.querySelector(".ml-select__dropdown");
@@ -9346,7 +10538,7 @@ var SliderComponent = class SliderComponent$1 {
 	}
 	get fillWidth() {
 		const p = this.ratio;
-		return `calc(${p * 100}% + ${10 - p * 20}px)`;
+		return `calc(${p * 100}% + ${.5 - p} * var(--ml-slider-thumb-size))`;
 	}
 };
 SliderComponent = __decorate([MelodicComponent({
@@ -9389,7 +10581,7 @@ function formFieldTemplate(c) {
 			</div>
 
 			${when(!!c.error, () => html`<span id=${c.errorId} class="ml-form-field__error">${c.error}</span>`)}
-			${when(!c.error && !!c.hint, () => html`<span id=${c.hintId} class="ml-form-field__hint">${c.hint}</span>`)}
+			${when(!!c.hint, () => html`<span id=${c.hintId} class="ml-form-field__hint">${c.hint}</span>`)}
 		</div>
 	`;
 }
@@ -9621,8 +10813,11 @@ var FormFieldComponent = class FormFieldComponent$1 {
 		this.required = false;
 		this._fieldId = `ml-form-field-${Math.random().toString(36).slice(2, 9)}`;
 		this.handleSlotChange = () => {
+			this._controlResolved = false;
 			this.connectSlottedControl();
 		};
+		this._control = null;
+		this._controlResolved = false;
 	}
 	get fieldId() {
 		return this._fieldId;
@@ -9634,26 +10829,36 @@ var FormFieldComponent = class FormFieldComponent$1 {
 		return `${this._fieldId}-error`;
 	}
 	get describedBy() {
-		if (this.error) return this.errorId;
-		if (this.hint) return this.hintId;
-		return "";
+		const ids = [];
+		if (this.error) ids.push(this.errorId);
+		if (this.hint) ids.push(this.hintId);
+		return ids.join(" ");
 	}
 	onCreate() {
 		this.connectSlottedControl();
 	}
+	onRender() {
+		this.connectSlottedControl();
+	}
 	connectSlottedControl() {
-		const slot = this.elementRef.shadowRoot?.querySelector("slot:not([name])");
-		if (!slot) return;
-		const elements = slot.assignedElements({ flatten: true });
-		const control = this.findFormControl(elements);
-		if (control) {
-			if (!control.id) control.id = this.fieldId;
-			if (this.describedBy) control.setAttribute("aria-describedby", this.describedBy);
-			if (this.error) control.setAttribute("aria-invalid", "true");
-			else control.removeAttribute("aria-invalid");
-			if (this.required) control.setAttribute("aria-required", "true");
-			if (this.disabled && "disabled" in control) control.disabled = true;
+		if (this._control && !this._control.isConnected) this._controlResolved = false;
+		if (!this._controlResolved) {
+			const slot = this.elementRef.shadowRoot?.querySelector("slot:not([name])");
+			if (!slot) return;
+			this._control = this.findFormControl(slot.assignedElements({ flatten: true }));
+			this._controlResolved = true;
 		}
+		const control = this._control;
+		if (!control) return;
+		if (!control.id) control.id = this.fieldId;
+		this.syncAttribute(control, "aria-describedby", this.describedBy || null);
+		this.syncAttribute(control, "aria-invalid", this.error ? "true" : null);
+		this.syncAttribute(control, "aria-required", this.required ? "true" : null);
+		if (this.disabled && "disabled" in control) control.disabled = true;
+	}
+	syncAttribute(el, name, value) {
+		if (value === null) el.removeAttribute(name);
+		else if (el.getAttribute(name) !== value) el.setAttribute(name, value);
 	}
 	findFormControl(elements) {
 		for (const element of elements) {
@@ -10502,7 +11707,7 @@ var CalendarComponent = class CalendarComponent$1 {
 				isSelected: selectedYear === year,
 				isCurrent: year === now,
 				isDisabled: !inRange,
-				isPlaceholder: !inRange && (year < minY || year > maxY)
+				isPlaceholder: !inRange
 			});
 		}
 		return result;
@@ -10573,14 +11778,13 @@ function datePickerTemplate(c) {
 
 			<div class="ml-date-picker__trigger">
 				<input
-					type="date"
+					type="text"
 					class="ml-date-picker__input"
-					.value=${c.value}
-					min=${c.min}
-					max=${c.max}
+					.value=${c.displayValue}
 					placeholder=${c.placeholder}
 					?disabled=${c.disabled}
 					?required=${c.required}
+					autocomplete="off"
 					aria-haspopup="dialog"
 					aria-expanded=${c.isOpen ? "true" : "false"}
 					@change=${c.handleInput}
@@ -10745,16 +11949,6 @@ const datePickerStyles = () => css`
 		padding: var(--ml-date-picker-padding);
 	}
 
-	/* Hide native date picker indicator across browsers */
-	.ml-date-picker__input::-webkit-calendar-picker-indicator {
-		display: none;
-		-webkit-appearance: none;
-	}
-
-	.ml-date-picker__input::-webkit-date-and-time-value {
-		text-align: left;
-	}
-
 	.ml-date-picker__input:disabled {
 		cursor: not-allowed;
 	}
@@ -10861,6 +12055,33 @@ registerAdapter((el) => el.tagName === "ML-DATE-PICKER", {
 		el.disabled = disabled;
 	}
 });
+function formatDisplayDate(iso) {
+	const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso ?? "");
+	if (!match) return iso ?? "";
+	return `${match[2]}/${match[3]}/${match[1]}`;
+}
+function parseDateInput(text) {
+	const trimmed = text.trim();
+	let year;
+	let month;
+	let day;
+	let match = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(trimmed);
+	if (match) {
+		year = Number(match[1]);
+		month = Number(match[2]);
+		day = Number(match[3]);
+	} else {
+		match = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(trimmed);
+		if (!match) return null;
+		month = Number(match[1]);
+		day = Number(match[2]);
+		year = Number(match[3]);
+	}
+	if (month < 1 || month > 12) return null;
+	const daysInMonth = new Date(year, month, 0).getDate();
+	if (day < 1 || day > daysInMonth) return null;
+	return `${String(year).padStart(4, "0")}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+}
 var DatePickerComponent = class DatePickerComponent$1 {
 	constructor() {
 		this.value = "";
@@ -10876,7 +12097,11 @@ var DatePickerComponent = class DatePickerComponent$1 {
 		this.minYear = "";
 		this.maxYear = "";
 		this.isOpen = false;
-		this._cleanupAutoUpdate = null;
+		this._positioner = new OverlayPositioner(() => ({
+			placement: "bottom-start",
+			offset: 4
+		}));
+		this._restoreFocusOnClose = false;
 		this.toggleCalendar = () => {
 			if (this.disabled) return;
 			const popoverEl = this.getPopoverEl();
@@ -10884,7 +12109,17 @@ var DatePickerComponent = class DatePickerComponent$1 {
 		};
 		this.handleInput = (event) => {
 			const input = event.target;
-			this.commitValue(input.value);
+			const text = input.value.trim();
+			if (!text) {
+				if (this.value !== "") this.commitValue("");
+				input.value = "";
+				return;
+			}
+			const iso = parseDateInput(text);
+			if (iso && this.isWithinRange(iso)) {
+				this.commitValue(iso);
+				input.value = formatDisplayDate(iso);
+			} else input.value = this.displayValue;
 		};
 		this.handleInputClick = () => {
 			if (!this.isOpen) this.toggleCalendar();
@@ -10893,16 +12128,12 @@ var DatePickerComponent = class DatePickerComponent$1 {
 			event.stopPropagation();
 			const detail = event.detail;
 			this.commitValue(detail.value);
-			this.closePopover();
+			this.closePopover(true);
 		};
 		this.handleKeyDown = (event) => {
 			if (event.key === "Escape" && this.isOpen) {
 				event.preventDefault();
-				this.closePopover();
-			}
-			if (event.key === " ") {
-				event.preventDefault();
-				if (!this.isOpen) this.toggleCalendar();
+				this.closePopover(true);
 			}
 			if (event.key === "F4" || event.altKey && event.key === "ArrowDown") {
 				event.preventDefault();
@@ -10915,20 +12146,28 @@ var DatePickerComponent = class DatePickerComponent$1 {
 				this.startPositioning();
 			} else {
 				this.isOpen = false;
-				this._cleanupAutoUpdate?.();
-				this._cleanupAutoUpdate = null;
-				this.returnFocus();
+				this._positioner.stop();
+				if (this._restoreFocusOnClose || isDeepFocusWithin(this.elementRef)) this.returnFocus();
+				this._restoreFocusOnClose = false;
 			}
 		};
+	}
+	get displayValue() {
+		return formatDisplayDate(this.value);
 	}
 	onCreate() {
 		const popoverEl = this.getPopoverEl();
 		if (popoverEl) popoverEl.addEventListener("toggle", this._handleToggle);
 	}
 	onDestroy() {
-		this._cleanupAutoUpdate?.();
+		this._positioner.stop();
 		const popoverEl = this.getPopoverEl();
 		if (popoverEl) popoverEl.removeEventListener("toggle", this._handleToggle);
+	}
+	isWithinRange(iso) {
+		if (this.min && iso < this.min) return false;
+		if (this.max && iso > this.max) return false;
+		return true;
 	}
 	commitValue(iso) {
 		this.value = iso;
@@ -10938,29 +12177,18 @@ var DatePickerComponent = class DatePickerComponent$1 {
 			detail: { value: iso }
 		}));
 	}
-	closePopover() {
+	closePopover(restoreFocus = false) {
 		const popoverEl = this.getPopoverEl();
-		if (popoverEl && this.isOpen) popoverEl.hidePopover();
+		if (popoverEl && this.isOpen) {
+			this._restoreFocusOnClose = restoreFocus;
+			popoverEl.hidePopover();
+		}
 	}
 	startPositioning() {
 		const triggerEl = this.getTriggerEl();
 		const popoverEl = this.getPopoverEl();
 		if (!triggerEl || !popoverEl) return;
-		const update = () => this.updatePosition(triggerEl, popoverEl);
-		this._cleanupAutoUpdate?.();
-		this._cleanupAutoUpdate = autoUpdate(triggerEl, popoverEl, update);
-	}
-	updatePosition(triggerEl, popoverEl) {
-		const { x, y } = computePosition(triggerEl, popoverEl, {
-			placement: "bottom-start",
-			middleware: [
-				offset(4),
-				flip(),
-				shift({ padding: 8 })
-			]
-		});
-		popoverEl.style.left = `${x}px`;
-		popoverEl.style.top = `${y}px`;
+		this._positioner.start(triggerEl, popoverEl);
 	}
 	returnFocus() {
 		const inputEl = this.getInputEl();
@@ -11009,7 +12237,7 @@ function alertTemplate(c) {
 			</div>
 
 			<div class="ml-alert__content">
-				${when(!!c.title, () => html`<div class="ml-alert__title">${c.title}</div>`)}
+				${when(!!c.alertTitle, () => html`<div class="ml-alert__title">${c.alertTitle}</div>`)}
 				<div class="ml-alert__message">
 					<slot></slot>
 				</div>
@@ -11165,7 +12393,7 @@ const alertStyles = () => css`
 var AlertComponent = class AlertComponent$1 {
 	constructor() {
 		this.variant = "info";
-		this.title = "";
+		this.alertTitle = "";
 		this.dismissible = false;
 		this.handleDismiss = () => {
 			this.elementRef.dispatchEvent(new CustomEvent("ml:dismiss", {
@@ -11183,6 +12411,13 @@ var AlertComponent = class AlertComponent$1 {
 			}[this.variant]}"></ml-icon>`;
 		};
 	}
+	get title() {
+		return this.alertTitle;
+	}
+	set title(value) {
+		warnDeprecatedTitleOnce("ml-alert", "alert-title");
+		this.alertTitle = value;
+	}
 };
 AlertComponent = __decorate([MelodicComponent({
 	selector: "ml-alert",
@@ -11190,6 +12425,7 @@ AlertComponent = __decorate([MelodicComponent({
 	styles: alertStyles,
 	attributes: [
 		"variant",
+		"alert-title",
 		"title",
 		"dismissible"
 	]
@@ -11207,7 +12443,7 @@ var ToastService = class ToastService$1 {
 		const container = this.ensureContainer();
 		const toast = document.createElement("ml-toast");
 		if (config.variant) toast.setAttribute("variant", config.variant);
-		if (config.title) toast.setAttribute("title", config.title);
+		if (config.title) toast.setAttribute("toast-title", config.title);
 		if (config.message) toast.setAttribute("message", config.message);
 		if (config.duration !== void 0) toast.setAttribute("duration", String(config.duration));
 		if (config.dismissible === false) toast.setAttribute("dismissible", "false");
@@ -11263,7 +12499,7 @@ function toastTemplate(c) {
 				${c.renderIcon()}
 			</div>
 			<div class="ml-toast__content">
-				${when(!!c.title, () => html`<div class="ml-toast__title">${c.title}</div>`)}
+				${when(!!c.toastTitle, () => html`<div class="ml-toast__title">${c.toastTitle}</div>`)}
 				${when(!!c.message, () => html`<div class="ml-toast__message">${c.message}</div>`)}
 			</div>
 			${when(c.dismissible, () => html`
@@ -11413,7 +12649,7 @@ const toastStyles = () => css`
 var ToastComponent = class ToastComponent$1 {
 	constructor() {
 		this.variant = "info";
-		this.title = "";
+		this.toastTitle = "";
 		this.message = "";
 		this.duration = 5e3;
 		this.dismissible = true;
@@ -11438,6 +12674,13 @@ var ToastComponent = class ToastComponent$1 {
 			}[this.variant]}"></ml-icon>`;
 		};
 	}
+	get title() {
+		return this.toastTitle;
+	}
+	set title(value) {
+		warnDeprecatedTitleOnce("ml-toast", "toast-title");
+		this.toastTitle = value;
+	}
 	onCreate() {
 		if (this.duration > 0) this._timer = setTimeout(() => this.dismiss(), this.duration);
 	}
@@ -11448,6 +12691,7 @@ ToastComponent = __decorate([MelodicComponent({
 	styles: toastStyles,
 	attributes: [
 		"variant",
+		"toast-title",
 		"title",
 		"message",
 		"duration",
@@ -11568,7 +12812,7 @@ function linearTemplate(c) {
 						</div>
 					`)}
 
-					<div class="ml-progress__track" role="progressbar" aria-valuenow=${c.value} aria-valuemin="0" aria-valuemax=${c.max} aria-label=${c.label || "Progress"}>
+					<div class="ml-progress__track" role="progressbar" aria-valuenow=${c.clampedValue} aria-valuemin="0" aria-valuemax=${c.ariaMax} aria-label=${c.label || "Progress"}>
 						<div class="ml-progress__fill" style=${styleMap({ width: `${c.percentage}%` })}></div>
 					</div>
 
@@ -11589,11 +12833,18 @@ function linearTemplate(c) {
 }
 function circleTemplate(c) {
 	return html`
-		<div class=${classMap({
+		<div
+			class=${classMap({
 		"ml-progress-circle": true,
 		[`ml-progress-circle--${c.variant}`]: true,
 		[`ml-progress-circle--${c.size}`]: true
-	})}>
+	})}
+			role="progressbar"
+			aria-valuenow=${c.clampedValue}
+			aria-valuemin="0"
+			aria-valuemax=${c.ariaMax}
+			aria-label=${c.label || "Progress"}
+		>
 			<svg
 				width=${c.svgSize}
 				height=${c.svgSize}
@@ -11632,11 +12883,18 @@ function circleTemplate(c) {
 }
 function halfCircleTemplate(c) {
 	return html`
-		<div class=${classMap({
+		<div
+			class=${classMap({
 		"ml-progress-half": true,
 		[`ml-progress-half--${c.variant}`]: true,
 		[`ml-progress-half--${c.size}`]: true
-	})}>
+	})}
+			role="progressbar"
+			aria-valuenow=${c.clampedValue}
+			aria-valuemin="0"
+			aria-valuemax=${c.ariaMax}
+			aria-label=${c.label || "Progress"}
+		>
 			<svg
 				width=${c.svgSize}
 				height=${c.svgCenter + c.circleStroke}
@@ -12039,6 +13297,13 @@ var ProgressComponent = class ProgressComponent$1 {
 		const max = Math.max(this.max, 1);
 		return Math.min(Math.max(this.value / max * 100, 0), 100);
 	}
+	get clampedValue() {
+		const max = Math.max(this.max, 1);
+		return Math.min(Math.max(this.value, 0), max);
+	}
+	get ariaMax() {
+		return Math.max(this.max, 1);
+	}
 	get displayValue() {
 		return `${Math.round(this.percentage)}%`;
 	}
@@ -12097,19 +13362,21 @@ function cardTemplate(c) {
 	})}
 			@click=${c.handleClick}
 		>
-			${when(c.hasHeader, () => html`
-					<div class="ml-card__header">
-						<slot name="header"></slot>
-					</div>
-				`)}
+			<div class=${classMap({
+		"ml-card__header": true,
+		"ml-card__header--hidden": !c.hasHeader
+	})}>
+				<slot name="header"></slot>
+			</div>
 			<div class="ml-card__body">
 				<slot></slot>
 			</div>
-			${when(c.hasFooter, () => html`
-					<div class="ml-card__footer">
-						<slot name="footer"></slot>
-					</div>
-				`)}
+			<div class=${classMap({
+		"ml-card__footer": true,
+		"ml-card__footer--hidden": !c.hasFooter
+	})}>
+				<slot name="footer"></slot>
+			</div>
 		</div>
 	`;
 }
@@ -12214,12 +13481,19 @@ const cardStyles = () => css`
 		border-top: var(--ml-card-border-width) solid var(--ml-card-border-color);
 		background-color: var(--ml-card-footer-bg);
 	}
+
+	.ml-card__header--hidden,
+	.ml-card__footer--hidden {
+		display: none;
+	}
 `;
 var CardComponent = class CardComponent$1 {
 	constructor() {
 		this.variant = "default";
 		this.hoverable = false;
 		this.clickable = false;
+		this.hasHeader = false;
+		this.hasFooter = false;
 		this.handleClick = (event) => {
 			if (this.clickable) this.elementRef.dispatchEvent(new CustomEvent("ml:click", {
 				bubbles: true,
@@ -12228,11 +13502,13 @@ var CardComponent = class CardComponent$1 {
 			}));
 		};
 	}
-	get hasHeader() {
-		return this.elementRef?.querySelector("[slot=\"header\"]") !== null;
-	}
-	get hasFooter() {
-		return this.elementRef?.querySelector("[slot=\"footer\"]") !== null;
+	onCreate() {
+		const shadow = this.elementRef.shadowRoot;
+		if (!shadow) return;
+		watchSlotPresence(shadow, (name, hasContent) => {
+			if (name === "header") this.hasHeader = hasContent;
+			else if (name === "footer") this.hasFooter = hasContent;
+		});
 	}
 };
 CardComponent = __decorate([MelodicComponent({
@@ -12256,11 +13532,9 @@ function dividerTemplate(c) {
 			role="separator"
 			aria-orientation=${c.orientation}
 		>
-			${when(c.hasLabel, () => html`
-					<span class="ml-divider__label">
-						<slot></slot>
-					</span>
-				`)}
+			<span class="ml-divider__label">
+				<slot></slot>
+			</span>
 		</div>
 	`;
 }
@@ -12289,6 +13563,12 @@ const dividerStyles = () => css`
 	.ml-divider {
 		display: flex;
 		align-items: center;
+	}
+
+	/* The label slot is always rendered (so slotchange can fire);
+	   hide the label span when there is no content. */
+	.ml-divider:not(.ml-divider--with-label) .ml-divider__label {
+		display: none;
 	}
 
 	.ml-divider--horizontal {
@@ -12350,9 +13630,14 @@ const dividerStyles = () => css`
 var DividerComponent = class DividerComponent$1 {
 	constructor() {
 		this.orientation = "horizontal";
+		this.hasLabel = false;
 	}
-	get hasLabel() {
-		return this.elementRef?.textContent?.trim() !== "";
+	onCreate() {
+		const shadow = this.elementRef.shadowRoot;
+		if (!shadow) return;
+		watchSlotPresence(shadow, (name, hasContent) => {
+			if (name === "") this.hasLabel = hasContent;
+		});
 	}
 };
 DividerComponent = __decorate([MelodicComponent({
@@ -12483,7 +13768,7 @@ function avatarTemplate(c) {
 			role="img"
 			aria-label=${c.alt || c.initials || "Avatar"}
 		>
-			${when(!!c.src && !c._imageError, () => html` <img class="ml-avatar__image" src="${c.src}" alt="${c.alt}" @error=${c.handleImageError} /> `, () => html`${when(!!c.initials, () => html`<span class="ml-avatar__initials">${c.getInitials()}</span>`, () => html`
+			${when(!!c.src && !c.imageError, () => html` <img class="ml-avatar__image" src="${c.src}" alt="${c.alt}" @error=${c.handleImageError} /> `, () => html`${when(!!c.initials, () => html`<span class="ml-avatar__initials">${c.getInitials()}</span>`, () => html`
 							<span class="ml-avatar__fallback">
 								<slot>
 									<ml-icon icon="user" format="fill"></ml-icon>
@@ -12600,10 +13885,13 @@ var AvatarComponent = class AvatarComponent$1 {
 		this.initials = "";
 		this.size = "md";
 		this.rounded = false;
-		this._imageError = false;
+		this.imageError = false;
 		this.handleImageError = () => {
-			this._imageError = true;
+			this.imageError = true;
 		};
+	}
+	onPropertyChange(name, oldVal, newVal) {
+		if (name === "src" && oldVal !== newVal) this.imageError = false;
 	}
 	getInitials() {
 		return this.initials.slice(0, 2).toUpperCase();
@@ -12644,9 +13932,22 @@ const badgeStyles = () => css`
 	:host {
 		display: inline-block;
 
-		/* ── Badge: base ── */
+		/* ── Badge: colors (default variant; variant classes reassign) ──
+		   --ml-badge-background     - background color
+		   --ml-badge-border-color   - border color
+		   --ml-badge-text           - text color */
+		--ml-badge-background: var(--ml-badge-default-bg);
+		--ml-badge-border-color: var(--ml-badge-default-border);
+		--ml-badge-text: var(--ml-badge-default-text);
+
+		/* ── Badge: typography ── */
 		--ml-badge-font: var(--ml-font-sans);
 		--ml-badge-font-weight: var(--ml-font-medium);
+		--ml-badge-font-size: var(--ml-text-xs);
+
+		/* ── Badge: spacing / shape ── */
+		--ml-badge-gap: var(--ml-space-1-5);
+		--ml-badge-padding: var(--ml-space-1) var(--ml-space-3);
 		--ml-badge-radius: var(--ml-radius-md);
 		--ml-badge-border-width: var(--ml-border);
 
@@ -12657,24 +13958,29 @@ const badgeStyles = () => css`
 		--ml-badge-dot-size: 0.375rem;
 		--ml-badge-dot-size-xs: 0.3125rem;
 		--ml-badge-dot-size-lg: 0.5rem;
+		--ml-badge-dot-radius: var(--ml-radius-full);
 
 		/* ── Badge: secondary variant ── */
 		--ml-badge-secondary-color: var(--ml-color-text-secondary);
 
-		/* ── Badge: custom variant ── */
+		/* ── Badge: custom variant (consumer API: --ml-badge-bg / --ml-badge-color) ── */
 		--ml-badge-custom-color: var(--ml-badge-color, #fff);
 	}
 
 	.ml-badge {
 		display: inline-flex;
 		align-items: center;
-		gap: var(--ml-space-1-5);
+		gap: var(--ml-badge-gap);
+		padding: var(--ml-badge-padding);
 		font-family: var(--ml-badge-font);
+		font-size: var(--ml-badge-font-size);
 		font-weight: var(--ml-badge-font-weight);
 		line-height: 1;
 		white-space: nowrap;
+		color: var(--ml-badge-text);
+		background-color: var(--ml-badge-background);
 		border-radius: var(--ml-badge-radius);
-		border: var(--ml-badge-border-width) solid transparent;
+		border: var(--ml-badge-border-width) solid var(--ml-badge-border-color);
 	}
 
 	.ml-badge--pill {
@@ -12684,7 +13990,7 @@ const badgeStyles = () => css`
 	.ml-badge__dot {
 		width: var(--ml-badge-dot-size);
 		height: var(--ml-badge-dot-size);
-		border-radius: var(--ml-radius-full);
+		border-radius: var(--ml-badge-dot-radius);
 		background-color: currentColor;
 	}
 
@@ -12698,68 +14004,71 @@ const badgeStyles = () => css`
 		height: var(--ml-badge-dot-size-xs);
 	}
 
+	/* ── Size variants: reassign base spacing/typography properties ── */
 	.ml-badge--xs {
-		padding: 1px var(--ml-space-1-5);
-		font-size: 0.6875rem;
+		--ml-badge-padding: 1px var(--ml-space-1-5);
+		--ml-badge-font-size: 0.6875rem;
 	}
 
 	.ml-badge--sm {
-		padding: 2px var(--ml-space-2);
-		font-size: var(--ml-text-xs);
+		--ml-badge-padding: 2px var(--ml-space-2);
+		--ml-badge-font-size: var(--ml-text-xs);
 	}
 
 	.ml-badge--md {
-		padding: var(--ml-space-1) var(--ml-space-3);
-		font-size: var(--ml-text-xs);
+		--ml-badge-padding: var(--ml-space-1) var(--ml-space-3);
+		--ml-badge-font-size: var(--ml-text-xs);
 	}
 
 	.ml-badge--lg {
-		padding: var(--ml-space-1) var(--ml-space-4);
-		font-size: var(--ml-text-sm);
+		--ml-badge-padding: var(--ml-space-1) var(--ml-space-4);
+		--ml-badge-font-size: var(--ml-text-sm);
 	}
 
+	/* ── Color variants: reassign base color properties ── */
 	.ml-badge--default {
-		background-color: var(--ml-badge-default-bg);
-		border-color: var(--ml-badge-default-border);
-		color: var(--ml-badge-default-text);
+		--ml-badge-background: var(--ml-badge-default-bg);
+		--ml-badge-border-color: var(--ml-badge-default-border);
+		--ml-badge-text: var(--ml-badge-default-text);
 	}
 
 	.ml-badge--primary {
-		background-color: var(--ml-badge-primary-bg);
-		border-color: var(--ml-badge-primary-border);
-		color: var(--ml-badge-primary-text);
+		--ml-badge-background: var(--ml-badge-primary-bg);
+		--ml-badge-border-color: var(--ml-badge-primary-border);
+		--ml-badge-text: var(--ml-badge-primary-text);
 	}
 
 	.ml-badge--secondary {
-		background-color: var(--ml-badge-default-bg);
-		border-color: var(--ml-badge-default-border);
-		color: var(--ml-badge-secondary-color);
+		--ml-badge-background: var(--ml-badge-default-bg);
+		--ml-badge-border-color: var(--ml-badge-default-border);
+		--ml-badge-text: var(--ml-badge-secondary-color);
 	}
 
 	.ml-badge--success {
-		background-color: var(--ml-badge-success-bg);
-		border-color: var(--ml-badge-success-border);
-		color: var(--ml-badge-success-text);
+		--ml-badge-background: var(--ml-badge-success-bg);
+		--ml-badge-border-color: var(--ml-badge-success-border);
+		--ml-badge-text: var(--ml-badge-success-text);
 	}
 
 	.ml-badge--warning {
-		background-color: var(--ml-badge-warning-bg);
-		border-color: var(--ml-badge-warning-border);
-		color: var(--ml-badge-warning-text);
+		--ml-badge-background: var(--ml-badge-warning-bg);
+		--ml-badge-border-color: var(--ml-badge-warning-border);
+		--ml-badge-text: var(--ml-badge-warning-text);
 	}
 
 	.ml-badge--error {
-		background-color: var(--ml-badge-error-bg);
-		border-color: var(--ml-badge-error-border);
-		color: var(--ml-badge-error-text);
+		--ml-badge-background: var(--ml-badge-error-bg);
+		--ml-badge-border-color: var(--ml-badge-error-border);
+		--ml-badge-text: var(--ml-badge-error-text);
 	}
 
+	/* Custom variant keeps its documented consumer API: set --ml-badge-bg and
+	   optionally --ml-badge-color on the host. */
 	.ml-badge--custom {
-		background-color: var(--ml-badge-bg);
-		border-color: transparent;
-		color: var(--ml-badge-custom-color);
+		--ml-badge-background: var(--ml-badge-bg, transparent);
+		--ml-badge-border-color: transparent;
+		--ml-badge-text: var(--ml-badge-custom-color);
 	}
-
 `;
 var BadgeComponent = class BadgeComponent$1 {
 	constructor() {
@@ -12975,8 +14284,8 @@ BadgeGroupComponent = __decorate([MelodicComponent({
 	]
 })], BadgeGroupComponent);
 function tagTemplate(c) {
-	const avatarSrc = c["avatar-src"];
-	const dotColor = c["dot-color"];
+	const avatarSrc = c.avatarSrc;
+	const dotColor = c.resolvedDotColor;
 	return html`
 		<span
 			class=${classMap({
@@ -13260,9 +14569,9 @@ var TagComponent = class TagComponent$1 {
 	constructor() {
 		this.size = "md";
 		this.dot = false;
-		this["dot-color"] = "success";
+		this.dotColor = "success";
 		this.closable = false;
-		this["avatar-src"] = "";
+		this.avatarSrc = "";
 		this.icon = "";
 		this.count = "";
 		this.checkable = false;
@@ -13271,6 +14580,10 @@ var TagComponent = class TagComponent$1 {
 		this.handleClose = (event) => {
 			event.stopPropagation();
 			if (this.disabled) return;
+			this.elementRef.dispatchEvent(new CustomEvent("ml:dismiss", {
+				bubbles: true,
+				composed: true
+			}));
 			this.elementRef.dispatchEvent(new CustomEvent("ml:close", {
 				bubbles: true,
 				composed: true
@@ -13286,6 +14599,10 @@ var TagComponent = class TagComponent$1 {
 				detail: { checked: this.checked }
 			}));
 		};
+	}
+	get resolvedDotColor() {
+		const color = this.dotColor;
+		return color === "error" ? "danger" : color;
 	}
 };
 TagComponent = __decorate([MelodicComponent({
@@ -13305,6 +14622,10 @@ TagComponent = __decorate([MelodicComponent({
 		"disabled"
 	]
 })], TagComponent);
+defineLegacyAliases(TagComponent.prototype, "ml-tag", {
+	"dot-color": "dotColor",
+	"avatar-src": "avatarSrc"
+});
 function listTemplate(c) {
 	return html`
 		<div
@@ -13365,22 +14686,24 @@ ListComponent = __decorate([MelodicComponent({
 })], ListComponent);
 function listItemTemplate(c) {
 	return html`
-		<div class="ml-li" role="listitem">
-			${when(c.hasLeadingSlot, () => html`
-					<div class="ml-li__leading">
-						<slot name="leading"></slot>
-					</div>
-				`)}
+		<div class="ml-li">
+			<div class=${classMap({
+		"ml-li__leading": true,
+		"ml-li__leading--hidden": !c.hasLeadingSlot
+	})}>
+				<slot name="leading"></slot>
+			</div>
 			<div class="ml-li__content">
 				${when(!!c.primary, () => html`<span class="ml-li__primary">${c.primary}</span>`)}
 				${when(!!c.secondary, () => html`<span class="ml-li__secondary">${c.secondary}</span>`)}
 				<slot></slot>
 			</div>
-			${when(c.hasTrailingSlot, () => html`
-					<div class="ml-li__trailing">
-						<slot name="trailing"></slot>
-					</div>
-				`)}
+			<div class=${classMap({
+		"ml-li__trailing": true,
+		"ml-li__trailing--hidden": !c.hasTrailingSlot
+	})}>
+				<slot name="trailing"></slot>
+			</div>
 		</div>
 	`;
 }
@@ -13447,6 +14770,11 @@ const listItemStyles = () => css`
 		flex-shrink: 0;
 	}
 
+	.ml-li__leading--hidden,
+	.ml-li__trailing--hidden {
+		display: none;
+	}
+
 	.ml-li__content {
 		flex: 1;
 		min-width: 0;
@@ -13483,12 +14811,44 @@ var ListItemComponent = class ListItemComponent$1 {
 		this.secondary = "";
 		this.disabled = false;
 		this.interactive = false;
+		this.hasLeadingSlot = false;
+		this.hasTrailingSlot = false;
+		this._handleKeyDown = (event) => {
+			if (!this.interactive || this.disabled) return;
+			if (event.target !== this.elementRef) return;
+			if (event.key !== "Enter" && event.key !== " ") return;
+			event.preventDefault();
+			this.elementRef.click();
+		};
 	}
-	get hasLeadingSlot() {
-		return this.elementRef?.querySelector("[slot=\"leading\"]") !== null;
+	onCreate() {
+		const shadow = this.elementRef.shadowRoot;
+		if (shadow) watchSlotPresence(shadow, (name, hasContent) => {
+			if (name === "leading") this.hasLeadingSlot = hasContent;
+			else if (name === "trailing") this.hasTrailingSlot = hasContent;
+		});
+		this.elementRef.addEventListener("keydown", this._handleKeyDown);
+		this.syncHostA11y();
 	}
-	get hasTrailingSlot() {
-		return this.elementRef?.querySelector("[slot=\"trailing\"]") !== null;
+	onRender() {
+		this.syncHostA11y();
+	}
+	syncHostA11y() {
+		const host = this.elementRef;
+		if (this.interactive) {
+			host.setAttribute("role", "button");
+			if (this.disabled) {
+				host.removeAttribute("tabindex");
+				host.setAttribute("aria-disabled", "true");
+			} else {
+				host.setAttribute("tabindex", "0");
+				host.removeAttribute("aria-disabled");
+			}
+		} else {
+			host.setAttribute("role", "listitem");
+			host.removeAttribute("tabindex");
+			host.removeAttribute("aria-disabled");
+		}
 	}
 };
 ListItemComponent = __decorate([MelodicComponent({
@@ -13559,13 +14919,13 @@ function activityFeedItemTemplate(c) {
 		<article class="ml-afi">
 			<div class="ml-afi__left">
 				<div class="ml-afi__avatar">
-					${when(c.hasAvatarSlot, () => html`<slot name="avatar"></slot>`, () => html`
-							<ml-avatar
-								size=${c["avatar-size"]}
-								src=${c["avatar-src"]}
-								initials=${c["avatar-initials"]}
-							></ml-avatar>
-						`)}
+					<slot name="avatar">
+						<ml-avatar
+							size=${c.avatarSize}
+							src=${c.avatarSrc}
+							initials=${c.avatarInitials}
+						></ml-avatar>
+					</slot>
 				</div>
 				<div class="ml-afi__connector"></div>
 			</div>
@@ -13579,9 +14939,9 @@ function activityFeedItemTemplate(c) {
 							<span
 								class=${classMap({
 		"ml-afi__indicator": true,
-		[`ml-afi__indicator--${c["indicator-color"]}`]: c.isPresetColor
+		[`ml-afi__indicator--${c.indicatorColor}`]: c.isPresetColor
 	})}
-								style=${c.isPresetColor ? "" : `--ml-afi-indicator-bg: ${c["indicator-color"]}`}
+								style=${c.isPresetColor ? "" : `--ml-afi-indicator-bg: ${c.indicatorColor}`}
 							></span>
 						`)}
 				</div>
@@ -13589,11 +14949,12 @@ function activityFeedItemTemplate(c) {
 				<div class="ml-afi__description">
 					<slot></slot>
 				</div>
-				${when(c.hasContentSlot, () => html`
-						<div class="ml-afi__content">
-							<slot name="content"></slot>
-						</div>
-					`)}
+				<div class=${classMap({
+		"ml-afi__content": true,
+		"ml-afi__content--hidden": !c.hasContentSlot
+	})}>
+					<slot name="content"></slot>
+				</div>
 			</div>
 		</article>
 	`;
@@ -13746,6 +15107,10 @@ const activityFeedItemStyles = () => css`
 		margin-top: var(--ml-space-2);
 	}
 
+	.ml-afi__content--hidden {
+		display: none;
+	}
+
 	/* Indicator dot */
 	.ml-afi__indicator {
 		width: var(--ml-activity-feed-item-indicator-size);
@@ -13786,21 +15151,25 @@ var ActivityFeedItemComponent = class ActivityFeedItemComponent$1 {
 	constructor() {
 		this.name = "";
 		this.timestamp = "";
-		this["avatar-src"] = "";
-		this["avatar-initials"] = "";
-		this["avatar-size"] = "sm";
+		this.avatarSrc = "";
+		this.avatarInitials = "";
+		this.avatarSize = "sm";
 		this.subtitle = "";
 		this.indicator = false;
-		this["indicator-color"] = "gray";
+		this.indicatorColor = "gray";
+		this.hasAvatarSlot = false;
+		this.hasContentSlot = false;
 	}
 	get isPresetColor() {
-		return INDICATOR_PRESETS.has(this["indicator-color"]);
+		return INDICATOR_PRESETS.has(this.indicatorColor);
 	}
-	get hasAvatarSlot() {
-		return this.elementRef?.querySelector("[slot=\"avatar\"]") !== null;
-	}
-	get hasContentSlot() {
-		return this.elementRef?.querySelector("[slot=\"content\"]") !== null;
+	onCreate() {
+		const shadow = this.elementRef.shadowRoot;
+		if (!shadow) return;
+		watchSlotPresence(shadow, (name, hasContent) => {
+			if (name === "avatar") this.hasAvatarSlot = hasContent;
+			else if (name === "content") this.hasContentSlot = hasContent;
+		});
 	}
 };
 ActivityFeedItemComponent = __decorate([MelodicComponent({
@@ -13818,10 +15187,164 @@ ActivityFeedItemComponent = __decorate([MelodicComponent({
 		"indicator-color"
 	]
 })], ActivityFeedItemComponent);
-function renderCell$1(column, row, index) {
+defineLegacyAliases(ActivityFeedItemComponent.prototype, "ml-activity-feed-item", {
+	"avatar-src": "avatarSrc",
+	"avatar-initials": "avatarInitials",
+	"avatar-size": "avatarSize",
+	"indicator-color": "indicatorColor"
+});
+function renderCell(column, row, index) {
 	if (column.render) return column.render(row[column.key], row, index);
 	return row[column.key] ?? "";
 }
+var TableCore = class {
+	constructor(host, options) {
+		this._scroller = new VirtualScroller();
+		this._viewport = null;
+		this._host = host;
+		this._options = options;
+	}
+	sortRows(rows) {
+		const key = this._host.sortKey;
+		if (!key) return rows;
+		const dir = this._host.sortDirection === "asc" ? 1 : -1;
+		return [...rows].sort((a, b) => {
+			const aVal = a[key];
+			const bVal = b[key];
+			if (aVal == null) return bVal == null ? 0 : 1;
+			if (bVal == null) return -1;
+			if (typeof aVal === "number" && typeof bVal === "number") return (aVal - bVal) * dir;
+			return String(aVal).localeCompare(String(bVal)) * dir;
+		});
+	}
+	handleSortClick(column, beforeDispatch) {
+		if (!column.sortable) return;
+		if (this._host.sortKey === column.key) this._host.sortDirection = this._host.sortDirection === "asc" ? "desc" : "asc";
+		else {
+			this._host.sortKey = column.key;
+			this._host.sortDirection = "asc";
+		}
+		beforeDispatch?.();
+		const hadSelection = this.clearSelection();
+		this._scroller.invalidate();
+		this._host.elementRef.dispatchEvent(new CustomEvent("ml:sort", {
+			bubbles: true,
+			composed: true,
+			detail: {
+				key: this._host.sortKey,
+				direction: this._host.sortDirection
+			}
+		}));
+		if (hadSelection) this.emitSelect();
+	}
+	get allSelected() {
+		const total = this._options.displayRows().length;
+		return total > 0 && this._host.selectedIndices.length === total;
+	}
+	get someSelected() {
+		return this._host.selectedIndices.length > 0 && !this.allSelected;
+	}
+	isRowSelected(index) {
+		return this._host.selectedIndices.includes(index);
+	}
+	toggleSelectAll() {
+		this._host.selectedIndices = this.allSelected ? [] : this._options.displayRows().map((_, i) => i);
+		this.emitSelect();
+	}
+	toggleSelectRow(index, event) {
+		event.stopPropagation();
+		this._host.selectedIndices = this._host.selectedIndices.includes(index) ? this._host.selectedIndices.filter((i) => i !== index) : [...this._host.selectedIndices, index];
+		this.emitSelect();
+	}
+	clearSelection() {
+		const hadSelection = this._host.selectedIndices.length > 0;
+		this._host.selectedIndices = [];
+		return hadSelection;
+	}
+	emitSelect() {
+		const display = this._options.displayRows();
+		const selectedRows = this._host.selectedIndices.map((i) => display[i]).filter((row) => row !== void 0);
+		const indexByRow = /* @__PURE__ */ new Map();
+		this._host.rows.forEach((row, i) => {
+			if (!indexByRow.has(row)) indexByRow.set(row, i);
+		});
+		const selectedIndices = selectedRows.map((row) => indexByRow.get(row)).filter((i) => i !== void 0);
+		this._host.elementRef.dispatchEvent(new CustomEvent("ml:select", {
+			bubbles: true,
+			composed: true,
+			detail: {
+				selectedRows,
+				selectedIndices,
+				allSelected: this.allSelected
+			}
+		}));
+	}
+	emitRowClick(row, index) {
+		this._host.elementRef.dispatchEvent(new CustomEvent("ml:row-click", {
+			bubbles: true,
+			composed: true,
+			detail: {
+				row,
+				index
+			}
+		}));
+	}
+	attachScroller() {
+		if (this._viewport) return;
+		const shadow = this._host.elementRef.shadowRoot;
+		if (!shadow) return;
+		this._viewport = shadow.querySelector(this._options.viewportSelector);
+		if (!this._viewport) return;
+		this._scroller.attach(this._viewport, {
+			rowHeight: () => this._host.rowHeight,
+			itemCount: () => this._options.displayRows().length,
+			onUpdate: (start, end) => {
+				this._host.startIndex = start;
+				this._host.endIndex = end;
+			},
+			enabled: () => this._host.virtual
+		});
+	}
+	detach() {
+		this._scroller.detach();
+		this._viewport = null;
+	}
+	invalidateScroller() {
+		this._scroller.invalidate();
+	}
+	scrollViewportToTop() {
+		if (this._viewport) this._viewport.scrollTop = 0;
+	}
+	handleRowsChange(afterCommit) {
+		this._host.selectedIndices = [];
+		queueMicrotask(() => {
+			afterCommit?.();
+			this._scroller.invalidate();
+		});
+	}
+	syncRenderWindow() {
+		this.attachScroller();
+		const total = this._options.displayRows().length;
+		if (this._host.virtual) {
+			if (this._viewport && this._viewport.clientHeight === 0 && total > 0) {
+				const approxEnd = Math.min(total, Math.ceil(600 / this._host.rowHeight) + 6);
+				if (approxEnd !== this._host.endIndex) this._host.endIndex = approxEnd;
+			}
+		} else if (this._host.endIndex !== total) this._host.endIndex = total;
+	}
+	get visibleRows() {
+		const display = this._options.displayRows();
+		if (!this._host.virtual) return display;
+		return display.slice(this._host.startIndex, this._host.endIndex);
+	}
+	get topSpacerHeight() {
+		return this._host.virtual ? this._host.startIndex * this._host.rowHeight : 0;
+	}
+	get bottomSpacerHeight() {
+		if (!this._host.virtual) return 0;
+		return Math.max(0, (this._options.displayRows().length - this._host.endIndex) * this._host.rowHeight);
+	}
+};
 function tableTemplate(c) {
 	return html`
 		<div class=${classMap({
@@ -13921,7 +15444,7 @@ function tableTemplate(c) {
 			[`ml-table__td--${col.align ?? "left"}`]: true
 		})}
 										>
-											${renderCell$1(col, row, absoluteIndex)}
+											${renderCell(col, row, absoluteIndex)}
 										</td>
 									`)}
 								</tr>
@@ -14275,142 +15798,69 @@ var TableComponent = class TableComponent$1 {
 		this.selectedIndices = [];
 		this.startIndex = 0;
 		this.endIndex = 50;
-		this._scroller = new VirtualScroller();
-		this._viewport = null;
+		this._core = new TableCore(this, {
+			viewportSelector: ".ml-table__wrapper",
+			displayRows: () => this.sortedRows
+		});
 		this.isRowSelected = (index) => {
-			return this.selectedIndices.includes(index);
+			return this._core.isRowSelected(index);
 		};
 		this.handleSort = (column) => {
-			if (!column.sortable) return;
-			if (this.sortKey === column.key) this.sortDirection = this.sortDirection === "asc" ? "desc" : "asc";
-			else {
-				this.sortKey = column.key;
-				this.sortDirection = "asc";
-			}
-			this.selectedIndices = [];
-			this._scroller.invalidate();
-			this.elementRef.dispatchEvent(new CustomEvent("ml:sort", {
-				bubbles: true,
-				composed: true,
-				detail: {
-					key: this.sortKey,
-					direction: this.sortDirection
-				}
-			}));
+			this._core.handleSortClick(column);
 		};
 		this.handleSelectAll = () => {
-			if (this.allSelected) this.selectedIndices = [];
-			else this.selectedIndices = this.rows.map((_, i) => i);
-			this.emitSelect();
+			this._core.toggleSelectAll();
 		};
 		this.handleSelectRow = (index, event) => {
-			event.stopPropagation();
-			if (this.selectedIndices.includes(index)) this.selectedIndices = this.selectedIndices.filter((i) => i !== index);
-			else this.selectedIndices = [...this.selectedIndices, index];
-			this.emitSelect();
+			this._core.toggleSelectRow(index, event);
 		};
 		this.handleRowClick = (row, index) => {
-			this.elementRef.dispatchEvent(new CustomEvent("ml:row-click", {
-				bubbles: true,
-				composed: true,
-				detail: {
-					row,
-					index
-				}
-			}));
+			this._core.emitRowClick(row, index);
 		};
 	}
 	get rowHeight() {
 		return this.size === "sm" ? 36 : 44;
 	}
 	onPropertyChange(name, _oldVal, _newVal) {
-		if (name === "rows" || name === "columns") this._scroller.invalidate();
+		if (name === "columns") this._core.invalidateScroller();
+		if (name === "rows") this._core.handleRowsChange();
 	}
 	onCreate() {
 		const shadow = this.elementRef.shadowRoot;
 		if (!shadow) return;
-		shadow.querySelectorAll("slot").forEach((slot) => {
-			slot.addEventListener("slotchange", () => {
-				const name = slot.getAttribute("name");
-				if (name === "footer") this.hasFooter = slot.assignedNodes().length > 0;
-				else if (name === "header-actions") this.hasHeaderActions = slot.assignedNodes().length > 0;
-			});
+		watchSlotPresence(shadow, (name, hasContent) => {
+			if (name === "footer") this.hasFooter = hasContent;
+			else if (name === "header-actions") this.hasHeaderActions = hasContent;
 		});
-		this._attachScroller();
+		this._core.attachScroller();
 	}
 	onRender() {
-		this._attachScroller();
-		if (this.virtual && this._viewport && this._viewport.clientHeight === 0 && this.sortedRows.length > 0) {
-			const approxEnd = Math.min(this.sortedRows.length, Math.ceil(600 / this.rowHeight) + 6);
-			if (approxEnd !== this.endIndex) this.endIndex = approxEnd;
-		}
-		if (!this.virtual) {
-			const total = this.sortedRows.length;
-			if (this.endIndex !== total) this.endIndex = total;
-		}
+		this._core.syncRenderWindow();
 	}
 	onDestroy() {
-		this._scroller.detach();
-		this._viewport = null;
-	}
-	_attachScroller() {
-		if (this._viewport) return;
-		const shadow = this.elementRef.shadowRoot;
-		if (!shadow) return;
-		this._viewport = shadow.querySelector(".ml-table__wrapper");
-		if (!this._viewport) return;
-		this._scroller.attach(this._viewport, {
-			rowHeight: () => this.rowHeight,
-			itemCount: () => this.sortedRows.length,
-			onUpdate: (start, end) => {
-				this.startIndex = start;
-				this.endIndex = end;
-			},
-			enabled: () => this.virtual
-		});
+		this._core.detach();
 	}
 	get sortedRows() {
-		if (this.manualSort || !this.sortKey) return this.rows;
-		const key = this.sortKey;
-		const dir = this.sortDirection === "asc" ? 1 : -1;
-		return [...this.rows].sort((a, b) => {
-			const aVal = a[key];
-			const bVal = b[key];
-			if (aVal === void 0 || aVal === null) return bVal === void 0 || bVal === null ? 0 : 1;
-			if (bVal === void 0 || bVal === null) return -1;
-			if (typeof aVal === "number" && typeof bVal === "number") return (aVal - bVal) * dir;
-			return String(aVal).localeCompare(String(bVal)) * dir;
-		});
+		if (this.manualSort) return this.rows;
+		return this._core.sortRows(this.rows);
 	}
 	get visibleRows() {
-		if (!this.virtual) return this.sortedRows;
-		return this.sortedRows.slice(this.startIndex, this.endIndex);
+		return this._core.visibleRows;
 	}
 	get topSpacerHeight() {
-		return this.virtual ? this.startIndex * this.rowHeight : 0;
+		return this._core.topSpacerHeight;
 	}
 	get bottomSpacerHeight() {
-		if (!this.virtual) return 0;
-		return Math.max(0, (this.sortedRows.length - this.endIndex) * this.rowHeight);
+		return this._core.bottomSpacerHeight;
 	}
 	get colCount() {
 		return this.columns.length + (this.selectable ? 1 : 0);
 	}
 	get allSelected() {
-		return this.rows.length > 0 && this.selectedIndices.length === this.rows.length;
+		return this._core.allSelected;
 	}
 	get someSelected() {
-		return this.selectedIndices.length > 0 && !this.allSelected;
-	}
-	emitSelect() {
-		this.elementRef.dispatchEvent(new CustomEvent("ml:select", {
-			bubbles: true,
-			composed: true,
-			detail: {
-				selectedRows: this.selectedIndices,
-				allSelected: this.allSelected
-			}
-		}));
+		return this._core.someSelected;
 	}
 };
 TableComponent = __decorate([MelodicComponent({
@@ -14430,11 +15880,6 @@ TableComponent = __decorate([MelodicComponent({
 		"clickable-rows"
 	]
 })], TableComponent);
-function renderCell(col, row, index) {
-	if (col.render) return col.render(row[col.key], row, index);
-	const val = row[col.key];
-	return val == null ? "" : val;
-}
 function pinStyle(c, col) {
 	if (col.pinned === "left") return `left: ${c.getPinnedLeftOffset(col.key)}px`;
 	if (col.pinned === "right") return `right: ${c.getPinnedRightOffset(col.key)}px`;
@@ -14518,6 +15963,7 @@ function dataGridTemplate(c) {
 										@pointerdown=${(e) => c.handleResizeStart(col.key, e)}
 										@pointermove=${(e) => c.handleResizeMove(col.key, e)}
 										@pointerup=${c.handleResizeEnd}
+										@click=${(e) => e.stopPropagation()}
 									></div>
 								`)}
 							</div>
@@ -15221,29 +16667,17 @@ var DataGridComponent = class DataGridComponent$1 {
 		this.resizingKey = null;
 		this.draggingKey = null;
 		this.dragOverKey = null;
-		this._scroller = new VirtualScroller();
-		this._viewport = null;
+		this._core = new TableCore(this, {
+			viewportSelector: ".ml-data-grid__viewport",
+			displayRows: () => this.processedRows
+		});
 		this._resizeStartX = 0;
 		this._resizeStartWidth = 0;
-		this.isRowSelected = (index) => this.selectedIndices.includes(index);
+		this.isRowSelected = (index) => this._core.isRowSelected(index);
 		this.handleSort = (col) => {
-			if (!col.sortable) return;
-			if (this.sortKey === col.key) this.sortDirection = this.sortDirection === "asc" ? "desc" : "asc";
-			else {
-				this.sortKey = col.key;
-				this.sortDirection = "asc";
-			}
-			this.currentPage = 1;
-			this.selectedIndices = [];
-			this._scroller.invalidate();
-			this.elementRef.dispatchEvent(new CustomEvent("ml:sort", {
-				bubbles: true,
-				composed: true,
-				detail: {
-					key: this.sortKey,
-					direction: this.sortDirection
-				}
-			}));
+			this._core.handleSortClick(col, () => {
+				this.currentPage = 1;
+			});
 		};
 		this.handleFilterInput = (key, e) => {
 			const val = e.target.value;
@@ -15252,32 +16686,23 @@ var DataGridComponent = class DataGridComponent$1 {
 				[key]: val
 			};
 			this.currentPage = 1;
-			this.selectedIndices = [];
-			this._scroller.invalidate();
+			const hadSelection = this._core.clearSelection();
+			this._core.invalidateScroller();
 			this.elementRef.dispatchEvent(new CustomEvent("ml:filter", {
 				bubbles: true,
 				composed: true,
 				detail: { filters: this.filters }
 			}));
+			if (hadSelection) this._core.emitSelect();
 		};
 		this.handleSelectAll = () => {
-			this.selectedIndices = this.allSelected ? [] : this.processedRows.map((_, i) => i);
-			this._emitSelect();
+			this._core.toggleSelectAll();
 		};
 		this.handleSelectRow = (index, e) => {
-			e.stopPropagation();
-			this.selectedIndices = this.selectedIndices.includes(index) ? this.selectedIndices.filter((i) => i !== index) : [...this.selectedIndices, index];
-			this._emitSelect();
+			this._core.toggleSelectRow(index, e);
 		};
 		this.handleRowClick = (row, index) => {
-			this.elementRef.dispatchEvent(new CustomEvent("ml:row-click", {
-				bubbles: true,
-				composed: true,
-				detail: {
-					row,
-					index
-				}
-			}));
+			this._core.emitRowClick(row, index);
 		};
 		this.handleResizeStart = (key, e) => {
 			this.resizingKey = key;
@@ -15345,9 +16770,9 @@ var DataGridComponent = class DataGridComponent$1 {
 		this.goToPage = (page) => {
 			if (page < 1 || page > this.totalPages) return;
 			this.currentPage = page;
-			this.selectedIndices = [];
-			if (this._viewport) this._viewport.scrollTop = 0;
-			this._scroller.invalidate();
+			const hadSelection = this._core.clearSelection();
+			this._core.scrollViewportToTop();
+			this._core.invalidateScroller();
 			this.elementRef.dispatchEvent(new CustomEvent("ml:page-change", {
 				bubbles: true,
 				composed: true,
@@ -15356,6 +16781,7 @@ var DataGridComponent = class DataGridComponent$1 {
 					pageSize: this.pageSize
 				}
 			}));
+			if (hadSelection) this._core.emitSelect();
 		};
 	}
 	get rowHeight() {
@@ -15363,17 +16789,15 @@ var DataGridComponent = class DataGridComponent$1 {
 	}
 	onPropertyChange(name, _oldVal, newVal) {
 		if (name === "columns" && Array.isArray(newVal)) this._syncColumnState(newVal);
-		if (name === "rows") {
-			this.selectedIndices = [];
-			queueMicrotask(() => this._scroller.invalidate());
-		}
+		if (name === "rows") this._core.handleRowsChange(() => {
+			if (this.currentPage > this.totalPages) this.currentPage = this.totalPages;
+		});
 	}
 	onCreate() {
 		this._syncColumnState(this.columns);
-		this._attachScroller();
+		this._core.attachScroller();
 	}
 	onRender() {
-		this._attachScroller();
 		const shadow = this.elementRef.shadowRoot;
 		if (shadow) {
 			const headerRow = shadow.querySelector(".ml-data-grid__header-row");
@@ -15382,34 +16806,10 @@ var DataGridComponent = class DataGridComponent$1 {
 				if (h > 0) this.elementRef.style.setProperty("--ml-grid-header-h", `${h}px`);
 			}
 		}
-		if (this._viewport && this._viewport.clientHeight === 0 && this.processedRows.length > 0) {
-			const approxEnd = Math.min(this.processedRows.length, Math.ceil(600 / this.rowHeight) + 6);
-			if (approxEnd !== this.endIndex) this.endIndex = approxEnd;
-		}
-		if (!this.virtual) {
-			const total = this.processedRows.length;
-			if (this.endIndex !== total) this.endIndex = total;
-		}
+		this._core.syncRenderWindow();
 	}
 	onDestroy() {
-		this._scroller.detach();
-		this._viewport = null;
-	}
-	_attachScroller() {
-		if (this._viewport) return;
-		const shadow = this.elementRef.shadowRoot;
-		if (!shadow) return;
-		this._viewport = shadow.querySelector(".ml-data-grid__viewport");
-		if (!this._viewport) return;
-		this._scroller.attach(this._viewport, {
-			rowHeight: () => this.rowHeight,
-			itemCount: () => this.processedRows.length,
-			onUpdate: (start, end) => {
-				this.startIndex = start;
-				this.endIndex = end;
-			},
-			enabled: () => this.virtual
-		});
+		this._core.detach();
 	}
 	_syncColumnState(cols) {
 		this.colOrder = cols.map((c) => c.key);
@@ -15424,17 +16824,8 @@ var DataGridComponent = class DataGridComponent$1 {
 		return this.rows.filter((row) => entries.every(([key, val]) => String(row[key] ?? "").toLowerCase().includes(val.toLowerCase())));
 	}
 	get sortedRows() {
-		if (this.serverSide || !this.sortKey) return this.filteredRows;
-		const key = this.sortKey;
-		const dir = this.sortDirection === "asc" ? 1 : -1;
-		return [...this.filteredRows].sort((a, b) => {
-			const aVal = a[key];
-			const bVal = b[key];
-			if (aVal == null) return bVal == null ? 0 : 1;
-			if (bVal == null) return -1;
-			if (typeof aVal === "number" && typeof bVal === "number") return (aVal - bVal) * dir;
-			return String(aVal).localeCompare(String(bVal)) * dir;
-		});
+		if (this.serverSide) return this.filteredRows;
+		return this._core.sortRows(this.filteredRows);
 	}
 	get pagedRows() {
 		if (this.serverSide) return this.rows;
@@ -15445,8 +16836,7 @@ var DataGridComponent = class DataGridComponent$1 {
 		return this.pagedRows;
 	}
 	get visibleRows() {
-		if (!this.virtual) return this.processedRows;
-		return this.processedRows.slice(this.startIndex, this.endIndex);
+		return this._core.visibleRows;
 	}
 	get totalRows() {
 		return this.serverSide ? this.rows.length : this.filteredRows.length;
@@ -15498,27 +16888,16 @@ var DataGridComponent = class DataGridComponent$1 {
 		return null;
 	}
 	get topSpacerHeight() {
-		return this.virtual ? this.startIndex * this.rowHeight : 0;
+		return this._core.topSpacerHeight;
 	}
 	get bottomSpacerHeight() {
-		if (!this.virtual) return 0;
-		return Math.max(0, (this.processedRows.length - this.endIndex) * this.rowHeight);
+		return this._core.bottomSpacerHeight;
 	}
 	get allSelected() {
-		return this.processedRows.length > 0 && this.selectedIndices.length === this.processedRows.length;
+		return this._core.allSelected;
 	}
 	get someSelected() {
-		return this.selectedIndices.length > 0 && !this.allSelected;
-	}
-	_emitSelect() {
-		this.elementRef.dispatchEvent(new CustomEvent("ml:select", {
-			bubbles: true,
-			composed: true,
-			detail: {
-				selectedRows: this.selectedIndices,
-				allSelected: this.allSelected
-			}
-		}));
+		return this._core.someSelected;
 	}
 };
 DataGridComponent = __decorate([MelodicComponent({
@@ -15591,6 +16970,12 @@ function parseDate(iso) {
 	const [y, m, d] = iso.split("T")[0].split("-").map(Number);
 	return new Date(y, m - 1, d);
 }
+function parseEventDate(iso) {
+	return iso.includes("T") ? new Date(iso) : parseDate(iso);
+}
+function toLocalIsoDate(date) {
+	return toIsoDate(date.getFullYear(), date.getMonth(), date.getDate());
+}
 function isSameDay(a, b) {
 	return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
 }
@@ -15620,7 +17005,7 @@ function getISOWeekNumber(date) {
 	return Math.ceil(((d.getTime() - yearStart.getTime()) / 864e5 + 1) / 7);
 }
 function formatTime(iso) {
-	const date = new Date(iso);
+	const date = parseEventDate(iso);
 	const h = date.getHours();
 	const m = date.getMinutes();
 	const ampm = h >= 12 ? "PM" : "AM";
@@ -15703,9 +17088,7 @@ function getWeekdayHeaders(weekStartsOn = 0) {
 	});
 }
 function getEventsForDate(events, iso) {
-	return events.filter((e) => {
-		return e.start.split("T")[0] === iso;
-	});
+	return events.filter((e) => toLocalIsoDate(parseEventDate(e.start)) === iso);
 }
 function getMonthAbbrev(date) {
 	return MONTH_ABBREVS[date.getMonth()];
@@ -15713,27 +17096,35 @@ function getMonthAbbrev(date) {
 function getDayName(date) {
 	return DAY_NAMES[date.getDay()];
 }
-function getMinutesFromMidnight(iso) {
-	const date = new Date(iso);
-	return date.getHours() * 60 + date.getMinutes();
-}
 function minutesToGridRow(minutes) {
 	return Math.floor(minutes / 30) + 1;
 }
+function getEventSpan(event) {
+	const startDate = parseEventDate(event.start);
+	const endDate = parseEventDate(event.end);
+	const start = startDate.getHours() * 60 + startDate.getMinutes();
+	let end = endDate.getHours() * 60 + endDate.getMinutes();
+	if (!isSameDay(startDate, endDate)) end = 1440;
+	return {
+		start,
+		end: Math.max(end, start + 1)
+	};
+}
 function layoutOverlappingEvents(events) {
 	if (events.length === 0) return [];
+	const spans = /* @__PURE__ */ new Map();
+	for (const event of events) spans.set(event.id, getEventSpan(event));
+	const spanOf = (event) => spans.get(event.id);
 	const sorted = [...events].sort((a, b) => {
-		const aStart = getMinutesFromMidnight(a.start);
-		const bStart = getMinutesFromMidnight(b.start);
-		if (aStart !== bStart) return aStart - bStart;
-		const aDuration = getMinutesFromMidnight(a.end) - aStart;
-		return getMinutesFromMidnight(b.end) - bStart - aDuration;
+		const aSpan = spanOf(a);
+		const bSpan = spanOf(b);
+		if (aSpan.start !== bSpan.start) return aSpan.start - bSpan.start;
+		return bSpan.end - bSpan.start - (aSpan.end - aSpan.start);
 	});
 	const columns = [];
 	const eventColumns = /* @__PURE__ */ new Map();
 	for (const event of sorted) {
-		const start = getMinutesFromMidnight(event.start);
-		const end = getMinutesFromMidnight(event.end);
+		const { start, end } = spanOf(event);
 		let placed = false;
 		for (let col = 0; col < columns.length; col++) if (columns[col][columns[col].length - 1].end <= start) {
 			columns[col].push({ end });
@@ -15752,14 +17143,15 @@ function layoutOverlappingEvents(events) {
 		if (visited.has(event.id)) continue;
 		const group = [event];
 		visited.add(event.id);
-		let groupEnd = getMinutesFromMidnight(event.end);
+		let groupEnd = spanOf(event).end;
 		let maxCol = eventColumns.get(event.id) + 1;
 		for (const other of sorted) {
 			if (visited.has(other.id)) continue;
-			if (getMinutesFromMidnight(other.start) < groupEnd) {
+			const otherSpan = spanOf(other);
+			if (otherSpan.start < groupEnd) {
 				group.push(other);
 				visited.add(other.id);
-				groupEnd = Math.max(groupEnd, getMinutesFromMidnight(other.end));
+				groupEnd = Math.max(groupEnd, otherSpan.end);
 				maxCol = Math.max(maxCol, eventColumns.get(other.id) + 1);
 			}
 		}
@@ -15770,14 +17162,15 @@ function layoutOverlappingEvents(events) {
 	}
 	const result = [];
 	for (const group of groups) for (const event of group.events) {
-		const start = getMinutesFromMidnight(event.start);
-		const end = getMinutesFromMidnight(event.end);
+		const { start, end } = spanOf(event);
 		const col = eventColumns.get(event.id);
 		const total = group.totalColumns;
+		const gridRowStart = minutesToGridRow(start);
+		const gridRowEnd = Math.max(minutesToGridRow(end), gridRowStart + 1);
 		result.push({
 			event,
-			gridRowStart: minutesToGridRow(start),
-			gridRowEnd: minutesToGridRow(end),
+			gridRowStart,
+			gridRowEnd,
 			left: col / total,
 			width: 1 / total
 		});
@@ -15827,7 +17220,7 @@ function getMiniCalendarDots(year, month, events) {
 	const daysInMonth = new Date(year, month + 1, 0).getDate();
 	for (let d = 1; d <= daysInMonth; d++) {
 		const iso = toIsoDate(year, month, d);
-		if (events.some((e) => e.start.split("T")[0] === iso)) dots.add(iso);
+		if (events.some((e) => toLocalIsoDate(parseEventDate(e.start)) === iso)) dots.add(iso);
 	}
 	return dots;
 }
@@ -18842,7 +20235,7 @@ const PHOSPHOR_ICON_MAP = {
 	"youtube-logo": ""
 };
 const iconTemplate = (c) => {
-	return html`<i class="${c.format === "regular" ? "ph" : `ph-${c.format}`}">${PHOSPHOR_ICON_MAP[c.icon] ?? ""}</i>`;
+	return html`<i class="${c.format === "regular" ? "ph" : `ph-${c.format}`}" aria-hidden="true">${PHOSPHOR_ICON_MAP[c.icon] ?? ""}</i>`;
 };
 const iconStyles = () => css`
 	:host {
@@ -18923,7 +20316,7 @@ function tabsTemplate(c) {
 				aria-orientation=${c.orientation}
 				@keydown=${c.handleKeyDown}
 			>
-				${hasTabs ? repeat(c.tabs, (tab) => `${tab.value}-${c.value === tab.value}`, (tab) => renderTabButton(c, tab)) : html`<slot name="tab" @slotchange=${c.handleTabSlotChange}></slot>`}
+				${hasTabs ? repeat(c.tabs, (tab) => tab.value, (tab) => renderTabButton(c, tab)) : html`<slot name="tab" @slotchange=${c.handleTabSlotChange}></slot>`}
 			</div>
 
 			<div class="ml-tabs__panels">
@@ -19280,6 +20673,7 @@ var TabsComponent = class TabsComponent$1 {
 		this._slottedTabs = [];
 		this._handleNavigation = this.onNavigation.bind(this);
 		this._handleTabClick = (event) => {
+			event.stopPropagation();
 			const { value, href } = event.detail;
 			this.handleTabClick(value, href);
 		};
@@ -19295,17 +20689,12 @@ var TabsComponent = class TabsComponent$1 {
 		this.handleTabClick = (tabValue, href) => {
 			if (this.getTabByValue(tabValue)?.disabled) return;
 			if (this.routed && href) {
-				window.history.pushState({}, "", href);
-				window.dispatchEvent(new PopStateEvent("popstate"));
+				Injector.get(RouterService).navigate(href).then((result) => {
+					if (result.success) this.activateTab(tabValue);
+				});
+				return;
 			}
-			this.value = tabValue;
-			this.updateTabStates();
-			this.updatePanelVisibility();
-			this.elementRef.dispatchEvent(new CustomEvent("ml:change", {
-				bubbles: true,
-				composed: true,
-				detail: { value: tabValue }
-			}));
+			this.activateTab(tabValue);
 		};
 		this.handleKeyDown = (event) => {
 			const enabledTabs = this.getAllTabs().filter((t) => !t.disabled);
@@ -19353,6 +20742,16 @@ var TabsComponent = class TabsComponent$1 {
 		this.elementRef.removeEventListener("ml:tab-click", this._handleTabClick);
 		if (this.routed) window.removeEventListener("NavigationEvent", this._handleNavigation);
 	}
+	activateTab(tabValue) {
+		this.value = tabValue;
+		this.updateTabStates();
+		this.updatePanelVisibility();
+		this.elementRef.dispatchEvent(new CustomEvent("ml:change", {
+			bubbles: true,
+			composed: true,
+			detail: { value: tabValue }
+		}));
+	}
 	getAllTabs() {
 		if (this.tabs.length > 0) return this.tabs;
 		return this._slottedTabs.map((el) => ({
@@ -19374,13 +20773,22 @@ var TabsComponent = class TabsComponent$1 {
 	}
 	updatePanelVisibility() {
 		if (this.routed) return;
+		const tabs = this.getAllTabs();
 		this.elementRef.querySelectorAll("ml-tab-panel").forEach((panel) => {
-			const isActive = panel.getAttribute("value") === this.value;
+			const value = panel.getAttribute("value");
+			const isActive = value === this.value;
 			panel.style.display = isActive ? "" : "none";
+			const label = tabs.find((t) => t.value === value)?.label;
+			if (label) panel.panelLabel = label;
 		});
 	}
 	focusTab(value) {
-		((this.elementRef.shadowRoot?.querySelector(".ml-tabs__list"))?.querySelector(`[data-value="${value}"]`))?.focus();
+		const button = (this.elementRef.shadowRoot?.querySelector(".ml-tabs__list"))?.querySelector(`[data-value="${value}"]`);
+		if (button) {
+			button.focus();
+			return;
+		}
+		(this._slottedTabs.find((tab) => tab.getAttribute("value") === value)?.shadowRoot?.querySelector(".ml-tab"))?.focus();
 	}
 	syncWithRoute() {
 		const path = window.location.pathname;
@@ -19531,9 +20939,9 @@ TabComponent = __decorate([MelodicComponent({
 		"href"
 	]
 })], TabComponent);
-function tabPanelTemplate(_c) {
+function tabPanelTemplate(c) {
 	return html`
-		<div class="ml-tab-panel" role="tabpanel">
+		<div class="ml-tab-panel" role="tabpanel" aria-label=${c.panelLabel || c.value}>
 			<slot></slot>
 		</div>
 	`;
@@ -19559,6 +20967,7 @@ const tabPanelStyles = () => css`
 var TabPanelComponent = class TabPanelComponent$1 {
 	constructor() {
 		this.value = "";
+		this.panelLabel = "";
 	}
 };
 TabPanelComponent = __decorate([MelodicComponent({
@@ -19771,6 +21180,7 @@ const paginationStyles = () => css`
 		--ml-pagination-pages-gap: var(--ml-space-1);
 
 		/* Button base */
+		--ml-pagination-btn-gap: var(--ml-space-2);
 		--ml-pagination-btn-padding-y: var(--ml-space-2);
 		--ml-pagination-btn-padding-x: var(--ml-space-3);
 		--ml-pagination-btn-font-size: var(--ml-text-sm);
@@ -19778,7 +21188,8 @@ const paginationStyles = () => css`
 		--ml-pagination-btn-color: var(--ml-color-text-secondary);
 		--ml-pagination-btn-bg: transparent;
 		--ml-pagination-btn-radius: var(--ml-radius-md);
-		--ml-pagination-btn-transition: var(--ml-duration-150) var(--ml-ease-in-out);
+		--ml-pagination-btn-transition-duration: var(--ml-duration-150);
+		--ml-pagination-btn-transition-easing: var(--ml-ease-in-out);
 
 		/* Button hover */
 		--ml-pagination-btn-hover-bg: var(--ml-color-surface-hover);
@@ -19822,7 +21233,7 @@ const paginationStyles = () => css`
 		display: inline-flex;
 		align-items: center;
 		justify-content: center;
-		gap: var(--ml-space-2);
+		gap: var(--ml-pagination-btn-gap);
 		padding: var(--ml-pagination-btn-padding-y) var(--ml-pagination-btn-padding-x);
 		font-size: var(--ml-pagination-btn-font-size);
 		font-weight: var(--ml-pagination-btn-font-weight);
@@ -19833,8 +21244,8 @@ const paginationStyles = () => css`
 		cursor: pointer;
 		user-select: none;
 		transition:
-			background-color var(--ml-pagination-btn-transition),
-			color var(--ml-pagination-btn-transition);
+			background-color var(--ml-pagination-btn-transition-duration) var(--ml-pagination-btn-transition-easing),
+			color var(--ml-pagination-btn-transition-duration) var(--ml-pagination-btn-transition-easing);
 	}
 
 	.ml-pagination__btn:hover:not(:disabled) {
@@ -19881,9 +21292,7 @@ var PaginationComponent = class PaginationComponent$1 {
 		this.totalPages = 1;
 		this.siblings = 1;
 		this.goToPage = (page) => {
-			const currentPage = Number(this.page);
-			const total = Number(this.totalPages);
-			if (page < 1 || page > total || page === currentPage) return;
+			if (page < 1 || page > this.totalPages || page === this.page) return;
 			this.page = page;
 			this.elementRef.dispatchEvent(new CustomEvent("ml:page-change", {
 				bubbles: true,
@@ -19892,20 +21301,26 @@ var PaginationComponent = class PaginationComponent$1 {
 			}));
 		};
 		this.previous = () => {
-			this.goToPage(Number(this.page) - 1);
+			this.goToPage(this.page - 1);
 		};
 		this.next = () => {
-			this.goToPage(Number(this.page) + 1);
+			this.goToPage(this.page + 1);
 		};
 	}
+	static #_ = this.propertyTypes = {
+		page: "number",
+		totalPages: "number",
+		siblings: "number"
+	};
 	get pages() {
-		const total = Math.max(1, Number(this.totalPages));
-		const current = Math.min(Math.max(1, Number(this.page)), total);
-		const siblings = Math.max(0, Number(this.siblings));
+		const total = Math.max(1, this.totalPages);
+		const current = Math.min(Math.max(1, this.page), total);
+		const siblings = Math.max(0, this.siblings);
 		const range = (start, end) => Array.from({ length: end - start + 1 }, (_, i) => ({
 			type: "page",
 			value: start + i
 		}));
+		if (2 * siblings + 5 >= total) return range(1, total);
 		const leftSibling = Math.max(current - siblings, 1);
 		const rightSibling = Math.min(current + siblings, total);
 		const showLeftEllipsis = leftSibling > 2;
@@ -19942,10 +21357,10 @@ var PaginationComponent = class PaginationComponent$1 {
 		];
 	}
 	get hasPrevious() {
-		return Number(this.page) > 1;
+		return this.page > 1;
 	}
 	get hasNext() {
-		return Number(this.page) < Number(this.totalPages);
+		return this.page < this.totalPages;
 	}
 };
 PaginationComponent = __decorate([MelodicComponent({
@@ -20533,10 +21948,10 @@ var SidebarComponent = class SidebarComponent$1 {
 			this.expandedItems = next;
 		};
 		this.handleKeyDown = (event) => {
-			const sidebar = this.elementRef.shadowRoot?.querySelector(".ml-sidebar__main");
-			if (!sidebar) return;
-			const focusable = Array.from(sidebar.querySelectorAll(".ml-sidebar__item-link:not([disabled]), button:not([disabled]), a"));
-			const currentIndex = focusable.indexOf(event.target);
+			const focusable = this.getFocusableItems();
+			if (focusable.length === 0) return;
+			const target = event.target;
+			const currentIndex = focusable.findIndex((entry) => entry.el === target || entry.host === target);
 			let newIndex = currentIndex;
 			switch (event.key) {
 				case "ArrowUp":
@@ -20557,7 +21972,7 @@ var SidebarComponent = class SidebarComponent$1 {
 					break;
 				default: return;
 			}
-			if (newIndex !== currentIndex && focusable[newIndex]) focusable[newIndex].focus();
+			if (newIndex !== currentIndex && focusable[newIndex]) focusable[newIndex].el.focus();
 		};
 		this.expandedItems = /* @__PURE__ */ new Set();
 	}
@@ -20587,6 +22002,36 @@ var SidebarComponent = class SidebarComponent$1 {
 		this.elementRef.removeEventListener("mouseleave", this._handleMouseLeave);
 		if (this._hoverTimer) clearTimeout(this._hoverTimer);
 	}
+	getFocusableItems() {
+		const main = this.elementRef.shadowRoot?.querySelector(".ml-sidebar__main");
+		if (!main) return [];
+		const result = [];
+		const visit = (node) => {
+			if (node instanceof HTMLSlotElement) {
+				node.assignedElements({ flatten: true }).forEach(visit);
+				return;
+			}
+			if (node.tagName === "ML-SIDEBAR-ITEM") {
+				const link = node.shadowRoot?.querySelector(".ml-sidebar-item__link");
+				if (link && !link.hasAttribute("disabled") && !link.classList.contains("ml-sidebar-item__link--disabled")) result.push({
+					el: link,
+					host: node
+				});
+				if (node.hasAttribute("expanded") && !this.collapsed) Array.from(node.children).forEach(visit);
+				return;
+			}
+			if (node.matches(".ml-sidebar__item-link:not([disabled]):not(.ml-sidebar__item-link--disabled), button:not([disabled]), a")) {
+				result.push({
+					el: node,
+					host: null
+				});
+				return;
+			}
+			Array.from(node.children).forEach(visit);
+		};
+		Array.from(main.children).forEach(visit);
+		return result;
+	}
 	activateItem(value, href) {
 		this.active = value;
 		this.updateItemStates();
@@ -20605,6 +22050,7 @@ var SidebarComponent = class SidebarComponent$1 {
 		}));
 	}
 	onItemClick(event) {
+		event.stopPropagation();
 		const { value, href } = event.detail;
 		this.activateItem(value, href);
 	}
@@ -20709,7 +22155,7 @@ function sidebarItemTemplate(c) {
 	const content = html`
 		<div class="ml-sidebar-item__leading">
 			<slot name="leading">
-				${when(!!c.icon, () => html`<ml-icon icon=${c.icon} size="sm" format=${c["icon-format"] || "regular"}></ml-icon>`)}
+				${when(!!c.icon, () => html`<ml-icon icon=${c.icon} size="sm" format=${c.iconFormat || "regular"}></ml-icon>`)}
 			</slot>
 		</div>
 		${when(!isCollapsed, () => html`
@@ -20719,7 +22165,7 @@ function sidebarItemTemplate(c) {
 					${when(!!c.badge, () => html`
 						<span class=${classMap({
 		"ml-sidebar-item__badge": true,
-		[`ml-sidebar-item__badge--${c["badge-color"]}`]: true
+		[`ml-sidebar-item__badge--${c.badgeColor}`]: true
 	})}>${c.badge}</span>
 					`)}
 					${when(c.external, () => html`<ml-icon icon="arrow-square-out" size="xs"></ml-icon>`)}
@@ -21003,14 +22449,14 @@ const sidebarItemStyles = () => css`
 var SidebarItemComponent = class SidebarItemComponent$1 {
 	constructor() {
 		this.icon = "";
-		this["icon-format"] = "";
+		this.iconFormat = "";
 		this.label = "";
 		this.value = "";
 		this.href = "";
 		this.active = false;
 		this.disabled = false;
 		this.badge = "";
-		this["badge-color"] = "default";
+		this.badgeColor = "default";
 		this.external = false;
 		this.expanded = false;
 		this.collapsed = false;
@@ -21065,6 +22511,10 @@ SidebarItemComponent = __decorate([MelodicComponent({
 		"level"
 	]
 })], SidebarItemComponent);
+defineLegacyAliases(SidebarItemComponent.prototype, "ml-sidebar-item", {
+	"icon-format": "iconFormat",
+	"badge-color": "badgeColor"
+});
 function stepsTemplate(c) {
 	const hasSteps = c.steps.length > 0;
 	const isCompact = c.compact;
@@ -21083,7 +22533,7 @@ function stepsTemplate(c) {
 				aria-orientation=${c.orientation}
 				@keydown=${c.handleKeyDown}
 			>
-				${hasSteps ? repeat(c.steps, (step) => `${step.value}-${c.active === step.value}`, (step, index) => renderConfigStep(c, step, index)) : html`<slot name="step" @slotchange=${c.handleStepSlotChange}></slot>`}
+				${hasSteps ? repeat(c.steps, (step) => step.value, (step, index) => renderConfigStep(c, step, index)) : html`<slot name="step" @slotchange=${c.handleStepSlotChange}></slot>`}
 			</div>
 
 			${when(isCompact, () => html`
@@ -21811,19 +23261,15 @@ var StepsComponent = class StepsComponent$1 {
 		this.handleStepClick = (stepValue, href) => {
 			if (this.getStepByValue(stepValue)?.disabled) return;
 			if (this.routed && href) {
-				window.history.pushState({}, "", href);
-				window.dispatchEvent(new PopStateEvent("popstate"));
+				Injector.get(RouterService).navigate(href).then((result) => {
+					if (result.success) this.activateStep(stepValue);
+				});
+				return;
 			}
-			this.active = stepValue;
-			this.updateSlottedStepStates();
-			this.updatePanelVisibility();
-			this.elementRef.dispatchEvent(new CustomEvent("ml:change", {
-				bubbles: true,
-				composed: true,
-				detail: { value: stepValue }
-			}));
+			this.activateStep(stepValue);
 		};
 		this.handleSlottedStepClick = (event) => {
+			event.stopPropagation();
 			const { value, href } = event.detail;
 			this.handleStepClick(value, href);
 		};
@@ -21884,6 +23330,16 @@ var StepsComponent = class StepsComponent$1 {
 		this.elementRef.removeEventListener("ml:step-click", this.handleSlottedStepClick);
 		if (this.routed) window.removeEventListener("NavigationEvent", this._handleNavigation);
 	}
+	activateStep(stepValue) {
+		this.active = stepValue;
+		this.updateSlottedStepStates();
+		this.updatePanelVisibility();
+		this.elementRef.dispatchEvent(new CustomEvent("ml:change", {
+			bubbles: true,
+			composed: true,
+			detail: { value: stepValue }
+		}));
+	}
 	getStepStatus(stepValue) {
 		const allSteps = this.getAllSteps();
 		const activeIndex = allSteps.findIndex((s) => s.value === this.active);
@@ -21930,13 +23386,22 @@ var StepsComponent = class StepsComponent$1 {
 	}
 	updatePanelVisibility() {
 		if (this.routed) return;
+		const steps = this.getAllSteps();
 		this.elementRef.querySelectorAll("ml-step-panel").forEach((panel) => {
-			const isActive = panel.getAttribute("value") === this.active;
+			const value = panel.getAttribute("value");
+			const isActive = value === this.active;
 			panel.style.display = isActive ? "" : "none";
+			const label = steps.find((s) => s.value === value)?.label;
+			if (label) panel.panelLabel = label;
 		});
 	}
 	focusStep(value) {
-		((this.elementRef.shadowRoot?.querySelector(".ml-steps__list"))?.querySelector(`[data-value="${value}"]`))?.focus();
+		const button = (this.elementRef.shadowRoot?.querySelector(".ml-steps__list"))?.querySelector(`[data-value="${value}"]`);
+		if (button) {
+			button.focus();
+			return;
+		}
+		(this._slottedSteps.find((step) => step.getAttribute("value") === value)?.shadowRoot?.querySelector(".ml-step"))?.focus();
 	}
 	syncWithRoute() {
 		const path = window.location.pathname;
@@ -22034,7 +23499,7 @@ function renderNumberedIndicator(c) {
 	return html`
 		<div class="ml-step__indicator-inner ml-step__indicator-inner--numbered">
 			${when(isCompleted, () => html`<ml-icon icon="check" size="sm"></ml-icon>`)}
-			${when(!isCompleted, () => html`<span>${c["step-number"]}</span>`)}
+			${when(!isCompleted, () => html`<span>${c.stepNumber}</span>`)}
 		</div>
 	`;
 }
@@ -22637,7 +24102,7 @@ var StepComponent = class StepComponent$1 {
 		this.connector = "solid";
 		this.color = "primary";
 		this.orientation = "horizontal";
-		this["step-number"] = "1";
+		this.stepNumber = "1";
 		this.first = false;
 		this.last = false;
 		this.compact = false;
@@ -22675,9 +24140,10 @@ StepComponent = __decorate([MelodicComponent({
 		"compact"
 	]
 })], StepComponent);
-function stepPanelTemplate(_c) {
+defineLegacyAliases(StepComponent.prototype, "ml-step", { "step-number": "stepNumber" });
+function stepPanelTemplate(c) {
 	return html`
-		<div class="ml-step-panel" role="tabpanel">
+		<div class="ml-step-panel" role="tabpanel" aria-label=${c.panelLabel || c.value}>
 			<slot></slot>
 		</div>
 	`;
@@ -22698,6 +24164,7 @@ const stepPanelStyles = () => css`
 var StepPanelComponent = class StepPanelComponent$1 {
 	constructor() {
 		this.value = "";
+		this.panelLabel = "";
 	}
 };
 StepPanelComponent = __decorate([MelodicComponent({
@@ -22943,13 +24410,17 @@ var DialogRef = class {
 	constructor(_dialogID, _dialogEl) {
 		this._dialogID = _dialogID;
 		this._dialogEl = _dialogEl;
-		this._afterOpenedCallback = null;
-		this._afterClosedCallback = null;
+		this._afterOpenedCallbacks = [];
+		this._afterClosedCallbacks = [];
 		this._disableClose = false;
+		this._closeNotified = false;
+		this._popoversDismissed = false;
 		this._handleCancel = this.onCancel.bind(this);
 		this._handleBackdropClick = this.onBackdropClick.bind(this);
+		this._handleClose = this.onClose.bind(this);
 		this._dialogEl.addEventListener("cancel", this._handleCancel);
 		this._dialogEl.addEventListener("click", this._handleBackdropClick);
+		this._dialogEl.addEventListener("close", this._handleClose);
 	}
 	get dialogID() {
 		return this._dialogID;
@@ -22972,25 +24443,51 @@ var DialogRef = class {
 		return this;
 	}
 	open() {
+		this._closeNotified = false;
+		this._popoversDismissed = false;
+		this._pendingResult = void 0;
 		this._dialogEl.showModal();
-		this._afterOpenedCallback?.();
+		this._afterOpenedCallbacks.forEach((callback) => callback());
+		this._dialogEl.dispatchEvent(new CustomEvent("ml:open", {
+			bubbles: true,
+			composed: true
+		}));
 	}
 	close(result) {
+		this._pendingResult = result;
 		this._dismissDescendantPopovers(this._dialogEl);
+		this._popoversDismissed = true;
 		this._dialogEl.close();
-		this._afterClosedCallback?.(result);
+		this.notifyClosed();
 	}
 	afterOpened(callback) {
-		this._afterOpenedCallback = callback;
+		this._afterOpenedCallbacks.push(callback);
 	}
 	afterClosed(callback) {
-		this._afterClosedCallback = callback;
+		this._afterClosedCallbacks.push(callback);
 	}
 	onCancel(event) {
 		if (this._disableClose) event.preventDefault();
 	}
 	onBackdropClick(event) {
 		if (event.target === this._dialogEl && !this._disableClose) this.close();
+	}
+	onClose() {
+		this.notifyClosed();
+	}
+	notifyClosed() {
+		if (this._closeNotified) return;
+		this._closeNotified = true;
+		if (!this._popoversDismissed) this._dismissDescendantPopovers(this._dialogEl);
+		this._popoversDismissed = false;
+		const result = this._pendingResult;
+		this._pendingResult = void 0;
+		this._afterClosedCallbacks.forEach((callback) => callback(result));
+		this._dialogEl.dispatchEvent(new CustomEvent("ml:close", {
+			bubbles: true,
+			composed: true,
+			detail: { result }
+		}));
 	}
 	_dismissDescendantPopovers(root) {
 		root.querySelectorAll("*").forEach((el) => {
@@ -23006,32 +24503,50 @@ var DialogService = class DialogService$1 {
 		this._dialogs = /* @__PURE__ */ new Map();
 	}
 	addDialog(dialogID, dialogEl) {
+		const previous = this._dialogs.get(dialogID);
+		if (previous) previous.dialogEl.removeEventListener("close", previous.closeListener);
 		const dialogRef = new DialogRef(dialogID, dialogEl);
+		const closeListener = () => {
+			const elements = this._dialogs.get(dialogID);
+			this.cleanUpDialog(dialogID, elements?.dialogComponent);
+		};
 		this._dialogs.set(dialogID, {
 			dialogRef,
 			dialogEl,
-			dialogComponent: void 0
+			dialogComponent: void 0,
+			closeListener
 		});
-		dialogEl.addEventListener("close", () => {
-			const elements = this._dialogs.get(dialogID);
-			this.cleanUpDialog(dialogID, elements?.dialogComponent);
-		});
+		dialogEl.addEventListener("close", closeListener);
 		return dialogRef;
 	}
 	removeDialog(dialogID, dialogEl) {
-		if (dialogEl) {
-			const elements = this._dialogs.get(dialogID);
-			if (!elements || elements.dialogEl !== dialogEl) return;
-		}
+		const elements = this._dialogs.get(dialogID);
+		if (!elements) return;
+		if (dialogEl && elements.dialogEl !== dialogEl) return;
+		elements.dialogEl.removeEventListener("close", elements.closeListener);
 		this._dialogs.delete(dialogID);
 	}
 	open(dialogComponentOrID, config) {
 		let dialogID = dialogComponentOrID;
-		let dialogElements = this._dialogs.get(dialogID);
+		let dialogComponent;
 		if (typeof dialogComponentOrID !== "string") {
-			const dialogComponent = this.mountDialog(dialogComponentOrID);
-			dialogID = ((dialogComponent.shadowRoot?.querySelector("ml-dialog")).shadowRoot?.querySelector("dialog")).id;
-			dialogElements = this._dialogs.get(dialogID);
+			const mounted = this.mountDialog(dialogComponentOrID);
+			const dialogEl = (mounted.shadowRoot?.querySelector("ml-dialog") ?? null)?.shadowRoot?.querySelector("dialog") ?? null;
+			if (!dialogEl) {
+				console.warn(`[DialogService] Component "${dialogComponentOrID.selector}" did not render an <ml-dialog>; cannot open.`);
+				this.unmountDialog(mounted);
+				return;
+			}
+			dialogID = dialogEl.id;
+			dialogComponent = mounted;
+		}
+		const dialogElements = this._dialogs.get(dialogID);
+		if (!dialogElements) {
+			console.warn(`[DialogService] No dialog registered with id "${dialogID}"; open() ignored.`);
+			if (dialogComponent) this.unmountDialog(dialogComponent);
+			return;
+		}
+		if (dialogComponent) {
 			dialogElements.dialogComponent = dialogComponent;
 			if (config) dialogElements.dialogRef.applyConfig(config);
 			dialogComponent.component.onDialogRefSet?.(dialogElements.dialogRef);
@@ -23040,7 +24555,12 @@ var DialogService = class DialogService$1 {
 		return dialogElements.dialogRef;
 	}
 	close(dialogID, result) {
-		if (this._dialogs.has(dialogID)) this._dialogs.get(dialogID).dialogRef.close(result);
+		const dialogElements = this._dialogs.get(dialogID);
+		if (!dialogElements) {
+			console.warn(`[DialogService] No dialog registered with id "${dialogID}"; close() ignored.`);
+			return;
+		}
+		dialogElements.dialogRef.close(result);
 	}
 	cleanUpDialog(dialogID, dialogComponent) {
 		if (dialogComponent) {
@@ -23083,10 +24603,14 @@ var DialogComponent = class DialogComponent$1 {
 	}
 	open() {
 		this.registerDialog();
+		if (!this._dialogRef) {
+			console.warn("[ml-dialog] Cannot open: dialog element is not rendered yet.");
+			return;
+		}
 		this._dialogRef.open();
 	}
 	close(result) {
-		this._dialogRef.close(result);
+		this._dialogRef?.close(result);
 	}
 	createDialogID() {
 		return this.elementRef.getAttributeNames().find((attr) => attr.startsWith("#"))?.slice(1) ?? this._dialogID;
@@ -23144,6 +24668,10 @@ const drawerStyles = () => css`
 		/* Panel */
 		--ml-drawer-bg: var(--ml-color-surface);
 		--ml-drawer-shadow: var(--ml-shadow-xl);
+
+		/* Slide animation (read by the component for the panel animation) */
+		--ml-drawer-transition-duration: var(--ml-duration-300);
+		--ml-drawer-transition-easing: cubic-bezier(0.16, 1, 0.3, 1);
 
 		/* Size variants */
 		--ml-drawer-sm-width: 320px;
@@ -23358,14 +24886,19 @@ var DrawerComponent = class DrawerComponent$1 {
 			this.cancelAnimations();
 			const prop = this._positionProp;
 			const width = this._panelEl.offsetWidth;
+			const { duration, easing } = this.getAnimationTiming();
 			const anim = this._panelEl.animate([{ [prop]: "0px" }, { [prop]: `${-width}px` }], {
-				duration: 300,
-				easing: "cubic-bezier(0.16, 1, 0.3, 1)",
+				duration,
+				easing,
 				fill: "forwards"
 			});
 			anim.onfinish = () => {
 				this._panelEl.style[prop] = "";
 				this._dialogEl.close();
+				this.elementRef.dispatchEvent(new CustomEvent("ml:closed", {
+					bubbles: true,
+					composed: true
+				}));
 			};
 			this.elementRef.dispatchEvent(new CustomEvent("ml:close", {
 				bubbles: true,
@@ -23382,6 +24915,19 @@ var DrawerComponent = class DrawerComponent$1 {
 	}
 	get _positionProp() {
 		return this.side === "left" ? "left" : "right";
+	}
+	getAnimationTiming() {
+		const styles = getComputedStyle(this._panelEl);
+		const rawDuration = styles.getPropertyValue("--ml-drawer-transition-duration").trim();
+		const rawEasing = styles.getPropertyValue("--ml-drawer-transition-easing").trim();
+		let duration = NaN;
+		if (rawDuration.endsWith("ms")) duration = Number.parseFloat(rawDuration);
+		else if (rawDuration.endsWith("s")) duration = Number.parseFloat(rawDuration) * 1e3;
+		if (!Number.isFinite(duration)) duration = 300;
+		return {
+			duration,
+			easing: rawEasing || "cubic-bezier(0.16, 1, 0.3, 1)"
+		};
 	}
 	cancelAnimations() {
 		for (const anim of this._panelEl.getAnimations()) anim.cancel();
@@ -23402,15 +24948,20 @@ var DrawerComponent = class DrawerComponent$1 {
 		this._dialogEl.showModal();
 		const prop = this._positionProp;
 		const width = this._panelEl.offsetWidth;
+		const { duration, easing } = this.getAnimationTiming();
 		this._panelEl.style[prop] = `${-width}px`;
 		this._panelEl.getBoundingClientRect();
 		const anim = this._panelEl.animate([{ [prop]: `${-width}px` }, { [prop]: "0px" }], {
-			duration: 300,
-			easing: "cubic-bezier(0.16, 1, 0.3, 1)",
+			duration,
+			easing,
 			fill: "forwards"
 		});
 		anim.onfinish = () => {
 			this._panelEl.style[prop] = "0px";
+			this.elementRef.dispatchEvent(new CustomEvent("ml:opened", {
+				bubbles: true,
+				composed: true
+			}));
 		};
 		this.elementRef.dispatchEvent(new CustomEvent("ml:open", {
 			bubbles: true,
@@ -23548,13 +25099,16 @@ var DropdownComponent = class DropdownComponent$1 {
 		this.arrow = false;
 		this.isOpen = false;
 		this._focusedIndex = -1;
-		this._cleanupAutoUpdate = null;
-		this._justDismissed = false;
+		this._positioner = new OverlayPositioner(() => ({
+			placement: this.placement,
+			offset: this.offset,
+			arrowElement: this.arrow ? this.elementRef.shadowRoot?.querySelector(".ml-dropdown__arrow") : null,
+			placementAttribute: true
+		}));
+		this._dismissGuard = new ToggleDismissGuard();
+		this._restoreFocusOnClose = false;
 		this.toggle = () => {
-			if (this._justDismissed) {
-				this._justDismissed = false;
-				return;
-			}
+			if (this._dismissGuard.shouldSkipToggle()) return;
 			const menuEl = this.getMenuEl();
 			if (menuEl) menuEl.togglePopover();
 		};
@@ -23569,19 +25123,18 @@ var DropdownComponent = class DropdownComponent$1 {
 				}));
 			} else {
 				this.isOpen = false;
-				this._justDismissed = true;
-				setTimeout(() => {
-					this._justDismissed = false;
-				}, 0);
+				this._dismissGuard.dismissed();
+				const shouldRestoreFocus = this._restoreFocusOnClose || isDeepFocusWithin(this.elementRef);
+				this._restoreFocusOnClose = false;
 				this.clearFocus();
-				this._cleanupAutoUpdate?.();
-				this._cleanupAutoUpdate = null;
-				this.returnFocusToTrigger();
+				this._positioner.stop();
+				if (shouldRestoreFocus) this.returnFocusToTrigger();
 				this.elementRef.dispatchEvent(new CustomEvent("ml:close", {
 					bubbles: true,
 					composed: true
 				}));
 			}
+			this.syncTriggerAria();
 		};
 		this.handleItemSelect = (event) => {
 			event.stopPropagation();
@@ -23617,11 +25170,15 @@ var DropdownComponent = class DropdownComponent$1 {
 					event.preventDefault();
 					if (this._focusedIndex >= 0 && this._focusedIndex < items.length) {
 						const item = items[this._focusedIndex];
-						if (!item.disabled) item.handleClick();
+						if (!item.disabled) {
+							this._restoreFocusOnClose = true;
+							(item.component ?? item).handleClick();
+						}
 					}
 					break;
 				case "Escape":
 					event.preventDefault();
+					this._restoreFocusOnClose = true;
 					this.close();
 					break;
 				case "Tab":
@@ -23638,19 +25195,28 @@ var DropdownComponent = class DropdownComponent$1 {
 				default: break;
 			}
 		};
+		this.syncTriggerAria = () => {
+			const trigger = this.getAssignedTrigger();
+			if (!trigger) return;
+			trigger.setAttribute("aria-haspopup", "menu");
+			trigger.setAttribute("aria-expanded", String(this.isOpen));
+		};
 	}
 	onCreate() {
 		const menuEl = this.getMenuEl();
 		if (menuEl) menuEl.addEventListener("toggle", this.handleToggle);
 		this.elementRef.addEventListener("ml:item-select", this.handleItemSelect);
 		this.elementRef.addEventListener("keydown", this.handleKeyDown);
+		this.elementRef.shadowRoot?.addEventListener("slotchange", this.syncTriggerAria);
+		this.syncTriggerAria();
 	}
 	onDestroy() {
-		this._cleanupAutoUpdate?.();
+		this._positioner.stop();
 		const menuEl = this.getMenuEl();
 		if (menuEl) menuEl.removeEventListener("toggle", this.handleToggle);
 		this.elementRef.removeEventListener("ml:item-select", this.handleItemSelect);
 		this.elementRef.removeEventListener("keydown", this.handleKeyDown);
+		this.elementRef.shadowRoot?.removeEventListener("slotchange", this.syncTriggerAria);
 	}
 	open() {
 		const menuEl = this.getMenuEl();
@@ -23703,11 +25269,14 @@ var DropdownComponent = class DropdownComponent$1 {
 		if (index < 0) return;
 		for (let i = 0; i < items.length; i++) items[i].focused = i === index;
 		this._focusedIndex = index;
+		const itemID = items[index].id;
+		if (itemID) this.getAssignedTrigger()?.setAttribute("aria-activedescendant", itemID);
 	}
 	clearFocus() {
 		const items = this.getNavigableItems();
 		for (const item of items) item.focused = false;
 		this._focusedIndex = -1;
+		this.getAssignedTrigger()?.removeAttribute("aria-activedescendant");
 	}
 	findFirstEnabled(items) {
 		return items.findIndex((item) => !item.disabled);
@@ -23717,50 +25286,16 @@ var DropdownComponent = class DropdownComponent$1 {
 		return -1;
 	}
 	returnFocusToTrigger() {
-		const triggerSlot = this.elementRef.shadowRoot?.querySelector("slot[name=\"trigger\"]");
-		if (triggerSlot) {
-			const assigned = triggerSlot.assignedElements();
-			if (assigned.length > 0) assigned[0].focus();
-		}
+		this.getAssignedTrigger()?.focus();
+	}
+	getAssignedTrigger() {
+		return ((this.elementRef.shadowRoot?.querySelector("slot[name=\"trigger\"]"))?.assignedElements() ?? [])[0] ?? null;
 	}
 	startPositioning() {
 		const triggerEl = this.getTriggerEl();
 		const menuEl = this.getMenuEl();
 		if (!triggerEl || !menuEl) return;
-		const update = () => this.updatePosition(triggerEl, menuEl);
-		this._cleanupAutoUpdate?.();
-		this._cleanupAutoUpdate = autoUpdate(triggerEl, menuEl, update);
-	}
-	updatePosition(triggerEl, menuEl) {
-		const arrowEl = this.arrow ? this.elementRef.shadowRoot?.querySelector(".ml-dropdown__arrow") : null;
-		const middleware = [
-			offset(this.offset),
-			flip(),
-			shift({ padding: 8 })
-		];
-		if (arrowEl) middleware.push(arrow({
-			element: arrowEl,
-			padding: 8
-		}));
-		const { x, y, placement, middlewareData } = computePosition(triggerEl, menuEl, {
-			placement: this.placement,
-			middleware
-		});
-		menuEl.style.left = `${x}px`;
-		menuEl.style.top = `${y}px`;
-		menuEl.dataset.placement = placement;
-		if (arrowEl && middlewareData.arrow) this.positionArrow(arrowEl, placement, middlewareData.arrow);
-	}
-	positionArrow(arrowEl, placement, arrowData) {
-		const side = placement.split("-")[0];
-		arrowEl.style.left = arrowData.x === void 0 ? "" : `${arrowData.x}px`;
-		arrowEl.style.right = "";
-		arrowEl.style.top = arrowData.y === void 0 ? "" : `${arrowData.y}px`;
-		arrowEl.style.bottom = "";
-		if (side === "top") arrowEl.style.bottom = "-4px";
-		if (side === "bottom") arrowEl.style.top = "-4px";
-		if (side === "left") arrowEl.style.right = "-4px";
-		if (side === "right") arrowEl.style.left = "-4px";
+		this._positioner.start(triggerEl, menuEl);
 	}
 	getTriggerEl() {
 		return this.elementRef.shadowRoot?.querySelector(".ml-dropdown__trigger");
@@ -23788,9 +25323,6 @@ function dropdownItemTemplate(c) {
 		"ml-dropdown-item--disabled": c.disabled,
 		"ml-dropdown-item--destructive": c.destructive
 	})}
-			role="menuitem"
-			tabindex="-1"
-			aria-disabled=${c.disabled || false}
 			@click=${c.handleClick}
 		>
 			${when(!!c.icon, () => html`<ml-icon class="ml-dropdown-item__icon" icon=${c.icon} size="sm"></ml-icon>`)}
@@ -23910,6 +25442,18 @@ var DropdownItemComponent = class DropdownItemComponent$1 {
 			}));
 		};
 	}
+	onCreate() {
+		if (!this.elementRef.id) this.elementRef.id = newID();
+		this.elementRef.setAttribute("role", "menuitem");
+		this.elementRef.setAttribute("tabindex", "-1");
+		this.syncHostAria();
+	}
+	onRender() {
+		this.syncHostAria();
+	}
+	syncHostAria() {
+		this.elementRef.setAttribute("aria-disabled", String(this.disabled));
+	}
 };
 DropdownItemComponent = __decorate([MelodicComponent({
 	selector: "ml-dropdown-item",
@@ -23977,190 +25521,6 @@ DropdownGroupComponent = __decorate([MelodicComponent({
 	styles: dropdownGroupStyles,
 	attributes: ["label"]
 })], DropdownGroupComponent);
-function tooltipTemplate(c) {
-	return html`
-		<div class="ml-tooltip">
-			<div
-				class="ml-tooltip__trigger"
-				@mouseenter=${c.show}
-				@mouseleave=${c.hide}
-				@focus=${c.show}
-				@blur=${c.hide}
-			>
-				<slot></slot>
-			</div>
-			<div
-				class=${classMap({
-		"ml-tooltip__content": true,
-		"ml-tooltip__content--visible": c.isVisible
-	})}
-				role="tooltip"
-				aria-hidden=${!c.isVisible}
-			>
-				${c.content}
-				<div class="ml-tooltip__arrow"></div>
-			</div>
-		</div>
-	`;
-}
-const tooltipStyles = () => css`
-	:host {
-		/* Tooltip content */
-		--ml-tooltip-max-width: 320px;
-		--ml-tooltip-padding-y: var(--ml-space-2);
-		--ml-tooltip-padding-x: var(--ml-space-3);
-		/* bg/color derive from the global tooltip theme tokens; referencing
-		   --ml-tooltip-bg here would be self-referential (invalid → transparent). */
-		--ml-tooltip-bg: var(--ml-color-neutral-900, var(--ml-gray-900));
-		--ml-tooltip-color: var(--ml-tooltip-text, var(--ml-white));
-		--ml-tooltip-font-size: var(--ml-text-xs);
-		--ml-tooltip-font-weight: var(--ml-font-medium);
-		--ml-tooltip-line-height: var(--ml-leading-snug);
-		--ml-tooltip-radius: var(--ml-radius);
-		--ml-tooltip-shadow: var(--ml-shadow-lg);
-		--ml-tooltip-transition: var(--ml-duration-150) var(--ml-ease-out);
-
-		/* Arrow */
-		--ml-tooltip-arrow-size: 8px;
-
-		display: inline-block;
-	}
-
-	.ml-tooltip {
-		position: relative;
-		display: inline-block;
-	}
-
-	.ml-tooltip__trigger {
-		display: inline-block;
-	}
-
-	.ml-tooltip__content {
-		position: fixed;
-		z-index: 9999;
-		max-width: var(--ml-tooltip-max-width);
-		padding: var(--ml-tooltip-padding-y) var(--ml-tooltip-padding-x);
-		background-color: var(--ml-tooltip-bg);
-		color: var(--ml-tooltip-color);
-		font-size: var(--ml-tooltip-font-size);
-		font-weight: var(--ml-tooltip-font-weight);
-		line-height: var(--ml-tooltip-line-height);
-		border-radius: var(--ml-tooltip-radius);
-		box-shadow: var(--ml-tooltip-shadow);
-		text-align: center;
-		word-wrap: break-word;
-		pointer-events: none;
-		opacity: 0;
-		transform: scale(0.95);
-		transition:
-			opacity var(--ml-tooltip-transition),
-			transform var(--ml-tooltip-transition);
-	}
-
-	.ml-tooltip__content--visible {
-		opacity: 1;
-		transform: scale(1);
-	}
-
-	.ml-tooltip__arrow {
-		position: absolute;
-		width: var(--ml-tooltip-arrow-size);
-		height: var(--ml-tooltip-arrow-size);
-		background-color: var(--ml-tooltip-bg);
-		transform: rotate(45deg);
-	}
-
-	.ml-tooltip__content[data-placement^='top'] .ml-tooltip__arrow {
-		bottom: -4px;
-	}
-
-	.ml-tooltip__content[data-placement^='bottom'] .ml-tooltip__arrow {
-		top: -4px;
-	}
-
-	.ml-tooltip__content[data-placement^='left'] .ml-tooltip__arrow {
-		right: -4px;
-	}
-
-	.ml-tooltip__content[data-placement^='right'] .ml-tooltip__arrow {
-		left: -4px;
-	}
-`;
-var TooltipComponent = class TooltipComponent$1 {
-	constructor() {
-		this.content = "";
-		this.placement = "top";
-		this.delay = 200;
-		this.isVisible = false;
-		this._showTimeout = null;
-		this._hideTimeout = null;
-		this.show = () => {
-			if (this._hideTimeout) {
-				clearTimeout(this._hideTimeout);
-				this._hideTimeout = null;
-			}
-			this._showTimeout = window.setTimeout(() => {
-				this.isVisible = true;
-				this.updatePosition();
-			}, this.delay);
-		};
-		this.hide = () => {
-			if (this._showTimeout) {
-				clearTimeout(this._showTimeout);
-				this._showTimeout = null;
-			}
-			this._hideTimeout = window.setTimeout(() => {
-				this.isVisible = false;
-			}, 100);
-		};
-	}
-	onInit() {}
-	onDestroy() {
-		if (this._showTimeout) clearTimeout(this._showTimeout);
-		if (this._hideTimeout) clearTimeout(this._hideTimeout);
-	}
-	updatePosition() {
-		const trigger = this.elementRef.shadowRoot?.querySelector(".ml-tooltip__trigger");
-		const tooltip = this.elementRef.shadowRoot?.querySelector(".ml-tooltip__content");
-		const arrow$1 = this.elementRef.shadowRoot?.querySelector(".ml-tooltip__arrow");
-		if (!trigger || !tooltip) return;
-		const { x, y, placement } = computePosition(trigger, tooltip, {
-			placement: this.placement,
-			middleware: [
-				offset(8),
-				flip(),
-				shift({ padding: 8 })
-			]
-		});
-		tooltip.style.left = `${x}px`;
-		tooltip.style.top = `${y}px`;
-		tooltip.setAttribute("data-placement", placement);
-		if (arrow$1) {
-			const side = placement.split("-")[0];
-			arrow$1.style.left = "";
-			arrow$1.style.right = "";
-			arrow$1.style.top = "";
-			arrow$1.style.bottom = "";
-			if (side === "top" || side === "bottom") {
-				arrow$1.style.left = "50%";
-				arrow$1.style.marginLeft = "-4px";
-			} else {
-				arrow$1.style.top = "50%";
-				arrow$1.style.marginTop = "-4px";
-			}
-		}
-	}
-};
-TooltipComponent = __decorate([MelodicComponent({
-	selector: "ml-tooltip",
-	template: tooltipTemplate,
-	styles: tooltipStyles,
-	attributes: [
-		"content",
-		"placement",
-		"delay"
-	]
-})], TooltipComponent);
 function popoverTemplate(c) {
 	return html`
 		<div class="ml-popover">
@@ -24280,13 +25640,16 @@ var PopoverComponent = class PopoverComponent$1 {
 		this.manual = false;
 		this.arrow = false;
 		this.isOpen = false;
-		this._cleanupAutoUpdate = null;
-		this._justDismissed = false;
+		this._positioner = new OverlayPositioner(() => ({
+			placement: this.placement,
+			offset: this.offset,
+			arrowElement: this.arrow ? this.elementRef.shadowRoot?.querySelector(".ml-popover__arrow") : null,
+			placementAttribute: true
+		}));
+		this._focusTrap = null;
+		this._dismissGuard = new ToggleDismissGuard();
 		this.toggle = () => {
-			if (this._justDismissed) {
-				this._justDismissed = false;
-				return;
-			}
+			if (this._dismissGuard.shouldSkipToggle()) return;
 			const popoverEl = this.getPopoverEl();
 			if (popoverEl) popoverEl.togglePopover();
 		};
@@ -24294,14 +25657,21 @@ var PopoverComponent = class PopoverComponent$1 {
 			if (event.newState === "open") {
 				this.isOpen = true;
 				this.startPositioning();
+				this.activateFocusTrap();
+				this.elementRef.dispatchEvent(new CustomEvent("ml:open", {
+					bubbles: true,
+					composed: true
+				}));
 			} else {
 				this.isOpen = false;
-				this._justDismissed = true;
-				setTimeout(() => {
-					this._justDismissed = false;
-				}, 0);
-				this._cleanupAutoUpdate?.();
-				this._cleanupAutoUpdate = null;
+				this._dismissGuard.dismissed();
+				this._positioner.stop();
+				this._focusTrap?.deactivate({ returnFocus: isDeepFocusWithin(this.elementRef) });
+				this._focusTrap = null;
+				this.elementRef.dispatchEvent(new CustomEvent("ml:close", {
+					bubbles: true,
+					composed: true
+				}));
 			}
 		};
 	}
@@ -24310,7 +25680,9 @@ var PopoverComponent = class PopoverComponent$1 {
 		if (popoverEl) popoverEl.addEventListener("toggle", this.handleToggle);
 	}
 	onDestroy() {
-		this._cleanupAutoUpdate?.();
+		this._positioner.stop();
+		this._focusTrap?.deactivate({ returnFocus: false });
+		this._focusTrap = null;
 		const popoverEl = this.getPopoverEl();
 		if (popoverEl) popoverEl.removeEventListener("toggle", this.handleToggle);
 	}
@@ -24322,44 +25694,18 @@ var PopoverComponent = class PopoverComponent$1 {
 		const popoverEl = this.getPopoverEl();
 		if (popoverEl && this.isOpen) popoverEl.hidePopover();
 	}
+	activateFocusTrap() {
+		const popoverEl = this.getPopoverEl();
+		if (!popoverEl) return;
+		this._focusTrap?.deactivate({ returnFocus: false });
+		this._focusTrap = createFocusTrap(popoverEl);
+		this._focusTrap.activate();
+	}
 	startPositioning() {
 		const triggerEl = this.getTriggerEl();
 		const popoverEl = this.getPopoverEl();
 		if (!triggerEl || !popoverEl) return;
-		const update = () => this.updatePosition(triggerEl, popoverEl);
-		this._cleanupAutoUpdate?.();
-		this._cleanupAutoUpdate = autoUpdate(triggerEl, popoverEl, update);
-	}
-	updatePosition(triggerEl, popoverEl) {
-		const arrowEl = this.arrow ? this.elementRef.shadowRoot?.querySelector(".ml-popover__arrow") : null;
-		const middleware = [
-			offset(this.offset),
-			flip(),
-			shift({ padding: 8 })
-		];
-		if (arrowEl) middleware.push(arrow({
-			element: arrowEl,
-			padding: 8
-		}));
-		const { x, y, placement, middlewareData } = computePosition(triggerEl, popoverEl, {
-			placement: this.placement,
-			middleware
-		});
-		popoverEl.style.left = `${x}px`;
-		popoverEl.style.top = `${y}px`;
-		popoverEl.dataset.placement = placement;
-		if (arrowEl && middlewareData.arrow) this.positionArrow(arrowEl, placement, middlewareData.arrow);
-	}
-	positionArrow(arrowEl, placement, arrowData) {
-		const side = placement.split("-")[0];
-		arrowEl.style.left = arrowData.x === void 0 ? "" : `${arrowData.x}px`;
-		arrowEl.style.right = "";
-		arrowEl.style.top = arrowData.y === void 0 ? "" : `${arrowData.y}px`;
-		arrowEl.style.bottom = "";
-		if (side === "top") arrowEl.style.bottom = "-4px";
-		if (side === "bottom") arrowEl.style.top = "-4px";
-		if (side === "left") arrowEl.style.right = "-4px";
-		if (side === "right") arrowEl.style.left = "-4px";
+		this._positioner.start(triggerEl, popoverEl);
 	}
 	getTriggerEl() {
 		return this.elementRef.shadowRoot?.querySelector(".ml-popover__trigger");
@@ -24380,9 +25726,9 @@ PopoverComponent = __decorate([MelodicComponent({
 	]
 })], PopoverComponent);
 function appShellTemplate(c) {
-	const sidebarRight = c["sidebar-position"] === "right";
-	const collapsed = c["sidebar-collapsed"];
-	const headerFixed = c["header-fixed"];
+	const sidebarRight = c.sidebarPosition === "right";
+	const collapsed = c.sidebarCollapsed;
+	const headerFixed = c.headerFixed;
 	const mobileOpen = c.mobileOpen;
 	const isMobile = c.mobile;
 	return html`
@@ -24659,9 +26005,9 @@ const appShellStyles = () => css`
 `;
 var AppShellComponent = class AppShellComponent$1 {
 	constructor() {
-		this["sidebar-position"] = "left";
-		this["sidebar-collapsed"] = false;
-		this["header-fixed"] = false;
+		this.sidebarPosition = "left";
+		this.sidebarCollapsed = false;
+		this.headerFixed = false;
 		this.mobile = false;
 		this.mobileOpen = false;
 		this._mediaQuery = null;
@@ -24696,6 +26042,11 @@ AppShellComponent = __decorate([MelodicComponent({
 		"header-fixed"
 	]
 })], AppShellComponent);
+defineLegacyAliases(AppShellComponent.prototype, "ml-app-shell", {
+	"sidebar-position": "sidebarPosition",
+	"sidebar-collapsed": "sidebarCollapsed",
+	"header-fixed": "headerFixed"
+});
 function heroSectionTemplate(c) {
 	const isSplit = c.variant === "split" || c.variant === "split-reverse";
 	return html`
@@ -24714,8 +26065,8 @@ function heroSectionTemplate(c) {
 					</slot>
 
 					<slot name="title">
-						${when(!!c.title, () => html`
-							<h1 class="ml-hero__title">${c.title}</h1>
+						${when(!!c.heroTitle, () => html`
+							<h1 class="ml-hero__title">${c.heroTitle}</h1>
 						`)}
 					</slot>
 
@@ -25084,8 +26435,15 @@ var HeroSectionComponent = class HeroSectionComponent$1 {
 		this.variant = "centered";
 		this.size = "lg";
 		this.background = "none";
-		this.title = "";
+		this.heroTitle = "";
 		this.description = "";
+	}
+	get title() {
+		return this.heroTitle;
+	}
+	set title(value) {
+		warnDeprecatedTitleOnce("ml-hero-section", "hero-title");
+		this.heroTitle = value;
 	}
 };
 HeroSectionComponent = __decorate([MelodicComponent({
@@ -25096,12 +26454,13 @@ HeroSectionComponent = __decorate([MelodicComponent({
 		"variant",
 		"size",
 		"background",
+		"hero-title",
 		"title",
 		"description"
 	]
 })], HeroSectionComponent);
 function pageHeaderTemplate(c) {
-	const hasTitle = !!(c.title || c.hasTitleSlot);
+	const hasTitle = !!(c.headerTitle || c.hasTitleSlot);
 	const hasDescription = !!(c.description || c.hasDescriptionSlot);
 	return html`
 		<header
@@ -25111,45 +26470,51 @@ function pageHeaderTemplate(c) {
 		"ml-page-header--divider": c.divider
 	})}
 		>
-			${when(c.hasBreadcrumb, () => html`
-				<div class="ml-page-header__breadcrumb">
-					<slot name="breadcrumb"></slot>
-				</div>
-			`)}
+			<div class=${classMap({
+		"ml-page-header__breadcrumb": true,
+		"ml-page-header__section--empty": !c.hasBreadcrumb
+	})}>
+				<slot name="breadcrumb"></slot>
+			</div>
 
 			<div class="ml-page-header__main">
 				<div class="ml-page-header__content">
-					${when(hasTitle, () => html`
-						<div class="ml-page-header__title">
-							${when(c.hasTitleSlot, () => html`<slot name="title"></slot>`, () => html`<h1>${c.title}</h1>`)}
-						</div>
-					`)}
+					<div class=${classMap({
+		"ml-page-header__title": true,
+		"ml-page-header__section--empty": !hasTitle
+	})}>
+						<slot name="title">${when(!!c.headerTitle, () => html`<h1>${c.headerTitle}</h1>`)}</slot>
+					</div>
 
-					${when(hasDescription, () => html`
-						<div class="ml-page-header__description">
-							${when(c.hasDescriptionSlot, () => html`<slot name="description"></slot>`, () => html`<p>${c.description}</p>`)}
-						</div>
-					`)}
+					<div class=${classMap({
+		"ml-page-header__description": true,
+		"ml-page-header__section--empty": !hasDescription
+	})}>
+						<slot name="description">${when(!!c.description, () => html`<p>${c.description}</p>`)}</slot>
+					</div>
 
-					${when(c.hasMeta, () => html`
-						<div class="ml-page-header__meta">
-							<slot name="meta"></slot>
-						</div>
-					`)}
+					<div class=${classMap({
+		"ml-page-header__meta": true,
+		"ml-page-header__section--empty": !c.hasMeta
+	})}>
+						<slot name="meta"></slot>
+					</div>
 				</div>
 
-				${when(c.hasActions, () => html`
-					<div class="ml-page-header__actions">
-						<slot name="actions"></slot>
-					</div>
-				`)}
+				<div class=${classMap({
+		"ml-page-header__actions": true,
+		"ml-page-header__section--empty": !c.hasActions
+	})}>
+					<slot name="actions"></slot>
+				</div>
 			</div>
 
-			${when(c.hasTabs, () => html`
-				<div class="ml-page-header__tabs">
-					<slot name="tabs"></slot>
-				</div>
-			`)}
+			<div class=${classMap({
+		"ml-page-header__tabs": true,
+		"ml-page-header__section--empty": !c.hasTabs
+	})}>
+				<slot name="tabs"></slot>
+			</div>
 		</header>
 	`;
 }
@@ -25334,6 +26699,15 @@ const pageHeaderStyles = () => css`
 	}
 
 	/* ============================================
+	   EMPTY SECTIONS
+	   Slots are always rendered (so slotchange can
+	   fire); empty wrappers are hidden instead.
+	   ============================================ */
+	.ml-page-header__section--empty {
+		display: none;
+	}
+
+	/* ============================================
 	   RESPONSIVE
 	   ============================================ */
 	@media (max-width: 640px) {
@@ -25356,28 +26730,35 @@ const pageHeaderStyles = () => css`
 `;
 var PageHeaderComponent = class PageHeaderComponent$1 {
 	constructor() {
-		this.title = "";
+		this.headerTitle = "";
 		this.description = "";
 		this.variant = "default";
 		this.divider = true;
+		this.hasBreadcrumb = false;
+		this.hasTitleSlot = false;
+		this.hasDescriptionSlot = false;
+		this.hasActions = false;
+		this.hasTabs = false;
+		this.hasMeta = false;
 	}
-	get hasBreadcrumb() {
-		return this.elementRef?.querySelector("[slot=\"breadcrumb\"]") !== null;
+	get title() {
+		return this.headerTitle;
 	}
-	get hasTitleSlot() {
-		return this.elementRef?.querySelector("[slot=\"title\"]") !== null;
+	set title(value) {
+		warnDeprecatedTitleOnce("ml-page-header", "header-title");
+		this.headerTitle = value;
 	}
-	get hasDescriptionSlot() {
-		return this.elementRef?.querySelector("[slot=\"description\"]") !== null;
-	}
-	get hasActions() {
-		return this.elementRef?.querySelector("[slot=\"actions\"]") !== null;
-	}
-	get hasTabs() {
-		return this.elementRef?.querySelector("[slot=\"tabs\"]") !== null;
-	}
-	get hasMeta() {
-		return this.elementRef?.querySelector("[slot=\"meta\"]") !== null;
+	onCreate() {
+		const shadow = this.elementRef.shadowRoot;
+		if (!shadow) return;
+		watchSlotPresence(shadow, (name, hasContent) => {
+			if (name === "breadcrumb") this.hasBreadcrumb = hasContent;
+			else if (name === "title") this.hasTitleSlot = hasContent;
+			else if (name === "description") this.hasDescriptionSlot = hasContent;
+			else if (name === "actions") this.hasActions = hasContent;
+			else if (name === "tabs") this.hasTabs = hasContent;
+			else if (name === "meta") this.hasMeta = hasContent;
+		});
 	}
 };
 PageHeaderComponent = __decorate([MelodicComponent({
@@ -25387,6 +26768,7 @@ PageHeaderComponent = __decorate([MelodicComponent({
 	attributes: [
 		"variant",
 		"divider",
+		"header-title",
 		"title",
 		"description"
 	]
@@ -25398,16 +26780,15 @@ function loginPageTemplate(c) {
 			<slot name="logo"></slot>
 		</div>
 
-		${when(c.hasHeaderSlot, () => html`
-				<div class="ml-auth__header">
-					<slot name="header"></slot>
-				</div>
-			`, () => html`
-				<div class="ml-auth__header">
-					<h1 class="ml-auth__title">${c.title}</h1>
-					<p class="ml-auth__description">${c.description}</p>
-				</div>
-			`)}
+		<div class="ml-auth__header">
+			<!-- Native slot fallback keeps header-slot presence reactive: content
+			     assigned after mount projects and hides the default title, with no
+			     render-time querySelector snapshot involved. -->
+			<slot name="header">
+				<h1 class="ml-auth__title">${c.pageTitle}</h1>
+				<p class="ml-auth__description">${c.description}</p>
+			</slot>
+		</div>
 
 		<div class="ml-auth__social">
 			<slot name="social"></slot>
@@ -25677,8 +27058,15 @@ const loginPageStyles = () => css`
 var LoginPageComponent = class LoginPageComponent$1 {
 	constructor() {
 		this.variant = "centered";
-		this.title = "Log in to your account";
+		this.pageTitle = "Log in to your account";
 		this.description = "Welcome back! Please enter your details.";
+	}
+	get title() {
+		return this.pageTitle;
+	}
+	set title(value) {
+		warnDeprecatedTitleOnce("ml-login-page", "page-title");
+		this.pageTitle = value;
 	}
 	get hasHeaderSlot() {
 		return this.elementRef?.querySelector("[slot=\"header\"]") !== null;
@@ -25693,6 +27081,7 @@ LoginPageComponent = __decorate([MelodicComponent({
 	styles: loginPageStyles,
 	attributes: [
 		"variant",
+		"page-title",
 		"title",
 		"description"
 	]
@@ -25704,16 +27093,15 @@ function signupPageTemplate(c) {
 			<slot name="logo"></slot>
 		</div>
 
-		${when(c.hasHeaderSlot, () => html`
-				<div class="ml-auth__header">
-					<slot name="header"></slot>
-				</div>
-			`, () => html`
-				<div class="ml-auth__header">
-					<h1 class="ml-auth__title">${c.title}</h1>
-					<p class="ml-auth__description">${c.description}</p>
-				</div>
-			`)}
+		<div class="ml-auth__header">
+			<!-- Native slot fallback keeps header-slot presence reactive: content
+			     assigned after mount projects and hides the default title, with no
+			     render-time querySelector snapshot involved. -->
+			<slot name="header">
+				<h1 class="ml-auth__title">${c.pageTitle}</h1>
+				<p class="ml-auth__description">${c.description}</p>
+			</slot>
+		</div>
 
 		<div class="ml-auth__social">
 			<slot name="social"></slot>
@@ -25758,8 +27146,15 @@ const signupPageStyles = () => css`
 var SignupPageComponent = class SignupPageComponent$1 {
 	constructor() {
 		this.variant = "centered";
-		this.title = "Create an account";
+		this.pageTitle = "Create an account";
 		this.description = "Start your journey today.";
+	}
+	get title() {
+		return this.pageTitle;
+	}
+	set title(value) {
+		warnDeprecatedTitleOnce("ml-signup-page", "page-title");
+		this.pageTitle = value;
 	}
 	get hasHeaderSlot() {
 		return this.elementRef?.querySelector("[slot=\"header\"]") !== null;
@@ -25774,6 +27169,7 @@ SignupPageComponent = __decorate([MelodicComponent({
 	styles: signupPageStyles,
 	attributes: [
 		"variant",
+		"page-title",
 		"title",
 		"description"
 	]
@@ -25786,7 +27182,7 @@ function dashboardPageTemplate(c) {
 
 			<ml-page-header
 				slot="header"
-				title=${c.title}
+				header-title=${c.pageTitle}
 				description=${c.description}
 			>
 				${when(c.hasHeaderActions, () => html`
@@ -25938,18 +27334,41 @@ const dashboardPageStyles = () => css`
 `;
 var DashboardPageComponent = class DashboardPageComponent$1 {
 	constructor() {
-		this.title = "";
+		this.pageTitle = "";
 		this.description = "";
 		this.layout = "default";
+		this.hasMetrics = false;
+		this.hasAside = false;
+		this.hasHeaderActions = false;
+		this._slotObserver = null;
 	}
-	get hasMetrics() {
-		return this.elementRef?.querySelector("[slot=\"metrics\"]") !== null;
+	get title() {
+		return this.pageTitle;
 	}
-	get hasAside() {
-		return this.elementRef?.querySelector("[slot=\"aside\"]") !== null;
+	set title(value) {
+		warnDeprecatedTitleOnce("ml-dashboard-page", "page-title");
+		this.pageTitle = value;
 	}
-	get hasHeaderActions() {
-		return this.elementRef?.querySelector("[slot=\"header-actions\"]") !== null;
+	onCreate() {
+		this._slotObserver = new MutationObserver((mutations) => {
+			if (mutations.some((m) => m.type === "childList" ? m.target === this.elementRef : m.target.parentNode === this.elementRef)) this.syncSlotFlags();
+		});
+		this._slotObserver.observe(this.elementRef, {
+			childList: true,
+			subtree: true,
+			attributes: true,
+			attributeFilter: ["slot"]
+		});
+		this.syncSlotFlags();
+	}
+	onDestroy() {
+		this._slotObserver?.disconnect();
+		this._slotObserver = null;
+	}
+	syncSlotFlags() {
+		this.hasMetrics = this.elementRef.querySelector(":scope > [slot=\"metrics\"]") !== null;
+		this.hasAside = this.elementRef.querySelector(":scope > [slot=\"aside\"]") !== null;
+		this.hasHeaderActions = this.elementRef.querySelector(":scope > [slot=\"header-actions\"]") !== null;
 	}
 };
 DashboardPageComponent = __decorate([MelodicComponent({
@@ -25957,11 +27376,12 @@ DashboardPageComponent = __decorate([MelodicComponent({
 	template: dashboardPageTemplate,
 	styles: dashboardPageStyles,
 	attributes: [
+		"page-title",
 		"title",
 		"description",
 		"layout"
 	]
 })], DashboardPageComponent);
-export { APP_CONFIG, AbortError, AbstractControl, ActivityFeedComponent, ActivityFeedItemComponent, AlertComponent, AppShellComponent, AvatarComponent, BadgeComponent, BadgeGroupComponent, Binding, BreadcrumbComponent, BreadcrumbItemComponent, ButtonComponent, ButtonGroupComponent, ButtonGroupItemComponent, CalendarComponent, CalendarViewComponent, CardComponent, CheckboxComponent, ComponentBase, ComponentStateBaseService, ContainerComponent, DashboardPageComponent, DatePickerComponent, DialogComponent, DialogRef, DialogService, Directive, DividerComponent, DrawerComponent, DropdownComponent, DropdownGroupComponent, DropdownItemComponent, DropdownSeparatorComponent, EffectsBase, FormArray, FormControl, FormFieldComponent, FormGroup, HeroSectionComponent, HttpBaseError, HttpClient, HttpError, IconComponent, Inject, Injectable, InjectionEngine, Injector, InputComponent, ListComponent, ListItemComponent, LoginPageComponent, MelodicComponent, NetworkError, PageHeaderComponent, PaginationComponent, PopoverComponent, ProgressComponent, ROUTE_CONTEXT_EVENT, RX_ACTION_PROVIDERS, RX_EFFECTS_PROVIDERS, RX_INIT_STATE, RX_STATE_DEBUG, RadioCardComponent, RadioCardGroupComponent, RadioComponent, RadioGroupComponent, RouteContextEvent, RouteContextService, RouteMatcher, RouterLinkComponent, RouterOutletComponent, RouterService, SIGNAL_MARKER, SelectComponent, Service, SidebarComponent, SidebarGroupComponent, SidebarItemComponent, SignalEffect, SignalStoreService, SignupPageComponent, SliderComponent, SpinnerComponent, StackComponent, StepComponent, StepPanelComponent, StepsComponent, TabComponent, TabPanelComponent, TableComponent, TabsComponent, TagComponent, TemplateResult, TextareaComponent, ToastComponent, ToastContainerComponent, ToastService, ToggleComponent, TooltipComponent, Validators, VirtualScroller, activityFeedItemStyles, activityFeedItemTemplate, activityFeedStyles, activityFeedTemplate, allTokens, announce, appShellStyles, appShellTemplate, applyGlobalStyles, applyTheme, arrow, autoUpdate, baseThemeCss, batch, bootstrap, borderTokens, breadcrumbItemStyles, breadcrumbItemTemplate, breadcrumbStyles, breadcrumbTemplate, breakpointTokens, breakpoints, buildPathFromRoute, calendarViewStyles, calendarViewTemplate, checkboxAdapter, classMap, clickOutside, colorTokens, componentBaseStyles, computePosition, computed, containerStyles, containerTemplate, createAction, createAsyncValidator, createBrandTheme, createDeactivateGuard, createFocusTrap, createFormArray, createFormControl, createFormGroup, createGuard, createLiveRegion, createReducer, createResolver, createState, createTheme, createToken, createValidator, css, darkTheme, darkThemeCss, dashboardPageStyles, dashboardPageTemplate, defineConfig, describeToken, directive, drawerStyles, drawerTemplate, dropdownGroupStyles, dropdownGroupTemplate, dropdownItemStyles, dropdownItemTemplate, dropdownSeparatorStyles, dropdownSeparatorTemplate, dropdownStyles, dropdownTemplate, environment, findRouteByName, flip, focusFirst, focusLast, focusTrap, focusVisible, formControlDirective, formFieldStyles, formFieldTemplate, getActiveComponent, getActiveEffect, getAdapter, getAttributeDirective, getEnvironment, getFirstFocusable, getFocusableElements, getGlobalMessage, getLastFocusable, getRegisteredDirectives, getResolvedTheme, getTheme, getTokenKey, hasAttributeDirective, heroSectionStyles, heroSectionTemplate, html, injectTheme, isDirective, isFocusVisible, isSignal, lightTheme, lightThemeCss, listItemStyles, listItemTemplate, listStyles, listTemplate, loginPageStyles, loginPageTemplate, matchRouteTree, newID, offset, onAction, onThemeChange, pageHeaderStyles, pageHeaderTemplate, paginationStyles, paginationTemplate, portalDirective, primitiveColors, progressStyles, progressTemplate, props, provideConfig, provideHttp, provideRX, radioAdapter, registerAdapter, registerAttributeDirective, registerDefaultMessages, render, repeat, repeatRaw, resetStyles, resolveMessage, routerLinkDirective, selectStyles, selectTemplate, setActiveComponent, setActiveEffect, setDefaultMessage, shadowTokens, shift, sidebarGroupStyles, sidebarGroupTemplate, sidebarItemStyles, sidebarItemTemplate, sidebarStyles, sidebarTemplate, signal, signupPageStyles, signupPageTemplate, sliderStyles, sliderTemplate, spacingTokens, stepPanelStyles, stepPanelTemplate, stepStyles, stepTemplate, stepsStyles, stepsTemplate, styleMap, tabPanelStyles, tabPanelTemplate, tabStyles, tabTemplate, tableStyles, tableTemplate, tabsStyles, tabsTemplate, textAdapter, toastContainerStyles, toastContainerTemplate, toastStyles, toastTemplate, toggleTheme, tokensToCss, tooltipDirective, transitionTokens, typographyTokens, unregisterAttributeDirective, unsafeHTML, visuallyHiddenStyles, when };
+export { APP_CONFIG, AbortError, AbstractControl, ActivityFeedComponent, ActivityFeedItemComponent, AlertComponent, AppShellComponent, AvatarComponent, BadgeComponent, BadgeGroupComponent, Binding, BreadcrumbComponent, BreadcrumbItemComponent, ButtonComponent, ButtonGroupComponent, ButtonGroupItemComponent, CalendarComponent, CalendarViewComponent, CardComponent, CheckboxComponent, ComponentBase, ComponentStateBaseService, ContainerComponent, DashboardPageComponent, DatePickerComponent, DialogComponent, DialogRef, DialogService, Directive, DividerComponent, DrawerComponent, DropdownComponent, DropdownGroupComponent, DropdownItemComponent, DropdownSeparatorComponent, EffectsBase, FormArray, FormControl, FormFieldComponent, FormGroup, HeroSectionComponent, HttpBaseError, HttpClient, HttpError, IconComponent, Inject, Injectable, InjectionEngine, Injector, InputComponent, ListComponent, ListItemComponent, LoginPageComponent, MelodicComponent, NetworkError, PageHeaderComponent, PaginationComponent, PopoverComponent, ProgressComponent, ROUTE_CONTEXT_EVENT, RX_ACTION_PROVIDERS, RX_EFFECTS_PROVIDERS, RX_INIT_STATE, RX_STATE_DEBUG, RadioCardComponent, RadioCardGroupComponent, RadioComponent, RadioGroupComponent, RouteContextEvent, RouteContextService, RouteMatcher, RouterLinkComponent, RouterLinkCore, RouterOutletComponent, RouterService, SIGNAL_MARKER, SelectComponent, Service, SidebarComponent, SidebarGroupComponent, SidebarItemComponent, SignalEffect, SignalStoreService, SignupPageComponent, SliderComponent, SpinnerComponent, StackComponent, StepComponent, StepPanelComponent, StepsComponent, TabComponent, TabPanelComponent, TableComponent, TabsComponent, TagComponent, TemplateResult, TextareaComponent, ToastComponent, ToastContainerComponent, ToastService, ToggleComponent, TooltipComponent, Validators, VirtualScroller, activityFeedItemStyles, activityFeedItemTemplate, activityFeedStyles, activityFeedTemplate, allTokens, announce, appShellStyles, appShellTemplate, applyGlobalStyles, applyTheme, arrow, autoUpdate, baseThemeCss, batch, bootstrap, borderTokens, breadcrumbItemStyles, breadcrumbItemTemplate, breadcrumbStyles, breadcrumbTemplate, breakpointTokens, breakpoints, buildPathFromRoute, calendarViewStyles, calendarViewTemplate, checkboxAdapter, classMap, clickOutside, colorTokens, componentBaseStyles, computePosition, computed, containerStyles, containerTemplate, createAction, createAsyncValidator, createBrandTheme, createDeactivateGuard, createFocusTrap, createFormArray, createFormControl, createFormGroup, createGuard, createLiveRegion, createReducer, createResolver, createState, createTheme, createToken, createValidator, css, darkTheme, darkThemeCss, dashboardPageStyles, dashboardPageTemplate, defineConfig, defineLegacyAliases, describeToken, directive, disposeContainerParts, disposeDirectiveState, disposePart, disposeParts, drawerStyles, drawerTemplate, dropdownGroupStyles, dropdownGroupTemplate, dropdownItemStyles, dropdownItemTemplate, dropdownSeparatorStyles, dropdownSeparatorTemplate, dropdownStyles, dropdownTemplate, environment, findRouteByName, flip, focusFirst, focusLast, focusTrap, focusVisible, formControlDirective, formFieldStyles, formFieldTemplate, getActiveComponent, getActiveEffect, getAdapter, getAttributeDirective, getDeepActiveElement, getEnvironment, getFirstFocusable, getFocusableElements, getGlobalMessage, getLastFocusable, getRegisteredDirectives, getResolvedTheme, getTheme, getTokenKey, hasAttributeDirective, heroSectionStyles, heroSectionTemplate, html, injectTheme, installHistoryEvents, isDeepFocusWithin, isDirective, isFocusVisible, isSafeUrl, isSignal, lightTheme, lightThemeCss, listItemStyles, listItemTemplate, listStyles, listTemplate, loginPageStyles, loginPageTemplate, matchRouteTree, newID, offset, onAction, onThemeChange, pageHeaderStyles, pageHeaderTemplate, paginationStyles, paginationTemplate, portalDirective, primitiveColors, progressStyles, progressTemplate, props, provideConfig, provideHttp, provideRX, provideRouter, radioAdapter, registerAdapter, registerAttributeDirective, registerDefaultMessages, render, repeat, repeatRaw, resetStyles, resolveMessage, routerLinkDirective, selectStyles, selectTemplate, setActiveComponent, setActiveEffect, setDefaultMessage, shadowTokens, shift, sidebarGroupStyles, sidebarGroupTemplate, sidebarItemStyles, sidebarItemTemplate, sidebarStyles, sidebarTemplate, signal, signupPageStyles, signupPageTemplate, sliderStyles, sliderTemplate, spacingTokens, stepPanelStyles, stepPanelTemplate, stepStyles, stepTemplate, stepsStyles, stepsTemplate, styleMap, tabPanelStyles, tabPanelTemplate, tabStyles, tabTemplate, tableStyles, tableTemplate, tabsStyles, tabsTemplate, textAdapter, toastContainerStyles, toastContainerTemplate, toastStyles, toastTemplate, toggleTheme, tokensToCss, tooltipDirective, transitionTokens, typographyTokens, unregisterAttributeDirective, unsafeHTML, visuallyHiddenStyles, warnDeprecatedOnce, warnDeprecatedTitleOnce, watchSlotPresence, when };
 
 //# sourceMappingURL=melodic-components.js.map

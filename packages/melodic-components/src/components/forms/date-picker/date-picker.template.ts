@@ -19,14 +19,13 @@ export function datePickerTemplate(c: DatePickerComponent) {
 
 			<div class="ml-date-picker__trigger">
 				<input
-					type="date"
+					type="text"
 					class="ml-date-picker__input"
-					.value=${c.value}
-					min=${c.min}
-					max=${c.max}
+					.value=${c.displayValue}
 					placeholder=${c.placeholder}
 					?disabled=${c.disabled}
 					?required=${c.required}
+					autocomplete="off"
 					aria-haspopup="dialog"
 					aria-expanded=${c.isOpen ? 'true' : 'false'}
 					@change=${c.handleInput}

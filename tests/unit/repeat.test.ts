@@ -82,4 +82,28 @@ describe('repeat directive', () => {
 			'B-updated'
 		]);
 	});
+
+	it('rebuilds an item in the live DOM when its template structure changes', () => {
+		const container = document.createElement('div');
+		type Row = { id: number; label: string; editing: boolean };
+		const tpl = (rows: Row[]) =>
+			html`<ul>${repeat(rows, (r) => r.id, (r) => (r.editing ? html`<input value=${r.label} />` : html`<li>${r.label}</li>`))}</ul>`;
+
+		render(tpl([{ id: 1, label: 'A', editing: false }]), container);
+		expect(container.querySelector('li')?.textContent?.trim()).toBe('A');
+		expect(container.querySelector('input')).toBeNull();
+
+		// Same key, DIFFERENT template structure — the live nodes must be
+		// replaced, not left stale while the new structure renders into the
+		// item's detached fragment.
+		render(tpl([{ id: 1, label: 'A', editing: true }]), container);
+		expect(container.querySelector('li')).toBeNull();
+		const input = container.querySelector('input');
+		expect(input?.getAttribute('value')).toBe('A');
+
+		// And back again, with updated content.
+		render(tpl([{ id: 1, label: 'A2', editing: false }]), container);
+		expect(container.querySelector('input')).toBeNull();
+		expect(container.querySelector('li')?.textContent?.trim()).toBe('A2');
+	});
 });

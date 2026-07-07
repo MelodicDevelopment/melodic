@@ -1,6 +1,6 @@
 {
 	"name": "@melodicdev/components",
-	"version": "2.0.3",
+	"version": "3.0.0",
 	"description": "Themeable UI component library built on the Melodic Framework",
 	"license": "MIT",
 	"author": "Melodic Development",
@@ -24,6 +24,9 @@
 		"typescript"
 	],
 	"type": "module",
+	"engines": {
+		"node": ">=20.19.0"
+	},
 	"main": "./lib/index.js",
 	"types": "./lib/index.d.ts",
 	"files": [
@@ -277,9 +280,10 @@
 		"generate:icon-map": "node scripts/generate-icon-map.mjs"
 	},
 	"peerDependencies": {
-		"@melodicdev/core": "^2.0.0"
+		"@melodicdev/core": "^3.0.0"
 	},
 	"devDependencies": {
+		"@melodicdev/core": "file:../..",
 		"typescript": "~5.9.3",
 		"vite": "npm:rolldown-vite@7.2.5"
 	}

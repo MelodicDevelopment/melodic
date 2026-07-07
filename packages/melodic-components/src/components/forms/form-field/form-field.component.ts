@@ -1,6 +1,6 @@
 import { MelodicComponent } from '@melodicdev/core';
-import type { IElementRef, OnCreate } from '@melodicdev/core';
-import type { Size } from '../../../types/index.js';
+import type { IElementRef, OnCreate, OnRender } from '@melodicdev/core';
+import type { ControlSize } from '../../../types/index.js';
 import type { FormFieldOrientation } from './form-field.types.js';
 import { formFieldTemplate } from './form-field.template.js';
 import { formFieldStyles } from './form-field.styles.js';
@@ -31,7 +31,7 @@ import { formFieldStyles } from './form-field.styles.js';
 	styles: formFieldStyles,
 	attributes: ['label', 'hint', 'error', 'size', 'orientation', 'disabled', 'required']
 })
-export class FormFieldComponent implements IElementRef, OnCreate {
+export class FormFieldComponent implements IElementRef, OnCreate, OnRender {
 	public elementRef!: HTMLElement;
 
 	/** Label text */
@@ -44,7 +44,7 @@ export class FormFieldComponent implements IElementRef, OnCreate {
 	public error = '';
 
 	/** Field size */
-	public size: Size = 'md';
+	public size: ControlSize = 'md';
 
 	/** Layout orientation */
 	public orientation: FormFieldOrientation = 'vertical';
@@ -71,53 +71,74 @@ export class FormFieldComponent implements IElementRef, OnCreate {
 	}
 
 	public get describedBy(): string {
-		if (this.error) return this.errorId;
-		if (this.hint) return this.hintId;
-		return '';
+		// Both the error and the hint describe the control when both are present.
+		const ids: string[] = [];
+		if (this.error) ids.push(this.errorId);
+		if (this.hint) ids.push(this.hintId);
+		return ids.join(' ');
 	}
 
 	public onCreate(): void {
 		this.connectSlottedControl();
 	}
 
+	public onRender(): void {
+		// Re-sync ARIA after every render so reactive changes to error/hint/
+		// required (e.g. validation errors set after submit) reach the slotted
+		// control — and are removed again when the error clears.
+		this.connectSlottedControl();
+	}
+
 	public handleSlotChange = (): void => {
+		this._controlResolved = false;
 		this.connectSlottedControl();
 	};
 
+	/** Cached slotted control — connectSlottedControl runs every render, so the
+	 * slot scan + recursive control search must not. Invalidated on slotchange
+	 * (and when the cached element leaves the DOM, e.g. a nested swap that
+	 * doesn't re-assign the slot). */
+	private _control: HTMLElement | null = null;
+	private _controlResolved = false;
+
 	private connectSlottedControl(): void {
-		const slot = this.elementRef.shadowRoot?.querySelector('slot:not([name])') as HTMLSlotElement | null;
-		if (!slot) return;
+		if (this._control && !this._control.isConnected) {
+			this._controlResolved = false;
+		}
 
-		const elements = slot.assignedElements({ flatten: true });
-		const control = this.findFormControl(elements);
+		if (!this._controlResolved) {
+			const slot = this.elementRef.shadowRoot?.querySelector('slot:not([name])') as HTMLSlotElement | null;
+			if (!slot) return;
 
-		if (control) {
-			// Set ID if not present
-			if (!control.id) {
-				control.id = this.fieldId;
-			}
+			this._control = this.findFormControl(slot.assignedElements({ flatten: true }));
+			this._controlResolved = true;
+		}
 
-			// Connect aria-describedby for hint/error
-			if (this.describedBy) {
-				control.setAttribute('aria-describedby', this.describedBy);
-			}
+		const control = this._control;
+		if (!control) return;
 
-			// Set aria-invalid for error state
-			if (this.error) {
-				control.setAttribute('aria-invalid', 'true');
-			} else {
-				control.removeAttribute('aria-invalid');
-			}
+		// Set ID if not present
+		if (!control.id) {
+			control.id = this.fieldId;
+		}
 
-			// Set aria-required
-			if (this.required) {
-				control.setAttribute('aria-required', 'true');
-			}
+		// Connect aria-describedby for hint/error; remove when neither is set.
+		// Writes are diffed so a no-change render doesn't touch the DOM.
+		this.syncAttribute(control, 'aria-describedby', this.describedBy || null);
+		this.syncAttribute(control, 'aria-invalid', this.error ? 'true' : null);
+		this.syncAttribute(control, 'aria-required', this.required ? 'true' : null);
 
-			// Set disabled if applicable
-			if (this.disabled && 'disabled' in control) {
-				(control as HTMLInputElement).disabled = true;
-			}
+		// Set disabled if applicable
+		if (this.disabled && 'disabled' in control) {
+			(control as HTMLInputElement).disabled = true;
+		}
+	}
+
+	private syncAttribute(el: HTMLElement, name: string, value: string | null): void {
+		if (value === null) {
+			el.removeAttribute(name);
+		} else if (el.getAttribute(name) !== value) {
+			el.setAttribute(name, value);
 		}
 	}
 

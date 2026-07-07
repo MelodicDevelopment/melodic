@@ -1,7 +1,7 @@
 import { MelodicComponent } from '@melodicdev/core';
 import type { IElementRef, OnInit } from '@melodicdev/core';
 import { registerAdapter } from '@melodicdev/core/forms';
-import type { Size } from '../../../types/index.js';
+import type { ControlSize } from '../../../types/index.js';
 import type { InputType } from './input.types.js';
 import { inputTemplate } from './input.template.js';
 import { inputStyles } from './input.styles.js';
@@ -61,7 +61,7 @@ export class InputComponent implements IElementRef, OnInit {
 	public error = '';
 
 	/** Input size */
-	public size: Size = 'md';
+	public size: ControlSize = 'md';
 
 	/** Disable the input */
 	public disabled = false;

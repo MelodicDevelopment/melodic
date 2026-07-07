@@ -33,6 +33,12 @@ export const toggleStyles = () => css`
 		--ml-toggle-hint-font-size: var(--ml-text-sm);
 		--ml-toggle-hint-color: var(--ml-color-text-muted);
 
+		/* --- Error --- */
+		--ml-toggle-error-track-bg: var(--ml-color-danger);
+		--ml-toggle-error-color: var(--ml-color-danger);
+		--ml-toggle-error-margin-top: var(--ml-space-1);
+		--ml-toggle-error-line-height: var(--ml-leading-tight);
+
 		/* --- Gap --- */
 		--ml-toggle-gap: var(--ml-space-3);
 
@@ -158,5 +164,18 @@ export const toggleStyles = () => css`
 		font-size: var(--ml-toggle-hint-font-size);
 		color: var(--ml-toggle-hint-color);
 		line-height: var(--ml-leading-tight);
+	}
+
+	.ml-toggle__error {
+		display: block;
+		margin-top: var(--ml-toggle-error-margin-top);
+		margin-left: calc(var(--ml-toggle-track-width) + var(--ml-toggle-gap));
+		font-size: var(--ml-toggle-hint-font-size);
+		color: var(--ml-toggle-error-color);
+		line-height: var(--ml-toggle-error-line-height);
+	}
+
+	.ml-toggle--error.ml-toggle--checked .ml-toggle__track {
+		background-color: var(--ml-toggle-error-track-bg);
 	}
 `;

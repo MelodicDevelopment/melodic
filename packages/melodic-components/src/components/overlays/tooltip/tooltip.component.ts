@@ -1,7 +1,8 @@
 import { MelodicComponent } from '@melodicdev/core';
-import type { IElementRef, OnInit, OnDestroy } from '@melodicdev/core';
+import type { IElementRef, OnCreate, OnDestroy } from '@melodicdev/core';
 import type { Placement } from '../../../types/index.js';
-import { computePosition, offset, flip, shift } from '../../../utils/positioning/index.js';
+import { OverlayPositioner } from '../../../utils/overlay/index.js';
+import { newID, type UniqueID } from '../../../functions/new-id.function.js';
 import { tooltipTemplate } from './tooltip.template.js';
 import { tooltipStyles } from './tooltip.styles.js';
 
@@ -27,7 +28,7 @@ import { tooltipStyles } from './tooltip.styles.js';
 	styles: tooltipStyles,
 	attributes: ['content', 'placement', 'delay']
 })
-export class TooltipComponent implements IElementRef, OnInit, OnDestroy {
+export class TooltipComponent implements IElementRef, OnCreate, OnDestroy {
 	public elementRef!: HTMLElement;
 
 	/** Tooltip content text */
@@ -42,16 +43,38 @@ export class TooltipComponent implements IElementRef, OnInit, OnDestroy {
 	/** Internal: visibility state */
 	public isVisible = false;
 
+	/**
+	 * Positioning anchor override (property only). When set — e.g. by the
+	 * `:tooltip` attribute directive, which manages a slotless ml-tooltip as a
+	 * sibling overlay — the popup is positioned against this element instead
+	 * of the tooltip's own slotted trigger wrapper.
+	 */
+	public anchorEl: HTMLElement | null = null;
+
+	/** Stable id linking the tooltip content to the trigger's aria-describedby */
+	public tooltipID: UniqueID = newID();
+
 	private _showTimeout: number | null = null;
 	private _hideTimeout: number | null = null;
+	private readonly _positioner = new OverlayPositioner(() => ({
+		placement: this.placement,
+		offset: 8,
+		arrowElement: this.elementRef.shadowRoot?.querySelector('.ml-tooltip__arrow') as HTMLElement | null,
+		placementAttribute: true
+	}));
 
-	public onInit(): void {
-		// Initial setup if needed
+	public onCreate(): void {
+		// Re-wire aria-describedby whenever the slotted trigger changes.
+		this.elementRef.shadowRoot?.addEventListener('slotchange', this.syncTriggerAria);
+		this.syncTriggerAria();
 	}
 
 	public onDestroy(): void {
 		if (this._showTimeout) clearTimeout(this._showTimeout);
 		if (this._hideTimeout) clearTimeout(this._hideTimeout);
+		this.stopPositioning();
+		document.removeEventListener('keydown', this.handleDocumentKeydown, true);
+		this.elementRef.shadowRoot?.removeEventListener('slotchange', this.syncTriggerAria);
 	}
 
 	public show = (): void => {
@@ -62,7 +85,10 @@ export class TooltipComponent implements IElementRef, OnInit, OnDestroy {
 
 		this._showTimeout = window.setTimeout(() => {
 			this.isVisible = true;
-			this.updatePosition();
+			this.startPositioning();
+			// WCAG 1.4.13: hoverable/focusable additional content must be
+			// dismissible without moving the pointer or focus.
+			document.addEventListener('keydown', this.handleDocumentKeydown, true);
 		}, this.delay);
 	};
 
@@ -73,41 +99,62 @@ export class TooltipComponent implements IElementRef, OnInit, OnDestroy {
 		}
 
 		this._hideTimeout = window.setTimeout(() => {
-			this.isVisible = false;
+			this.dismiss();
 		}, 100);
 	};
 
-	private updatePosition(): void {
-		const trigger = this.elementRef.shadowRoot?.querySelector('.ml-tooltip__trigger') as HTMLElement;
+	/** Hide immediately (Escape / teardown). */
+	private dismiss(): void {
+		this.isVisible = false;
+		this.stopPositioning();
+		document.removeEventListener('keydown', this.handleDocumentKeydown, true);
+	}
+
+	private readonly handleDocumentKeydown = (event: KeyboardEvent): void => {
+		if (event.key !== 'Escape') return;
+
+		if (this._showTimeout) {
+			clearTimeout(this._showTimeout);
+			this._showTimeout = null;
+		}
+		if (this._hideTimeout) {
+			clearTimeout(this._hideTimeout);
+			this._hideTimeout = null;
+		}
+		this.dismiss();
+	};
+
+	/**
+	 * Point the slotted trigger's aria-describedby at the tooltip content.
+	 * Note: id references cannot cross INTO a shadow root, so this fully works
+	 * for triggers whose accessible node is the slotted element itself (e.g. a
+	 * plain <button>); composite triggers with their own shadow root surface
+	 * the description on their host element.
+	 */
+	private readonly syncTriggerAria = (): void => {
+		const slot = this.elementRef.shadowRoot?.querySelector('.ml-tooltip__trigger slot') as HTMLSlotElement | null;
+		const assigned = slot?.assignedElements() ?? [];
+		const trigger = assigned[0] as HTMLElement | undefined;
+		if (trigger && !trigger.hasAttribute('aria-describedby')) {
+			trigger.setAttribute('aria-describedby', this.tooltipID);
+		}
+	};
+
+	private startPositioning(): void {
+		const trigger = this.getReferenceEl();
 		const tooltip = this.elementRef.shadowRoot?.querySelector('.ml-tooltip__content') as HTMLElement;
-		const arrow = this.elementRef.shadowRoot?.querySelector('.ml-tooltip__arrow') as HTMLElement;
 
 		if (!trigger || !tooltip) return;
 
-		const { x, y, placement } = computePosition(trigger, tooltip, {
-			placement: this.placement,
-			middleware: [offset(8), flip(), shift({ padding: 8 })]
-		});
+		this._positioner.start(trigger, tooltip);
+	}
 
-		tooltip.style.left = `${x}px`;
-		tooltip.style.top = `${y}px`;
-		tooltip.setAttribute('data-placement', placement);
+	private stopPositioning(): void {
+		this._positioner.stop();
+	}
 
-		// Position arrow
-		if (arrow) {
-			const side = placement.split('-')[0];
-			arrow.style.left = '';
-			arrow.style.right = '';
-			arrow.style.top = '';
-			arrow.style.bottom = '';
-
-			if (side === 'top' || side === 'bottom') {
-				arrow.style.left = '50%';
-				arrow.style.marginLeft = '-4px';
-			} else {
-				arrow.style.top = '50%';
-				arrow.style.marginTop = '-4px';
-			}
-		}
+	/** The element the popup is positioned against. */
+	private getReferenceEl(): HTMLElement | null {
+		return this.anchorEl ?? (this.elementRef.shadowRoot?.querySelector('.ml-tooltip__trigger') as HTMLElement | null);
 	}
 }

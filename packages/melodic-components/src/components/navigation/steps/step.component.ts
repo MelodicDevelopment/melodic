@@ -3,6 +3,7 @@ import type { IElementRef } from '@melodicdev/core';
 import type { StepStatus, StepsVariant, StepsConnector, StepsColor, StepsOrientation } from './steps.types.js';
 import { stepTemplate } from './step.template.js';
 import { stepStyles } from './step.styles.js';
+import { defineLegacyAliases } from '../../../functions/index.js';
 
 /**
  * ml-step - Individual step header for use within ml-steps
@@ -57,8 +58,8 @@ export class StepComponent implements IElementRef {
 	/** Layout orientation (managed by parent) */
 	public orientation: StepsOrientation = 'horizontal';
 
-	/** Step number (managed by parent) */
-	public 'step-number' = '1';
+	/** Step number (managed by parent; attribute: step-number) */
+	public stepNumber = '1';
 
 	/** First step flag (managed by parent) */
 	public first = false;
@@ -82,3 +83,9 @@ export class StepComponent implements IElementRef {
 		);
 	};
 }
+
+// Deprecated quoted kebab-case property aliases (warn once on first write;
+// removed in the next major release).
+defineLegacyAliases(StepComponent.prototype, 'ml-step', {
+	'step-number': 'stepNumber'
+});

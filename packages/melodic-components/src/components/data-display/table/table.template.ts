@@ -1,13 +1,7 @@
 import { html, classMap, when, repeat } from '@melodicdev/core';
 import type { TableComponent } from './table.component.js';
 import type { TableColumn } from './table.types.js';
-
-function renderCell(column: TableColumn, row: Record<string, unknown>, index: number) {
-	if (column.render) {
-		return column.render(row[column.key], row, index);
-	}
-	return row[column.key] ?? '';
-}
+import { renderCell } from '../table-core/index.js';
 
 export function tableTemplate(c: TableComponent) {
 	return html`

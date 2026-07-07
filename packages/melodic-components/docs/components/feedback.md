@@ -32,11 +32,11 @@ import '@melodicdev/components/alert';
 ```
 
 ```html
-<ml-alert variant="success" title="Saved!">
+<ml-alert variant="success" alert-title="Saved!">
   Your changes have been saved.
 </ml-alert>
 
-<ml-alert variant="error" title="Error" dismissible @ml:dismiss=${this.handleDismiss}>
+<ml-alert variant="error" alert-title="Error" dismissible @ml:dismiss=${this.handleDismiss}>
   Something went wrong. Please try again.
 </ml-alert>
 
@@ -50,8 +50,12 @@ import '@melodicdev/components/alert';
 | Property | Type | Default | Description |
 |----------|------|---------|-------------|
 | `variant` | `'info'` \| `'success'` \| `'warning'` \| `'error'` | `'info'` | Alert variant |
-| `title` | `string` | `''` | Optional bold title |
+| `alertTitle` | `string` | `''` | Optional bold title (attribute: `alert-title`) |
 | `dismissible` | `boolean` | `false` | Show an × dismiss button |
+
+> **Deprecated:** the `title` attribute/property still works as an alias for `alert-title` but logs a
+> one-time warning — it collides with the global HTML `title` attribute (native browser tooltip).
+> The alias will be removed in the next major release.
 
 **Slots:** `default` (message content), `icon` (custom icon override)
 
@@ -141,3 +145,9 @@ interface IToastConfig {
 ```
 
 **ToastPosition values:** `'top-right'` | `'top-left'` | `'top-center'` | `'bottom-right'` | `'bottom-left'` | `'bottom-center'`
+
+**Using `<ml-toast>` directly:** the toast element itself accepts `variant`, `toast-title`, `message`,
+`duration`, and `dismissible` attributes. The deprecated `title` attribute still works as an alias for
+`toast-title` (one-time console warning) but collides with the global HTML `title` attribute and will be
+removed in the next major release. `ToastService` sets `toast-title`, so service-created toasts no longer
+show a native browser tooltip.

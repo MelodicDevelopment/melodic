@@ -35,15 +35,32 @@ function makeFakeComponent(): ComponentBase {
 }
 
 describe('ComponentStateBaseService.select() with active-component context', () => {
-	it('dedups identical selectors within a component', () => {
+	it('dedups repeated calls with the same selector reference within a component', () => {
+		const store = new CounterStore();
+		const c = makeFakeComponent();
+
+		const selectCount = (s: CounterState): number => s.count;
+
+		setActiveComponent(c);
+		try {
+			const a = store.select(selectCount);
+			const b = store.select(selectCount);
+			expect(a).toBe(b);
+		} finally {
+			setActiveComponent(null);
+		}
+	});
+
+	it('distinct selector instances (or capturing closures) get distinct signals', () => {
 		const store = new CounterStore();
 		const c = makeFakeComponent();
 
 		setActiveComponent(c);
 		try {
+			// Identity keying: same source text, different function objects.
 			const a = store.select((s) => s.count);
 			const b = store.select((s) => s.count);
-			expect(a).toBe(b);
+			expect(a).not.toBe(b);
 		} finally {
 			setActiveComponent(null);
 		}

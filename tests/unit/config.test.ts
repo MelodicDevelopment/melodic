@@ -97,6 +97,56 @@ describe('defineConfig', () => {
 		expect(appConfig).toEqual({ routes: ['/dashboard'] });
 	});
 
+	it('should deep-merge environment overrides into nested base objects', () => {
+		const config = defineConfig({
+			base: {
+				appName: 'Test',
+				api: { url: '/api', timeout: 5000, retries: 2 }
+			},
+			dev: {
+				api: { url: '/dev-api' }
+			}
+		});
+
+		// Before the fix env overrides shallow-merged and `timeout`/`retries`
+		// were silently lost.
+		expect(config).toEqual({
+			appName: 'Test',
+			api: { url: '/dev-api', timeout: 5000, retries: 2 }
+		});
+	});
+
+	it('should let arrays in environment overrides replace base arrays', () => {
+		const config = defineConfig({
+			base: { features: ['a', 'b'] },
+			dev: { features: ['c'] }
+		});
+
+		expect(config).toEqual({ features: ['c'] });
+	});
+
+	it('should not merge __proto__/constructor/prototype keys (prototype pollution guard)', () => {
+		const malicious = JSON.parse('{"__proto__": {"polluted": true}, "constructor": {"bad": 1}, "safe": "ok"}');
+
+		const config = defineConfig({
+			base: { appName: 'Test', nested: { keep: true } },
+			dev: malicious
+		});
+
+		expect(({} as Record<string, unknown>).polluted).toBeUndefined();
+		expect(Object.prototype).not.toHaveProperty('polluted');
+		expect((config as Record<string, unknown>).safe).toBe('ok');
+		expect(Object.getOwnPropertyDescriptor(config, '__proto__')).toBeUndefined();
+
+		// Same guard on the extends path.
+		const extended = defineConfig({
+			extends: config,
+			base: JSON.parse('{"__proto__": {"polluted2": true}}')
+		});
+		expect(({} as Record<string, unknown>).polluted2).toBeUndefined();
+		expect((extended as Record<string, unknown>).appName).toBe('Test');
+	});
+
 	it('should handle multiple levels of extension', () => {
 		const org = defineConfig({
 			base: { orgName: 'Acme', apiBaseURL: '/api', theme: { primary: 'blue' } }

@@ -1,7 +1,7 @@
 import { MelodicComponent } from '@melodicdev/core';
 import type { IElementRef } from '@melodicdev/core';
 import { registerAdapter } from '@melodicdev/core/forms';
-import type { Size } from '../../../types/index.js';
+import type { ControlSize } from '../../../types/index.js';
 import { checkboxTemplate } from './checkbox.template.js';
 import { checkboxStyles } from './checkbox.styles.js';
 
@@ -29,7 +29,7 @@ registerAdapter<boolean>((el) => el.tagName === 'ML-CHECKBOX', {
 	selector: 'ml-checkbox',
 	template: checkboxTemplate,
 	styles: checkboxStyles,
-	attributes: ['label', 'hint', 'size', 'checked', 'indeterminate', 'disabled']
+	attributes: ['label', 'hint', 'error', 'size', 'checked', 'indeterminate', 'disabled']
 })
 export class CheckboxComponent implements IElementRef {
 	public elementRef!: HTMLElement;
@@ -40,8 +40,11 @@ export class CheckboxComponent implements IElementRef {
 	/** Hint text below the checkbox */
 	public hint = '';
 
+	/** Error message (shows error state when set; auto-populated by the forms system) */
+	public error = '';
+
 	/** Checkbox size */
-	public size: Size = 'md';
+	public size: ControlSize = 'md';
 
 	/** Checked state */
 	public checked = false;

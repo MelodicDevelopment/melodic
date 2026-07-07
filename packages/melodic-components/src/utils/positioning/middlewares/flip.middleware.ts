@@ -1,5 +1,6 @@
 import type { Middleware, Placement } from '../types.js';
 import { getOppositePlacement, getSide } from '../compute-position.js';
+import { applyOffsetToPosition, type OffsetMiddlewareData } from './offset.middleware.js';
 
 export interface FlipOptions {
 	/** Custom fallback placements to try */
@@ -59,7 +60,7 @@ export function flip(options: FlipOptions = {}): Middleware {
 	return {
 		name: 'flip',
 		fn(state) {
-			const { x, y, placement, rects } = state;
+			const { x, y, placement, rects, middlewareData } = state;
 			const side = getSide(placement);
 			const overflow = detectOverflow(x, y, rects.floating, padding);
 
@@ -68,15 +69,22 @@ export function flip(options: FlipOptions = {}): Middleware {
 				return;
 			}
 
+			// An earlier offset() records its amounts in middlewareData; re-apply
+			// them for each fallback so flipping preserves the configured gap.
+			const offsetData = middlewareData.offset as OffsetMiddlewareData | undefined;
+
 			// Try opposite placement
 			const oppositePlacement = getOppositePlacement(placement);
 			const fallbacks = options.fallbackPlacements ?? [oppositePlacement];
 
 			for (const fallback of fallbacks) {
 				// Calculate position for fallback placement
-				const newPos = getBasePlacementForFlip(rects.reference, rects.floating, fallback);
-				const newOverflow = detectOverflow(newPos.x, newPos.y, rects.floating, padding);
 				const newSide = getSide(fallback);
+				let newPos = getBasePlacementForFlip(rects.reference, rects.floating, fallback);
+				if (offsetData) {
+					newPos = applyOffsetToPosition(newPos, newSide, offsetData);
+				}
+				const newOverflow = detectOverflow(newPos.x, newPos.y, rects.floating, padding);
 
 				if (!hasOverflow(newOverflow, newSide)) {
 					return {

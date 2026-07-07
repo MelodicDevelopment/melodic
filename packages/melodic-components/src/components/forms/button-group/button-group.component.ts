@@ -1,7 +1,7 @@
 import { MelodicComponent } from '@melodicdev/core';
 import type { IElementRef, OnCreate, OnDestroy } from '@melodicdev/core';
 import { registerAdapter } from '@melodicdev/core/forms';
-import type { Size } from '../../../types/index.js';
+import type { ControlSize } from '../../../types/index.js';
 import { buttonGroupTemplate } from './button-group.template.js';
 import { buttonGroupStyles } from './button-group.styles.js';
 
@@ -46,7 +46,7 @@ registerAdapter<string | string[]>((el) => el.tagName === 'ML-BUTTON-GROUP', {
 	selector: 'ml-button-group',
 	template: buttonGroupTemplate,
 	styles: buttonGroupStyles,
-	attributes: ['value', 'variant', 'size', 'disabled', 'multiple']
+	attributes: ['value', 'variant', 'size', 'disabled', 'multiple', 'error']
 })
 export class ButtonGroupComponent implements IElementRef, OnCreate, OnDestroy {
 	public elementRef!: HTMLElement;
@@ -58,7 +58,7 @@ export class ButtonGroupComponent implements IElementRef, OnCreate, OnDestroy {
 	public variant: 'outline' | 'solid' = 'outline';
 
 	/** Size variant */
-	public size: Size = 'md';
+	public size: ControlSize = 'md';
 
 	/** Disable the entire group */
 	public disabled = false;
@@ -68,6 +68,9 @@ export class ButtonGroupComponent implements IElementRef, OnCreate, OnDestroy {
 
 	/** Selected values (multiple mode) */
 	public values: string[] = [];
+
+	/** Error message (shows error state when set; auto-populated by the forms system) */
+	public error = '';
 
 	public onCreate(): void {
 		this.elementRef.addEventListener('ml:item-click', this._handleItemClick as EventListener);

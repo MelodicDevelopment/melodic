@@ -132,13 +132,14 @@ export class SidebarComponent implements IElementRef, OnCreate, OnDestroy, OnRen
 
 	/** Keyboard navigation */
 	public handleKeyDown = (event: KeyboardEvent): void => {
-		const sidebar = this.elementRef.shadowRoot?.querySelector('.ml-sidebar__main');
-		if (!sidebar) return;
+		const focusable = this.getFocusableItems();
+		if (focusable.length === 0) return;
 
-		const focusable = Array.from(
-			sidebar.querySelectorAll<HTMLElement>('.ml-sidebar__item-link:not([disabled]), button:not([disabled]), a')
-		);
-		const currentIndex = focusable.indexOf(event.target as HTMLElement);
+		// Keydown events from inside a slotted ml-sidebar-item's shadow root are
+		// retargeted to the item HOST by the time they reach our listener, so
+		// match against either the focusable element or its host.
+		const target = event.target as HTMLElement;
+		const currentIndex = focusable.findIndex((entry) => entry.el === target || entry.host === target);
 
 		let newIndex = currentIndex;
 
@@ -164,9 +165,56 @@ export class SidebarComponent implements IElementRef, OnCreate, OnDestroy, OnRen
 		}
 
 		if (newIndex !== currentIndex && focusable[newIndex]) {
-			focusable[newIndex].focus();
+			focusable[newIndex].el.focus();
 		}
 	};
+
+	/**
+	 * Focusable navigation targets in visual order: config-mode links rendered
+	 * in our shadow root AND the links inside slotted ml-sidebar-item shadow
+	 * roots (slotted items previously never received keyboard focus — arrows
+	 * changed nothing because the shadow query couldn't see them).
+	 */
+	private getFocusableItems(): Array<{ el: HTMLElement; host: HTMLElement | null }> {
+		const main = this.elementRef.shadowRoot?.querySelector('.ml-sidebar__main');
+		if (!main) return [];
+
+		const result: Array<{ el: HTMLElement; host: HTMLElement | null }> = [];
+
+		const visit = (node: Element): void => {
+			if (node instanceof HTMLSlotElement) {
+				node.assignedElements({ flatten: true }).forEach(visit);
+				return;
+			}
+
+			if (node.tagName === 'ML-SIDEBAR-ITEM') {
+				const link = node.shadowRoot?.querySelector<HTMLElement>('.ml-sidebar-item__link');
+				if (link && !link.hasAttribute('disabled') && !link.classList.contains('ml-sidebar-item__link--disabled')) {
+					result.push({ el: link, host: node as HTMLElement });
+				}
+				// Submenu items are light-DOM children; only reachable when expanded.
+				if (node.hasAttribute('expanded') && !this.collapsed) {
+					Array.from(node.children).forEach(visit);
+				}
+				return;
+			}
+
+			if (
+				node.matches(
+					'.ml-sidebar__item-link:not([disabled]):not(.ml-sidebar__item-link--disabled), button:not([disabled]), a'
+				)
+			) {
+				result.push({ el: node as HTMLElement, host: null });
+				return;
+			}
+
+			Array.from(node.children).forEach(visit);
+		};
+
+		Array.from(main.children).forEach(visit);
+
+		return result;
+	}
 
 	/** Track expanded config items */
 	public expandedItems = new Set<string>();
@@ -195,6 +243,10 @@ export class SidebarComponent implements IElementRef, OnCreate, OnDestroy, OnRen
 
 	/** Handle item click from slotted children */
 	private onItemClick(event: CustomEvent): void {
+		// ml:sidebar-item-click is internal item→sidebar coordination; consumers
+		// get ml:change + ml:item-click (re-emitted by activateItem). Stop the
+		// original so it never escapes the ml-sidebar host.
+		event.stopPropagation();
 		const { value, href } = event.detail;
 		this.activateItem(value, href);
 	}

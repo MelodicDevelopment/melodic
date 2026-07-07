@@ -2,6 +2,7 @@ import { MelodicComponent } from '@melodicdev/core';
 import type { IElementRef, OnCreate, OnDestroy } from '@melodicdev/core';
 import { appShellTemplate } from './app-shell.template.js';
 import { appShellStyles } from './app-shell.styles.js';
+import { defineLegacyAliases } from '../../../functions/index.js';
 
 export type SidebarPosition = 'left' | 'right';
 
@@ -32,14 +33,14 @@ export type SidebarPosition = 'left' | 'right';
 export class AppShellComponent implements IElementRef, OnCreate, OnDestroy {
 	public elementRef!: HTMLElement;
 
-	/** Position of the sidebar: 'left' or 'right' */
-	public 'sidebar-position': SidebarPosition = 'left';
+	/** Position of the sidebar: 'left' or 'right' (attribute: sidebar-position) */
+	public sidebarPosition: SidebarPosition = 'left';
 
-	/** Whether the sidebar is collapsed */
-	public 'sidebar-collapsed' = false;
+	/** Whether the sidebar is collapsed (attribute: sidebar-collapsed) */
+	public sidebarCollapsed = false;
 
-	/** Whether the header is fixed/sticky */
-	public 'header-fixed' = false;
+	/** Whether the header is fixed/sticky (attribute: header-fixed) */
+	public headerFixed = false;
 
 	/** Whether the viewport is mobile-sized (<768px) */
 	public mobile = false;
@@ -79,3 +80,11 @@ export class AppShellComponent implements IElementRef, OnCreate, OnDestroy {
 		}
 	}
 }
+
+// Deprecated quoted kebab-case property aliases (warn once on first write;
+// removed in the next major release).
+defineLegacyAliases(AppShellComponent.prototype, 'ml-app-shell', {
+	'sidebar-position': 'sidebarPosition',
+	'sidebar-collapsed': 'sidebarCollapsed',
+	'header-fixed': 'headerFixed'
+});

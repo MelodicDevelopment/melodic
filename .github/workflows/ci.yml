@@ -1,0 +1,155 @@
+# CI for the Melodic monorepo (TODO-REVIEW.md — Phase 0 safety net).
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  # ── @melodicdev/core (repo root) ─────────────────────────────────────────
+  core:
+    name: Core (typecheck, lint, test, build)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+      # Lint has substantial pre-existing debt (~2,800 errors as of 2026-07-06).
+      # Kept non-blocking so CI is green on arrival; flip to enforced once the
+      # backlog is burned down.
+      - name: Lint (non-blocking)
+        run: npm run lint
+        continue-on-error: true
+
+      - name: Unit tests
+        run: npm run test:unit
+
+      - name: Build
+        run: npm run build
+
+  # ── @melodicdev/components ───────────────────────────────────────────────
+  components:
+    name: Components (test, build)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      # Workspace deps are installed from the repo root (npm workspaces);
+      # packages/melodic-components has no lockfile of its own.
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      # If npm links node_modules/@melodicdev/core to the repo root (it can,
+      # since the root package satisfies the components' peer dependency),
+      # the components build resolves core types from ./lib — build it first.
+      - name: Build core lib (dependency of components build)
+        run: npm run build:lib
+
+      - name: Unit tests
+        run: npm --workspace @melodicdev/components run test
+
+      # `build` runs tsc (typecheck+emit), CSS generation, and the Vite bundles.
+      - name: Build
+        run: npm --workspace @melodicdev/components run build
+
+  # ── @melodicdev/cli ──────────────────────────────────────────────────────
+  cli:
+    name: CLI (typecheck/build)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Build
+        run: npm --workspace @melodicdev/cli run build
+
+      - name: Unit tests
+        run: npm --workspace @melodicdev/cli run test
+
+  # ── Scaffold smoke test ──────────────────────────────────────────────────
+  # Builds the CLI, scaffolds fresh projects with it, and builds them exactly
+  # the way a new user would. Permanently catches CLI-template drift.
+  scaffold-smoke:
+    name: Scaffold smoke test (melodic init)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Build CLI
+        run: npm --workspace @melodicdev/cli run build
+
+      # Scaffolded projects depend on @melodicdev/core@^3.0.0, which isn't on
+      # the registry until the release is published — and the smoke test should
+      # exercise THIS commit's core anyway. Pack the local core and install the
+      # tarball into each scaffolded project (same layout as a registry install).
+      - name: Pack local core
+        run: |
+          npm run build:lib
+          npm pack --pack-destination "$RUNNER_TEMP"
+
+      # ── basic project ──
+      - name: Scaffold basic project (melodic init)
+        run: node "$GITHUB_WORKSPACE/packages/cli/dist/index.js" init "$RUNNER_TEMP/smoke-app"
+
+      - name: Install scaffolded basic project
+        run: npm install --no-audit --no-fund "$RUNNER_TEMP"/melodicdev-core-*.tgz
+        working-directory: ${{ runner.temp }}/smoke-app
+
+      - name: Build scaffolded basic project
+        run: npm run build
+        working-directory: ${{ runner.temp }}/smoke-app
+
+      # ── monorepo project ──
+      - name: Scaffold monorepo project (melodic init --monorepo)
+        run: node "$GITHUB_WORKSPACE/packages/cli/dist/index.js" init "$RUNNER_TEMP/smoke-mono" --monorepo --app-name web
+
+      - name: Install scaffolded monorepo project
+        run: npm install --no-audit --no-fund "$RUNNER_TEMP"/melodicdev-core-*.tgz
+        working-directory: ${{ runner.temp }}/smoke-mono
+
+      - name: Build scaffolded monorepo project
+        run: npm run build
+        working-directory: ${{ runner.temp }}/smoke-mono

@@ -78,6 +78,10 @@ export function autoUpdate(reference: Element, floating: HTMLElement, update: ()
 		cleanups.push(() => observer.disconnect());
 	}
 
+	// Run an initial update immediately (matches floating-ui) so the first
+	// paint is positioned without relying on a ResizeObserver tick.
+	update();
+
 	// Update on animation frame (for animations/transitions)
 	if (animationFrame) {
 		let frameId: number;

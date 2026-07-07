@@ -3,6 +3,8 @@
  */
 
 import type { TemplateResult } from '../../classes/template-result.class';
+import { disposeContainerParts } from '../../functions/dispose.functions';
+import { renderDetachedItem } from '../../functions/render-detached.function';
 import { directive } from '../functions/directive.function';
 import type { IDirectiveResult } from '../interfaces/idirective-result.interface';
 
@@ -11,6 +13,8 @@ interface RepeatState {
 	items: RepeatItem[];
 	startMarker: Comment;
 	endMarker: Comment;
+	/** Disposal contract (see IDirectiveState) — releases every item's part tree. */
+	__dispose: () => void;
 }
 
 interface RepeatItem {
@@ -51,7 +55,14 @@ export function repeat<T>(items: T[], keyFn: (item: T, index: number) => unknown
 				keyToIndex: new Map(),
 				items: [],
 				startMarker,
-				endMarker
+				endMarker,
+				__dispose: () => {
+					for (const item of state.items) {
+						disposeContainerParts(item.container);
+					}
+					state.items = [];
+					state.keyToIndex.clear();
+				}
 			};
 
 			// Initial render
@@ -62,7 +73,7 @@ export function repeat<T>(items: T[], keyFn: (item: T, index: number) => unknown
 		// Update existing list
 		updateList(items, keyFn, template, previousState);
 		return previousState;
-	});
+	}, 'repeat');
 }
 
 function updateList<T>(
@@ -99,7 +110,7 @@ function updateList<T>(
 			// Items are in same order with same keys - just update templates in place
 			for (let i = 0; i < newItems.length; i++) {
 				const templateResult = template(newItems[i], i);
-				templateResult.renderInto(oldItems[i].container);
+				oldItems[i].nodes = renderDetachedItem(templateResult, oldItems[i].container, oldItems[i].nodes, oldItems[i].end);
 			}
 			return;
 		}
@@ -125,7 +136,7 @@ function updateList<T>(
 
 			// Re-render with new data
 			const templateResult = template(item, i);
-			templateResult.renderInto(oldItem.container);
+			oldItem.nodes = renderDetachedItem(templateResult, oldItem.container, oldItem.nodes, oldItem.end);
 
 			newEntries.push({
 				item: oldItem,
@@ -227,6 +238,10 @@ function moveItemRange(item: RepeatItem, referenceNode: Node): void {
 }
 
 function removeItemRange(item: RepeatItem): void {
+	// Recursively dispose the removed item's part tree so directive/action
+	// cleanups registered inside the item template run before its nodes go away.
+	disposeContainerParts(item.container);
+
 	let node: Node | null = item.start;
 	const end = item.end;
 

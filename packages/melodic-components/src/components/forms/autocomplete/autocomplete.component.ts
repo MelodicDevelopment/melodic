@@ -3,7 +3,8 @@ import type { IElementRef, OnCreate, OnDestroy } from '@melodicdev/core';
 import { registerAdapter } from '@melodicdev/core/forms';
 import type { Size } from '../../../types/index.js';
 import type { AutocompleteOption, AutocompleteSearchFn } from './autocomplete.types.js';
-import { computePosition, offset, flip, shift } from '../../../utils/positioning/index.js';
+import { OverlayPositioner } from '../../../utils/overlay/index.js';
+import { newID } from '../../../functions/index.js';
 import { autocompleteTemplate } from './autocomplete.template.js';
 import { autocompleteStyles } from './autocomplete.styles.js';
 
@@ -128,8 +129,14 @@ export class AutocompleteComponent implements IElementRef, OnCreate, OnDestroy {
 
 	private readonly _handleKeyDown = this.onKeyDown.bind(this);
 	private readonly _handleDocumentClick = this.onDocumentClick.bind(this);
-	private _handleScroll: ((event: Event) => void) | null = null;
+	private readonly _uid = newID();
+	private readonly _positioner = new OverlayPositioner(() => ({
+		placement: 'bottom-start',
+		offset: 4,
+		matchTriggerWidth: true
+	}));
 	private _debounceTimer: ReturnType<typeof setTimeout> | null = null;
+	private _searchGeneration = 0;
 	private _syncingValues = false;
 
 	public onCreate(): void {
@@ -138,7 +145,7 @@ export class AutocompleteComponent implements IElementRef, OnCreate, OnDestroy {
 
 	public onDestroy(): void {
 		this.elementRef.removeEventListener('keydown', this._handleKeyDown);
-		this.removeScrollListener();
+		this.stopPositioning();
 		this.removeDocumentClickListener();
 		if (this._debounceTimer) {
 			clearTimeout(this._debounceTimer);
@@ -241,6 +248,21 @@ export class AutocompleteComponent implements IElementRef, OnCreate, OnDestroy {
 		return this.multiple ? this.values.length > 0 : !!this.value;
 	}
 
+	/** Unique id of the listbox element (for aria-controls) */
+	public get listboxId(): string {
+		return `ml-autocomplete-listbox-${this._uid}`;
+	}
+
+	/** Unique id for the option at the given display index */
+	public optionId = (index: number): string => {
+		return `${this.listboxId}-option-${index}`;
+	};
+
+	/** Id of the keyboard-focused option, or undefined when none (omits the attribute) */
+	public get activeDescendant(): string | undefined {
+		return this.isOpen && this.focusedIndex >= 0 ? this.optionId(this.focusedIndex) : undefined;
+	}
+
 	/** Display text for the input in single mode */
 	public get displayText(): string {
 		if (this.multiple) return '';
@@ -258,8 +280,7 @@ export class AutocompleteComponent implements IElementRef, OnCreate, OnDestroy {
 		dropdownEl.showPopover();
 		this.isOpen = true;
 		this.focusedIndex = this.findFirstEnabledIndex();
-		this.positionDropdown();
-		this.addScrollListener();
+		this.startPositioning();
 		this.addDocumentClickListener();
 
 		this.elementRef.dispatchEvent(
@@ -274,7 +295,7 @@ export class AutocompleteComponent implements IElementRef, OnCreate, OnDestroy {
 		this.getDropdownEl()?.hidePopover();
 		this.isOpen = false;
 		this.focusedIndex = -1;
-		this.removeScrollListener();
+		this.stopPositioning();
 		this.removeDocumentClickListener();
 
 		this.elementRef.dispatchEvent(
@@ -443,12 +464,20 @@ export class AutocompleteComponent implements IElementRef, OnCreate, OnDestroy {
 	private async executeSearch(query: string): Promise<void> {
 		if (!this.searchFn) return;
 
+		// Request-generation counter: each search invalidates all in-flight
+		// requests so a slow earlier response can never overwrite newer results.
+		const generation = ++this._searchGeneration;
+
 		this.loading = true;
 		try {
-			this.asyncOptions = await this.searchFn(query);
+			const results = await this.searchFn(query);
+			if (generation !== this._searchGeneration) return;
+			this.asyncOptions = results;
 			this.focusedIndex = this.findFirstEnabledIndex();
 		} finally {
-			this.loading = false;
+			if (generation === this._searchGeneration) {
+				this.loading = false;
+			}
 		}
 	}
 
@@ -468,36 +497,17 @@ export class AutocompleteComponent implements IElementRef, OnCreate, OnDestroy {
 		document.removeEventListener('click', this._handleDocumentClick, true);
 	}
 
-	private positionDropdown(): void {
+	/** Keep the dropdown positioned while open (repositions on scroll/resize). */
+	private startPositioning(): void {
 		const triggerEl = this.elementRef.shadowRoot?.querySelector('.ml-autocomplete__trigger') as HTMLElement | null;
 		const dropdownEl = this.getDropdownEl();
 		if (!triggerEl || !dropdownEl) return;
 
-		dropdownEl.style.width = `${triggerEl.offsetWidth}px`;
-
-		const { x, y } = computePosition(triggerEl, dropdownEl, {
-			placement: 'bottom-start',
-			middleware: [offset(4), flip(), shift({ padding: 8 })]
-		});
-
-		dropdownEl.style.left = `${x}px`;
-		dropdownEl.style.top = `${y}px`;
+		this._positioner.start(triggerEl, dropdownEl);
 	}
 
-	private addScrollListener(): void {
-		this._handleScroll = (event: Event) => {
-			const dropdownEl = this.getDropdownEl();
-			if (dropdownEl?.contains(event.target as Node)) return;
-			this.close();
-		};
-		window.addEventListener('scroll', this._handleScroll, true);
-	}
-
-	private removeScrollListener(): void {
-		if (this._handleScroll) {
-			window.removeEventListener('scroll', this._handleScroll, true);
-			this._handleScroll = null;
-		}
+	private stopPositioning(): void {
+		this._positioner.stop();
 	}
 
 	private getDropdownEl(): HTMLElement | null {

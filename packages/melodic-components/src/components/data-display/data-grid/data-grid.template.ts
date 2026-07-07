@@ -1,12 +1,7 @@
 import { html, classMap, when, repeat } from '@melodicdev/core';
 import type { DataGridComponent } from './data-grid.component.js';
 import type { DataGridColumn } from './data-grid.types.js';
-
-function renderCell(col: DataGridColumn, row: Record<string, unknown>, index: number) {
-	if (col.render) return col.render(row[col.key], row, index);
-	const val = row[col.key];
-	return val == null ? '' : val;
-}
+import { renderCell } from '../table-core/index.js';
 
 function pinStyle(c: DataGridComponent, col: DataGridColumn): string {
 	if (col.pinned === 'left') return `left: ${c.getPinnedLeftOffset(col.key)}px`;
@@ -100,6 +95,7 @@ export function dataGridTemplate(c: DataGridComponent) {
 										@pointerdown=${(e: PointerEvent) => c.handleResizeStart(col.key, e)}
 										@pointermove=${(e: PointerEvent) => c.handleResizeMove(col.key, e)}
 										@pointerup=${c.handleResizeEnd}
+										@click=${(e: Event) => e.stopPropagation()}
 									></div>
 								`)}
 							</div>

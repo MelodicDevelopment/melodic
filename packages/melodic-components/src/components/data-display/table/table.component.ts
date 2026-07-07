@@ -1,9 +1,10 @@
 import { MelodicComponent } from '@melodicdev/core';
 import type { IElementRef, OnCreate, OnDestroy, OnRender, OnPropertyChange } from '@melodicdev/core';
 import type { TableColumn, SortDirection } from './table.types.js';
+import { watchSlotPresence } from '../../../functions/index.js';
 import { tableTemplate } from './table.template.js';
 import { tableStyles } from './table.styles.js';
-import { VirtualScroller } from '../../../utils/virtual-scroll/index.js';
+import { TableCore } from '../table-core/index.js';
 
 /**
  * ml-table - Data table with sorting, selection, and custom cell rendering
@@ -24,7 +25,11 @@ import { VirtualScroller } from '../../../utils/virtual-scroll/index.js';
  * ```
  *
  * @fires ml:sort - Emitted when a sortable column header is clicked. Detail: { key, direction }
- * @fires ml:select - Emitted when row selection changes. Detail: { selectedRows, allSelected }
+ * @fires ml:select - Emitted when row selection changes (including when sorting clears a
+ *   non-empty selection). Detail: { selectedRows, selectedIndices, allSelected } where
+ *   `selectedRows` contains the selected row OBJECTS and `selectedIndices` their indices
+ *   in the original `rows` array (consumer order, independent of the current sort).
+ *   BREAKING (2.x): `selectedRows` previously contained sorted-order indices.
  * @fires ml:row-click - Emitted when a row is clicked. Detail: { row, index }
  *
  * @slot footer - Content for the table footer area (e.g. pagination)
@@ -106,8 +111,11 @@ export class TableComponent implements IElementRef, OnCreate, OnDestroy, OnRende
 
 	// ── Private ──────────────────────────────────────────────────────────────────
 
-	private _scroller = new VirtualScroller();
-	private _viewport: HTMLElement | null = null;
+	/** Shared table pipeline: sorting, selection, ml:* events, virtual window. */
+	private _core = new TableCore(this, {
+		viewportSelector: '.ml-table__wrapper',
+		displayRows: () => this.sortedRows
+	});
 
 	// ── Row height by size ────────────────────────────────────────────────────────
 
@@ -118,96 +126,54 @@ export class TableComponent implements IElementRef, OnCreate, OnDestroy, OnRende
 	// ── Lifecycle ─────────────────────────────────────────────────────────────────
 
 	public onPropertyChange(name: string, _oldVal: unknown, _newVal: unknown): void {
-		if (name === 'rows' || name === 'columns') {
-			this._scroller.invalidate();
+		if (name === 'columns') {
+			this._core.invalidateScroller();
+		}
+
+		if (name === 'rows') {
+			// Selection is positional; a new dataset invalidates it. Reset silently
+			// (the consumer initiated the change) and recompute the virtual window
+			// after the new value commits — same behavior as ml-data-grid.
+			this._core.handleRowsChange();
 		}
 	}
 
 	public onCreate(): void {
 		const shadow = this.elementRef.shadowRoot;
 		if (!shadow) return;
-		shadow.querySelectorAll('slot').forEach(slot => {
-			slot.addEventListener('slotchange', () => {
-				const name = slot.getAttribute('name');
-				if (name === 'footer') {
-					this.hasFooter = slot.assignedNodes().length > 0;
-				} else if (name === 'header-actions') {
-					this.hasHeaderActions = slot.assignedNodes().length > 0;
-				}
-			});
+		watchSlotPresence(shadow, (name, hasContent) => {
+			if (name === 'footer') this.hasFooter = hasContent;
+			else if (name === 'header-actions') this.hasHeaderActions = hasContent;
 		});
-		this._attachScroller();
+		this._core.attachScroller();
 	}
 
 	public onRender(): void {
-		this._attachScroller();
-
-		// Compute initial end index when viewport height not yet known
-		if (this.virtual && this._viewport && this._viewport.clientHeight === 0 && this.sortedRows.length > 0) {
-			const approxEnd = Math.min(this.sortedRows.length, Math.ceil(600 / this.rowHeight) + 6);
-			if (approxEnd !== this.endIndex) {
-				this.endIndex = approxEnd;
-			}
-		}
-
-		if (!this.virtual) {
-			const total = this.sortedRows.length;
-			if (this.endIndex !== total) this.endIndex = total;
-		}
+		this._core.syncRenderWindow();
 	}
 
 	public onDestroy(): void {
-		this._scroller.detach();
-		this._viewport = null;
-	}
-
-	// ── Private helpers ───────────────────────────────────────────────────────────
-
-	private _attachScroller(): void {
-		if (this._viewport) return; // already attached
-		const shadow = this.elementRef.shadowRoot;
-		if (!shadow) return;
-		this._viewport = shadow.querySelector('.ml-table__wrapper') as HTMLElement | null;
-		if (!this._viewport) return;
-		this._scroller.attach(this._viewport, {
-			rowHeight: () => this.rowHeight,
-			itemCount: () => this.sortedRows.length,
-			onUpdate: (start, end) => { this.startIndex = start; this.endIndex = end; },
-			enabled: () => this.virtual,
-		});
+		this._core.detach();
 	}
 
 	// ── Data ──────────────────────────────────────────────────────────────────────
 
 	/** Rows sorted by current sort key/direction */
 	public get sortedRows(): Record<string, unknown>[] {
-		if (this.manualSort || !this.sortKey) return this.rows;
-		const key = this.sortKey;
-		const dir = this.sortDirection === 'asc' ? 1 : -1;
-		return [...this.rows].sort((a, b) => {
-			const aVal = a[key];
-			const bVal = b[key];
-			if (aVal === undefined || aVal === null) {
-				return (bVal === undefined || bVal === null) ? 0 : 1;
-			}
-			if (bVal === undefined || bVal === null) return -1;
-			if (typeof aVal === 'number' && typeof bVal === 'number') return (aVal - bVal) * dir;
-			return String(aVal).localeCompare(String(bVal)) * dir;
-		});
+		if (this.manualSort) return this.rows;
+		return this._core.sortRows(this.rows);
 	}
 
 	public get visibleRows(): Record<string, unknown>[] {
-		if (!this.virtual) return this.sortedRows;
-		return this.sortedRows.slice(this.startIndex, this.endIndex);
+		return this._core.visibleRows;
 	}
 
 	public get topSpacerHeight(): number {
-		return this.virtual ? this.startIndex * this.rowHeight : 0;
+		return this._core.topSpacerHeight;
 	}
 
 	public get bottomSpacerHeight(): number {
-		if (!this.virtual) return 0;
-		return Math.max(0, (this.sortedRows.length - this.endIndex) * this.rowHeight);
+		return this._core.bottomSpacerHeight;
 	}
 
 	public get colCount(): number {
@@ -215,74 +181,32 @@ export class TableComponent implements IElementRef, OnCreate, OnDestroy, OnRende
 	}
 
 	public get allSelected(): boolean {
-		return this.rows.length > 0 && this.selectedIndices.length === this.rows.length;
+		return this._core.allSelected;
 	}
 
 	public get someSelected(): boolean {
-		return this.selectedIndices.length > 0 && !this.allSelected;
+		return this._core.someSelected;
 	}
 
 	public isRowSelected = (index: number): boolean => {
-		return this.selectedIndices.includes(index);
+		return this._core.isRowSelected(index);
 	};
 
 	// ── Event handlers ────────────────────────────────────────────────────────────
 
 	public handleSort = (column: TableColumn): void => {
-		if (!column.sortable) return;
-		if (this.sortKey === column.key) {
-			this.sortDirection = this.sortDirection === 'asc' ? 'desc' : 'asc';
-		} else {
-			this.sortKey = column.key;
-			this.sortDirection = 'asc';
-		}
-		this.selectedIndices = [];
-		this._scroller.invalidate();
-		this.elementRef.dispatchEvent(
-			new CustomEvent('ml:sort', {
-				bubbles: true,
-				composed: true,
-				detail: { key: this.sortKey, direction: this.sortDirection }
-			})
-		);
+		this._core.handleSortClick(column);
 	};
 
 	public handleSelectAll = (): void => {
-		if (this.allSelected) {
-			this.selectedIndices = [];
-		} else {
-			this.selectedIndices = this.rows.map((_, i) => i);
-		}
-		this.emitSelect();
+		this._core.toggleSelectAll();
 	};
 
 	public handleSelectRow = (index: number, event: Event): void => {
-		event.stopPropagation();
-		if (this.selectedIndices.includes(index)) {
-			this.selectedIndices = this.selectedIndices.filter(i => i !== index);
-		} else {
-			this.selectedIndices = [...this.selectedIndices, index];
-		}
-		this.emitSelect();
+		this._core.toggleSelectRow(index, event);
 	};
 
 	public handleRowClick = (row: Record<string, unknown>, index: number): void => {
-		this.elementRef.dispatchEvent(
-			new CustomEvent('ml:row-click', {
-				bubbles: true,
-				composed: true,
-				detail: { row, index }
-			})
-		);
+		this._core.emitRowClick(row, index);
 	};
-
-	private emitSelect(): void {
-		this.elementRef.dispatchEvent(
-			new CustomEvent('ml:select', {
-				bubbles: true,
-				composed: true,
-				detail: { selectedRows: this.selectedIndices, allSelected: this.allSelected }
-			})
-		);
-	}
 }

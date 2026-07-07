@@ -10,9 +10,6 @@ export function dropdownItemTemplate(c: DropdownItemComponent) {
 				'ml-dropdown-item--disabled': c.disabled,
 				'ml-dropdown-item--destructive': c.destructive
 			})}
-			role="menuitem"
-			tabindex="-1"
-			aria-disabled=${c.disabled || false}
 			@click=${c.handleClick}
 		>
 			${when(

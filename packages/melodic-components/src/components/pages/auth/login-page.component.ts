@@ -2,6 +2,7 @@ import { MelodicComponent } from '@melodicdev/core';
 import type { IElementRef } from '@melodicdev/core';
 import { loginPageTemplate } from './login-page.template.js';
 import { loginPageStyles } from './login-page.styles.js';
+import { warnDeprecatedTitleOnce } from '../../../functions/index.js';
 
 /**
  * ml-login-page - A full-page login component
@@ -37,7 +38,7 @@ import { loginPageStyles } from './login-page.styles.js';
 	selector: 'ml-login-page',
 	template: loginPageTemplate,
 	styles: loginPageStyles,
-	attributes: ['variant', 'title', 'description']
+	attributes: ['variant', 'page-title', 'title', 'description']
 })
 export class LoginPageComponent implements IElementRef {
 	public elementRef!: HTMLElement;
@@ -45,18 +46,31 @@ export class LoginPageComponent implements IElementRef {
 	/** Layout variant */
 	public variant: 'centered' | 'split' = 'centered';
 
-	/** Page title */
-	public title = 'Log in to your account';
+	/** Page title (attribute: page-title) */
+	public pageTitle = 'Log in to your account';
 
 	/** Page description */
 	public description = 'Welcome back! Please enter your details.';
 
-	/** Check if header slot has content */
+	/** @deprecated Use `pageTitle` (attribute `page-title`); `title` collides with the global HTML attribute. */
+	public get title(): string {
+		return this.pageTitle;
+	}
+	public set title(value: string) {
+		warnDeprecatedTitleOnce('ml-login-page', 'page-title');
+		this.pageTitle = value;
+	}
+
+	/**
+	 * Whether the header slot has content. The template no longer reads this at
+	 * render time (it uses native slot fallback, which stays reactive on its
+	 * own); this is a live query kept for imperative consumers.
+	 */
 	public get hasHeaderSlot(): boolean {
 		return this.elementRef?.querySelector('[slot="header"]') !== null;
 	}
 
-	/** Check if brand slot has content */
+	/** Whether the brand slot has content (live query for imperative consumers). */
 	public get hasBrandSlot(): boolean {
 		return this.elementRef?.querySelector('[slot="brand"]') !== null;
 	}

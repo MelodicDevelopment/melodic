@@ -1,6 +1,7 @@
 import { MelodicComponent } from '@melodicdev/core';
-import type { IElementRef } from '@melodicdev/core';
+import type { IElementRef, OnCreate } from '@melodicdev/core';
 import type { Size } from '../../../types/index.js';
+import { watchSlotPresence, defineLegacyAliases } from '../../../functions/index.js';
 import { activityFeedItemTemplate } from './activity-feed-item.template.js';
 import { activityFeedItemStyles } from './activity-feed-item.styles.js';
 
@@ -27,7 +28,7 @@ const INDICATOR_PRESETS = new Set<string>(['success', 'warning', 'error', 'prima
 	styles: activityFeedItemStyles,
 	attributes: ['name', 'timestamp', 'avatar-src', 'avatar-initials', 'avatar-size', 'subtitle', 'indicator', 'indicator-color']
 })
-export class ActivityFeedItemComponent implements IElementRef {
+export class ActivityFeedItemComponent implements IElementRef, OnCreate {
 	public elementRef!: HTMLElement;
 
 	/** User display name */
@@ -36,14 +37,14 @@ export class ActivityFeedItemComponent implements IElementRef {
 	/** Timestamp text */
 	public timestamp = '';
 
-	/** Avatar image source */
-	public 'avatar-src' = '';
+	/** Avatar image source (attribute: avatar-src) */
+	public avatarSrc = '';
 
-	/** Avatar initials fallback */
-	public 'avatar-initials' = '';
+	/** Avatar initials fallback (attribute: avatar-initials) */
+	public avatarInitials = '';
 
-	/** Avatar size */
-	public 'avatar-size': Size = 'sm';
+	/** Avatar size (attribute: avatar-size) */
+	public avatarSize: Size = 'sm';
 
 	/** Subtitle text (e.g. @handle) */
 	public subtitle = '';
@@ -51,21 +52,39 @@ export class ActivityFeedItemComponent implements IElementRef {
 	/** Show indicator dot */
 	public indicator = false;
 
-	/** Indicator dot color — preset name or any CSS color value */
-	public 'indicator-color': IndicatorPreset | string = 'gray';
+	/** Indicator dot color — preset name or any CSS color value (attribute: indicator-color) */
+	public indicatorColor: IndicatorPreset | string = 'gray';
 
 	/** Whether the indicator-color is a preset name */
 	public get isPresetColor(): boolean {
-		return INDICATOR_PRESETS.has(this['indicator-color']);
+		return INDICATOR_PRESETS.has(this.indicatorColor);
 	}
 
-	/** Check if avatar slot has content */
-	public get hasAvatarSlot(): boolean {
-		return this.elementRef?.querySelector('[slot="avatar"]') !== null;
-	}
+	/** Whether the avatar slot has content (kept in sync via slotchange) */
+	public hasAvatarSlot = false;
 
-	/** Check if content slot has content */
-	public get hasContentSlot(): boolean {
-		return this.elementRef?.querySelector('[slot="content"]') !== null;
+	/** Whether the content slot has content (kept in sync via slotchange) */
+	public hasContentSlot = false;
+
+	public onCreate(): void {
+		// Slot presence is reactive (profile-card pattern): content added or
+		// removed after mount projects correctly instead of being frozen at the
+		// value a render-time querySelector saw. (The avatar slot additionally
+		// uses native slot fallback for the default ml-avatar.)
+		const shadow = this.elementRef.shadowRoot;
+		if (!shadow) return;
+		watchSlotPresence(shadow, (name, hasContent) => {
+			if (name === 'avatar') this.hasAvatarSlot = hasContent;
+			else if (name === 'content') this.hasContentSlot = hasContent;
+		});
 	}
 }
+
+// Deprecated quoted kebab-case property aliases (warn once on first write;
+// removed in the next major release).
+defineLegacyAliases(ActivityFeedItemComponent.prototype, 'ml-activity-feed-item', {
+	'avatar-src': 'avatarSrc',
+	'avatar-initials': 'avatarInitials',
+	'avatar-size': 'avatarSize',
+	'indicator-color': 'indicatorColor'
+});

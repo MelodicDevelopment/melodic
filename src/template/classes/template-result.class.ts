@@ -1,7 +1,11 @@
 import { getAttributeDirective } from '../directives/functions/attribute-directive.functions';
-import type { ITemplatePart } from '../interfaces/itemplate-part.interface';
+import type { ITemplatePart, IKeyedArrayItem, IEventHandlerWithOptions } from '../interfaces/itemplate-part.interface';
 import type { ITemplateCache, IPartPath } from '../interfaces/itemplate-cache.interface';
+import type { IDirectiveState } from '../interfaces/idirective-state.interface';
+import type { RenderedContainer } from '../interfaces/irendered-container.interface';
 import { isDirective } from '../directives/functions/is-directive.function';
+import { disposeParts, disposeContainerParts, disposeDirectiveState } from '../functions/dispose.functions';
+import { renderDetachedItem } from '../functions/render-detached.function';
 
 // Unique marker for identifying dynamic positions
 const MARKER = `m${Math.random().toString(36).slice(2, 9)}`;
@@ -12,6 +16,122 @@ const ATTRIBUTE_MARKER_REGEX = new RegExp(`${ATTRIBUTE_MARKER_PREFIX}(\\d+)__`, 
 const createAttributeMarker = (index: number): string => `${ATTRIBUTE_MARKER_PREFIX}${index}__`;
 
 const templateCache = new Map<string, ITemplateCache>();
+
+// Dev-mode warning (once per property name) for property bindings that assign
+// raw HTML — .innerHTML=${...} looks like a normal bind but bypasses the safe
+// text path entirely.
+const warnedUnsafeProperties = new Set<string>();
+function warnUnsafePropertyBinding(name: string): void {
+	if (warnedUnsafeProperties.has(name)) return;
+	if (typeof import.meta !== 'undefined' && import.meta.env && !import.meta.env.DEV) return;
+	warnedUnsafeProperties.add(name);
+	console.warn(
+		`[melodic] Property binding ".${name}" assigns raw HTML and is an XSS hazard if the value is not fully trusted. ` +
+			'Prefer text interpolation, or unsafeHTML() with sanitized content.'
+	);
+}
+
+/** True outside production builds (mirrors the guard used by other dev-only warnings). */
+function isDevMode(): boolean {
+	return !(typeof import.meta !== 'undefined' && import.meta.env && !import.meta.env.DEV);
+}
+
+// Matches any marker the parser injects for a binding: text-position comment
+// markers, composite attribute-value markers, and pre-processed binding
+// attributes (@/./:/? forms).
+const ANY_MARKER_REGEX = new RegExp(`${COMMENT_NODE_MARKER}|${ATTRIBUTE_MARKER_PREFIX}\\d+__|__(?:event|prop|action|bool)-\\d+__`);
+
+/** Human-readable snippet around an offending marker (markers shown as `${…}`). */
+function describeSnippet(html: string, index: number): string {
+	const start = Math.max(0, index - 40);
+	const end = Math.min(html.length, index + 80);
+	const snippet = html
+		.slice(start, end)
+		.replace(new RegExp(`${COMMENT_NODE_MARKER}|${ATTRIBUTE_MARKER_PREFIX}\\d+__|__(?:event|prop|action|bool)-\\d+__=""`, 'g'), '${…}')
+		.replace(/\s+/g, ' ')
+		.trim();
+	return `${start > 0 ? '…' : ''}${snippet}${end < html.length ? '…' : ''}`;
+}
+
+function warnUnsupportedBinding(position: string, html: string, index: number): void {
+	console.warn(
+		`[melodic] Template contains a binding in an unsupported position (${position}). ` +
+			`The parser cannot track bindings here, so the value will not render or update. ` +
+			`Offending template: ${describeSnippet(html, index)}`
+	);
+}
+
+/**
+ * Dev-mode diagnostics for bindings in positions the parser cannot handle:
+ * raw-text element content (<textarea>, <title>), HTML comments, and tag-name
+ * position. These silently misrender in production (backwards compat — never
+ * throws); in dev the offending template snippet is reported via console.warn.
+ * Runs once per template (getTemplate caches by template key).
+ */
+function warnUnsupportedBindingPositions(html: string): void {
+	if (!isDevMode()) return;
+
+	// 1) Bindings inside raw-text elements: their content is parsed as literal
+	//    text, so comment markers never become comment nodes.
+	const rawTextRegex = /<(textarea|title)(?:\s[^>]*)?>([\s\S]*?)<\/\1\s*>/gi;
+	let rawTextMatch: RegExpExecArray | null;
+	while ((rawTextMatch = rawTextRegex.exec(html)) !== null) {
+		if (ANY_MARKER_REGEX.test(rawTextMatch[2])) {
+			warnUnsupportedBinding(`inside <${rawTextMatch[1].toLowerCase()}> content`, html, rawTextMatch.index);
+		}
+	}
+
+	// 2) Bindings in tag-name position: `<${tag}>` / `</${tag}>` put a comment
+	//    marker directly after `<`.
+	const tagNameIndex = html.search(new RegExp(`</?${COMMENT_NODE_MARKER}`));
+	if (tagNameIndex !== -1) {
+		warnUnsupportedBinding('tag-name position', html, tagNameIndex);
+	}
+
+	// 3) Bindings inside HTML comments: comments cannot nest, so the injected
+	//    marker corrupts the comment and the binding is lost.
+	let searchFrom = 0;
+	for (;;) {
+		const open = html.indexOf('<!--', searchFrom);
+		if (open === -1) break;
+
+		// The parser's own text-position marker is itself a comment — skip it.
+		if (html.startsWith(COMMENT_NODE_MARKER, open)) {
+			searchFrom = open + COMMENT_NODE_MARKER.length;
+			continue;
+		}
+
+		const close = html.indexOf('-->', open + 4);
+		const content = close === -1 ? html.slice(open + 4) : html.slice(open + 4, close);
+		if (content.includes(MARKER) || /__(?:event|prop|action|bool)-\d+__/.test(content)) {
+			warnUnsupportedBinding('inside an HTML comment', html, open);
+		}
+		searchFrom = close === -1 ? html.length : close + 3;
+	}
+}
+
+/**
+ * Extract listener options (capture/once/passive) from a `handleEvent`-object
+ * binding value. Returns undefined when no option flag is present, so plain
+ * handleEvent objects register exactly like plain functions.
+ */
+function extractListenerOptions(value: IEventHandlerWithOptions): AddEventListenerOptions | undefined {
+	const { capture, once, passive } = value;
+	if (capture === undefined && once === undefined && passive === undefined) {
+		return undefined;
+	}
+
+	const options: AddEventListenerOptions = {};
+	if (capture !== undefined) options.capture = capture;
+	if (once !== undefined) options.once = once;
+	if (passive !== undefined) options.passive = passive;
+	return options;
+}
+
+/** Compare listener options by effective (boolean) value. */
+function sameListenerOptions(a: AddEventListenerOptions | undefined, b: AddEventListenerOptions | undefined): boolean {
+	return !!a?.capture === !!b?.capture && !!a?.once === !!b?.once && !!a?.passive === !!b?.passive;
+}
 
 // Cache template keys by TemplateStringsArray identity to avoid repeated string joins
 const templateKeyCache = new WeakMap<TemplateStringsArray, string>();
@@ -39,68 +159,83 @@ export class TemplateResult {
 	}
 
 	/**
+	 * Structural identity of this template (derived from its tagged template
+	 * literal). Two TemplateResults with the same key share DOM structure and
+	 * can be updated in place; different keys require a rebuild.
+	 */
+	public get templateKey(): string {
+		return getTemplateKey(this.strings);
+	}
+
+	/**
 	 * Optimized render for single-use containers (like repeat items).
 	 * Returns the rendered nodes directly.
 	 */
 	public renderOnce(container: DocumentFragment): Node[] {
+		const target = container as RenderedContainer<DocumentFragment>;
 		const templateKey = getTemplateKey(this.strings);
 		const cache = this.getTemplate(templateKey);
 		const clone = cache.element.content.cloneNode(true);
 		const parts = this.prepareParts(clone, cache);
 
 		this.commit(parts);
-		container.appendChild(clone);
+		target.appendChild(clone);
 
-		(container as any).__parts = parts;
-		(container as any).__templateKey = templateKey;
+		target.__parts = parts;
+		target.__templateKey = templateKey;
 
-		return Array.from(container.childNodes);
+		return Array.from(target.childNodes);
 	}
 
 	public renderInto(container: Element | DocumentFragment): void {
+		const target = container as RenderedContainer<Element | DocumentFragment>;
 		const templateKey = getTemplateKey(this.strings);
 
-		// Get or create template
-		const { element: template } = this.getTemplate(templateKey);
-
 		// First render - clone and prepare
-		const existingKey = (container as any).__templateKey as string | undefined;
+		const existingKey = target.__templateKey;
 		if (existingKey && existingKey !== templateKey) {
-			const existingParts = (container as any).__parts as ITemplatePart[] | undefined;
-			if (existingParts) {
-				this.cleanupParts(existingParts);
+			// Structure changed — recursively dispose the old part tree before
+			// the container is wiped and rebuilt.
+			if (target.__parts) {
+				disposeParts(target.__parts);
 			}
-			delete (container as any).__parts;
+			delete target.__parts;
 		}
 
-		if (!(container as any).__parts) {
-			const clone = template.content.cloneNode(true);
-			const parts = this.prepareParts(clone, this.getTemplate(templateKey));
+		if (!target.__parts) {
+			// Template lookup only on the instantiation path — update renders
+			// touch only the stored parts (and skip the LRU recency churn).
+			const cache = this.getTemplate(templateKey);
+			const clone = cache.element.content.cloneNode(true);
+			const parts = this.prepareParts(clone, cache);
 
-			(container as any).__parts = parts;
-			(container as any).__templateKey = templateKey;
+			target.__parts = parts;
+			target.__templateKey = templateKey;
 
 			// Commit values BEFORE appending to DOM so attributes are set
 			// before connectedCallback fires on child custom elements
 			this.commit(parts);
 
-			container.textContent = '';
-			container.appendChild(clone);
+			target.textContent = '';
+			target.appendChild(clone);
 			return;
 		}
 
 		// Update values
-		if (!(container as any).__templateKey) {
-			(container as any).__templateKey = templateKey;
+		if (!target.__templateKey) {
+			target.__templateKey = templateKey;
 		}
-		const parts = (container as any).__parts as ITemplatePart[];
-		this.commit(parts);
+		this.commit(target.__parts);
 	}
 
 	private getTemplate(key: string): ITemplateCache {
 		let cached = templateCache.get(key);
 
 		if (cached) {
+			// LRU: refresh recency so eviction removes the least recently USED
+			// template, not the least recently created one.
+			templateCache.delete(key);
+			templateCache.set(key, cached);
 			return cached;
 		}
 
@@ -165,6 +300,16 @@ export class TemplateResult {
 			}
 		}
 
+		warnUnsupportedBindingPositions(html);
+
+		// NOTE(security/Trusted Types): this innerHTML assignment only ever parses
+		// developer-authored template strings — interpolated values are replaced
+		// with inert markers BEFORE parsing and never reach the markup, so this is
+		// not an injection sink for runtime data. Trusted Types support (wrapping
+		// this parse in a policy so the engine works under a
+		// `require-trusted-types-for 'script'` CSP) was considered and deferred:
+		// it needs a policy-name contract with consumers and a fallback for
+		// browsers without the API, for no XSS-surface reduction here.
 		const element = document.createElement('template');
 		element.innerHTML = html;
 
@@ -498,17 +643,37 @@ export class TemplateResult {
 	}
 
 	/**
-	 * Clears previously rendered nodes between markers
+	 * Clears previously rendered nodes between markers, recursively disposing
+	 * the nested part trees (directive/action cleanups) they own.
 	 */
 	private clearRenderedNodes(part: ITemplatePart): void {
-		if (!part.renderedNodes || part.renderedNodes.length === 0) return;
+		// Dispose nested part trees BEFORE dropping the references, so cleanups
+		// registered anywhere in the removed content actually run.
+		if (part.nestedContainer) {
+			disposeContainerParts(part.nestedContainer);
+			part.nestedContainer = undefined;
+		}
 
-		for (const node of part.renderedNodes) {
-			node.parentNode?.removeChild(node);
+		if (part.renderedContainers) {
+			for (const container of part.renderedContainers) {
+				disposeContainerParts(container);
+			}
+			part.renderedContainers = undefined;
+		}
+
+		if (part.arrayState) {
+			for (const item of part.arrayState.items.values()) {
+				disposeContainerParts(item.container);
+			}
+			part.arrayState = undefined;
+		}
+
+		if (part.renderedNodes && part.renderedNodes.length > 0) {
+			for (const node of part.renderedNodes) {
+				node.parentNode?.removeChild(node);
+			}
 		}
 		part.renderedNodes = [];
-		part.arrayState = undefined;
-		part.nestedContainer = undefined;
 	}
 
 	/**
@@ -521,9 +686,18 @@ export class TemplateResult {
 		const state = part.directiveState;
 		if (!state) return;
 
+		// Recursively dispose resources owned by the directive state (nested
+		// part trees, subscriptions) before its DOM is removed.
+		disposeDirectiveState(state);
+
+		if (typeof state !== 'object') {
+			part.directiveState = undefined;
+			part.directiveType = undefined;
+			return;
+		}
+
 		// Directive markers (repeat/when both use startMarker/endMarker)
-		const startMarker: Comment | undefined = state.startMarker;
-		const endMarker: Comment | undefined = state.endMarker;
+		const { startMarker, endMarker } = state as IDirectiveState;
 
 		if (startMarker && endMarker && startMarker.parentNode) {
 			const parent = startMarker.parentNode;
@@ -548,24 +722,7 @@ export class TemplateResult {
 		}
 
 		part.directiveState = undefined;
-	}
-
-	private cleanupParts(parts: ITemplatePart[]): void {
-		for (const part of parts) {
-			if (part.actionCleanup) {
-				try {
-					part.actionCleanup();
-				} catch (error) {
-					console.error('Action directive cleanup failed:', error);
-				} finally {
-					part.actionCleanup = undefined;
-				}
-			}
-
-			if (part.renderedNodes && part.renderedNodes.length > 0) {
-				this.clearRenderedNodes(part);
-			}
-		}
+		part.directiveType = undefined;
 	}
 
 	/**
@@ -582,23 +739,17 @@ export class TemplateResult {
 
 		// Reuse existing container for same template structure (avoids destroying/recreating DOM)
 		if (part.nestedContainer) {
-			const existingKey = (part.nestedContainer as any).__templateKey as string | undefined;
-			const newKey = getTemplateKey(template.strings);
+			const existingKey = (part.nestedContainer as RenderedContainer<DocumentFragment>).__templateKey;
 
-			if (existingKey === newKey) {
+			if (existingKey === getTemplateKey(template.strings)) {
 				// Same structure — update existing DOM nodes in place
 				template.renderInto(part.nestedContainer);
 				return;
 			}
-
-			// Template structure changed — clean up old parts
-			const oldParts = (part.nestedContainer as any).__parts as ITemplatePart[] | undefined;
-			if (oldParts) {
-				this.cleanupParts(oldParts);
-			}
 		}
 
-		// First render or template structure changed
+		// First render or template structure changed — clearRenderedNodes
+		// recursively disposes the old nested part tree before removal.
 		this.clearRenderedNodes(part);
 		part.node!.textContent = '';
 
@@ -643,11 +794,11 @@ export class TemplateResult {
 
 		if (keyedValues) {
 			const state = part.arrayState ?? {
-				items: new Map<unknown, { key: unknown; value: unknown; container: DocumentFragment; nodes: Node[] }>(),
+				items: new Map<unknown, IKeyedArrayItem>(),
 				keys: []
 			};
 
-			const newItems = new Map<unknown, { key: unknown; value: unknown; container: DocumentFragment; nodes: Node[] }>();
+			const newItems = new Map<unknown, IKeyedArrayItem>();
 			const newKeys: unknown[] = [];
 
 			for (const item of keyedValues) {
@@ -669,6 +820,8 @@ export class TemplateResult {
 
 			for (const [key, oldItem] of state.items.entries()) {
 				if (!newItems.has(key)) {
+					// Dispose the removed item's part tree before removing its nodes.
+					disposeContainerParts(oldItem.container);
 					for (const node of oldItem.nodes) {
 						node.parentNode?.removeChild(node);
 					}
@@ -697,6 +850,7 @@ export class TemplateResult {
 
 		this.clearRenderedNodes(part);
 		const renderedNodes: Node[] = [];
+		const renderedContainers: DocumentFragment[] = [];
 
 		for (const value of values) {
 			if (value instanceof TemplateResult) {
@@ -704,6 +858,9 @@ export class TemplateResult {
 				value.renderInto(fragment);
 				const nodes = Array.from(fragment.childNodes);
 				renderedNodes.push(...nodes);
+				// Retain the container so its part tree can be disposed when the
+				// (non-keyed) array re-renders or the part is discarded.
+				renderedContainers.push(fragment);
 				parent.insertBefore(fragment, part.endMarker!);
 			} else if (value instanceof Node) {
 				renderedNodes.push(value);
@@ -716,6 +873,7 @@ export class TemplateResult {
 		}
 
 		part.renderedNodes = renderedNodes;
+		part.renderedContainers = renderedContainers.length > 0 ? renderedContainers : undefined;
 	}
 
 	private getKeyedValues(values: unknown[]): Array<{ key: unknown; value: unknown }> | null {
@@ -751,22 +909,23 @@ export class TemplateResult {
 		return { container, nodes };
 	}
 
-	private updateArrayItem(
-		item: { key: unknown; value: unknown; container: DocumentFragment; nodes: Node[] },
-		value: unknown,
-		parent: Node,
-		endMarker: Comment
-	): void {
+	private updateArrayItem(item: IKeyedArrayItem, value: unknown, parent: Node, endMarker: Comment): void {
 		if (value instanceof TemplateResult) {
-			value.renderInto(item.container);
+			// renderDetachedItem keeps the live nodes when the structure is
+			// unchanged and swaps in the rebuilt nodes when it is — and never
+			// wipes item.nodes with the (empty) fragment's child list.
+			item.nodes = renderDetachedItem(value, item.container, item.nodes, endMarker);
 			item.value = value;
-			item.nodes = Array.from(item.container.childNodes);
 			return;
 		}
 
 		if (value === item.value) {
 			return;
 		}
+
+		// The item's content type changed (was a template, now a plain value) —
+		// dispose the old part tree before discarding it.
+		disposeContainerParts(item.container);
 
 		for (const node of item.nodes) {
 			node.parentNode?.removeChild(node);
@@ -782,6 +941,69 @@ export class TemplateResult {
 		item.nodes = Array.from(item.container.childNodes);
 		parent.insertBefore(item.container, endMarker);
 		item.value = value;
+	}
+
+	/**
+	 * Commits an event binding through a stable wrapper listener.
+	 *
+	 * The wrapper is created once per part and registered with a single
+	 * addEventListener call; subsequent renders only swap the stored handler,
+	 * so re-renders cause zero add/removeEventListener churn and the listener
+	 * keeps its original position in the target's listener list.
+	 *
+	 * Accepted values: a plain function (invoked with `this` = the event's
+	 * currentTarget, matching direct addEventListener semantics) or an object
+	 * with `handleEvent` plus optional listener options (capture/once/passive —
+	 * see IEventHandlerWithOptions). When the options change, the wrapper is
+	 * re-attached with the new options. Removal on part disposal is handled by
+	 * disposePart (dispose.functions.ts).
+	 */
+	private commitEventPart(part: ITemplatePart, value: unknown): void {
+		const element = part.node as Element;
+		const name = part.name as string;
+
+		const isFunctionHandler = typeof value === 'function';
+		const isHandleEventObject =
+			!isFunctionHandler &&
+			value !== null &&
+			typeof value === 'object' &&
+			typeof (value as EventListenerObject).handleEvent === 'function';
+		const active = isFunctionHandler || isHandleEventObject;
+		const newOptions = isHandleEventObject ? extractListenerOptions(value as IEventHandlerWithOptions) : undefined;
+
+		// One stable wrapper per event part, created lazily on the first
+		// non-empty handler and kept for the part's lifetime.
+		if (!part.eventWrapper) {
+			part.eventWrapper = function (this: Element, event: Event): void {
+				const handler = part.eventHandler;
+				if (typeof handler === 'function') {
+					// Preserve direct-listener semantics: `this` is the currentTarget.
+					(handler as EventListener).call(this, event);
+				} else if (handler !== null && typeof handler === 'object') {
+					// EventListenerObject semantics: `this` is the handler object.
+					(handler as EventListenerObject).handleEvent(event);
+				}
+			};
+		}
+
+		const optionsChanged = !sameListenerOptions(part.eventOptions, newOptions);
+
+		if (part.eventAttached && (!active || optionsChanged)) {
+			element.removeEventListener(name, part.eventWrapper, part.eventOptions);
+			part.eventAttached = false;
+		}
+
+		part.eventHandler = active ? value : undefined;
+		part.eventOptions = newOptions;
+
+		// `once` listeners are re-armed when the handler changes: if the previous
+		// registration already fired (and was auto-removed) this re-attaches; if
+		// it hasn't fired yet, registering the identical wrapper + options is a
+		// spec-guaranteed no-op, so `once` semantics are preserved either way.
+		if (active && (!part.eventAttached || newOptions?.once)) {
+			element.addEventListener(name, part.eventWrapper, newOptions);
+			part.eventAttached = true;
+		}
 	}
 
 	private commit(parts: ITemplatePart[]): void {
@@ -813,7 +1035,14 @@ export class TemplateResult {
 
 						// Handle directives
 						if (nowDirective) {
+							// Transition between two DIFFERENT directive types: never hand
+							// one directive's state to another. Dispose the old directive's
+							// state and DOM, then let the new directive start fresh.
+							if (part.directiveState !== undefined && part.directiveType !== value.type) {
+								this.clearDirectiveDOM(part);
+							}
 							part.directiveState = value.render(part.node, part.directiveState);
+							part.directiveType = value.type;
 						} else if (value instanceof TemplateResult) {
 							// Handle nested TemplateResult
 							this.renderNestedTemplate(part, value);
@@ -836,7 +1065,14 @@ export class TemplateResult {
 						const element = part.node as Element;
 						// Handle directives
 						if (isDirective(value)) {
+							if (part.directiveState !== undefined && part.directiveType !== value.type) {
+								// Directive type switched — dispose the old state instead of
+								// passing it to a different directive.
+								disposeDirectiveState(part.directiveState);
+								part.directiveState = undefined;
+							}
 							part.directiveState = value.render(element, part.directiveState);
+							part.directiveType = value.type;
 						} else if (isCompositeAttribute) {
 							const strings = part.attributeStrings as string[];
 							const indices = part.attributeIndices as number[];
@@ -848,7 +1084,11 @@ export class TemplateResult {
 							}
 
 							if (part.previousValue === composed) {
-								break;
+								// Composed value unchanged — skip the DOM write. Use continue
+								// (not break) so the loop's trailing `part.previousValue = value`
+								// can't overwrite the stored composed string with a single
+								// segment value, which would defeat this skip forever.
+								continue;
 							}
 
 							if (composed === '' && strings.every((segment) => segment === '')) {
@@ -890,30 +1130,24 @@ export class TemplateResult {
 					if (part.node && part.name) {
 						// Handle directives
 						if (isDirective(value)) {
+							if (part.directiveState !== undefined && part.directiveType !== value.type) {
+								disposeDirectiveState(part.directiveState);
+								part.directiveState = undefined;
+							}
 							part.directiveState = value.render(part.node as Element, part.directiveState);
+							part.directiveType = value.type;
 						} else {
-							(part.node as any)[part.name] = value;
+							if (part.name === 'innerHTML' || part.name === 'outerHTML') {
+								warnUnsafePropertyBinding(part.name);
+							}
+							(part.node as Element & Record<string, unknown>)[part.name] = value;
 						}
 					}
 					break;
 
 				case 'event':
 					if (part.node && part.name) {
-						const element = part.node as Element;
-
-						if (part.previousValue === value) {
-							break;
-						}
-
-						// Remove old listener
-						if (part.previousValue && typeof part.previousValue === 'function') {
-							element.removeEventListener(part.name, part.previousValue as EventListener);
-						}
-
-						// Add new listener
-						if (typeof value === 'function') {
-							element.addEventListener(part.name, value as EventListener);
-						}
+						this.commitEventPart(part, value);
 					}
 					break;
 

@@ -1,6 +1,11 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { html, render } from '../../src/template';
 import { registerAttributeDirective, unregisterAttributeDirective } from '../../src/template/directives/functions/attribute-directive.functions';
+import { MelodicComponent } from '../../src/components/decorators/melodic-component.decorator';
+
+function flushMicrotasks(): Promise<void> {
+	return new Promise((resolve) => queueMicrotask(resolve));
+}
 
 describe('template attributes', () => {
 	let container: HTMLElement;
@@ -24,6 +29,70 @@ describe('template attributes', () => {
 		render(html`<div title="Hello ${name}!"></div>`, container);
 		const second = container.querySelector('div');
 		expect(second?.getAttribute('title')).toBe('Hello Bob!');
+	});
+
+	it('applies composite attributes in a component shadow template on initial render and re-render', async () => {
+		class CompositeAttrComponent {
+			flag = false;
+		}
+
+		MelodicComponent({
+			selector: 'test-composite-attr-component',
+			template: (component: CompositeAttrComponent) => html`
+				<span ?hidden=${!component.flag}>sibling</span>
+				<div class="inner ${component.flag ? 'on' : ''}">content</div>
+			`
+		})(CompositeAttrComponent);
+
+		const element = document.createElement('test-composite-attr-component') as any;
+		document.body.appendChild(element);
+
+		const div = element.shadowRoot?.querySelector('div');
+		const span = element.shadowRoot?.querySelector('span');
+
+		// Initial render: static prefix AND dynamic segment are both applied
+		expect(div?.getAttribute('class')).toBe('inner ');
+		expect(span?.hasAttribute('hidden')).toBe(true);
+
+		// Re-render: the dynamic segment updates alongside sibling bindings
+		element.flag = true;
+		await flushMicrotasks();
+		expect(div?.getAttribute('class')).toBe('inner on');
+		expect(span?.hasAttribute('hidden')).toBe(false);
+
+		// And back again
+		element.flag = false;
+		await flushMicrotasks();
+		expect(div?.getAttribute('class')).toBe('inner ');
+		expect(span?.hasAttribute('hidden')).toBe(true);
+
+		document.body.removeChild(element);
+	});
+
+	it('skips the DOM write for unchanged composite attributes on every re-render', () => {
+		const template = (name: string) => html`<div title="Hello ${name}!"></div>`;
+
+		render(template('Ada'), container);
+		const el = container.querySelector('div') as HTMLElement;
+		const setAttributeSpy = vi.spyOn(el, 'setAttribute');
+
+		// Unchanged re-renders must never touch the attribute — the skip must
+		// keep working across MULTIPLE renders (previousValue must not be
+		// corrupted by the unchanged fast-path).
+		render(template('Ada'), container);
+		render(template('Ada'), container);
+		expect(setAttributeSpy).not.toHaveBeenCalled();
+
+		render(template('Bob'), container);
+		expect(setAttributeSpy).toHaveBeenCalledTimes(1);
+		expect(el.getAttribute('title')).toBe('Hello Bob!');
+
+		// And the skip re-arms after a change.
+		setAttributeSpy.mockClear();
+		render(template('Bob'), container);
+		expect(setAttributeSpy).not.toHaveBeenCalled();
+
+		setAttributeSpy.mockRestore();
 	});
 
 	it('applies and removes boolean attributes', () => {

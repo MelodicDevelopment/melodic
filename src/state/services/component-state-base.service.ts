@@ -1,7 +1,9 @@
 import type { ActionPayload, TypedAction, ActionEffect, ReducerConfig, Action, ActionIdentifier } from '../types';
 import { EffectsBase } from './effects.base.class';
-import { type Signal, signal, computed } from '../../signals';
+import { type ReadonlySignal, type Signal, signal, computed } from '../../signals';
 import { getActiveComponent } from '../../components/functions/active-component.functions';
+import { getSelectorCacheKey } from '../functions/selector-cache-key.function';
+import { getComponentCachedSelect } from '../functions/component-select-cache.function';
 
 let nextInstanceId = 0;
 
@@ -27,35 +29,36 @@ export abstract class ComponentStateBaseService<S extends object> extends Effect
 	}
 
 	/**
-	 * Returns a Signal that projects this service's state through selectFn.
+	 * Returns a read-only Signal that projects this service's state through
+	 * selectFn.
 	 *
-	 * When called inside an active component (during template render or onCreate,
-	 * or in a class-field initializer), the returned signal is cached per
-	 * (service-instance, selectFn-source) for the component's lifetime and
-	 * destroyed on disconnect. By default the cache key is `selectFn.toString()`.
+	 * When called inside an active component the returned signal is cached per
+	 * (service-instance, cacheKey ?? selectFn-identity); distinct closures
+	 * never collide, even with identical source text. The entry's lifetime
+	 * depends on where the call happens:
 	 *
-	 * If your selector captures a variable that affects its return value
-	 * (e.g., `s => s.items.filter(i => i.tag === tag)`), pass an explicit
-	 * `cacheKey` to discriminate calls.
+	 * - Class-field initializer / onCreate: cached for the component's lifetime
+	 *   and destroyed on disconnect.
+	 * - During a render (template expression or a getter the template reads):
+	 *   render-scoped — the component re-renders when the selected value
+	 *   changes, and the entry is destroyed by the first render that stops
+	 *   using it. Inline arrows are therefore safe: each render re-creates the
+	 *   selector with its current captured values and the stale computed is
+	 *   swept, so nothing accumulates.
+	 *
+	 * Pass `cacheKey` to unify call sites or to get cache hits across renders
+	 * for parameterized selectors (e.g., `s => s.items.filter(i => i.tag === tag)`
+	 * with `cacheKey: 'tag:' + tag`).
 	 *
 	 * Outside an active component, no caching happens; the caller owns the
 	 * returned signal's lifetime.
 	 */
-	public select<T>(selectFn: (state: S) => T, cacheKey?: string): Signal<T> {
+	public select<T>(selectFn: (state: S) => T, cacheKey?: string): ReadonlySignal<T> {
 		const consumer = getActiveComponent();
 
 		if (consumer) {
-			const cache = consumer.getSelectCache();
-			const fullKey = `cs:${this._instanceId}::${cacheKey ?? selectFn.toString()}`;
-			const cached = cache.get(fullKey) as Signal<T> | undefined;
-			if (cached) {
-				return cached;
-			}
-
-			const sig = computed(() => selectFn(this._state()));
-			cache.set(fullKey, sig as Signal<unknown>);
-			consumer.registerDisposable(sig as unknown as { destroy(): void });
-			return sig;
+			const fullKey = `cs:${this._instanceId}::${cacheKey ?? getSelectorCacheKey(selectFn)}`;
+			return getComponentCachedSelect(consumer, fullKey, () => computed(() => selectFn(this._state())));
 		}
 
 		return computed(() => selectFn(this._state()));

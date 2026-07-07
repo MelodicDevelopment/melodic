@@ -241,12 +241,14 @@ import { announce, createLiveRegion } from '@melodicdev/components/utils';
 
 #### `announce(message, priority?)`
 
-Send a message to the global singleton live region (created lazily, appended to `<body>`).
+Send a message to the global live region for the given priority (created lazily, appended to `<body>`; one region per politeness level).
 
 ```ts
 announce('Item saved successfully');         // polite (waits for silence)
 announce('Error: required field', 'assertive'); // interrupts immediately
 ```
+
+Messages are queued per politeness level: rapid successive calls are announced in order rather than the newest call cancelling earlier ones. Polite and assertive announcements use separate regions, so they never clobber each other.
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|

@@ -2,6 +2,7 @@ import { MelodicComponent } from '@melodicdev/core';
 import type { IElementRef } from '@melodicdev/core';
 import { heroSectionTemplate } from './hero-section.template.js';
 import { heroSectionStyles } from './hero-section.styles.js';
+import { warnDeprecatedTitleOnce } from '../../../functions/index.js';
 
 export type HeroVariant = 'centered' | 'split' | 'split-reverse';
 export type HeroSize = 'sm' | 'md' | 'lg';
@@ -23,7 +24,7 @@ export type HeroBackground = 'none' | 'subtle' | 'gradient';
  * ```
  *
  * @slot eyebrow - Small text/badge above the title
- * @slot title - Main headline (or use `title` property)
+ * @slot title - Main headline (or use `hero-title` attribute)
  * @slot description - Supporting text (or use `description` property)
  * @slot actions - CTA buttons
  * @slot media - Image, video, or illustration
@@ -33,7 +34,7 @@ export type HeroBackground = 'none' | 'subtle' | 'gradient';
 	selector: 'ml-hero-section',
 	template: heroSectionTemplate,
 	styles: heroSectionStyles,
-	attributes: ['variant', 'size', 'background', 'title', 'description']
+	attributes: ['variant', 'size', 'background', 'hero-title', 'title', 'description']
 })
 export class HeroSectionComponent implements IElementRef {
 	public elementRef!: HTMLElement;
@@ -47,9 +48,18 @@ export class HeroSectionComponent implements IElementRef {
 	/** Background style */
 	public background: HeroBackground = 'none';
 
-	/** Headline text (alternative to title slot) */
-	public title = '';
+	/** Headline text (attribute: hero-title; alternative to title slot) */
+	public heroTitle = '';
 
 	/** Supporting text (alternative to description slot) */
 	public description = '';
+
+	/** @deprecated Use `heroTitle` (attribute `hero-title`); `title` collides with the global HTML attribute. */
+	public get title(): string {
+		return this.heroTitle;
+	}
+	public set title(value: string) {
+		warnDeprecatedTitleOnce('ml-hero-section', 'hero-title');
+		this.heroTitle = value;
+	}
 }

@@ -1,4 +1,4 @@
-import { MelodicComponent } from '@melodicdev/core';
+import { Injector, MelodicComponent, RouterService } from '@melodicdev/core';
 import type { IElementRef, OnCreate, OnDestroy, OnRender } from '@melodicdev/core';
 import type { StepsVariant, StepsOrientation, StepsConnector, StepsColor, StepConfig, StepStatus } from './steps.types.js';
 import { stepsTemplate } from './steps.template.js';
@@ -114,10 +114,25 @@ export class StepsComponent implements IElementRef, OnCreate, OnDestroy, OnRende
 		if (step?.disabled) return;
 
 		if (this.routed && href) {
-			window.history.pushState({}, '', href);
-			window.dispatchEvent(new PopStateEvent('popstate'));
+			// Route through the router pipeline (guards → resolvers → commit)
+			// instead of a raw pushState + synthetic popstate, and only activate
+			// the step when the navigation actually commits — a guard-blocked
+			// navigation must not advance the wizard.
+			void Injector.get<RouterService>(RouterService)
+				.navigate(href)
+				.then((result) => {
+					if (result.success) {
+						this.activateStep(stepValue);
+					}
+				});
+			return;
 		}
 
+		this.activateStep(stepValue);
+	};
+
+	/** Apply the active step state and notify consumers. */
+	private activateStep(stepValue: string): void {
 		this.active = stepValue;
 		this.updateSlottedStepStates();
 		this.updatePanelVisibility();
@@ -129,10 +144,13 @@ export class StepsComponent implements IElementRef, OnCreate, OnDestroy, OnRende
 				detail: { value: stepValue }
 			})
 		);
-	};
+	}
 
 	/** Handle slotted step click event */
 	private handleSlottedStepClick = (event: CustomEvent): void => {
+		// ml:step-click is internal step→steps coordination; consumers get
+		// ml:change. Stop it here so it never escapes the ml-steps host.
+		event.stopPropagation();
 		const { value, href } = event.detail;
 		this.handleStepClick(value, href);
 	};
@@ -252,18 +270,36 @@ export class StepsComponent implements IElementRef, OnCreate, OnDestroy, OnRende
 	private updatePanelVisibility(): void {
 		if (this.routed) return;
 
+		const steps = this.getAllSteps();
 		const panels = this.elementRef.querySelectorAll('ml-step-panel');
 		panels.forEach((panel) => {
-			const isActive = panel.getAttribute('value') === this.active;
+			const value = panel.getAttribute('value');
+			const isActive = value === this.active;
 			(panel as HTMLElement).style.display = isActive ? '' : 'none';
+
+			// Name the panel after its step. ARIA id references cannot cross
+			// shadow-root boundaries, so the association is made by accessible
+			// name instead of aria-labelledby/aria-controls (see tabs.component).
+			const label = steps.find((s) => s.value === value)?.label;
+			if (label) {
+				(panel as HTMLElement & { panelLabel?: string }).panelLabel = label;
+			}
 		});
 	}
 
-	/** Focus a specific step button */
+	/** Focus a specific step (config-mode shadow element or slotted ml-step) */
 	private focusStep(value: string): void {
 		const stepList = this.elementRef.shadowRoot?.querySelector('.ml-steps__list');
-		const button = stepList?.querySelector(`[data-value="${value}"]`) as HTMLElement;
-		button?.focus();
+		const button = stepList?.querySelector(`[data-value="${value}"]`) as HTMLElement | null;
+		if (button) {
+			button.focus();
+			return;
+		}
+
+		// Slotted mode: the focusable element lives inside the ml-step's shadow root.
+		const host = this._slottedSteps.find((step) => step.getAttribute('value') === value);
+		const slottedStep = host?.shadowRoot?.querySelector('.ml-step') as HTMLElement | null;
+		slottedStep?.focus();
 	}
 
 	/** Sync active step with current route */

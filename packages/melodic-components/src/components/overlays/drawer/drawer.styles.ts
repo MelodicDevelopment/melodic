@@ -10,6 +10,10 @@ export const drawerStyles = () => css`
 		--ml-drawer-bg: var(--ml-color-surface);
 		--ml-drawer-shadow: var(--ml-shadow-xl);
 
+		/* Slide animation (read by the component for the panel animation) */
+		--ml-drawer-transition-duration: var(--ml-duration-300);
+		--ml-drawer-transition-easing: cubic-bezier(0.16, 1, 0.3, 1);
+
 		/* Size variants */
 		--ml-drawer-sm-width: 320px;
 		--ml-drawer-md-width: 480px;

@@ -76,3 +76,60 @@ describe('ml-activity-feed-item', () => {
 		expect(dot?.style.getPropertyValue('--ml-afi-indicator-bg')).toBe('');
 	});
 });
+
+describe('ml-activity-feed-item slot reactivity', () => {
+	let el: any;
+
+	afterEach(() => {
+		if (el) removeComponent(el);
+	});
+
+	async function settle(): Promise<void> {
+		await flush();
+		await new Promise((r) => setTimeout(r, 0));
+		await flush();
+	}
+
+	it('renders the default ml-avatar as native slot fallback', async () => {
+		el = createComponent('ml-activity-feed-item', { properties: { 'avatar-initials': 'JD' } });
+		await settle();
+
+		const slot = el.shadowRoot!.querySelector('slot[name="avatar"]') as HTMLSlotElement;
+		expect(slot).toBeTruthy();
+		expect(slot.assignedNodes()).toHaveLength(0);
+		expect(slot.querySelector('ml-avatar')).toBeTruthy();
+	});
+
+	it('projects a custom avatar inserted AFTER mount', async () => {
+		el = createComponent('ml-activity-feed-item', { properties: { name: 'Jane' } });
+		await settle();
+		expect(el.hasAvatarSlot).toBe(false);
+
+		const custom = document.createElement('div');
+		custom.slot = 'avatar';
+		custom.textContent = 'X';
+		el.appendChild(custom);
+		await settle();
+
+		expect(el.hasAvatarSlot).toBe(true);
+		const slot = el.shadowRoot!.querySelector('slot[name="avatar"]') as HTMLSlotElement;
+		expect(slot.assignedNodes()).toContain(custom);
+	});
+
+	it('projects extra content inserted AFTER mount', async () => {
+		el = createComponent('ml-activity-feed-item', { properties: { name: 'Jane' } });
+		await settle();
+
+		const wrapper = el.shadowRoot!.querySelector('.ml-afi__content') as HTMLElement;
+		expect(wrapper.classList.contains('ml-afi__content--hidden')).toBe(true);
+
+		const extra = document.createElement('div');
+		extra.slot = 'content';
+		extra.textContent = 'Attachment';
+		el.appendChild(extra);
+		await settle();
+
+		expect(el.hasContentSlot).toBe(true);
+		expect(wrapper.classList.contains('ml-afi__content--hidden')).toBe(false);
+	});
+});

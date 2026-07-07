@@ -1,5 +1,6 @@
 import { MelodicComponent } from '@melodicdev/core';
-import type { IElementRef } from '@melodicdev/core';
+import type { IElementRef, OnCreate } from '@melodicdev/core';
+import { watchSlotPresence, warnDeprecatedTitleOnce, defineLegacyAliases } from '../../../functions/index.js';
 import { pageSectionTemplate } from './page-section.template.js';
 import { pageSectionStyles } from './page-section.styles.js';
 
@@ -10,11 +11,11 @@ type SectionPadding = 'none' | 'sm' | 'md' | 'lg';
  *
  * @example
  * ```html
- * <ml-page-section title="Recent Activity" subtitle="Last 7 days">
+ * <ml-page-section section-title="Recent Activity" subtitle="Last 7 days">
  *   <div>Section content here</div>
  * </ml-page-section>
  *
- * <ml-page-section title="Members" action-label="View All" action-href="/members">
+ * <ml-page-section section-title="Members" action-label="View All" action-href="/members">
  *   <div>Members list</div>
  * </ml-page-section>
  * ```
@@ -29,28 +30,51 @@ type SectionPadding = 'none' | 'sm' | 'md' | 'lg';
 	selector: 'ml-page-section',
 	template: pageSectionTemplate,
 	styles: pageSectionStyles,
-	attributes: ['title', 'subtitle', 'action-label', 'action-href', 'padding']
+	attributes: ['section-title', 'title', 'subtitle', 'action-label', 'action-href', 'padding']
 })
-export class PageSectionComponent implements IElementRef {
+export class PageSectionComponent implements IElementRef, OnCreate {
 	public elementRef!: HTMLElement;
 
-	/** Section title */
-	public title = '';
+	/** Section title (attribute: section-title) */
+	public sectionTitle = '';
 
 	/** Subtitle text */
 	public subtitle = '';
 
-	/** Action link label */
-	public 'action-label' = '';
+	/** @deprecated Use `sectionTitle` (attribute `section-title`); `title` collides with the global HTML attribute. */
+	public get title(): string {
+		return this.sectionTitle;
+	}
+	public set title(value: string) {
+		warnDeprecatedTitleOnce('ml-page-section', 'section-title');
+		this.sectionTitle = value;
+	}
 
-	/** Action link URL */
-	public 'action-href' = '';
+	/** Action link label (attribute: action-label) */
+	public actionLabel = '';
+
+	/** Action link URL (attribute: action-href). Only http(s), relative, and fragment URLs are rendered. */
+	public actionHref = '';
 
 	/** Content padding */
 	public padding: SectionPadding = 'md';
 
-	/** Check if action slot has content */
-	public get hasActionSlot(): boolean {
-		return this.elementRef?.querySelector('[slot="action"]') !== null;
+	/** Whether the action slot has content (toggled via slotchange) */
+	public hasAction = false;
+
+	public onCreate(): void {
+		const shadow = this.elementRef.shadowRoot;
+		if (!shadow) return;
+
+		watchSlotPresence(shadow, (name, hasContent) => {
+			if (name === 'action') this.hasAction = hasContent;
+		});
 	}
 }
+
+// Deprecated quoted kebab-case property aliases (warn once on first write;
+// removed in the next major release).
+defineLegacyAliases(PageSectionComponent.prototype, 'ml-page-section', {
+	'action-label': 'actionLabel',
+	'action-href': 'actionHref'
+});

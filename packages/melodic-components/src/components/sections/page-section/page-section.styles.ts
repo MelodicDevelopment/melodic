@@ -43,6 +43,12 @@ export const pageSectionStyles = () => css`
 		margin-bottom: var(--ml-page-section-gap);
 	}
 
+	/* Header is always rendered (so the action slot's slotchange can fire);
+	   an empty header is hidden instead of omitted. */
+	.ml-page-section__header--hidden {
+		display: none;
+	}
+
 	.ml-page-section__heading {
 		display: flex;
 		flex-direction: column;

@@ -36,7 +36,7 @@ export function fileUploadDemoTemplate(c: FileUploadDemoComponent) {
 									status=${f.status}
 									progress=${f.progress}
 									error=${f.error}
-									@ml:remove=${c.handleRemove}
+									@ml:dismiss=${c.handleRemove}
 									@ml:retry=${c.handleRetry}
 								></ml-file-upload-item>
 							`

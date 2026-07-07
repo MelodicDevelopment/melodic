@@ -9,7 +9,8 @@ export function checkboxTemplate(c: CheckboxComponent) {
 				[`ml-checkbox--${c.size}`]: true,
 				'ml-checkbox--checked': c.checked,
 				'ml-checkbox--indeterminate': c.indeterminate,
-				'ml-checkbox--disabled': c.disabled
+				'ml-checkbox--disabled': c.disabled,
+				'ml-checkbox--error': !!c.error
 			})}
 		>
 			<input
@@ -18,6 +19,7 @@ export function checkboxTemplate(c: CheckboxComponent) {
 				.checked=${c.checked}
 				.indeterminate=${c.indeterminate}
 				?disabled=${c.disabled}
+				aria-invalid=${c.error ? 'true' : undefined}
 				@change=${c.handleChange}
 			/>
 			<span class="ml-checkbox__box">
@@ -40,6 +42,10 @@ export function checkboxTemplate(c: CheckboxComponent) {
 			</span>
 			${when(!!c.label, () => html`<span class="ml-checkbox__label">${c.label}</span>`)}
 		</label>
-		${when(!!c.hint, () => html`<span class="ml-checkbox__hint">${c.hint}</span>`)}
+		${when(
+			!!c.error,
+			() => html`<span class="ml-checkbox__error">${c.error}</span>`,
+			() => html`${when(!!c.hint, () => html`<span class="ml-checkbox__hint">${c.hint}</span>`)}`
+		)}
 	`;
 }

@@ -27,6 +27,12 @@ export const dividerStyles = () => css`
 		align-items: center;
 	}
 
+	/* The label slot is always rendered (so slotchange can fire);
+	   hide the label span when there is no content. */
+	.ml-divider:not(.ml-divider--with-label) .ml-divider__label {
+		display: none;
+	}
+
 	.ml-divider--horizontal {
 		width: 100%;
 		height: 1px;

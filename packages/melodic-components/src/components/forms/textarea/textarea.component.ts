@@ -1,7 +1,7 @@
 import { MelodicComponent } from '@melodicdev/core';
 import type { IElementRef, OnInit } from '@melodicdev/core';
 import { registerAdapter } from '@melodicdev/core/forms';
-import type { Size } from '../../../types/index.js';
+import type { ControlSize } from '../../../types/index.js';
 import { textareaTemplate } from './textarea.template.js';
 import { textareaStyles } from './textarea.styles.js';
 
@@ -53,7 +53,7 @@ export class TextareaComponent implements IElementRef, OnInit {
 	public error = '';
 
 	/** Input size */
-	public size: Size = 'md';
+	public size: ControlSize = 'md';
 
 	/** Number of visible text lines */
 	public rows = 3;

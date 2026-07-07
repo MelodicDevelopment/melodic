@@ -18,6 +18,11 @@ export function matchRouteLevel(
 	accumulatedMatches: IRouteMatch[],
 	accumulatedParams: Record<string, string>
 ): IRouteMatchResult {
+	// First partial (prefix-matched parent whose children 404'd) result, kept
+	// as a fallback so nested outlets can still render the parent + a 404 view
+	// when no later sibling produces an exact match.
+	let partialFallback: IRouteMatchResult | null = null;
+
 	for (const route of routes) {
 		const matcher = new RouteMatcher(route.path);
 
@@ -81,13 +86,43 @@ export function matchRouteLevel(
 					children: route.children
 				};
 
-				Object.assign(accumulatedParams, prefixResult.params);
-				accumulatedMatches.push(match);
-
 				// Recurse into children
 				if (route.children && prefixResult.remainingPath) {
-					return matchRouteLevel(route.children, prefixResult.remainingPath, fullPath, accumulatedMatches, accumulatedParams);
+					// Snapshot so we can backtrack to later siblings if none of
+					// this parent's children match the remaining path.
+					const matchesLengthBefore = accumulatedMatches.length;
+					const paramsSnapshot = { ...accumulatedParams };
+
+					Object.assign(accumulatedParams, prefixResult.params);
+					accumulatedMatches.push(match);
+
+					const childResult = matchRouteLevel(route.children, prefixResult.remainingPath, fullPath, accumulatedMatches, accumulatedParams);
+
+					if (childResult.isExactMatch || childResult.redirectTo) {
+						return childResult;
+					}
+
+					// Children 404'd — remember the first partial result, then
+					// backtrack and try the remaining siblings.
+					if (!partialFallback) {
+						partialFallback = {
+							matches: [...childResult.matches],
+							params: { ...childResult.params },
+							isExactMatch: false
+						};
+					}
+
+					accumulatedMatches.length = matchesLengthBefore;
+					for (const key of Object.keys(accumulatedParams)) {
+						delete accumulatedParams[key];
+					}
+					Object.assign(accumulatedParams, paramsSnapshot);
+
+					continue;
 				}
+
+				Object.assign(accumulatedParams, prefixResult.params);
+				accumulatedMatches.push(match);
 
 				return {
 					matches: accumulatedMatches,
@@ -98,9 +133,11 @@ export function matchRouteLevel(
 		}
 	}
 
-	return {
-		matches: accumulatedMatches,
-		params: accumulatedParams,
-		isExactMatch: false
-	};
+	return (
+		partialFallback ?? {
+			matches: accumulatedMatches,
+			params: accumulatedParams,
+			isExactMatch: false
+		}
+	);
 }

@@ -1,6 +1,6 @@
-import { MelodicComponent } from '@melodicdev/core';
+import { Injector, MelodicComponent, RouterService } from '@melodicdev/core';
 import type { IElementRef, OnCreate, OnDestroy, OnRender } from '@melodicdev/core';
-import type { Size } from '../../../types/index.js';
+import type { ControlSize } from '../../../types/index.js';
 import type { TabsVariant, TabsOrientation, TabConfig } from './tabs.types.js';
 import { tabsTemplate } from './tabs.template.js';
 import { tabsStyles } from './tabs.styles.js';
@@ -57,7 +57,7 @@ export class TabsComponent implements IElementRef, OnCreate, OnDestroy, OnRender
 	public variant: TabsVariant = 'line';
 
 	/** Size variant */
-	public size: Size = 'md';
+	public size: ControlSize = 'md';
 
 	/** Tab orientation */
 	public orientation: TabsOrientation = 'horizontal';
@@ -76,6 +76,9 @@ export class TabsComponent implements IElementRef, OnCreate, OnDestroy, OnRender
 
 	/** Listener for ml:tab-click from slotted ml-tab elements */
 	private readonly _handleTabClick = (event: Event): void => {
+		// ml:tab-click is internal tab→tabs coordination; consumers get ml:change.
+		// Stop it here so it never escapes the ml-tabs host.
+		event.stopPropagation();
 		const { value, href } = (event as CustomEvent<{ value: string; href: string }>).detail;
 		this.handleTabClick(value, href);
 	};
@@ -125,10 +128,25 @@ export class TabsComponent implements IElementRef, OnCreate, OnDestroy, OnRender
 		if (tab?.disabled) return;
 
 		if (this.routed && href) {
-			window.history.pushState({}, '', href);
-			window.dispatchEvent(new PopStateEvent('popstate'));
+			// Route through the router pipeline (guards → resolvers → commit)
+			// instead of a raw pushState + synthetic popstate, and only activate
+			// the tab when the navigation actually commits — a guard-blocked
+			// navigation must not flip the active tab.
+			void Injector.get<RouterService>(RouterService)
+				.navigate(href)
+				.then((result) => {
+					if (result.success) {
+						this.activateTab(tabValue);
+					}
+				});
+			return;
 		}
 
+		this.activateTab(tabValue);
+	};
+
+	/** Apply the active tab state and notify consumers. */
+	private activateTab(tabValue: string): void {
 		this.value = tabValue;
 		this.updateTabStates();
 		this.updatePanelVisibility();
@@ -140,7 +158,7 @@ export class TabsComponent implements IElementRef, OnCreate, OnDestroy, OnRender
 				detail: { value: tabValue }
 			})
 		);
-	};
+	}
 
 	/** Handle keyboard navigation */
 	public handleKeyDown = (event: KeyboardEvent): void => {
@@ -212,18 +230,38 @@ export class TabsComponent implements IElementRef, OnCreate, OnDestroy, OnRender
 	private updatePanelVisibility(): void {
 		if (this.routed) return;
 
+		const tabs = this.getAllTabs();
 		const panels = this.elementRef.querySelectorAll('ml-tab-panel');
 		panels.forEach((panel) => {
-			const isActive = panel.getAttribute('value') === this.value;
+			const value = panel.getAttribute('value');
+			const isActive = value === this.value;
 			(panel as HTMLElement).style.display = isActive ? '' : 'none';
+
+			// Name the panel after its tab. ARIA id references cannot cross
+			// shadow-root boundaries (the tab's role="tab" element and the
+			// panel's role="tabpanel" element live in different shadow trees),
+			// so the association is made by accessible name instead of
+			// aria-labelledby/aria-controls.
+			const label = tabs.find((t) => t.value === value)?.label;
+			if (label) {
+				(panel as HTMLElement & { panelLabel?: string }).panelLabel = label;
+			}
 		});
 	}
 
-	/** Focus a specific tab */
+	/** Focus a specific tab (config-mode shadow button or slotted ml-tab) */
 	private focusTab(value: string): void {
 		const tabList = this.elementRef.shadowRoot?.querySelector('.ml-tabs__list');
-		const button = tabList?.querySelector(`[data-value="${value}"]`) as HTMLElement;
-		button?.focus();
+		const button = tabList?.querySelector(`[data-value="${value}"]`) as HTMLElement | null;
+		if (button) {
+			button.focus();
+			return;
+		}
+
+		// Slotted mode: the focusable button lives inside the ml-tab's shadow root.
+		const host = this._slottedTabs.find((tab) => tab.getAttribute('value') === value);
+		const slottedButton = host?.shadowRoot?.querySelector('.ml-tab') as HTMLElement | null;
+		slottedButton?.focus();
 	}
 
 	/** Sync active tab with current route (for routed mode) */

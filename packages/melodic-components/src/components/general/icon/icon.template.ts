@@ -6,5 +6,7 @@ export const iconTemplate = (c: IconComponent) => {
 	const className: string = c.format === 'regular' ? 'ph' : `ph-${c.format}`;
 	const codepoint: string = PHOSPHOR_ICON_MAP[c.icon] ?? '';
 
-	return html`<i class="${className}">${codepoint}</i>`;
+	// aria-hidden: the ligature codepoint is presentational; without it screen
+	// readers announce the raw private-use character.
+	return html`<i class="${className}" aria-hidden="true">${codepoint}</i>`;
 };

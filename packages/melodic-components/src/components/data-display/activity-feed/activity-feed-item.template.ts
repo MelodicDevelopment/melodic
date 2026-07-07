@@ -6,17 +6,13 @@ export function activityFeedItemTemplate(c: ActivityFeedItemComponent) {
 		<article class="ml-afi">
 			<div class="ml-afi__left">
 				<div class="ml-afi__avatar">
-					${when(
-						c.hasAvatarSlot,
-						() => html`<slot name="avatar"></slot>`,
-						() => html`
-							<ml-avatar
-								size=${c['avatar-size']}
-								src=${c['avatar-src']}
-								initials=${c['avatar-initials']}
-							></ml-avatar>
-						`
-					)}
+					<slot name="avatar">
+						<ml-avatar
+							size=${c.avatarSize}
+							src=${c.avatarSrc}
+							initials=${c.avatarInitials}
+						></ml-avatar>
+					</slot>
 				</div>
 				<div class="ml-afi__connector"></div>
 			</div>
@@ -32,9 +28,9 @@ export function activityFeedItemTemplate(c: ActivityFeedItemComponent) {
 							<span
 								class=${classMap({
 									'ml-afi__indicator': true,
-									[`ml-afi__indicator--${c['indicator-color']}`]: c.isPresetColor
+									[`ml-afi__indicator--${c.indicatorColor}`]: c.isPresetColor
 								})}
-								style=${c.isPresetColor ? '' : `--ml-afi-indicator-bg: ${c['indicator-color']}`}
+								style=${c.isPresetColor ? '' : `--ml-afi-indicator-bg: ${c.indicatorColor}`}
 							></span>
 						`
 					)}
@@ -43,14 +39,12 @@ export function activityFeedItemTemplate(c: ActivityFeedItemComponent) {
 				<div class="ml-afi__description">
 					<slot></slot>
 				</div>
-				${when(
-					c.hasContentSlot,
-					() => html`
-						<div class="ml-afi__content">
-							<slot name="content"></slot>
-						</div>
-					`
-				)}
+				<div class=${classMap({
+					'ml-afi__content': true,
+					'ml-afi__content--hidden': !c.hasContentSlot
+				})}>
+					<slot name="content"></slot>
+				</div>
 			</div>
 		</article>
 	`;

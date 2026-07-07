@@ -4,8 +4,10 @@ import { render } from '../../template/functions/render.function';
 import type { Unsubscriber } from '../../signals/types/unsubscriber.type';
 import type { Signal } from '../../signals/types/signal.type';
 import { isSignal } from '../../signals/functions/is-signal.function';
-import type { ITemplatePart } from '../../template/interfaces/itemplate-part.interface';
+import type { IRenderedContainer } from '../../template/interfaces/irendered-container.interface';
+import { disposeParts } from '../../template/functions/dispose.functions';
 import { applyGlobalStyles } from '../styles/apply-global-styles.function';
+import { getComponentStyleSheet } from '../styles/component-style-sheets.function';
 import { AbstractControl } from '../../forms/classes/abstract-control.class';
 import { getActiveComponent, setActiveComponent } from '../functions/active-component.functions';
 
@@ -14,21 +16,44 @@ export interface PendingComponentScope {
 	selectCache: Map<string, Signal<unknown>>;
 }
 
+/** Attribute coercion types a component may declare via `static propertyTypes`. */
+export type PropertyType = 'boolean' | 'number' | 'string';
+
+/**
+ * A reactive source property (a component field holding a Signal or an
+ * AbstractControl). Tracks the signals to (re)subscribe on connect and the
+ * live unsubscribers, so the subscription can follow a reassignment of the
+ * field (e.g. `this.form = createFormGroup(...)`).
+ */
+interface ReactiveSourceEntry {
+	signals: Array<Signal<unknown>>;
+	unsubscribers: Array<Unsubscriber>;
+}
+
 export abstract class ComponentBase extends HTMLElement {
 	private readonly _meta: ComponentMeta;
 	private readonly _component: Component;
 	private readonly _root: ShadowRoot;
-	private readonly _style: HTMLStyleElement;
-	private _unsubscribers: Array<Unsubscriber> = [];
+	// Fallback per-instance <style> element — only used when shared constructed
+	// stylesheets are unavailable (see renderStyles()).
+	private readonly _style: HTMLStyleElement | null;
 	private _renderScheduled = false;
 	private readonly _booleanProperties: Set<string> = new Set();
+	private readonly _numberProperties: Set<string> = new Set();
+	private readonly _stringProperties: Set<string> = new Set();
 	private readonly _disposables: Set<{ destroy(): void }>;
 	private readonly _selectCache: Map<string, Signal<unknown>>;
+	private _rendering = false;
+	private _selectEpoch = 0;
+	// Cache keys of select() entries created during a render pass, tagged with
+	// the epoch of the last render that used them (see sweepRenderScopedSelects).
+	private readonly _renderScopedSelects: Map<string, number> = new Map();
 
 	// Reactive signal/control sources discovered during observe(). Subscribed on
 	// every connect and torn down on every disconnect, so reactivity survives the
-	// element being moved in the DOM.
-	private readonly _reactiveSources: Array<Signal<unknown>> = [];
+	// element being moved in the DOM. Entries are swapped in place when the
+	// component reassigns a source field, so reactivity follows reassignment.
+	private readonly _reactiveSourceEntries: Array<ReactiveSourceEntry> = [];
 
 	private _created = false;
 	private _destroyed = false;
@@ -40,6 +65,18 @@ export abstract class ComponentBase extends HTMLElement {
 		this._meta = meta;
 		this._component = component;
 		this._component.elementRef = this;
+
+		// Components may declare attribute→property coercion types explicitly for
+		// properties whose initial value doesn't reveal the type (e.g. `open?: boolean`):
+		//   static propertyTypes = { open: 'boolean', offset: 'number' };
+		const declaredTypes = (component.constructor as { propertyTypes?: Record<string, PropertyType> }).propertyTypes;
+		if (declaredTypes) {
+			for (const [prop, type] of Object.entries(declaredTypes)) {
+				if (type === 'boolean') this._booleanProperties.add(prop);
+				else if (type === 'number') this._numberProperties.add(prop);
+				else if (type === 'string') this._stringProperties.add(prop);
+			}
+		}
 		// Adopt the same Set/Map the decorator used during Reflect.construct so
 		// disposables and cache entries from class-field initializers belong to us.
 		this._disposables = pending?.disposables ?? new Set();
@@ -65,6 +102,33 @@ export abstract class ComponentBase extends HTMLElement {
 
 	public getSelectCache(): Map<string, Signal<unknown>> {
 		return this._selectCache;
+	}
+
+	/**
+	 * Marks a cached select() entry as used by the current render pass so the
+	 * post-render sweep keeps it. No-op for entries created outside a render
+	 * (those are component-lifetime and never swept).
+	 */
+	public touchSelectEntry(fullKey: string): void {
+		if (this._renderScopedSelects.has(fullKey)) {
+			this._renderScopedSelects.set(fullKey, this._selectEpoch);
+		}
+	}
+
+	/**
+	 * Registers a select() entry created while this component was rendering as
+	 * render-scoped: the component re-renders when its value changes, and the
+	 * entry is destroyed by the first subsequent render that doesn't use it
+	 * (an inline selector recreated under a new identity key, or a conditional
+	 * branch no longer rendered). Entries created outside a render pass (class
+	 * field initializers, onCreate) keep their component-lifetime semantics.
+	 */
+	public trackSelectEntry(fullKey: string, sig: Signal<unknown>): void {
+		if (!this._rendering) {
+			return;
+		}
+		this._renderScopedSelects.set(fullKey, this._selectEpoch);
+		sig.subscribe(() => this.scheduleRender());
 	}
 
 	public connectedCallback(): void {
@@ -93,8 +157,12 @@ export abstract class ComponentBase extends HTMLElement {
 	public disconnectedCallback(): void {
 		// Tear down reactive subscriptions immediately so a detached element stops
 		// reacting; they are re-established on the next connect.
-		this._unsubscribers.forEach((unsubscribe) => unsubscribe());
-		this._unsubscribers = [];
+		for (const entry of this._reactiveSourceEntries) {
+			for (const unsubscribe of entry.unsubscribers) {
+				unsubscribe();
+			}
+			entry.unsubscribers = [];
+		}
 
 		this._component.onDisconnect?.();
 
@@ -114,43 +182,71 @@ export abstract class ComponentBase extends HTMLElement {
 
 	public attributeChangedCallback(attribute: string, oldVal: unknown, newVal: unknown): void {
 		const prop = attribute.replace(/-([a-z])/g, (_, ch: string) => ch.toUpperCase());
+		const component = this._component as unknown as Record<string, unknown>;
 
-		if ((this._component as any)[prop] !== undefined) {
-			let value = newVal;
+		const current = component[prop];
+		const value = this.coerceAttributeValue(prop, newVal as string | null, current);
 
-			// Convert boolean attributes: present (any value including "") = true, null/absent = false
-			if (this._booleanProperties.has(prop)) {
-				value = newVal !== null && newVal !== 'false';
-			}
-
-			(this._component as any)[prop] = value;
+		// Skip the assignment and re-render when the reflected value is
+		// identical — avoids render churn from equal attribute writes.
+		if (!Object.is(current, value)) {
+			component[prop] = value;
+			this.scheduleRender();
 		}
-
-		this.scheduleRender();
 
 		if (this._component.onAttributeChange !== undefined) {
 			this._component.onAttributeChange(attribute, oldVal, newVal);
 		}
 	}
 
+	/**
+	 * Coerce an observed attribute's string value by the property's declared
+	 * type. Type is determined by, in order: an explicit `static propertyTypes`
+	 * declaration, the property's initial value type (captured in observe()),
+	 * or the property's CURRENT value type. Properties with no type information
+	 * (e.g. `open?: boolean` with no initializer) recognize the canonical
+	 * boolean literals "true"/"false"; everything else passes through raw.
+	 */
+	private coerceAttributeValue(prop: string, raw: string | null, current: unknown): unknown {
+		// Explicitly declared string properties are never coerced.
+		if (this._stringProperties.has(prop)) {
+			return raw;
+		}
+
+		// Boolean: present (any value except the literal "false") = true, absent = false.
+		if (this._booleanProperties.has(prop) || typeof current === 'boolean') {
+			return raw !== null && raw !== 'false';
+		}
+
+		// Number: coerce numeric strings; leave null (attribute removed) and
+		// non-numeric garbage untouched rather than producing NaN.
+		if (this._numberProperties.has(prop) || typeof current === 'number') {
+			if (raw === null || raw.trim() === '') {
+				return raw;
+			}
+			const parsed = Number(raw);
+			return Number.isNaN(parsed) ? raw : parsed;
+		}
+
+		// No type information: recognize canonical boolean literals so an
+		// initially-undefined `open?: boolean` never receives the truthy string "false".
+		if ((current === undefined || current === null) && (raw === 'true' || raw === 'false')) {
+			return raw === 'true';
+		}
+
+		return raw;
+	}
+
 	/** Final destruction — runs once when the element is permanently removed. */
 	private teardown(): void {
 		this._destroyed = true;
 
-		// Run action-directive cleanups (e.g. clickOutside document listeners).
-		const parts = (this._root as any).__parts as ITemplatePart[] | undefined;
+		// Recursively dispose the rendered part tree: action-directive cleanups
+		// (e.g. clickOutside document listeners) plus everything nested inside
+		// when/repeat branches, nested templates, and array items.
+		const parts = (this._root as ShadowRoot & IRenderedContainer).__parts;
 		if (parts) {
-			for (const part of parts) {
-				if (part.actionCleanup) {
-					try {
-						part.actionCleanup();
-					} catch (error) {
-						console.error('Action directive cleanup failed:', error);
-					} finally {
-						part.actionCleanup = undefined;
-					}
-				}
-			}
+			disposeParts(parts);
 		}
 
 		// User's onDestroy runs first so user code can still reference signals before they're destroyed.
@@ -169,13 +265,28 @@ export abstract class ComponentBase extends HTMLElement {
 		this._selectCache.clear();
 	}
 
-	private renderStyles(): HTMLStyleElement {
-		const styleNode: HTMLStyleElement = document.createElement('style');
-
-		if (this._meta.styles) {
-			const stylesResult = this._meta.styles();
-			render(stylesResult, styleNode);
+	/**
+	 * Applies the component's styles to its shadow root.
+	 *
+	 * Preferred path: one shared CSSStyleSheet per component class, adopted via
+	 * adoptedStyleSheets (no per-instance <style> element, one CSS parse per
+	 * class). Fallback path (constructed stylesheets unsupported): the original
+	 * per-instance <style> element, returned so render() can re-append it after
+	 * the first template render wipes the root.
+	 */
+	private renderStyles(): HTMLStyleElement | null {
+		if (!this._meta.styles) {
+			return null;
 		}
+
+		const sheet = getComponentStyleSheet(this._meta.styles);
+		if (sheet) {
+			this._root.adoptedStyleSheets = [...this._root.adoptedStyleSheets, sheet];
+			return null;
+		}
+
+		const styleNode: HTMLStyleElement = document.createElement('style');
+		render(this._meta.styles(), styleNode);
 
 		return this._root.appendChild(styleNode);
 	}
@@ -183,12 +294,14 @@ export abstract class ComponentBase extends HTMLElement {
 	private render(): void {
 		const prev = getActiveComponent();
 		setActiveComponent(this);
+		this._rendering = true;
+		this._selectEpoch++;
 		try {
 			if (this._meta.template) {
 				const templateResult = this._meta.template(this._component, this.getAttributeValues());
 				render(templateResult, this._root);
 
-				if (this._style.parentNode !== this._root) {
+				if (this._style && this._style.parentNode !== this._root) {
 					this._root.appendChild(this._style);
 				}
 			}
@@ -197,7 +310,30 @@ export abstract class ComponentBase extends HTMLElement {
 				this._component.onRender();
 			}
 		} finally {
+			this._rendering = false;
 			setActiveComponent(prev);
+			this.sweepRenderScopedSelects();
+		}
+	}
+
+	/**
+	 * Destroys render-scoped select() entries the just-finished render didn't
+	 * touch. Without this, an inline selector (a new function identity every
+	 * render) would accumulate one live computed per render for the life of
+	 * the component, and every store dispatch would pay for all of them.
+	 */
+	private sweepRenderScopedSelects(): void {
+		for (const [key, epoch] of this._renderScopedSelects) {
+			if (epoch === this._selectEpoch) {
+				continue;
+			}
+			const sig = this._selectCache.get(key) as unknown as { destroy(): void } | undefined;
+			this._renderScopedSelects.delete(key);
+			this._selectCache.delete(key);
+			if (sig) {
+				this._disposables.delete(sig);
+				sig.destroy();
+			}
 		}
 	}
 
@@ -235,6 +371,10 @@ export abstract class ComponentBase extends HTMLElement {
 		// as lazy passthroughs after the reactive props are wired (see below).
 		const getterOnly: string[] = [];
 
+		// Properties holding a reactive source (Signal / AbstractControl). Wired
+		// after the data props so reassignment swaps the render subscription.
+		const sourceProps: string[] = [];
+
 		const filtered = properties.filter((prop) => {
 			// Skip private properties (convention) and framework-internal fields.
 			if (prop.startsWith('_') || prop === 'elementRef' || prop === 'constructor') {
@@ -255,18 +395,9 @@ export abstract class ComponentBase extends HTMLElement {
 			const value = (this._component as any)[prop];
 
 			// Signals and form controls are reactive sources, not reactive data —
-			// collect them to subscribe on connect, but don't wrap them.
-			if (isSignal(value)) {
-				this._reactiveSources.push(value as Signal<unknown>);
-				return false;
-			}
-
-			if (value instanceof AbstractControl) {
-				// Re-render when either the control's value OR its status (state)
-				// changes, so templates reading control.value() stay in sync even
-				// when the value change doesn't alter dirty/touched/validity.
-				this._reactiveSources.push(value.value as Signal<unknown>);
-				this._reactiveSources.push(value.state as Signal<unknown>);
+			// subscribe to them for re-renders, but don't wrap them as data.
+			if (isSignal(value) || value instanceof AbstractControl) {
+				sourceProps.push(prop);
 				return false;
 			}
 
@@ -277,6 +408,10 @@ export abstract class ComponentBase extends HTMLElement {
 			return true;
 		});
 
+		for (const prop of sourceProps) {
+			this.observeReactiveSource(prop);
+		}
+
 		for (const prop of filtered) {
 			const descriptor = this.getPropertyDescriptor(this._component, prop);
 
@@ -284,9 +419,12 @@ export abstract class ComponentBase extends HTMLElement {
 			const wrapperValue = Object.getOwnPropertyDescriptor(this, prop)?.value;
 			let value = wrapperValue === undefined ? (this._component as any)[prop] : wrapperValue;
 
-			// Track boolean properties for attribute conversion
+			// Track boolean/number properties for attribute coercion (explicit
+			// `static propertyTypes` declarations were seeded in the constructor).
 			if (typeof value === 'boolean') {
 				this._booleanProperties.add(prop);
+			} else if (typeof value === 'number') {
+				this._numberProperties.add(prop);
 			}
 
 			// Build getter/setter for the component's property
@@ -380,8 +518,79 @@ export abstract class ComponentBase extends HTMLElement {
 			return;
 		}
 
-		for (const source of this._reactiveSources) {
-			this._unsubscribers.push(source.subscribe(() => this.scheduleRender()));
+		for (const entry of this._reactiveSourceEntries) {
+			// Defensive: never double-subscribe an entry.
+			for (const unsubscribe of entry.unsubscribers) {
+				unsubscribe();
+			}
+			entry.unsubscribers = entry.signals.map((signal) => signal.subscribe(() => this.scheduleRender()));
 		}
+	}
+
+	/** The signals a reactive-source value contributes re-render subscriptions for. */
+	private collectSourceSignals(value: unknown): Array<Signal<unknown>> {
+		if (isSignal(value)) {
+			return [value as Signal<unknown>];
+		}
+
+		if (value instanceof AbstractControl) {
+			// Re-render when either the control's value OR its status (state)
+			// changes, so templates reading control.value() stay in sync even
+			// when the value change doesn't alter dirty/touched/validity.
+			return [value.value as Signal<unknown>, value.state as Signal<unknown>];
+		}
+
+		return [];
+	}
+
+	/**
+	 * Wire a component field holding a Signal/AbstractControl so its render
+	 * subscription follows reassignment: `this.form = createFormGroup(...)`
+	 * after construction unsubscribes the old source and subscribes the new one
+	 * instead of silently going inert.
+	 */
+	private observeReactiveSource(prop: string): void {
+		const component = this._component as unknown as Record<string, unknown>;
+		const entry: ReactiveSourceEntry = {
+			signals: this.collectSourceSignals(component[prop]),
+			unsubscribers: []
+		};
+		this._reactiveSourceEntries.push(entry);
+
+		const descriptor = this.getPropertyDescriptor(this._component, prop);
+		if (descriptor && (descriptor.get || descriptor.set)) {
+			// Custom accessor — leave it intact and subscribe to the
+			// construction-time snapshot only (pre-existing behavior).
+			return;
+		}
+
+		let current = component[prop];
+
+		Object.defineProperty(this._component, prop, {
+			get: () => current,
+			set: (newVal: unknown) => {
+				if (Object.is(current, newVal)) {
+					return;
+				}
+
+				this._component.onPropertyChange?.(prop, current, newVal);
+				current = newVal;
+
+				// Swap the render subscription to the new source.
+				for (const unsubscribe of entry.unsubscribers) {
+					unsubscribe();
+				}
+				entry.unsubscribers = [];
+				entry.signals = this.collectSourceSignals(newVal);
+
+				if (this.isConnected && !this._destroyed) {
+					entry.unsubscribers = entry.signals.map((signal) => signal.subscribe(() => this.scheduleRender()));
+				}
+
+				this.scheduleRender();
+			},
+			enumerable: true,
+			configurable: true
+		});
 	}
 }

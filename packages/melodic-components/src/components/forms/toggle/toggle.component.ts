@@ -1,7 +1,7 @@
 import { MelodicComponent } from '@melodicdev/core';
 import type { IElementRef } from '@melodicdev/core';
 import { registerAdapter } from '@melodicdev/core/forms';
-import type { Size } from '../../../types/index.js';
+import type { ControlSize } from '../../../types/index.js';
 import { toggleTemplate } from './toggle.template.js';
 import { toggleStyles } from './toggle.styles.js';
 
@@ -29,7 +29,7 @@ registerAdapter<boolean>((el) => el.tagName === 'ML-TOGGLE', {
 	selector: 'ml-toggle',
 	template: toggleTemplate,
 	styles: toggleStyles,
-	attributes: ['label', 'hint', 'size', 'checked', 'disabled']
+	attributes: ['label', 'hint', 'error', 'size', 'checked', 'disabled']
 })
 export class ToggleComponent implements IElementRef {
 	public elementRef!: HTMLElement;
@@ -40,8 +40,11 @@ export class ToggleComponent implements IElementRef {
 	/** Hint text */
 	public hint = '';
 
+	/** Error message (shows error state when set; auto-populated by the forms system) */
+	public error = '';
+
 	/** Toggle size */
-	public size: Size = 'md';
+	public size: ControlSize = 'md';
 
 	/** Checked state */
 	public checked = false;

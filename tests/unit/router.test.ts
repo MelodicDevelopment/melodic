@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { RouterService } from '../../src/routing';
+import { RouterService, buildPathFromRoute } from '../../src/routing';
 import type { IRouteGuard } from '../../src/routing/interfaces/iroute-guard.interface';
 import type { IRouteResolver } from '../../src/routing/interfaces/iroute-resolver.interface';
 
@@ -265,5 +265,83 @@ describe('router service', () => {
 
 		const result = await router.navigateByName('item', { b: '5' });
 		expect(result.url).not.toContain('//');
+	});
+
+	it(':param does not match an empty segment', () => {
+		const router = new RouterService();
+		router.setRoutes([{ path: ':id' }]);
+
+		// Regression: `:id` compiled to `([^/]*)` and matched the root URL
+		// with `id === ''`.
+		const rootMatch = router.matchPath('/');
+		expect(rootMatch.matches).toHaveLength(0);
+		expect(rootMatch.isExactMatch).toBe(false);
+
+		const realMatch = router.matchPath('/42');
+		expect(realMatch.isExactMatch).toBe(true);
+		expect(realMatch.params).toEqual({ id: '42' });
+	});
+
+	it('backtracks to a later sibling when a prefix-matched parent has no matching child', () => {
+		const router = new RouterService();
+		router.setRoutes([
+			{ path: 'a', children: [{ path: 'b' }] },
+			{ path: ':x', children: [{ path: 'c' }] }
+		]);
+
+		// Regression: `a` prefix-matched `/a/c`, its child `b` failed, and the
+		// matcher returned that failure without ever trying `:x`.
+		const match = router.matchPath('/a/c');
+		expect(match.isExactMatch).toBe(true);
+		expect(match.params).toEqual({ x: 'a' });
+		expect(match.matches.map((m) => m.route.path)).toEqual([':x', 'c']);
+	});
+
+	it('keeps the partial parent match when no sibling matches either', () => {
+		const router = new RouterService();
+		router.setRoutes([
+			{ path: 'a', children: [{ path: 'b' }] },
+			{ path: 'z', children: [{ path: 'c' }] }
+		]);
+
+		// Nested outlets rely on the partial match to render the parent layout
+		// plus a nested 404 view.
+		const match = router.matchPath('/a/nope');
+		expect(match.isExactMatch).toBe(false);
+		expect(match.matches.map((m) => m.route.path)).toEqual(['a']);
+	});
+
+	it('URL-encodes params when building paths and round-trips them', async () => {
+		const router = new RouterService();
+		router.setRoutes([{ path: 'users/:name', name: 'user' }]);
+
+		const result = await router.navigateByName('user', { name: 'hello world/x' });
+		expect(result.url).toBe('/users/hello%20world%2Fx');
+
+		// Round trip: matching the built URL decodes back to the original value.
+		const match = router.matchPath(result.url!);
+		expect(match.params).toEqual({ name: 'hello world/x' });
+	});
+
+	it('does not mangle $-sequences in param values', () => {
+		// Regression: plain String.replace treated `$&` in the VALUE as a
+		// replacement pattern.
+		const path = buildPathFromRoute([{ path: 'users/:name', name: 'user' }], 'user', { name: 'pri$&ce' });
+		expect(path).toBe('/users/pri%24%26ce');
+	});
+
+	it('encodes splat params per segment, preserving their slashes', () => {
+		const path = buildPathFromRoute([{ path: 'files/*path', name: 'file' }], 'file', { path: 'a b/c d' });
+		expect(path).toBe('/files/a%20b/c%20d');
+	});
+
+	it('merges queryParams into a path that already has a query string', async () => {
+		const router = new RouterService();
+		router.setRoutes([{ path: 'list' }]);
+
+		// Regression: produced `/list?page=2?sort=asc`.
+		const result = await router.navigate('/list?page=2', { queryParams: { sort: 'asc' } });
+		expect(result.url).toBe('/list?page=2&sort=asc');
+		expect(window.location.search).toBe('?page=2&sort=asc');
 	});
 });

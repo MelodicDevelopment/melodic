@@ -254,7 +254,7 @@ export class CalendarComponent implements IElementRef, OnInit, OnAttributeChange
 				isSelected: selectedYear === year,
 				isCurrent: year === now,
 				isDisabled: !inRange,
-				isPlaceholder: !inRange && (year < minY || year > maxY)
+				isPlaceholder: !inRange
 			});
 		}
 		return result;

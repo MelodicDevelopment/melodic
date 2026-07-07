@@ -62,6 +62,9 @@ export class RadioGroupComponent implements IElementRef, OnInit {
 	public onInit(): void {
 		// Listen for changes from child radios
 		this.elementRef.addEventListener('ml:change', this.handleChildChange as EventListener);
+		// Arrow-key navigation (roving tabindex) — radios live in their own
+		// shadow roots so native radio grouping does not apply.
+		this.elementRef.addEventListener('keydown', this.handleKeyDown);
 	}
 
 	public onCreate(): void {
@@ -82,6 +85,10 @@ export class RadioGroupComponent implements IElementRef, OnInit {
 			return;
 		}
 
+		// Consume the child radio's event so consumers observe exactly one
+		// ml:change per selection (the group's re-emit below).
+		event.stopImmediatePropagation();
+
 		const detail = event.detail as { value: string };
 		this.value = detail.value;
 
@@ -98,16 +105,90 @@ export class RadioGroupComponent implements IElementRef, OnInit {
 		);
 	};
 
+	/** WAI-ARIA radio group keyboard support: arrows move focus AND selection. */
+	private handleKeyDown = (event: KeyboardEvent): void => {
+		if (this.disabled) return;
+
+		let direction = 0;
+		if (event.key === 'ArrowRight' || event.key === 'ArrowDown') {
+			direction = 1;
+		} else if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') {
+			direction = -1;
+		} else {
+			return;
+		}
+
+		const radios = this.getEnabledRadios();
+		if (radios.length === 0) return;
+
+		event.preventDefault();
+
+		// Current position: the radio that received the key, falling back to the
+		// checked radio, falling back to just before/at the first.
+		const originRadio = (event.target as HTMLElement | null)?.closest?.('ml-radio') ?? null;
+		let index = originRadio ? radios.indexOf(originRadio) : -1;
+		if (index === -1) {
+			index = radios.findIndex((radio) => this.getRadioValue(radio) === this.value && this.value !== '');
+		}
+		if (index === -1) {
+			index = direction === 1 ? -1 : 0;
+		}
+
+		const next = radios[(index + direction + radios.length) % radios.length];
+		this.selectRadio(next);
+	};
+
+	private selectRadio(radio: Element): void {
+		this.value = this.getRadioValue(radio);
+		this.updateChildRadios();
+		this.focusRadio(radio);
+
+		this.elementRef.dispatchEvent(
+			new CustomEvent('ml:change', {
+				bubbles: true,
+				composed: true,
+				detail: { value: this.value }
+			})
+		);
+	}
+
+	private focusRadio(radio: Element): void {
+		const input = radio.shadowRoot?.querySelector('.ml-radio__input') as HTMLElement | null;
+		input?.focus();
+	}
+
+	private getRadioValue(radio: Element): string {
+		return ((radio as any).value as string | undefined) ?? radio.getAttribute('value') ?? '';
+	}
+
+	private getEnabledRadios(): Element[] {
+		return Array.from(this.elementRef.querySelectorAll('ml-radio')).filter(
+			(radio) => (radio as any).disabled !== true && !radio.hasAttribute('disabled')
+		);
+	}
+
 	private updateChildRadios(): void {
 		const radios = this.elementRef.querySelectorAll('ml-radio');
 		if (this.value === '') {
 			for (const radio of radios) {
 				const isChecked = (radio as any).checked === true || radio.hasAttribute('checked');
 				if (isChecked) {
-					this.value = (radio as any).value ?? radio.getAttribute('value') ?? '';
+					this.value = this.getRadioValue(radio);
 					break;
 				}
 			}
+		}
+
+		// Roving tabindex: the checked radio is the single tab stop; when nothing
+		// is checked, the first enabled radio takes it.
+		let tabbableRadio: Element | null = null;
+		if (this.value !== '') {
+			tabbableRadio = Array.from(radios).find(
+				(radio) => this.getRadioValue(radio) === this.value && (radio as any).disabled !== true && !radio.hasAttribute('disabled')
+			) ?? null;
+		}
+		if (!tabbableRadio) {
+			tabbableRadio = this.getEnabledRadios()[0] ?? null;
 		}
 
 		radios.forEach((radio) => {
@@ -117,8 +198,9 @@ export class RadioGroupComponent implements IElementRef, OnInit {
 
 			(radio as any).disabled = this.disabled;
 
-			const radioValue = (radio as any).value ?? radio.getAttribute('value') ?? '';
+			const radioValue = this.getRadioValue(radio);
 			(radio as any).checked = this.value !== '' && radioValue === this.value;
+			(radio as any).tabbable = radio === tabbableRadio;
 		});
 	}
 }

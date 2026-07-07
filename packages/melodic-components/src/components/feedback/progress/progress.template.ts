@@ -31,7 +31,7 @@ function linearTemplate(c: ProgressComponent) {
 						</div>
 					`)}
 
-					<div class="ml-progress__track" role="progressbar" aria-valuenow=${c.value} aria-valuemin="0" aria-valuemax=${c.max} aria-label=${c.label || 'Progress'}>
+					<div class="ml-progress__track" role="progressbar" aria-valuenow=${c.clampedValue} aria-valuemin="0" aria-valuemax=${c.ariaMax} aria-label=${c.label || 'Progress'}>
 						<div class="ml-progress__fill" style=${styleMap({ width: `${c.percentage}%` })}></div>
 					</div>
 
@@ -53,11 +53,18 @@ function linearTemplate(c: ProgressComponent) {
 
 function circleTemplate(c: ProgressComponent) {
 	return html`
-		<div class=${classMap({
-			'ml-progress-circle': true,
-			[`ml-progress-circle--${c.variant}`]: true,
-			[`ml-progress-circle--${c.size}`]: true
-		})}>
+		<div
+			class=${classMap({
+				'ml-progress-circle': true,
+				[`ml-progress-circle--${c.variant}`]: true,
+				[`ml-progress-circle--${c.size}`]: true
+			})}
+			role="progressbar"
+			aria-valuenow=${c.clampedValue}
+			aria-valuemin="0"
+			aria-valuemax=${c.ariaMax}
+			aria-label=${c.label || 'Progress'}
+		>
 			<svg
 				width=${c.svgSize}
 				height=${c.svgSize}
@@ -97,11 +104,18 @@ function circleTemplate(c: ProgressComponent) {
 
 function halfCircleTemplate(c: ProgressComponent) {
 	return html`
-		<div class=${classMap({
-			'ml-progress-half': true,
-			[`ml-progress-half--${c.variant}`]: true,
-			[`ml-progress-half--${c.size}`]: true
-		})}>
+		<div
+			class=${classMap({
+				'ml-progress-half': true,
+				[`ml-progress-half--${c.variant}`]: true,
+				[`ml-progress-half--${c.size}`]: true
+			})}
+			role="progressbar"
+			aria-valuenow=${c.clampedValue}
+			aria-valuemin="0"
+			aria-valuemax=${c.ariaMax}
+			aria-label=${c.label || 'Progress'}
+		>
 			<svg
 				width=${c.svgSize}
 				height=${c.svgCenter + c.circleStroke}

@@ -26,7 +26,7 @@ Add a single `<link>` tag to your HTML. It includes design tokens (light + dark 
 > **Production tip:** Pin to a specific version and use the minified build to avoid unexpected changes:
 > ```html
 > <link melodic-styles rel="stylesheet"
->       href="https://unpkg.com/@melodicdev/components@1.0.4/assets/melodic-components.min.css">
+>       href="https://unpkg.com/@melodicdev/components@3/assets/melodic-components.min.css">
 > ```
 
 The `melodic-styles` attribute has no special browser meaning — it's just a convenient selector if you ever need to find or replace the element from JavaScript:
@@ -80,9 +80,9 @@ If you're not using a bundler, you can load everything — styles, fonts, and al
 <html data-theme="light">
 <head>
   <link melodic-styles rel="stylesheet"
-        href="https://unpkg.com/@melodicdev/components@1.0.4/assets/melodic-components.min.css">
+        href="https://unpkg.com/@melodicdev/components@3/assets/melodic-components.min.css">
   <script type="module"
-          src="https://unpkg.com/@melodicdev/components@1.0.4/assets/melodic-components.min.js"></script>
+          src="https://unpkg.com/@melodicdev/components@3/assets/melodic-components.min.js"></script>
 </head>
 <body>
   <ml-button>Hello</ml-button>
@@ -97,7 +97,7 @@ The theme API is available as a named export from the module:
 
 ```html
 <script type="module">
-  import { applyTheme } from 'https://unpkg.com/@melodicdev/components@1.0.4/assets/melodic-components.min.js';
+  import { applyTheme } from 'https://unpkg.com/@melodicdev/components@3/assets/melodic-components.min.js';
   applyTheme('dark');
 </script>
 ```
@@ -173,13 +173,14 @@ ml-icon {
 
 ### Components
 - [**Theming**](./docs/theming.md) — Token system, applying themes, creating custom themes, overriding styles
-- [**Forms**](./docs/components/forms.md) — button, button-group, input, textarea, checkbox, radio, radio-card-group, toggle, select, slider, date-picker, form-field
+- [**Forms**](./docs/components/forms.md) — button, button-group, input, textarea, checkbox, radio, radio-card-group, toggle, select, slider, date-picker, date-time-picker, time-picker, form-field, file-upload
 - [**Foundation**](./docs/components/foundation.md) — card, divider, stack, container
 - [**Feedback**](./docs/components/feedback.md) — spinner, alert, progress, toast
 - [**Data Display**](./docs/components/data-display.md) — avatar, badge, badge-group, tag, list, activity-feed, table, data-grid, calendar-view
 - [**Navigation**](./docs/components/navigation.md) — tabs, breadcrumb, pagination, sidebar, steps
 - [**Overlays**](./docs/components/overlays.md) — dialog, drawer, popover, dropdown, tooltip
-- [**Sections**](./docs/components/sections.md) — app-shell, page-header, hero-section
+- [**Sections**](./docs/components/sections.md) — app-shell, page-header, page-section, hero-section
+- [**Pages**](./docs/components/pages.md) — login-page, signup-page, dashboard-page
 
 ### Utilities & Helpers
 - [**Utilities**](./docs/utilities.md) — positioning, accessibility (focus trap, live regions), virtual scrolling, style utilities

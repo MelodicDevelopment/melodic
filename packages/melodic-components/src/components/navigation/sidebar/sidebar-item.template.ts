@@ -8,7 +8,7 @@ export function sidebarItemTemplate(c: SidebarItemComponent) {
 	const content = html`
 		<div class="ml-sidebar-item__leading">
 			<slot name="leading">
-				${when(!!c.icon, () => html`<ml-icon icon=${c.icon} size="sm" format=${c['icon-format'] || 'regular'}></ml-icon>`)}
+				${when(!!c.icon, () => html`<ml-icon icon=${c.icon} size="sm" format=${c.iconFormat || 'regular'}></ml-icon>`)}
 			</slot>
 		</div>
 		${when(!isCollapsed, () => html`
@@ -18,7 +18,7 @@ export function sidebarItemTemplate(c: SidebarItemComponent) {
 					${when(!!c.badge, () => html`
 						<span class=${classMap({
 							'ml-sidebar-item__badge': true,
-							[`ml-sidebar-item__badge--${c['badge-color']}`]: true
+							[`ml-sidebar-item__badge--${c.badgeColor}`]: true
 						})}>${c.badge}</span>
 					`)}
 					${when(c.external, () => html`<ml-icon icon="arrow-square-out" size="xs"></ml-icon>`)}

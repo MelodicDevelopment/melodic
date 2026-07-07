@@ -1,5 +1,70 @@
 # Changelog
 
+## 3.0.0
+
+Whole-repo remediation release driven by the 2026 full-repo review: correctness bugs, memory leaks, security hardening, accessibility, API consistency, and structural debt. Breaking changes are covered in [MIGRATION.md](./MIGRATION.md).
+
+### @melodicdev/core
+
+- **Signals:** `SignalEffect` is exception-safe (a throwing effect no longer corrupts global tracking state); `computed()` is now lazy (recomputes on read, not on every source change) and read-only — `.set()`/`.update()` throw; new `ReadonlySignal<T>` type.
+- **Template engine:** recursive part disposal — directive/event cleanups now run for content removed by `when`, `repeat`, and nested templates (fixes subscription/listener leaks, e.g. `:formControl` inside a toggled `when`); `when` re-renders correctly when the branch template's structure changes; switching a binding between directive types no longer passes stale state; composite-attribute change detection fixed; typed part tree replaces `any`-based internals; one stable event listener per part (supports `{handleEvent, ...options}` values); template cache is LRU; dev-mode warnings for `.innerHTML`/`.outerHTML` property bindings and unsupported binding positions.
+- **Components:** attributes coerce by declared type — numbers now coerce (`offset="12"`), booleans coerce correctly for initially-undefined props, and `static propertyTypes` lets components declare types explicitly; reflection no longer drops values for initially-undefined props; equal values skip re-render; reassigning a signal/form-control field re-subscribes cleanly; per-class constructed stylesheets replace per-instance `<style>` elements; `@MelodicComponent` validates custom-element selectors.
+- **Routing:** the full match→guards→resolvers→commit pipeline runs in `RouterService` (guards no longer run twice; popstate now enforces guards and runs resolvers); new `provideRouter()`; history patching is idempotent and happens at router init, not module import; `:param` no longer matches empty segments; params URL-encode; query strings merge; sibling routes are backtracked after failed child matches; `javascript:` URLs are rejected by router links; modifier/middle clicks behave natively; router-link element and `:routerLink` directive share one core.
+- **HTTP:** response interceptors run exactly once across retries and deduped requests; error-interceptor throws propagate (domain-error mapping works); `onProgress` no longer turns text responses into Blobs; `AbortSignal.timeout()`-based timeouts; `IRequestConfig.signal` (`abortController` deprecated); deduped requests ref-count cancellation.
+- **State:** keyless dispatch applies every matching slice (indexed by action type, batched) and fires effect-only slices; effect errors are caught; `select()` caches by function identity.
+- **Config:** environment overrides deep-merge like `extends`; `deepMerge` guards against prototype pollution.
+- **DI:** `@Inject` metadata no longer shared across the inheritance chain; `@Service` caches falsy resolutions.
+- **Barrel:** forms are exported from the root `@melodicdev/core` entry.
+
+### @melodicdev/components
+
+- **Overlays:** `DialogRef.afterClosed` fires on Escape/backdrop dismiss; `afterOpened`/`afterClosed` accumulate callbacks; `DialogService` warns instead of throwing for unknown ids and no longer leaks listeners; dialog and popover emit `ml:open`/`ml:close`; drawer adds `ml:opened`/`ml:closed` and tokenized animation timing; popover traps focus; dropdown/date-picker no longer steal focus on pointer light-dismiss; shared `OverlayPositioner`/toggle-dismiss guard across popover, dropdown, select, autocomplete, date-picker; `:tooltip` directive redesigned (no reparenting, dynamic content updates, proper cleanup).
+- **Positioning utils:** `shift()` axes gate independently (mainAxis clamp off by default); `flip()` preserves `offset()`; `autoUpdate` runs an initial update; middleware data merges across middleware; `clickOutside` works across shadow boundaries; `focusTrap` works inside shadow DOM.
+- **Data display:** shared `TableCore` behind `ml-table`/`ml-data-grid`; table selection resets when rows change; `ml:select` emits row objects + original-order indices; avatar image-error fallback works; calendar-view uses one local-time basis; data-grid clamps its page when rows shrink and column-resize no longer triggers sort.
+- **Forms:** autocomplete async race fixed (stale results ignored); select/autocomplete follow scroll/resize while open and implement the WAI-ARIA combobox pattern; radio group has roving-tabindex arrow navigation and emits a single `ml:change`; form-field re-syncs ARIA on every render; `ml-button` submits/resets real forms and drops its redundant host role; checkbox/toggle/button-group support `error`; date-picker uses a text input (single picker); slider fill derives from the thumb-size token; `ml-file-upload` binds to `:formControl`.
+- **A11y:** progress exposes `role="progressbar"` on all shapes with clamped values; tooltips show on keyboard focus, dismiss on Escape, and wire `aria-describedby`; tabs/steps keep focus through selection changes and slotted-mode arrows move focus; interactive list items are keyboard-operable; `announce()` queues messages; icon ligatures are `aria-hidden`.
+- **Consistency:** dismissal standardized on `ml:dismiss` (tag's `ml:close`, file-upload's `ml:remove` deprecated); internal coordination events no longer leak past their parent; reserved `title` attributes migrated to prefixed names (`alert-title`, `toast-title`, `hero-title`, `header-title`, `section-title`, `page-title`) with deprecation shims; `error` is the canonical status variant (`danger` deprecated alias); per-component size types match implemented styles; kebab-case attributes (`dot-color`, `avatar-src`, `sidebar-collapsed`, …) now actually reach their properties; slot presence is reactive across card, list-item, activity-feed-item, page-header, page-section, divider, and the page components.
+- **Theme:** `createTheme`/`injectTheme` validate names and values (CSS-injection guard); `createBrandTheme` supports `mode: 'dark'`.
+
+### @melodicdev/cli
+
+- **Security:** generate/add names are validated (`^[a-z][a-z0-9-]*$` after kebab-casing; path separators and `..` rejected in names and `--path`); hyphen-less component names auto-prefix `app-`.
+- **Monorepo scaffolding rebuilt:** libs are npm workspace packages (`@<repo>/<name>`) with `exports` maps — tsconfig and Vite resolve identically; fresh `init --monorepo` builds out of the box; `add app`/`add lib` require a workspaces root and stay consistent with the seeded app (`monorepo-app` template).
+- **Generators:** components generate the directory + barrel structure; v2-correct interceptor template; new `generate guard`/`generate resolver`; `--dry-run`/`--force`; atomic generation with prechecks; JSONC-tolerant tsconfig edits; strict `util.parseArgs` argument handling.
+- **Templates:** dependencies pinned (`@melodicdev/core` `^2.0.0` until 3.0.0 is published — bump on release; current Vite); `@types/node` added; starter-app `repeat` keys by id; dead `templates/basic` removed; README rewritten.
+- **Tests:** new vitest suite (40 tests) covering generated trees, validation, and scaffold invariants.
+
+### Infrastructure
+
+- GitHub Actions CI: per-package typecheck/test/build plus a scaffold smoke test (`melodic init` → `npm run build` for basic and monorepo projects).
+- `engines: { node: ">=20.19.0" }` on all published packages. `@melodicdev/components`' `@melodicdev/core` peer range and the CLI templates' pin are `^3.0.0` (components 3.0 runtime-requires core 3.0's `propertyTypes` support); locally the peer resolves to the workspace root via a `file:../..` devDependency, so installs work before core 3.0.0 is on the registry. **Publish order:** core first, then components/CLI. `sideEffects: false` was evaluated and deliberately NOT set — importing component modules registers custom elements (inherently side-effectful).
+
+## 2.0.3
+
+### @melodicdev/components
+
+- Fixed table row divider collapsing layout on hover.
+
+## 2.0.2
+
+### @melodicdev/core
+
+- Restored host exposure of public computed getters.
+
+### @melodicdev/components
+
+- Version aligned with the core getter-exposure fix.
+
+## 2.0.1
+
+### @melodicdev/core
+
+- Fixed overly-strict `HttpClient` request body type.
+
+### @melodicdev/components
+
+- Fixed `DialogService` dropping registration on inline dialog re-render.
+
 ## 2.0.0
 
 Major hardening release across the core framework and component library.

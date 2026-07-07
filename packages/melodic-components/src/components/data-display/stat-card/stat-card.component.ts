@@ -2,6 +2,7 @@ import { MelodicComponent } from '@melodicdev/core';
 import type { IElementRef } from '@melodicdev/core';
 import { statCardTemplate } from './stat-card.template.js';
 import { statCardStyles } from './stat-card.styles.js';
+import { defineLegacyAliases } from '../../../functions/index.js';
 
 type TrendDirection = 'up' | 'down' | 'neutral';
 type ValueFont = 'serif' | 'sans';
@@ -47,15 +48,23 @@ export class StatCardComponent implements IElementRef {
 	/** Trend text (e.g. "+6 this month") */
 	public trend = '';
 
-	/** Trend direction for styling */
-	public 'trend-direction': TrendDirection = 'neutral';
+	/** Trend direction for styling (attribute: trend-direction) */
+	public trendDirection: TrendDirection = 'neutral';
 
 	/** Icon name (Phosphor icon) */
 	public icon = '';
 
-	/** Icon color — CSS color value or token */
-	public 'icon-color' = '';
+	/** Icon color — CSS color value or token (attribute: icon-color) */
+	public iconColor = '';
 
-	/** Value font family */
-	public 'value-font': ValueFont = 'serif';
+	/** Value font family (attribute: value-font) */
+	public valueFont: ValueFont = 'serif';
 }
+
+// Deprecated quoted kebab-case property aliases (warn once on first write;
+// removed in the next major release).
+defineLegacyAliases(StatCardComponent.prototype, 'ml-stat-card', {
+	'trend-direction': 'trendDirection',
+	'icon-color': 'iconColor',
+	'value-font': 'valueFont'
+});

@@ -2,20 +2,32 @@ import { css } from '@melodicdev/core';
 
 export const tooltipStyles = () => css`
 	:host {
-		/* Tooltip content */
+		/* ── Tooltip: content ──
+		   --ml-tooltip-max-width, --ml-tooltip-padding-y, --ml-tooltip-padding-x,
+		   --ml-tooltip-color, --ml-tooltip-font-size, --ml-tooltip-font-weight,
+		   --ml-tooltip-line-height, --ml-tooltip-radius, --ml-tooltip-shadow,
+		   --ml-tooltip-z-index, --ml-tooltip-transition-duration,
+		   --ml-tooltip-transition-easing
+		   ── Tooltip: arrow ──
+		   --ml-tooltip-arrow-size
+		   ── Theme-level ──
+		   --ml-tooltip-bg / --ml-tooltip-text are defined by the THEME (light and
+		   dark presets) and intentionally NOT re-declared here: shadowing
+		   --ml-tooltip-bg on :host would override the theme's dark value and
+		   consumer overrides, and a same-name alias would be self-referential.
+		   Rules reference var(--ml-tooltip-bg, fallback) directly. */
 		--ml-tooltip-max-width: 320px;
 		--ml-tooltip-padding-y: var(--ml-space-2);
 		--ml-tooltip-padding-x: var(--ml-space-3);
-		/* bg/color derive from the global tooltip theme tokens; referencing
-		   --ml-tooltip-bg here would be self-referential (invalid → transparent). */
-		--ml-tooltip-bg: var(--ml-color-neutral-900, var(--ml-gray-900));
 		--ml-tooltip-color: var(--ml-tooltip-text, var(--ml-white));
 		--ml-tooltip-font-size: var(--ml-text-xs);
 		--ml-tooltip-font-weight: var(--ml-font-medium);
 		--ml-tooltip-line-height: var(--ml-leading-snug);
 		--ml-tooltip-radius: var(--ml-radius);
 		--ml-tooltip-shadow: var(--ml-shadow-lg);
-		--ml-tooltip-transition: var(--ml-duration-150) var(--ml-ease-out);
+		--ml-tooltip-z-index: 9999;
+		--ml-tooltip-transition-duration: var(--ml-duration-150);
+		--ml-tooltip-transition-easing: var(--ml-ease-out);
 
 		/* Arrow */
 		--ml-tooltip-arrow-size: 8px;
@@ -34,10 +46,10 @@ export const tooltipStyles = () => css`
 
 	.ml-tooltip__content {
 		position: fixed;
-		z-index: 9999;
+		z-index: var(--ml-tooltip-z-index);
 		max-width: var(--ml-tooltip-max-width);
 		padding: var(--ml-tooltip-padding-y) var(--ml-tooltip-padding-x);
-		background-color: var(--ml-tooltip-bg);
+		background-color: var(--ml-tooltip-bg, var(--ml-gray-900));
 		color: var(--ml-tooltip-color);
 		font-size: var(--ml-tooltip-font-size);
 		font-weight: var(--ml-tooltip-font-weight);
@@ -50,8 +62,8 @@ export const tooltipStyles = () => css`
 		opacity: 0;
 		transform: scale(0.95);
 		transition:
-			opacity var(--ml-tooltip-transition),
-			transform var(--ml-tooltip-transition);
+			opacity var(--ml-tooltip-transition-duration) var(--ml-tooltip-transition-easing),
+			transform var(--ml-tooltip-transition-duration) var(--ml-tooltip-transition-easing);
 	}
 
 	.ml-tooltip__content--visible {
@@ -63,7 +75,7 @@ export const tooltipStyles = () => css`
 		position: absolute;
 		width: var(--ml-tooltip-arrow-size);
 		height: var(--ml-tooltip-arrow-size);
-		background-color: var(--ml-tooltip-bg);
+		background-color: var(--ml-tooltip-bg, var(--ml-gray-900));
 		transform: rotate(45deg);
 	}
 

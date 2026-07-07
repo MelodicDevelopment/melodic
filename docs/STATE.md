@@ -147,12 +147,15 @@ export class TodoListComponent {
 
 ## Selectors and Lifetime
 
-`select(key, selectFn, cacheKey?)` is component-scope-aware. When called from a component (template render, `onCreate`, or a class-field initializer), the returned signal is:
+`select(key, selectFn, cacheKey?)` is component-scope-aware. When called from a component, the returned signal is cached per component, keyed by `(key, cacheKey ?? selectFn identity)` — distinct closures never collide, even when their source text is identical. The entry's lifetime depends on where the call happens:
 
-- **Cached** for the component's lifetime, keyed by `(key, cacheKey ?? selectFn.toString())`. Repeated calls with the same key + selector source return the same `Signal` reference.
-- **Auto-destroyed** on `disconnectedCallback`, so the underlying `SignalEffect` unsubscribes from upstream state and the dependency graph shrinks back. No manual cleanup required.
+- **Class-field initializer or `onCreate`** — cached for the component's lifetime and auto-destroyed on `disconnectedCallback`, so the underlying subscription unsubscribes from upstream state and the dependency graph shrinks back. Holding the signal in a field also makes it a reactive source: the component re-renders when it changes.
 
-This means the common pattern below is safe: every render reads the getter, but only one computed exists per `(key, selector)` per component, and it dies with the component.
+```typescript
+todos = this.store.select('todos', (s) => s.todos);
+```
+
+- **During a render** (a template expression, or a getter the template reads) — render-scoped: the component re-renders when the selected value changes, and the entry is destroyed by the first render that stops using it. An inline arrow is recreated each render, so its captured variables are always current, and the previous render's computed is swept — nothing accumulates.
 
 ```typescript
 get account() {
@@ -160,21 +163,16 @@ get account() {
 }
 ```
 
-### Closure-capture caveat
+### `cacheKey`
 
-The default cache key is `selectFn.toString()`. If your selector captures a variable that affects its return value, two calls with different captured values will hash to the same key and collide:
-
-```typescript
-// BAD — `perm` is captured; toString() ignores it, second call returns the cached signal for the first `perm`.
-const has = this.store.select('account', (s) => s.permissions?.includes(perm))();
-```
-
-Pass an explicit `cacheKey` to discriminate:
+Because the default key is the selector function's identity, an inline arrow misses the cache every render and pays a computed re-creation (the stale one is swept, so this is safe but not free). Hold selectors in stable references, or pass an explicit `cacheKey`, to get cache hits across renders — including for selectors that capture variables:
 
 ```typescript
-// GOOD — cacheKey distinguishes calls for different `perm` values.
+// Cache hit across renders per `perm` value.
 const has = this.store.select('account', (s) => s.permissions?.includes(perm), `perm:${perm}`)();
 ```
+
+`cacheKey` is caller intent: two calls with the same key on the same slice share one signal even if their selector functions differ, so make the key unique per distinct projection.
 
 Or keep selectors pure and parameterize in the consumer:
 

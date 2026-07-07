@@ -6,6 +6,8 @@
  */
 
 import type { TemplateResult } from '../../classes/template-result.class';
+import type { RenderedContainer } from '../../interfaces/irendered-container.interface';
+import { disposeContainerParts } from '../../functions/dispose.functions';
 import { directive } from '../functions/directive.function';
 import { type IDirectiveResult } from '../interfaces/idirective-result.interface';
 
@@ -17,6 +19,8 @@ interface WhenState {
 	startMarker: Comment;
 	endMarker: Comment;
 	nodes: Node[];
+	/** Disposal contract (see IDirectiveState) — releases the rendered branch's part tree. */
+	__dispose: () => void;
 }
 
 /**
@@ -56,7 +60,13 @@ export function when(
 				container: null,
 				startMarker,
 				endMarker,
-				nodes: []
+				nodes: [],
+				__dispose: () => {
+					if (state.container) {
+						disposeContainerParts(state.container);
+						state.container = null;
+					}
+				}
 			};
 
 			if (condition) {
@@ -93,24 +103,16 @@ export function when(
 		}
 		// Condition still true - update template
 		else if (condition && previousState.condition) {
-			const newTemplate = template();
-			if (previousState.container) {
-				newTemplate.renderInto(previousState.container);
-			}
-			previousState.template = newTemplate;
+			updateContent(previousState, template(), true);
 		}
 		// Condition still false - update false template if provided
 		else if (!condition && !previousState.condition && falseTemplate) {
-			const newFalseTemplate = falseTemplate();
-			if (previousState.container) {
-				newFalseTemplate.renderInto(previousState.container);
-			}
-			previousState.falseTemplate = newFalseTemplate;
+			updateContent(previousState, falseTemplate(), false);
 		}
 
 		previousState.condition = condition;
 		return previousState;
-	});
+	}, 'when');
 }
 
 function renderContent(state: WhenState, useTrueTemplate: boolean): void {
@@ -133,7 +135,44 @@ function renderContent(state: WhenState, useTrueTemplate: boolean): void {
 	}
 }
 
+/**
+ * Updates the currently rendered branch with a new template.
+ *
+ * Same template STRUCTURE (same tagged template literal) updates the existing
+ * DOM in place. A different structure (e.g. the branch function itself returns
+ * different templates conditionally) cannot be diffed against the detached
+ * container — the old content is disposed and the new template is rendered
+ * fresh between the markers.
+ */
+function updateContent(state: WhenState, newTemplate: TemplateResult, useTrueTemplate: boolean): void {
+	const container = state.container as RenderedContainer<DocumentFragment> | null;
+
+	if (container && container.__templateKey === newTemplate.templateKey) {
+		newTemplate.renderInto(container);
+	} else {
+		removeContent(state);
+		if (useTrueTemplate) {
+			state.template = newTemplate;
+		} else {
+			state.falseTemplate = newTemplate;
+		}
+		renderContent(state, useTrueTemplate);
+	}
+
+	if (useTrueTemplate) {
+		state.template = newTemplate;
+	} else {
+		state.falseTemplate = newTemplate;
+	}
+}
+
 function removeContent(state: WhenState): void {
+	// Recursively dispose the removed branch's part tree so directive/action
+	// cleanups (e.g. :formControl subscriptions) run before the nodes go away.
+	if (state.container) {
+		disposeContainerParts(state.container);
+	}
+
 	for (const node of state.nodes) {
 		node.parentNode?.removeChild(node);
 	}

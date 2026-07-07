@@ -1,10 +1,17 @@
-import type { IRequestConfig } from '../interfaces';
 import type { IHttpResponse } from '../interfaces/ihttp-response.interface';
 import type { HttpRequestBody } from '../types/http-request-body.type';
 
 interface IPendingRequest<T = any> {
+	/** The fully-interceptored response promise shared by all participants. */
 	promise: Promise<IHttpResponse<T>>;
+	/** Controls the single underlying fetch. */
 	abortController: AbortController;
+	/**
+	 * Number of participants still interested in the response. Participants
+	 * that joined without an abort signal can never leave, which (correctly)
+	 * keeps the underlying request alive forever.
+	 */
+	remainingParticipants: number;
 }
 
 export class RequestManager {
@@ -21,31 +28,53 @@ export class RequestManager {
 		return key;
 	}
 
-	public hasPendingRequest(key: string): boolean {
-		return this._pendingRequests.has(key);
-	}
-
-	public getPendingRequest<T = any>(key: string): Promise<IHttpResponse<T>> | null {
+	/**
+	 * Joins an in-flight request as an additional participant. The caller's
+	 * abort signal is ref-counted: the underlying request is aborted only when
+	 * EVERY participant has aborted.
+	 *
+	 * Returns the shared (post-interceptor) response promise, or null when no
+	 * request is pending for the key.
+	 */
+	public joinPendingRequest<T = any>(key: string, signal?: AbortSignal): Promise<IHttpResponse<T>> | null {
 		const pending = this._pendingRequests.get(key);
 
 		if (!pending) {
 			return null;
 		}
 
-		return pending.promise;
+		this.registerParticipant(pending, signal);
+		return pending.promise as Promise<IHttpResponse<T>>;
 	}
 
-	public addPendingRequest<T = any>(requestConfig: IRequestConfig, promise: Promise<IHttpResponse<T>>): void {
-		const key = this.generateRequestKey(requestConfig.method || 'GET', requestConfig.url || '', requestConfig.body as BodyInit | null);
-
-		this._pendingRequests.set(key, {
+	/**
+	 * Registers a new shared request. `promise` must be the post-interceptor
+	 * promise so late joiners never re-run response interceptors.
+	 */
+	public addPendingRequest<T = any>(
+		key: string,
+		promise: Promise<IHttpResponse<T>>,
+		abortController: AbortController,
+		signal?: AbortSignal
+	): Promise<IHttpResponse<T>> {
+		const pending: IPendingRequest<T> = {
 			promise,
-			abortController: requestConfig.abortController!
-		});
+			abortController,
+			remainingParticipants: 0
+		};
 
-		promise.finally(() => {
-			this.removePendingRequest(key);
-		});
+		this._pendingRequests.set(key, pending);
+		this.registerParticipant(pending, signal);
+
+		// Participants consume the promise through their own per-caller wrappers;
+		// when every caller aborts early, nobody is left to observe the shared
+		// rejection — observe it here so it never surfaces as unhandled.
+		promise.then(
+			() => this.removePendingRequest(key),
+			() => this.removePendingRequest(key)
+		);
+
+		return promise;
 	}
 
 	public cancelPendingRequest(key: string, reason?: string): void {
@@ -65,13 +94,29 @@ export class RequestManager {
 		this._pendingRequests.clear();
 	}
 
-	private removePendingRequest(key: string): void {
-		const pending = this._pendingRequests.get(key);
+	private registerParticipant(pending: IPendingRequest, signal?: AbortSignal): void {
+		pending.remainingParticipants++;
 
-		if (!pending) {
+		if (!signal) {
+			// No way for this participant to abort — it holds the request open.
 			return;
 		}
 
+		const leave = (): void => {
+			pending.remainingParticipants--;
+			if (pending.remainingParticipants === 0) {
+				pending.abortController.abort(signal.reason);
+			}
+		};
+
+		if (signal.aborted) {
+			leave();
+		} else {
+			signal.addEventListener('abort', leave, { once: true });
+		}
+	}
+
+	private removePendingRequest(key: string): void {
 		this._pendingRequests.delete(key);
 	}
 

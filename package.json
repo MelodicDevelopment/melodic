@@ -1,7 +1,7 @@
 {
 	"name": "@melodicdev/core",
 	"private": false,
-	"version": "2.0.2",
+	"version": "3.0.0",
 	"description": "A lightweight, modern web component framework built on native browser APIs.",
 	"license": "MIT",
 	"repository": {
@@ -20,6 +20,9 @@
 		"templates"
 	],
 	"type": "module",
+	"engines": {
+		"node": ">=20.19.0"
+	},
 	"files": [
 		"lib",
 		"bundle",

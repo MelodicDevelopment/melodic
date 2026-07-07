@@ -1,6 +1,7 @@
 export * from './bootstrap';
 export * from './components';
 export * from './config';
+export * from './forms';
 export * from './http';
 export * from './injection';
 export * from './interfaces';

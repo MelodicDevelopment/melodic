@@ -8,7 +8,7 @@ All framework utilities are available directly from the CDN bundle — no npm, n
 
 ```html
 <script type="module">
-  import { signal, computed, html, applyTheme } from 'https://unpkg.com/@melodicdev/core@1.3.2/bundle/melodic-core.min.js';
+  import { signal, computed, html, applyTheme } from 'https://unpkg.com/@melodicdev/core@3/bundle/melodic-core.min.js';
 
   const count = signal(0);
   const doubled = computed(() => count() * 2);
@@ -25,9 +25,9 @@ For a complete no-build UI solution, use `@melodicdev/components` instead — it
 
 ```html
 <link melodic-styles rel="stylesheet"
-      href="https://unpkg.com/@melodicdev/components@1.0.4/assets/melodic-components.min.css">
+      href="https://unpkg.com/@melodicdev/components@3/assets/melodic-components.min.css">
 <script type="module"
-        src="https://unpkg.com/@melodicdev/components@1.0.4/assets/melodic-components.min.js"></script>
+        src="https://unpkg.com/@melodicdev/components@3/assets/melodic-components.min.js"></script>
 ```
 
 See the [`@melodicdev/components` README](./packages/melodic-components/README.md) for full CDN usage details.

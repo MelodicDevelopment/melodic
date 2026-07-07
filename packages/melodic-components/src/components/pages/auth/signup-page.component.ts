@@ -2,6 +2,7 @@ import { MelodicComponent } from '@melodicdev/core';
 import type { IElementRef } from '@melodicdev/core';
 import { signupPageTemplate } from './signup-page.template.js';
 import { signupPageStyles } from './signup-page.styles.js';
+import { warnDeprecatedTitleOnce } from '../../../functions/index.js';
 
 /**
  * ml-signup-page - A full-page signup/registration component
@@ -36,7 +37,7 @@ import { signupPageStyles } from './signup-page.styles.js';
 	selector: 'ml-signup-page',
 	template: signupPageTemplate,
 	styles: signupPageStyles,
-	attributes: ['variant', 'title', 'description']
+	attributes: ['variant', 'page-title', 'title', 'description']
 })
 export class SignupPageComponent implements IElementRef {
 	public elementRef!: HTMLElement;
@@ -44,18 +45,31 @@ export class SignupPageComponent implements IElementRef {
 	/** Layout variant */
 	public variant: 'centered' | 'split' = 'centered';
 
-	/** Page title */
-	public title = 'Create an account';
+	/** Page title (attribute: page-title) */
+	public pageTitle = 'Create an account';
 
 	/** Page description */
 	public description = 'Start your journey today.';
 
-	/** Check if header slot has content */
+	/** @deprecated Use `pageTitle` (attribute `page-title`); `title` collides with the global HTML attribute. */
+	public get title(): string {
+		return this.pageTitle;
+	}
+	public set title(value: string) {
+		warnDeprecatedTitleOnce('ml-signup-page', 'page-title');
+		this.pageTitle = value;
+	}
+
+	/**
+	 * Whether the header slot has content. The template no longer reads this at
+	 * render time (it uses native slot fallback, which stays reactive on its
+	 * own); this is a live query kept for imperative consumers.
+	 */
 	public get hasHeaderSlot(): boolean {
 		return this.elementRef?.querySelector('[slot="header"]') !== null;
 	}
 
-	/** Check if brand slot has content */
+	/** Whether the brand slot has content (live query for imperative consumers). */
 	public get hasBrandSlot(): boolean {
 		return this.elementRef?.querySelector('[slot="brand"]') !== null;
 	}

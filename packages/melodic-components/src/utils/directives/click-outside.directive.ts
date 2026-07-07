@@ -6,10 +6,11 @@
  */
 export function clickOutside(element: HTMLElement, callback: (event: MouseEvent) => void): () => void {
 	function handleClick(event: MouseEvent): void {
-		const target = event.target as Node;
-
-		// Check if click is outside the element
-		if (!element.contains(target)) {
+		// event.target is retargeted to the outer host at the document level, so
+		// element.contains() misreports clicks INSIDE shadow-hosted content as
+		// outside. composedPath() includes every node the event passed through,
+		// across shadow boundaries.
+		if (!event.composedPath().includes(element)) {
 			callback(event);
 		}
 	}

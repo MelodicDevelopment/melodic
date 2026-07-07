@@ -42,5 +42,5 @@ export function styleMap(styles: Record<string, string | number | undefined>): I
 		}
 
 		return currentStyles;
-	});
+	}, 'styleMap');
 }

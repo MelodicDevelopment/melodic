@@ -1,5 +1,6 @@
 import { MelodicComponent } from '@melodicdev/core';
-import type { IElementRef } from '@melodicdev/core';
+import type { IElementRef, OnCreate, OnRender } from '@melodicdev/core';
+import { newID } from '../../../functions/new-id.function.js';
 import { dropdownItemTemplate } from './dropdown-item.template.js';
 import { dropdownItemStyles } from './dropdown-item.styles.js';
 
@@ -21,7 +22,7 @@ import { dropdownItemStyles } from './dropdown-item.styles.js';
 	styles: dropdownItemStyles,
 	attributes: ['value', 'icon', 'addon', 'disabled', 'destructive']
 })
-export class DropdownItemComponent implements IElementRef {
+export class DropdownItemComponent implements IElementRef, OnCreate, OnRender {
 	public elementRef!: HTMLElement;
 
 	/** Selection value emitted on click */
@@ -41,6 +42,26 @@ export class DropdownItemComponent implements IElementRef {
 
 	/** Set by parent dropdown for keyboard navigation highlight */
 	public focused = false;
+
+	public onCreate(): void {
+		// The host carries the menuitem semantics: it lives in the same (light
+		// DOM) tree as the dropdown trigger, so its id is a valid
+		// aria-activedescendant reference for the trigger.
+		if (!this.elementRef.id) {
+			this.elementRef.id = newID();
+		}
+		this.elementRef.setAttribute('role', 'menuitem');
+		this.elementRef.setAttribute('tabindex', '-1');
+		this.syncHostAria();
+	}
+
+	public onRender(): void {
+		this.syncHostAria();
+	}
+
+	private syncHostAria(): void {
+		this.elementRef.setAttribute('aria-disabled', String(this.disabled));
+	}
 
 	public handleClick = (): void => {
 		if (this.disabled) return;

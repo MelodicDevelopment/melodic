@@ -18,7 +18,7 @@ export function selectTemplate(c: SelectComponent) {
 			${when(
 				!!c.label,
 				() => html`
-					<label class="ml-select__label">
+					<label id=${c.labelId} class="ml-select__label">
 						${c.label}
 						${when(c.required, () => html`<span class="ml-select__required">*</span>`)}
 					</label>
@@ -32,7 +32,9 @@ export function selectTemplate(c: SelectComponent) {
 					tabindex=${c.disabled ? '-1' : '0'}
 					aria-haspopup="listbox"
 					aria-expanded=${c.isOpen}
-					aria-labelledby=${c.label ? 'label' : ''}
+					aria-controls=${c.listboxId}
+					aria-activedescendant=${c.activeDescendant}
+					aria-labelledby=${c.label ? c.labelId : undefined}
 					@click=${c.toggle}
 				>
 					<span class="ml-select__value">
@@ -46,6 +48,7 @@ export function selectTemplate(c: SelectComponent) {
 				</div>
 
 				<div
+					id=${c.listboxId}
 					class="ml-select__dropdown"
 					role="listbox"
 					popover="auto"
@@ -120,6 +123,7 @@ function renderOption(c: SelectComponent, option: SelectOption, index: number) {
 
 	return html`
 		<div
+			id=${c.optionId(index)}
 			class=${classMap({
 				'ml-select__option': true,
 				'ml-select__option--selected': isSelected,

@@ -1009,7 +1009,7 @@ export const demoAppTemplate = (c: DemoApp) => {
 															status=${f.status}
 															progress=${f.progress}
 															error=${f.error}
-															@ml:remove=${c.handleFileRemove}
+															@ml:dismiss=${c.handleFileRemove}
 															@ml:retry=${c.handleFileRetry}
 														></ml-file-upload-item>
 													`
@@ -2574,13 +2574,13 @@ const routes = [
 						</div>
 
 						<ml-stack gap="4">
-							<ml-alert variant="info" title="Information"> This is an informational message for the user. </ml-alert>
+							<ml-alert variant="info" alert-title="Information"> This is an informational message for the user. </ml-alert>
 
-							<ml-alert variant="success" title="Success"> Your changes have been saved successfully. </ml-alert>
+							<ml-alert variant="success" alert-title="Success"> Your changes have been saved successfully. </ml-alert>
 
-							<ml-alert variant="warning" title="Warning"> Please review your input before proceeding. </ml-alert>
+							<ml-alert variant="warning" alert-title="Warning"> Please review your input before proceeding. </ml-alert>
 
-							<ml-alert variant="error" title="Error" dismissible> There was an error processing your request. </ml-alert>
+							<ml-alert variant="error" alert-title="Error" dismissible> There was an error processing your request. </ml-alert>
 						</ml-stack>
 					</section>
 
@@ -2615,10 +2615,10 @@ const routes = [
 								<h3>Static Examples</h3>
 							</div>
 							<ml-stack gap="3">
-								<ml-toast variant="info" title="Update available" message="A new version is ready to install." duration="0"></ml-toast>
-								<ml-toast variant="success" title="File uploaded" message="document.pdf was uploaded successfully." duration="0"></ml-toast>
-								<ml-toast variant="warning" title="Low storage" message="You have less than 100MB remaining." duration="0"></ml-toast>
-								<ml-toast variant="error" title="Connection lost" message="Please check your internet connection." duration="0"></ml-toast>
+								<ml-toast variant="info" toast-title="Update available" message="A new version is ready to install." duration="0"></ml-toast>
+								<ml-toast variant="success" toast-title="File uploaded" message="document.pdf was uploaded successfully." duration="0"></ml-toast>
+								<ml-toast variant="warning" toast-title="Low storage" message="You have less than 100MB remaining." duration="0"></ml-toast>
+								<ml-toast variant="error" toast-title="Connection lost" message="Please check your internet connection." duration="0"></ml-toast>
 							</ml-stack>
 						</div>
 					</section>
@@ -3199,7 +3199,7 @@ const routes = [
 								<span class="demo-card__badge">Title + Actions</span>
 							</div>
 							<div style="border: var(--ml-border) solid var(--ml-color-border); border-radius: var(--ml-radius-lg); overflow: hidden;">
-								<ml-page-header title="Team Members" description="Manage your team members and their account permissions here.">
+								<ml-page-header header-title="Team Members" description="Manage your team members and their account permissions here.">
 									<ml-breadcrumb slot="breadcrumb">
 										<ml-breadcrumb-item href="#">Home</ml-breadcrumb-item>
 										<ml-breadcrumb-item href="#">Settings</ml-breadcrumb-item>
@@ -3219,7 +3219,7 @@ const routes = [
 								<span class="demo-card__badge">Less padding</span>
 							</div>
 							<div style="border: var(--ml-border) solid var(--ml-color-border); border-radius: var(--ml-radius-lg); overflow: hidden;">
-								<ml-page-header variant="compact" title="Settings" description="Manage your account settings.">
+								<ml-page-header variant="compact" header-title="Settings" description="Manage your account settings.">
 									<ml-button slot="actions" variant="outline" size="sm">Cancel</ml-button>
 									<ml-button slot="actions" variant="primary" size="sm">Save Changes</ml-button>
 								</ml-page-header>
@@ -3234,7 +3234,7 @@ const routes = [
 							<div style="border: var(--ml-border) solid var(--ml-color-border); border-radius: var(--ml-radius-lg); overflow: hidden;">
 								<ml-page-header
 									variant="centered"
-									title="Welcome to Your Dashboard"
+									header-title="Welcome to Your Dashboard"
 									description="Here you can manage all of your projects, team members, and settings."
 								>
 									<ml-button slot="actions" variant="primary">Get Started</ml-button>
@@ -3248,7 +3248,7 @@ const routes = [
 								<span class="demo-card__badge">Badges + status</span>
 							</div>
 							<div style="border: var(--ml-border) solid var(--ml-color-border); border-radius: var(--ml-radius-lg); overflow: hidden;">
-								<ml-page-header title="Project Alpha" description="Mobile app redesign for Q1 2026">
+								<ml-page-header header-title="Project Alpha" description="Mobile app redesign for Q1 2026">
 									<ml-badge slot="meta" variant="success" size="sm">Active</ml-badge>
 									<ml-badge slot="meta" variant="default" size="sm">v2.1.0</ml-badge>
 									<ml-button slot="actions" variant="outline" size="sm"> <ml-icon icon="gear" size="sm"></ml-icon>Settings </ml-button>
@@ -3263,7 +3263,7 @@ const routes = [
 							<div
 								style="border: var(--ml-border) solid var(--ml-color-border); border-radius: var(--ml-radius-lg); overflow: hidden; background: var(--ml-color-surface-secondary);"
 							>
-								<ml-page-header title="Notifications" divider="false"></ml-page-header>
+								<ml-page-header header-title="Notifications" divider="false"></ml-page-header>
 							</div>
 						</div>
 					</section>
@@ -3494,7 +3494,7 @@ const routes = [
 							<div
 								style="height: 600px; border: var(--ml-border) solid var(--ml-color-border); border-radius: var(--ml-radius-lg); overflow: hidden;"
 							>
-								<ml-dashboard-page title="Dashboard" description="Overview of your account activity.">
+								<ml-dashboard-page page-title="Dashboard" description="Overview of your account activity.">
 									<div
 										slot="sidebar"
 										style="padding: var(--ml-space-4); background: var(--ml-color-surface); border-right: var(--ml-border) solid var(--ml-color-border); height: 100%; box-sizing: border-box; font-family: var(--ml-font-sans);"
@@ -3675,7 +3675,7 @@ const routes = [
 								<h3>With Subtitle & Action</h3>
 							</div>
 							<div>
-								<ml-page-section title="Recent Activity" subtitle="Last 7 days" action-label="View All" action-href="#">
+								<ml-page-section section-title="Recent Activity" subtitle="Last 7 days" action-label="View All" action-href="#">
 									<ml-activity-feed>
 										<ml-activity-feed-item name="John Doe" timestamp="2 hours ago" avatar-initials="JD">
 											Joined the Sunday worship team
@@ -3694,22 +3694,22 @@ const routes = [
 								<span class="demo-card__badge">4 sizes</span>
 							</div>
 							<div style="display: flex; flex-direction: column; gap: var(--ml-space-6);">
-								<ml-page-section title="No Padding" padding="none">
+								<ml-page-section section-title="No Padding" padding="none">
 									<p style="font-family: var(--ml-font-sans); font-size: var(--ml-text-sm); color: var(--ml-color-text-secondary);">
 										Content with no padding.
 									</p>
 								</ml-page-section>
-								<ml-page-section title="Small Padding" padding="sm">
+								<ml-page-section section-title="Small Padding" padding="sm">
 									<p style="font-family: var(--ml-font-sans); font-size: var(--ml-text-sm); color: var(--ml-color-text-secondary);">
 										Content with small padding.
 									</p>
 								</ml-page-section>
-								<ml-page-section title="Medium Padding (Default)" padding="md">
+								<ml-page-section section-title="Medium Padding (Default)" padding="md">
 									<p style="font-family: var(--ml-font-sans); font-size: var(--ml-text-sm); color: var(--ml-color-text-secondary);">
 										Content with medium padding.
 									</p>
 								</ml-page-section>
-								<ml-page-section title="Large Padding" padding="lg">
+								<ml-page-section section-title="Large Padding" padding="lg">
 									<p style="font-family: var(--ml-font-sans); font-size: var(--ml-text-sm); color: var(--ml-color-text-secondary);">
 										Content with large padding.
 									</p>

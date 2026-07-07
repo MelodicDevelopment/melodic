@@ -4,7 +4,7 @@ import type { ButtonComponent } from './button.component.js';
 export function buttonTemplate(c: ButtonComponent) {
 	const classes = classMap({
 		'ml-button': true,
-		[`ml-button--${c.variant}`]: true,
+		[`ml-button--${c.resolvedVariant}`]: true,
 		[`ml-button--${c.size}`]: true,
 		'ml-button--disabled': c.isDisabled,
 		'ml-button--loading': c.loading,

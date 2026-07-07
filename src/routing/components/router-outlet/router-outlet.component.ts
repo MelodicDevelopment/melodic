@@ -21,6 +21,14 @@ interface IOutletRegistration {
 	callback: (context: IRouteContext) => void;
 }
 
+/**
+ * Renders the component of the committed route at its depth.
+ *
+ * Outlets are dumb renderers: the whole match → guards → resolvers → commit
+ * pipeline lives in `RouterService`. The root outlet reacts to the router's
+ * committed-route signal; nested outlets receive their context from their
+ * parent outlet.
+ */
 @MelodicComponent({
 	selector: 'router-outlet',
 	template: () => html`<slot></slot>`
@@ -35,21 +43,13 @@ export class RouterOutletComponent {
 	private _childOutlets: Map<string, RouterOutletComponent> = new Map();
 	private _parentOutlet: RouterOutletComponent | null = null;
 	private _initialized = false;
-	private _navigationCleanup: (() => void) | null = null;
-	// Bumped on each render attempt so a slower one (after awaiting guards/
-	// resolvers/lazy loads) can detect it was superseded and stop before
-	// rendering a stale component over a newer navigation.
-	private _renderToken = 0;
+	private _routeSubscriptionCleanup: (() => void) | null = null;
 
 	public routes: IRoute[] = [];
 	public name: string = 'primary';
 	public elementRef!: HTMLElement;
 
 	public onInit(): void {
-		const handler = () => this.onNavigate();
-		window.addEventListener('NavigationEvent', handler);
-		this._navigationCleanup = () => window.removeEventListener('NavigationEvent', handler);
-
 		this.elementRef.addEventListener(OUTLET_REGISTER_EVENT, ((event: CustomEvent<IOutletRegistration>) => {
 			if (event.detail.outlet === this) {
 				return;
@@ -76,14 +76,26 @@ export class RouterOutletComponent {
 			if (this._parentOutlet) {
 				this.requestContextFromParent();
 			} else {
-				// Root outlet - initiate routing
-				this.onNavigate();
+				// Root outlet — render whatever the router pipeline commits.
+				this._routeSubscriptionCleanup = this._router.committedRoute.subscribe((result) => {
+					void this.renderCommitted(result ?? null);
+				});
+
+				const committed = this._router.committedRoute();
+				if (committed) {
+					// A navigation already committed (e.g. outlet re-created).
+					void this.renderCommitted(committed);
+				} else {
+					// Initiate routing for the current location.
+					void this._router.initialNavigation();
+				}
 			}
 		});
 	}
 
 	public onDestroy(): void {
-		this._navigationCleanup?.();
+		this._routeSubscriptionCleanup?.();
+		this._routeSubscriptionCleanup = null;
 
 		if (this._parentOutlet) {
 			this._parentOutlet.unregisterChildOutlet(this.name);
@@ -92,12 +104,13 @@ export class RouterOutletComponent {
 
 	public onPropertyChange(name: string): void {
 		if (name === 'routes' && this._initialized) {
-			// Routes changed - update router if root and re-render
+			this._currentComponent = null;
+
+			// Routes changed - update router if root and re-run the pipeline
 			if (this._depth === 0) {
 				this._router.setRoutes(this.routes);
+				void this._router.initialNavigation();
 			}
-			this._currentComponent = null;
-			this.onNavigate();
 		}
 	}
 
@@ -201,74 +214,23 @@ export class RouterOutletComponent {
 		};
 	}
 
-	private onNavigate(): void {
-		if (!this._initialized) {
+	/**
+	 * Render a committed match result (root outlet only). Guards and
+	 * resolvers already ran in the router pipeline — never re-run them here.
+	 */
+	private async renderCommitted(result: IRouteMatchResult | null): Promise<void> {
+		if (!this._initialized || !result) {
 			return;
 		}
 
-		if (this._depth === 0) {
-			// Root outlet - perform full route matching
-			this.matchAndRender(window.location.pathname);
-		}
-
-		// Nested outlets wait for context from parent
-	}
-
-	/**
-	 * Match the current path and render (root outlet only).
-	 */
-	private async matchAndRender(fullPath: string): Promise<void> {
-		const token = ++this._renderToken;
 		const routes = this.routes.length > 0 ? this.routes : this._router.getRoutes();
 
 		if (routes.length === 0) {
 			return;
 		}
 
-		const matchResult = matchRouteTree(routes, fullPath);
-
-		if (matchResult.redirectTo) {
-			if (window.location.pathname !== matchResult.redirectTo) {
-				this._router.navigate(matchResult.redirectTo, { replace: true });
-			}
-
-			return;
-		}
-
-		// Run guards before rendering (for initial page load)
-		if (matchResult.matches.length > 0) {
-			const guardResult = await this._router.runGuards(matchResult);
-			if (token !== this._renderToken) {
-				return;
-			}
-
-			if (guardResult !== true) {
-				if (typeof guardResult === 'string') {
-					this._router.navigate(guardResult, { replace: true, skipGuards: true });
-				}
-
-				return;
-			}
-		}
-
-		// Run resolvers before rendering (for initial page load)
-		if (matchResult.matches.length > 0) {
-			const resolverResult = await this._router.runResolvers(matchResult);
-			if (token !== this._renderToken) {
-				return;
-			}
-			if (!resolverResult.success) {
-				console.error('Resolver failed:', resolverResult.error);
-				await this.render404();
-
-				return;
-			}
-		}
-
-		this._router.setCurrentMatches(matchResult);
-
-		if (matchResult.matches.length > 0) {
-			const match = matchResult.matches[0];
+		if (result.matches.length > 0) {
+			const match = result.matches[0];
 
 			this._context = {
 				depth: 0,
@@ -281,7 +243,7 @@ export class RouterOutletComponent {
 				parent: undefined
 			};
 
-			await this.renderMatch(match, matchResult);
+			await this.renderMatch(match, result);
 		} else {
 			await this.render404();
 		}
@@ -396,7 +358,7 @@ export class RouterOutletComponent {
 
 		if (notFoundRoute?.component) {
 			await this.renderComponent(notFoundRoute.component);
-		} else if (this._depth === 0) {
+		} else if (this._depth === 0 && window.location.pathname !== '/404') {
 			this._router.navigate('/404', { replace: true });
 		}
 	}

@@ -57,6 +57,17 @@ export class ProgressComponent implements IElementRef {
 		return Math.min(Math.max((this.value / max) * 100, 0), 100);
 	}
 
+	/** Value clamped to the 0..max range — used for aria-valuenow so it never exceeds aria-valuemax */
+	public get clampedValue(): number {
+		const max = Math.max(this.max, 1);
+		return Math.min(Math.max(this.value, 0), max);
+	}
+
+	/** Maximum reported to assistive technology (floored at 1 like the visual math) */
+	public get ariaMax(): number {
+		return Math.max(this.max, 1);
+	}
+
 	public get displayValue(): string {
 		return `${Math.round(this.percentage)}%`;
 	}

@@ -8,13 +8,14 @@
 	],
 	"scripts": {
 		"dev": "vite apps/__APP_NAME__",
-		"build": "tsc -b tsconfig.build.json && vite build apps/__APP_NAME__",
+		"build": "tsc --noEmit && vite build apps/__APP_NAME__",
 		"preview": "vite preview apps/__APP_NAME__",
+		"typecheck": "tsc --noEmit",
 		"lint": "eslint .",
 		"lint:fix": "eslint . --fix"
 	},
 	"dependencies": {
-		"@melodicdev/core": "latest"
+		"@melodicdev/core": "^3.0.0"
 	},
 	"devDependencies": {
 		"@typescript-eslint/eslint-plugin": "^8.39.0",
@@ -23,6 +24,6 @@
 		"eslint": "^9.35.0",
 		"eslint-config-prettier": "^10.1.8",
 		"typescript": "~5.9.3",
-		"vite": "^5.4.0"
+		"vite": "^7.1.0"
 	}
 }

@@ -25,6 +25,14 @@ export type PaginationPage = { type: 'page'; value: number } | { type: 'ellipsis
 export class PaginationComponent implements IElementRef {
 	public elementRef!: HTMLElement;
 
+	// Attribute values are coerced to numbers declaratively by ComponentBase
+	// (no per-call Number() boilerplate needed in the getters/handlers below).
+	public static propertyTypes = {
+		page: 'number',
+		totalPages: 'number',
+		siblings: 'number'
+	} as const;
+
 	/** Current active page (1-based) */
 	public page = 1;
 
@@ -35,12 +43,20 @@ export class PaginationComponent implements IElementRef {
 	public siblings = 1;
 
 	public get pages(): PaginationPage[] {
-		const total = Math.max(1, Number(this.totalPages));
-		const current = Math.min(Math.max(1, Number(this.page)), total);
-		const siblings = Math.max(0, Number(this.siblings));
+		const total = Math.max(1, this.totalPages);
+		const current = Math.min(Math.max(1, this.page), total);
+		const siblings = Math.max(0, this.siblings);
 
 		const range = (start: number, end: number) =>
 			Array.from({ length: end - start + 1 }, (_, i): PaginationPage => ({ type: 'page', value: start + i }));
+
+		// A full layout is first + last + current + siblings on each side + one
+		// hidden page behind each ellipsis (2*siblings + 5 slots). When the total
+		// fits within that, an ellipsis would hide zero pages (or duplicate the
+		// boundary pages), so just render every page.
+		if (2 * siblings + 5 >= total) {
+			return range(1, total);
+		}
 
 		const leftSibling = Math.max(current - siblings, 1);
 		const rightSibling = Math.min(current + siblings, total);
@@ -72,17 +88,15 @@ export class PaginationComponent implements IElementRef {
 	}
 
 	public get hasPrevious(): boolean {
-		return Number(this.page) > 1;
+		return this.page > 1;
 	}
 
 	public get hasNext(): boolean {
-		return Number(this.page) < Number(this.totalPages);
+		return this.page < this.totalPages;
 	}
 
 	public goToPage = (page: number): void => {
-		const currentPage = Number(this.page);
-		const total = Number(this.totalPages);
-		if (page < 1 || page > total || page === currentPage) return;
+		if (page < 1 || page > this.totalPages || page === this.page) return;
 
 		this.page = page;
 		this.elementRef.dispatchEvent(
@@ -95,10 +109,10 @@ export class PaginationComponent implements IElementRef {
 	};
 
 	public previous = (): void => {
-		this.goToPage(Number(this.page) - 1);
+		this.goToPage(this.page - 1);
 	};
 
 	public next = (): void => {
-		this.goToPage(Number(this.page) + 1);
+		this.goToPage(this.page + 1);
 	};
 }

@@ -1,7 +1,7 @@
 import { MelodicComponent } from '@melodicdev/core';
 import type { IElementRef } from '@melodicdev/core';
 import { registerAdapter } from '@melodicdev/core/forms';
-import type { Size } from '../../../types/index.js';
+import type { ControlSize } from '../../../types/index.js';
 import { sliderTemplate } from './slider.template.js';
 import { sliderStyles } from './slider.styles.js';
 
@@ -50,7 +50,7 @@ export class SliderComponent implements IElementRef {
 	public step = 1;
 
 	/** Slider size */
-	public size: Size = 'md';
+	public size: ControlSize = 'md';
 
 	/** Disable the slider */
 	public disabled = false;
@@ -73,8 +73,12 @@ export class SliderComponent implements IElementRef {
 
 	/** CSS width for fill that matches native thumb position */
 	public get fillWidth(): string {
+		// The native thumb center travels from (thumb/2) to (100% - thumb/2), so
+		// the fill must extend by (0.5 - ratio) * thumb-size beyond ratio*100%.
+		// Derive it from the same token that sizes the thumb so themed thumb
+		// sizes keep the fill aligned.
 		const p = this.ratio;
-		return `calc(${p * 100}% + ${10 - p * 20}px)`;
+		return `calc(${p * 100}% + ${0.5 - p} * var(--ml-slider-thumb-size))`;
 	}
 
 	public handleInput = (event: Event): void => {

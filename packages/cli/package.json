@@ -1,6 +1,6 @@
 {
 	"name": "@melodicdev/cli",
-	"version": "2.0.0",
+	"version": "3.0.0",
 	"description": "Scaffolding and code generation for Melodic apps and monorepos.",
 	"license": "MIT",
 	"repository": {
@@ -19,6 +19,9 @@
 		"melodic"
 	],
 	"type": "module",
+	"engines": {
+		"node": ">=20.19.0"
+	},
 	"bin": {
 		"melodic": "./dist/index.js"
 	},
@@ -27,9 +30,13 @@
 		"templates"
 	],
 	"scripts": {
-		"build": "tsc -p tsconfig.json"
+		"build": "tsc -p tsconfig.json",
+		"typecheck": "tsc --noEmit -p tsconfig.test.json",
+		"test": "vitest run",
+		"test:watch": "vitest"
 	},
 	"devDependencies": {
-		"typescript": "~5.9.3"
+		"typescript": "~5.9.3",
+		"vitest": "^3.2.4"
 	}
 }

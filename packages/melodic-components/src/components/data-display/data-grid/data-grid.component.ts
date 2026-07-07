@@ -3,7 +3,7 @@ import type { IElementRef, OnCreate, OnDestroy, OnRender, OnPropertyChange } fro
 import type { DataGridColumn, SortDirection } from './data-grid.types.js';
 import { dataGridTemplate } from './data-grid.template.js';
 import { dataGridStyles } from './data-grid.styles.js';
-import { VirtualScroller } from '../../../utils/virtual-scroll/index.js';
+import { TableCore } from '../table-core/index.js';
 
 /**
  * ml-data-grid — Full-featured data grid with virtual scrolling, sorting, filtering,
@@ -24,7 +24,10 @@ import { VirtualScroller } from '../../../utils/virtual-scroll/index.js';
  *
  * @fires ml:sort           - { key, direction }
  * @fires ml:filter         - { filters: Record<string, string> }
- * @fires ml:select         - { selectedRows: number[], allSelected: boolean }
+ * @fires ml:select         - { selectedRows, selectedIndices, allSelected } where `selectedRows`
+ *   contains the selected row OBJECTS and `selectedIndices` their indices in the original
+ *   `rows` array (consumer order). Also emitted when sorting/filtering/paging clears a
+ *   non-empty selection. BREAKING (2.x): `selectedRows` previously contained page-relative indices.
  * @fires ml:row-click      - { row, index }
  * @fires ml:column-resize  - { key, width }
  * @fires ml:column-reorder - { order: string[] }
@@ -128,11 +131,14 @@ export class DataGridComponent implements IElementRef, OnCreate, OnDestroy, OnRe
 	public draggingKey: string | null = null;
 	public dragOverKey: string | null = null;
 
-	// ── Private (non-reactive) DOM refs and drag intermediates ───────────────────
+	// ── Private (non-reactive) drag intermediates and shared core ────────────────
 	// Properties starting with _ are intentionally excluded from reactivity.
 
-	private _scroller = new VirtualScroller();
-	private _viewport: HTMLElement | null = null;
+	/** Shared table pipeline: sorting, selection, ml:* events, virtual window. */
+	private _core = new TableCore(this, {
+		viewportSelector: '.ml-data-grid__viewport',
+		displayRows: () => this.processedRows
+	});
 	private _resizeStartX = 0;
 	private _resizeStartWidth = 0;
 
@@ -150,22 +156,26 @@ export class DataGridComponent implements IElementRef, OnCreate, OnDestroy, OnRe
 		}
 
 		if (name === 'rows') {
-			// Selection is positional; a new dataset invalidates it. Recompute the
-			// virtual window after the new value commits (onPropertyChange fires
-			// before the assignment), matching ml-table's behavior.
-			this.selectedIndices = [];
-			queueMicrotask(() => this._scroller.invalidate());
+			// Selection is positional; a new dataset invalidates it. The virtual
+			// window recomputes after the new value commits (onPropertyChange fires
+			// before the assignment) — after clamping the page when the new dataset
+			// has fewer pages than the current one (internal filter/sort already
+			// reset it; an external rows replacement must not leave e.g.
+			// "Page 5 of 2" and a blank grid).
+			this._core.handleRowsChange(() => {
+				if (this.currentPage > this.totalPages) {
+					this.currentPage = this.totalPages;
+				}
+			});
 		}
 	}
 
 	public onCreate(): void {
 		this._syncColumnState(this.columns);
-		this._attachScroller();
+		this._core.attachScroller();
 	}
 
 	public onRender(): void {
-		this._attachScroller();
-
 		// Update CSS variable for filter row sticky offset
 		const shadow = this.elementRef.shadowRoot;
 		if (shadow) {
@@ -178,40 +188,14 @@ export class DataGridComponent implements IElementRef, OnCreate, OnDestroy, OnRe
 			}
 		}
 
-		// Compute initial end index when viewport height not yet known
-		if (this._viewport && this._viewport.clientHeight === 0 && this.processedRows.length > 0) {
-			const approxEnd = Math.min(this.processedRows.length, Math.ceil(600 / this.rowHeight) + 6);
-			if (approxEnd !== this.endIndex) {
-				this.endIndex = approxEnd;
-			}
-		}
-
-		if (!this.virtual) {
-			const total = this.processedRows.length;
-			if (this.endIndex !== total) this.endIndex = total;
-		}
+		this._core.syncRenderWindow();
 	}
 
 	public onDestroy(): void {
-		this._scroller.detach();
-		this._viewport = null;
+		this._core.detach();
 	}
 
 	// ── Private helpers ───────────────────────────────────────────────────────────
-
-	private _attachScroller(): void {
-		if (this._viewport) return; // already attached
-		const shadow = this.elementRef.shadowRoot;
-		if (!shadow) return;
-		this._viewport = shadow.querySelector('.ml-data-grid__viewport') as HTMLElement | null;
-		if (!this._viewport) return;
-		this._scroller.attach(this._viewport, {
-			rowHeight: () => this.rowHeight,
-			itemCount: () => this.processedRows.length,
-			onUpdate: (start, end) => { this.startIndex = start; this.endIndex = end; },
-			enabled: () => this.virtual,
-		});
-	}
 
 	private _syncColumnState(cols: DataGridColumn[]): void {
 		this.colOrder = cols.map(c => c.key);
@@ -236,17 +220,8 @@ export class DataGridComponent implements IElementRef, OnCreate, OnDestroy, OnRe
 	}
 
 	public get sortedRows(): Record<string, unknown>[] {
-		if (this.serverSide || !this.sortKey) return this.filteredRows;
-		const key = this.sortKey;
-		const dir = this.sortDirection === 'asc' ? 1 : -1;
-		return [...this.filteredRows].sort((a, b) => {
-			const aVal = a[key];
-			const bVal = b[key];
-			if (aVal == null) return bVal == null ? 0 : 1;
-			if (bVal == null) return -1;
-			if (typeof aVal === 'number' && typeof bVal === 'number') return (aVal - bVal) * dir;
-			return String(aVal).localeCompare(String(bVal)) * dir;
-		});
+		if (this.serverSide) return this.filteredRows;
+		return this._core.sortRows(this.filteredRows);
 	}
 
 	public get pagedRows(): Record<string, unknown>[] {
@@ -260,8 +235,7 @@ export class DataGridComponent implements IElementRef, OnCreate, OnDestroy, OnRe
 	}
 
 	public get visibleRows(): Record<string, unknown>[] {
-		if (!this.virtual) return this.processedRows;
-		return this.processedRows.slice(this.startIndex, this.endIndex);
+		return this._core.visibleRows;
 	}
 
 	public get totalRows(): number {
@@ -344,48 +318,32 @@ export class DataGridComponent implements IElementRef, OnCreate, OnDestroy, OnRe
 	}
 
 	public get topSpacerHeight(): number {
-		return this.virtual ? this.startIndex * this.rowHeight : 0;
+		return this._core.topSpacerHeight;
 	}
 
 	public get bottomSpacerHeight(): number {
-		if (!this.virtual) return 0;
-		return Math.max(0, (this.processedRows.length - this.endIndex) * this.rowHeight);
+		return this._core.bottomSpacerHeight;
 	}
 
 	// ── Selection ─────────────────────────────────────────────────────────────────
 
 	public get allSelected(): boolean {
-		return this.processedRows.length > 0 && this.selectedIndices.length === this.processedRows.length;
+		return this._core.allSelected;
 	}
 
 	public get someSelected(): boolean {
-		return this.selectedIndices.length > 0 && !this.allSelected;
+		return this._core.someSelected;
 	}
 
-	public isRowSelected = (index: number): boolean => this.selectedIndices.includes(index);
+	public isRowSelected = (index: number): boolean => this._core.isRowSelected(index);
 
 	// ── Event handlers ────────────────────────────────────────────────────────────
 
 	public handleSort = (col: DataGridColumn): void => {
-		if (!col.sortable) return;
-		if (this.sortKey === col.key) {
-			this.sortDirection = this.sortDirection === 'asc' ? 'desc' : 'asc';
-		} else {
-			this.sortKey = col.key;
-			this.sortDirection = 'asc';
-		}
-		this.currentPage = 1;
-		// Selection is positional; sorting reorders rows, so clear it (otherwise
-		// the same indices would point at different rows).
-		this.selectedIndices = [];
-		this._scroller.invalidate();
-		this.elementRef.dispatchEvent(
-			new CustomEvent('ml:sort', {
-				bubbles: true,
-				composed: true,
-				detail: { key: this.sortKey, direction: this.sortDirection }
-			})
-		);
+		// Sorting restarts pagination from the first page before events fire.
+		this._core.handleSortClick(col, () => {
+			this.currentPage = 1;
+		});
 	};
 
 	public handleFilterInput = (key: string, e: Event): void => {
@@ -393,8 +351,8 @@ export class DataGridComponent implements IElementRef, OnCreate, OnDestroy, OnRe
 		this.filters = { ...this.filters, [key]: val };
 		this.currentPage = 1;
 		// Filtering changes which rows are present; positional selection no longer applies.
-		this.selectedIndices = [];
-		this._scroller.invalidate();
+		const hadSelection = this._core.clearSelection();
+		this._core.invalidateScroller();
 		this.elementRef.dispatchEvent(
 			new CustomEvent('ml:filter', {
 				bubbles: true,
@@ -402,29 +360,19 @@ export class DataGridComponent implements IElementRef, OnCreate, OnDestroy, OnRe
 				detail: { filters: this.filters }
 			})
 		);
+		if (hadSelection) this._core.emitSelect();
 	};
 
 	public handleSelectAll = (): void => {
-		this.selectedIndices = this.allSelected ? [] : this.processedRows.map((_, i) => i);
-		this._emitSelect();
+		this._core.toggleSelectAll();
 	};
 
 	public handleSelectRow = (index: number, e: Event): void => {
-		e.stopPropagation();
-		this.selectedIndices = this.selectedIndices.includes(index)
-			? this.selectedIndices.filter(i => i !== index)
-			: [...this.selectedIndices, index];
-		this._emitSelect();
+		this._core.toggleSelectRow(index, e);
 	};
 
 	public handleRowClick = (row: Record<string, unknown>, index: number): void => {
-		this.elementRef.dispatchEvent(
-			new CustomEvent('ml:row-click', {
-				bubbles: true,
-				composed: true,
-				detail: { row, index }
-			})
-		);
+		this._core.emitRowClick(row, index);
 	};
 
 	public handleResizeStart = (key: string, e: PointerEvent): void => {
@@ -505,9 +453,9 @@ export class DataGridComponent implements IElementRef, OnCreate, OnDestroy, OnRe
 		this.currentPage = page;
 		// Selection indices are page-relative; clear on page change so the header
 		// checkbox and ml:select don't report rows from the previous page.
-		this.selectedIndices = [];
-		if (this._viewport) this._viewport.scrollTop = 0;
-		this._scroller.invalidate();
+		const hadSelection = this._core.clearSelection();
+		this._core.scrollViewportToTop();
+		this._core.invalidateScroller();
 		this.elementRef.dispatchEvent(
 			new CustomEvent('ml:page-change', {
 				bubbles: true,
@@ -515,15 +463,6 @@ export class DataGridComponent implements IElementRef, OnCreate, OnDestroy, OnRe
 				detail: { page: this.currentPage, pageSize: this.pageSize }
 			})
 		);
+		if (hadSelection) this._core.emitSelect();
 	};
-
-	private _emitSelect(): void {
-		this.elementRef.dispatchEvent(
-			new CustomEvent('ml:select', {
-				bubbles: true,
-				composed: true,
-				detail: { selectedRows: this.selectedIndices, allSelected: this.allSelected }
-			})
-		);
-	}
 }
