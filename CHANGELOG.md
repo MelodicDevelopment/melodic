@@ -1,5 +1,11 @@
 # Changelog
 
+## 3.0.2
+
+### @melodicdev/core
+
+- **Fixed the second (previously masked) no-build CDN failure:** `getEnvironment()` read `import.meta.env.VITE_ENV` unguarded at module load, throwing `Cannot read properties of undefined (reading 'VITE_ENV')` in plain browsers where no bundler defines `import.meta.env`. Now guarded (same pattern as the template dev-mode checks — Vite still statically replaces the member expressions); without a bundler the environment falls back to `'dev'`. Found by the 3.0.1 CDN smoke check — 3.0.1 fixed the esm.sh module graph, which unmasked this load-time crash, so bare `https://esm.sh/@melodicdev/core` first fully works at 3.0.2.
+
 ## 3.0.1
 
 ### @melodicdev/core
