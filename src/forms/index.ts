@@ -1,5 +1,5 @@
 // Types
-export * from './types';
+export type * from './types';
 
 // Classes
 export { AbstractControl, FormControl, FormGroup, FormArray } from './classes';

@@ -1,5 +1,22 @@
 // Directives
-export * from './directives';
+export {
+	Directive,
+	classMap,
+	directive,
+	getAttributeDirective,
+	getRegisteredDirectives,
+	hasAttributeDirective,
+	isDirective,
+	portalDirective,
+	registerAttributeDirective,
+	repeat,
+	repeatRaw,
+	styleMap,
+	unregisterAttributeDirective,
+	unsafeHTML,
+	when
+} from './directives';
+export type * from './directives';
 
 // Functions
 export { html, css } from './functions/html.function';

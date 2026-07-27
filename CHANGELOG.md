@@ -1,5 +1,12 @@
 # Changelog
 
+## 3.0.1
+
+### @melodicdev/core
+
+- **Fixed bare esm.sh CDN loading.** `https://esm.sh/@melodicdev/core` (import-map, no-build usage) threw `The requested module './injection.mjs' does not provide an export named 'Injectable'` before any user code ran. esm.sh rebuilds each `exports`-map entry into a standalone module, and its rebuild of runtime `export *` barrel chains silently dropped names, serving a self-inconsistent module graph (the npm package itself was fine — bundlers, Node, and the prebuilt `bundle/` were unaffected). Every entry barrel (`.` and all subpaths) now uses explicit named re-exports for runtime values (`export type *` for types, which emits nothing); the public API surface is unchanged, verified export-for-export against 3.0.0.
+- New `npm run smoke:cdn -- <version>` release check (`scripts/cdn-smoke-check.mjs`): boots the documented esm.sh import-map pattern in headless Chrome against the exact published version and fails on any module-graph or console error. Run it after every publish — this failure class only exists at the CDN. A unit test additionally pins the no-runtime-`export *` invariant on entry barrels.
+
 ## 3.0.0
 
 Whole-repo remediation release driven by the 2026 full-repo review: correctness bugs, memory leaks, security hardening, accessibility, API consistency, and structural debt. Breaking changes are covered in [MIGRATION.md](./MIGRATION.md).
