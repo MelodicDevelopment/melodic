@@ -1,5 +1,17 @@
 # Changelog
 
+## 3.0.3
+
+### @melodicdev/core
+
+- **Fixed bindings inside attribute values that contain the other quote character.** `title="it's ${x}"` and `title='say "${x}"'` did not parse as attribute bindings: the parser matched an attribute's opening quote with `(["'])([^"']*)$`, so a value containing the opposite quote failed to match and fell through to the text-position branch. That injected a comment marker *inside* the attribute value, which leaked into the DOM as literal text (`title="it's &lt;!--m8f3k2p--&gt;"`) and left the binding permanently stale. Each quote style is now matched only against its own delimiter. Apostrophes in `title`/`placeholder`/`aria-label` values are common enough that this was likely hitting real apps silently.
+- **New dev-mode diagnostic for leaked template part markers.** After parsing a template, any interpolation that could not be anchored to a node is reported by selector-free template snippet — the signature of a malformed template, most often an unbalanced quote in an attribute value, which makes the HTML parser swallow the following markup (and its markers) into the attribute. Previously this failed silently and could surface far from the mistake, e.g. as a stray marker in an attribute *name* on an unrelated element. Runs once per template on the parse path only (templates are cached), so update renders are unaffected; never throws, and stays quiet in production builds. Joins the existing unsupported-binding-position warnings and defers to them when both would fire.
+
+### Documentation
+
+- **Removed a documented-but-nonexistent global styles API.** `docs/COMPONENT_SYSTEM.md` and `README.md` described `registerGlobalStyles()` and `setGlobalStylesAttribute()`, including a "shared source of truth" config pattern built on the latter. Neither symbol has ever existed. The real API is `applyGlobalStyles(root)`, driven by the fixed `melodic-styles` attribute on a `<style>`/`<link>` tag and called automatically by `ComponentBase`. Docs now describe what ships, and note two previously undocumented constraints: `<link melodic-styles>` sheets are read through the CSSOM so they must be same-origin, and the tags are collected once on first adoption, so they must be present before the first component renders.
+- **`styleMap` numeric values.** Documented in `MELODIC_FRAMEWORK.md` and `docs/TEMPLATE_SYSTEM.md` that values are emitted as-is and lengths need explicit units — `styleMap({ left: 42 })` produces invalid CSS that the browser drops silently. Unlike React's style object, no `px` is appended. This matches lit-html and is unchanged behaviour; only the docs were missing.
+
 ## 3.0.2
 
 ### @melodicdev/core

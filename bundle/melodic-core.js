@@ -3151,12 +3151,17 @@ function warnUnsupportedBinding(position, html$1, index) {
 	console.warn(`[melodic] Template contains a binding in an unsupported position (${position}). The parser cannot track bindings here, so the value will not render or update. Offending template: ${describeSnippet(html$1, index)}`);
 }
 function warnUnsupportedBindingPositions(html$1) {
-	if (!isDevMode()) return;
+	if (!isDevMode()) return false;
+	let warned = false;
+	const report = (position, index) => {
+		warned = true;
+		warnUnsupportedBinding(position, html$1, index);
+	};
 	const rawTextRegex = /<(textarea|title)(?:\s[^>]*)?>([\s\S]*?)<\/\1\s*>/gi;
 	let rawTextMatch;
-	while ((rawTextMatch = rawTextRegex.exec(html$1)) !== null) if (ANY_MARKER_REGEX.test(rawTextMatch[2])) warnUnsupportedBinding(`inside <${rawTextMatch[1].toLowerCase()}> content`, html$1, rawTextMatch.index);
+	while ((rawTextMatch = rawTextRegex.exec(html$1)) !== null) if (ANY_MARKER_REGEX.test(rawTextMatch[2])) report(`inside <${rawTextMatch[1].toLowerCase()}> content`, rawTextMatch.index);
 	const tagNameIndex = html$1.search(/* @__PURE__ */ new RegExp(`</?${COMMENT_NODE_MARKER}`));
-	if (tagNameIndex !== -1) warnUnsupportedBinding("tag-name position", html$1, tagNameIndex);
+	if (tagNameIndex !== -1) report("tag-name position", tagNameIndex);
 	let searchFrom = 0;
 	for (;;) {
 		const open = html$1.indexOf("<!--", searchFrom);
@@ -3167,9 +3172,21 @@ function warnUnsupportedBindingPositions(html$1) {
 		}
 		const close = html$1.indexOf("-->", open + 4);
 		const content = close === -1 ? html$1.slice(open + 4) : html$1.slice(open + 4, close);
-		if (content.includes(MARKER) || /__(?:event|prop|action|bool)-\d+__/.test(content)) warnUnsupportedBinding("inside an HTML comment", html$1, open);
+		if (content.includes(MARKER) || /__(?:event|prop|action|bool)-\d+__/.test(content)) report("inside an HTML comment", open);
 		searchFrom = close === -1 ? html$1.length : close + 3;
 	}
+	return warned;
+}
+function warnLeakedBindings(partPaths, expressionCount, html$1) {
+	if (!isDevMode()) return;
+	const anchored = /* @__PURE__ */ new Set();
+	for (const partPath of partPaths) if (partPath.attributeIndices) for (const index of partPath.attributeIndices) anchored.add(index);
+	else if (partPath.index >= 0) anchored.add(partPath.index);
+	const lost = [];
+	for (let index = 0; index < expressionCount; index++) if (!anchored.has(index)) lost.push(index);
+	if (lost.length === 0) return;
+	const markerIndex = html$1.indexOf(createAttributeMarker(lost[0]));
+	console.warn(`[melodic] Template part marker leaked: ${lost.length} binding${lost.length === 1 ? "" : "s"} (value index ${lost.join(", ")}) could not be anchored to the parsed template and will never render or update. The usual cause is an unbalanced quote in an attribute value, which swallows the markup that follows it. Offending template: ${describeSnippet(html$1, markerIndex === -1 ? 0 : markerIndex)}`);
 }
 function extractListenerOptions(value) {
 	const { capture, once, passive } = value;
@@ -3250,7 +3267,9 @@ var TemplateResult = class TemplateResult {
 			const s = this.strings[i];
 			const valueIndex = i - 1;
 			const match = /([@.:?]?[\w:-]+)\s*=\s*["']?$/.exec(html$1);
-			const quotedAttrMatch = /([@.:?]?[\w:-]+)\s*=\s*(["'])([^"']*)$/.exec(html$1);
+			const doubleQuotedAttrMatch = /([@.:?]?[\w:-]+)\s*=\s*(")([^"]*)$/.exec(html$1);
+			const singleQuotedAttrMatch = /([@.:?]?[\w:-]+)\s*=\s*(')([^']*)$/.exec(html$1);
+			const quotedAttrMatch = doubleQuotedAttrMatch && singleQuotedAttrMatch ? doubleQuotedAttrMatch.index >= singleQuotedAttrMatch.index ? doubleQuotedAttrMatch : singleQuotedAttrMatch : doubleQuotedAttrMatch ?? singleQuotedAttrMatch;
 			let attrKey = "___";
 			if (activeAttributeName) html$1 += createAttributeMarker(valueIndex);
 			else {
@@ -3287,7 +3306,7 @@ var TemplateResult = class TemplateResult {
 				}
 			}
 		}
-		warnUnsupportedBindingPositions(html$1);
+		const hasUnsupportedBinding = warnUnsupportedBindingPositions(html$1);
 		const element = document.createElement("template");
 		element.innerHTML = html$1;
 		const partPaths = [];
@@ -3396,6 +3415,7 @@ var TemplateResult = class TemplateResult {
 			}
 		};
 		walkTemplate(element.content, []);
+		if (!hasUnsupportedBinding) warnLeakedBindings(partPaths, this.strings.length - 1, html$1);
 		cached = {
 			element,
 			parts,

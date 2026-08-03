@@ -173,3 +173,43 @@ describe('template attributes', () => {
 		expect(cleanups).toBe(1);
 	});
 });
+
+describe('attribute values containing quote characters', () => {
+	let container: HTMLElement;
+
+	beforeEach(() => {
+		container = document.createElement('div');
+	});
+
+	// The parser tracks the opening quote of an attribute so it knows a binding
+	// sits in attribute position. Matching both quote styles at once used to make
+	// a value containing the other quote fall through to the text-position branch,
+	// which injected a comment marker into the attribute value — it leaked into
+	// the DOM as literal text and the binding never updated.
+	it('binds inside a double-quoted value that contains an apostrophe', () => {
+		render(html`<div title="it's ${'bound'}">hi</div>`, container);
+		expect(container.firstElementChild?.getAttribute('title')).toBe("it's bound");
+	});
+
+	it('binds inside a single-quoted value that contains a double quote', () => {
+		render(html`<div title='say "${'bound'}"'>hi</div>`, container);
+		expect(container.firstElementChild?.getAttribute('title')).toBe('say "bound"');
+	});
+
+	it('leaves no internal marker in the rendered attribute', () => {
+		render(html`<div title="don't ${'x'}">hi</div>`, container);
+		expect(container.innerHTML).not.toContain('<!--');
+	});
+
+	it('updates a quote-containing attribute across renders', () => {
+		const view = (value: string) => html`<div title="it's ${value}">hi</div>`;
+		render(view('first'), container);
+		render(view('second'), container);
+		expect(container.firstElementChild?.getAttribute('title')).toBe("it's second");
+	});
+
+	it('still treats an apostrophe in text content as text', () => {
+		render(html`<p>don't ${'bound'}</p>`, container);
+		expect(container.textContent).toBe("don't bound");
+	});
+});

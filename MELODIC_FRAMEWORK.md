@@ -356,6 +356,15 @@ html`<div style=${styleMap({ fontSize: '14px', color: textColor })}></div>`
 
 Converts camelCase to kebab-case. Sets via `style.setProperty()`, removes via `style.removeProperty()`.
 
+**Units are never inferred.** Values are emitted as-is, so a bare number on a length property produces invalid CSS that the browser drops silently — no error, no style. Unlike React's style object, `styleMap` does not append `px`:
+
+```typescript
+styleMap({ left: 42 })          // ✗ emits "left: 42" — invalid, silently ignored
+styleMap({ left: `${x}px` })    // ✓
+```
+
+Bare numbers are still correct for unitless properties such as `opacity`, `zIndex`, `flexGrow`, and `lineHeight`.
+
 #### `unsafeHTML(htmlString)`
 
 ```typescript

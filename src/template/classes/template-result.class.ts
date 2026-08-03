@@ -67,9 +67,18 @@ function warnUnsupportedBinding(position: string, html: string, index: number): 
  * position. These silently misrender in production (backwards compat — never
  * throws); in dev the offending template snippet is reported via console.warn.
  * Runs once per template (getTemplate caches by template key).
+ *
+ * Returns true when at least one warning was emitted, so the caller can skip
+ * the leaked-binding check below rather than reporting the same template twice.
  */
-function warnUnsupportedBindingPositions(html: string): void {
-	if (!isDevMode()) return;
+function warnUnsupportedBindingPositions(html: string): boolean {
+	if (!isDevMode()) return false;
+
+	let warned = false;
+	const report = (position: string, index: number): void => {
+		warned = true;
+		warnUnsupportedBinding(position, html, index);
+	};
 
 	// 1) Bindings inside raw-text elements: their content is parsed as literal
 	//    text, so comment markers never become comment nodes.
@@ -77,7 +86,7 @@ function warnUnsupportedBindingPositions(html: string): void {
 	let rawTextMatch: RegExpExecArray | null;
 	while ((rawTextMatch = rawTextRegex.exec(html)) !== null) {
 		if (ANY_MARKER_REGEX.test(rawTextMatch[2])) {
-			warnUnsupportedBinding(`inside <${rawTextMatch[1].toLowerCase()}> content`, html, rawTextMatch.index);
+			report(`inside <${rawTextMatch[1].toLowerCase()}> content`, rawTextMatch.index);
 		}
 	}
 
@@ -85,7 +94,7 @@ function warnUnsupportedBindingPositions(html: string): void {
 	//    marker directly after `<`.
 	const tagNameIndex = html.search(new RegExp(`</?${COMMENT_NODE_MARKER}`));
 	if (tagNameIndex !== -1) {
-		warnUnsupportedBinding('tag-name position', html, tagNameIndex);
+		report('tag-name position', tagNameIndex);
 	}
 
 	// 3) Bindings inside HTML comments: comments cannot nest, so the injected
@@ -104,10 +113,65 @@ function warnUnsupportedBindingPositions(html: string): void {
 		const close = html.indexOf('-->', open + 4);
 		const content = close === -1 ? html.slice(open + 4) : html.slice(open + 4, close);
 		if (content.includes(MARKER) || /__(?:event|prop|action|bool)-\d+__/.test(content)) {
-			warnUnsupportedBinding('inside an HTML comment', html, open);
+			report('inside an HTML comment', open);
 		}
 		searchFrom = close === -1 ? html.length : close + 3;
 	}
+
+	return warned;
+}
+
+/**
+ * Dev-mode diagnostic for bindings that parsed but never anchored to a node in
+ * the template DOM. Every interpolation should be claimed by exactly one part
+ * path; one that isn't has had its marker swallowed — most often by an
+ * unbalanced quote in an attribute value, which makes the HTML parser consume
+ * the following markup (and any markers in it) as attribute text.
+ *
+ * The visible symptom is otherwise baffling: the binding silently never
+ * renders, and the leaked marker can surface as a stray attribute name on an
+ * unrelated element far from the real mistake.
+ *
+ * Never throws (matches the surrounding diagnostics — broken templates still
+ * render in production). Runs once per template, on the parse path only, so
+ * update renders pay nothing.
+ */
+function warnLeakedBindings(partPaths: IPartPath[], expressionCount: number, html: string): void {
+	if (!isDevMode()) return;
+
+	// A part path claims either a run of attribute-value indices (composite
+	// bindings such as class="a ${x} b ${y}") or a single value index. Static
+	// action attributes carry index -1 and consume no interpolation.
+	const anchored = new Set<number>();
+	for (const partPath of partPaths) {
+		if (partPath.attributeIndices) {
+			for (const index of partPath.attributeIndices) {
+				anchored.add(index);
+			}
+		} else if (partPath.index >= 0) {
+			anchored.add(partPath.index);
+		}
+	}
+
+	const lost: number[] = [];
+	for (let index = 0; index < expressionCount; index++) {
+		if (!anchored.has(index)) {
+			lost.push(index);
+		}
+	}
+
+	if (lost.length === 0) return;
+
+	// Point the snippet at the first lost binding's marker where we can still
+	// find it; otherwise fall back to the head of the template.
+	const markerIndex = html.indexOf(createAttributeMarker(lost[0]));
+
+	console.warn(
+		`[melodic] Template part marker leaked: ${lost.length} binding${lost.length === 1 ? '' : 's'} ` +
+			`(value index ${lost.join(', ')}) could not be anchored to the parsed template and will never render or update. ` +
+			`The usual cause is an unbalanced quote in an attribute value, which swallows the markup that follows it. ` +
+			`Offending template: ${describeSnippet(html, markerIndex === -1 ? 0 : markerIndex)}`
+	);
 }
 
 /**
@@ -251,7 +315,22 @@ export class TemplateResult {
 			const valueIndex = i - 1;
 
 			const match = /([@.:?]?[\w:-]+)\s*=\s*["']?$/.exec(html);
-			const quotedAttrMatch = /([@.:?]?[\w:-]+)\s*=\s*(["'])([^"']*)$/.exec(html);
+
+			// An attribute value may legitimately contain the OTHER quote character
+			// (title="it's ${x}" / title='say "${x}"'), so each quote style is
+			// matched only against its own delimiter. Matching both delimiters at
+			// once would miss these and fall through to the text-position branch,
+			// which injects a comment marker inside the attribute value — it then
+			// leaks into the DOM as literal text and the binding never updates.
+			// When both match, the later one is the attribute still left open.
+			const doubleQuotedAttrMatch = /([@.:?]?[\w:-]+)\s*=\s*(")([^"]*)$/.exec(html);
+			const singleQuotedAttrMatch = /([@.:?]?[\w:-]+)\s*=\s*(')([^']*)$/.exec(html);
+			const quotedAttrMatch =
+				doubleQuotedAttrMatch && singleQuotedAttrMatch
+					? doubleQuotedAttrMatch.index >= singleQuotedAttrMatch.index
+						? doubleQuotedAttrMatch
+						: singleQuotedAttrMatch
+					: (doubleQuotedAttrMatch ?? singleQuotedAttrMatch);
 			let attrKey: string = '___';
 
 			if (activeAttributeName) {
@@ -300,7 +379,7 @@ export class TemplateResult {
 			}
 		}
 
-		warnUnsupportedBindingPositions(html);
+		const hasUnsupportedBinding = warnUnsupportedBindingPositions(html);
 
 		// NOTE(security/Trusted Types): this innerHTML assignment only ever parses
 		// developer-authored template strings — interpolated values are replaced
@@ -447,6 +526,12 @@ export class TemplateResult {
 		};
 
 		walkTemplate(element.content, []);
+
+		// Skip when an unsupported-position warning already named this template —
+		// those bindings are lost too, and one diagnosis is enough.
+		if (!hasUnsupportedBinding) {
+			warnLeakedBindings(partPaths, this.strings.length - 1, html);
+		}
 
 		cached = { element, parts, partPaths };
 		if (templateCache.size >= 500) {

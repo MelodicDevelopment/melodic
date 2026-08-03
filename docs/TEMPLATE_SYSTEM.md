@@ -560,3 +560,5 @@ html`
     </div>
 `
 ```
+
+Note the `` `${maxHeight}px` `` above — that unit is load-bearing. `styleMap` emits values as-is and never infers units, so a bare number on a length property (`{ maxHeight: 400 }`) produces invalid CSS that the browser drops silently. This differs from React's style object, which appends `px` for you. Bare numbers remain correct for unitless properties such as `opacity` and `zIndex`.
