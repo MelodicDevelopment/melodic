@@ -1,5 +1,5 @@
 import { getAttributeDirective } from '../directives/functions/attribute-directive.functions';
-import type { ITemplatePart, IKeyedArrayItem, IEventHandlerWithOptions } from '../interfaces/itemplate-part.interface';
+import type { ITemplatePart, IArrayItem, IKeyedArrayItem, IEventHandlerWithOptions } from '../interfaces/itemplate-part.interface';
 import type { ITemplateCache, IPartPath } from '../interfaces/itemplate-cache.interface';
 import type { IDirectiveState } from '../interfaces/idirective-state.interface';
 import type { RenderedContainer } from '../interfaces/irendered-container.interface';
@@ -34,6 +34,51 @@ function warnUnsafePropertyBinding(name: string): void {
 /** True outside production builds (mirrors the guard used by other dev-only warnings). */
 function isDevMode(): boolean {
 	return !(typeof import.meta !== 'undefined' && import.meta.env && !import.meta.env.DEV);
+}
+
+/**
+ * Dev-mode advisory for unkeyed arrays that are actually churning DOM.
+ *
+ * Plain `${items.map(…)}` arrays are reused positionally and are perfectly fine
+ * for the common case, so their mere existence is NOT warned about. This fires
+ * only when positional reuse could not keep an item's nodes — several items
+ * rebuilt in one update is the signature of a list whose entries shifted
+ * position, which is exactly what `repeat()` solves. Once per part.
+ */
+function warnUnkeyedArrayChurn(state: { warnedChurn?: boolean }, recreated: number, total: number): void {
+	if (state.warnedChurn || recreated < 2 || total < 2) return;
+	if (!isDevMode()) return;
+	state.warnedChurn = true;
+	console.warn(
+		`[melodic] An interpolated array rebuilt ${recreated} of ${total} items on one update. ` +
+			'Unkeyed arrays are reused by index, so entries that change position lose their DOM nodes ' +
+			'(and with them focus, scroll position, and in-flight clicks). ' +
+			'Use repeat(items, keyFn, template) to track items by identity instead.'
+	);
+}
+
+/**
+ * Dev-mode warning for an array where SOME items carry a key and others do not.
+ * Keyed diffing requires every item to be keyed, so one unkeyed entry silently
+ * demotes the whole array to positional reuse — effectively always a mistake.
+ * Once per part.
+ */
+const warnedPartiallyKeyedParts = new WeakSet<ITemplatePart>();
+function warnPartiallyKeyedArray(part: ITemplatePart, values: unknown[]): void {
+	if (!isDevMode() || warnedPartiallyKeyedParts.has(part)) return;
+
+	let keyed = 0;
+	for (const value of values) {
+		if (value && typeof value === 'object' && (value as { __keyed?: boolean }).__keyed === true) keyed++;
+	}
+	if (keyed === 0 || keyed === values.length) return;
+
+	warnedPartiallyKeyedParts.add(part);
+	console.warn(
+		`[melodic] An interpolated array mixes keyed and unkeyed items (${keyed} of ${values.length} keyed). ` +
+			'Keyed diffing requires every item to carry a key, so this array falls back to index-based reuse. ' +
+			'Key every item, or none.'
+	);
 }
 
 // Matches any marker the parser injects for a binding: text-position comment
@@ -753,6 +798,13 @@ export class TemplateResult {
 			part.arrayState = undefined;
 		}
 
+		if (part.positionalArrayState) {
+			for (const item of part.positionalArrayState.items) {
+				disposeContainerParts(item.container);
+			}
+			part.positionalArrayState = undefined;
+		}
+
 		if (part.renderedNodes && part.renderedNodes.length > 0) {
 			for (const node of part.renderedNodes) {
 				node.parentNode?.removeChild(node);
@@ -878,6 +930,13 @@ export class TemplateResult {
 		const keyedValues = this.getKeyedValues(values);
 
 		if (keyedValues) {
+			// The part rendered an unkeyed array last time: its items are indexed
+			// by position and cannot be adopted by key, so dispose and remove them
+			// before the keyed path takes over.
+			if (part.positionalArrayState) {
+				this.clearRenderedNodes(part);
+			}
+
 			const state = part.arrayState ?? {
 				items: new Map<unknown, IKeyedArrayItem>(),
 				keys: []
@@ -933,32 +992,97 @@ export class TemplateResult {
 			return;
 		}
 
-		this.clearRenderedNodes(part);
-		const renderedNodes: Node[] = [];
-		const renderedContainers: DocumentFragment[] = [];
+		warnPartiallyKeyedArray(part, values);
+		this.renderPositionalArray(part, values, parent);
+	}
 
-		for (const value of values) {
-			if (value instanceof TemplateResult) {
-				const fragment = document.createDocumentFragment();
-				value.renderInto(fragment);
-				const nodes = Array.from(fragment.childNodes);
-				renderedNodes.push(...nodes);
-				// Retain the container so its part tree can be disposed when the
-				// (non-keyed) array re-renders or the part is discarded.
-				renderedContainers.push(fragment);
-				parent.insertBefore(fragment, part.endMarker!);
-			} else if (value instanceof Node) {
-				renderedNodes.push(value);
-				parent.insertBefore(value, part.endMarker!);
-			} else if (value !== null && value !== undefined) {
-				const textNode = document.createTextNode(String(value));
-				renderedNodes.push(textNode);
-				parent.insertBefore(textNode, part.endMarker!);
+	/**
+	 * Renders a plain (unkeyed) array by reusing the previously rendered items
+	 * positionally: index i of this render updates the nodes created for index i
+	 * of the last one.
+	 *
+	 * Before this existed, every unkeyed array re-render tore its whole subtree
+	 * down and rebuilt it. The output was always correct, but node identity was
+	 * destroyed on every pass, and identity is load-bearing: the browser only
+	 * fires `click` when mousedown and mouseup land on the SAME node, so a list
+	 * inside a frequently re-rendering template could not be clicked at all.
+	 * Focus, text selection, scroll position, `:hover`, CSS transitions and
+	 * observer registrations were lost the same way.
+	 *
+	 * Reuse is by index only. Reordering an unkeyed array still churns nodes —
+	 * `repeat(items, keyFn, template)` is the tool for that, and the dev-mode
+	 * advisory below points at it when churn is actually observed.
+	 */
+	private renderPositionalArray(part: ITemplatePart, values: unknown[], parent: Node): void {
+		const endMarker = part.endMarker!;
+
+		// No positional state means the part held something else last render (a
+		// nested template, a bare Node, a keyed array, text). Dispose and remove
+		// it before taking ownership — clearRenderedNodes is a no-op when the
+		// part is empty, so this also covers the first render.
+		const isUpdate = part.positionalArrayState !== undefined;
+		if (!isUpdate) {
+			this.clearRenderedNodes(part);
+		}
+
+		const state = part.positionalArrayState ?? { items: [] };
+		const items = state.items;
+		let recreated = 0;
+
+		for (let index = 0; index < values.length; index++) {
+			const value = values[index];
+			const existing = items[index];
+
+			if (existing) {
+				// The anchor matters only when the item has to be rebuilt: the
+				// replacement nodes must land at this index, not at the end of
+				// the list. The next surviving item's first live node is that
+				// position; with no such node the list ends here.
+				const anchor = this.findPositionalAnchor(items, index + 1, endMarker);
+				if (this.updateArrayItem(existing, value, parent, anchor)) {
+					recreated++;
+				}
+			} else {
+				// The array grew — new items append before the end marker.
+				const created = this.createArrayItem(value, parent, endMarker);
+				items[index] = { value, container: created.container, nodes: created.nodes };
 			}
 		}
 
-		part.renderedNodes = renderedNodes;
-		part.renderedContainers = renderedContainers.length > 0 ? renderedContainers : undefined;
+		// The array shrank — dispose the tail's part trees (so cleanups nested
+		// anywhere inside them run) before dropping its nodes.
+		if (items.length > values.length) {
+			for (const removed of items.splice(values.length)) {
+				disposeContainerParts(removed.container);
+				for (const node of removed.nodes) {
+					node.parentNode?.removeChild(node);
+				}
+			}
+		}
+
+		part.positionalArrayState = state;
+		part.renderedNodes = items.flatMap((item) => item.nodes);
+
+		if (isUpdate) {
+			warnUnkeyedArrayChurn(state, recreated, values.length);
+		}
+	}
+
+	/**
+	 * First live node at or after `from` in a positional item list — the
+	 * insertion anchor that keeps a rebuilt item at its own index. Items can
+	 * legitimately contribute zero nodes (a null/undefined value), so this
+	 * scans forward rather than reading `items[from]` directly.
+	 */
+	private findPositionalAnchor(items: IArrayItem[], from: number, endMarker: Comment): Node {
+		for (let index = from; index < items.length; index++) {
+			for (const node of items[index].nodes) {
+				if (node.parentNode) {
+					return node;
+				}
+			}
+		}
+		return endMarker;
 	}
 
 	private getKeyedValues(values: unknown[]): Array<{ key: unknown; value: unknown }> | null {
@@ -994,22 +1118,57 @@ export class TemplateResult {
 		return { container, nodes };
 	}
 
-	private updateArrayItem(item: IKeyedArrayItem, value: unknown, parent: Node, endMarker: Comment): void {
-		if (value instanceof TemplateResult) {
+	/**
+	 * Updates one array item in place where possible.
+	 *
+	 * `anchor` is where replacement nodes are inserted when the item has to be
+	 * rebuilt — the end marker for keyed arrays (which reorder afterwards), the
+	 * next surviving item's first node for positional ones.
+	 *
+	 * @returns true when the item's live nodes were replaced (its DOM identity
+	 * did not survive), false when the existing nodes were updated in place.
+	 */
+	private updateArrayItem(item: IArrayItem, value: unknown, parent: Node, anchor: Node): boolean {
+		// A container only carries a part tree when a TemplateResult was rendered
+		// into it. Without one there is nothing to update in place — the item
+		// currently holds a bare Node or a text node — so a template value has to
+		// go down the rebuild path below rather than through renderDetachedItem
+		// (which would leave the new nodes stranded in the detached fragment).
+		const hasPartTree = (item.container as RenderedContainer<DocumentFragment>).__parts !== undefined;
+
+		if (value instanceof TemplateResult && hasPartTree) {
 			// renderDetachedItem keeps the live nodes when the structure is
 			// unchanged and swaps in the rebuilt nodes when it is — and never
-			// wipes item.nodes with the (empty) fragment's child list.
-			item.nodes = renderDetachedItem(value, item.container, item.nodes, endMarker);
+			// wipes item.nodes with the (empty) fragment's child list. It returns
+			// the SAME array it was handed when nothing was swapped.
+			const previousNodes = item.nodes;
+			item.nodes = renderDetachedItem(value, item.container, item.nodes, anchor);
 			item.value = value;
-			return;
+			return item.nodes !== previousNodes;
 		}
 
-		if (value === item.value) {
-			return;
+		if (!(value instanceof TemplateResult) && value === item.value) {
+			return false;
 		}
 
-		// The item's content type changed (was a template, now a plain value) —
-		// dispose the old part tree before discarding it.
+		// Primitive → primitive at the same position: retarget the existing text
+		// node instead of replacing it, so its identity survives too.
+		if (
+			!(value instanceof TemplateResult) &&
+			!(value instanceof Node) &&
+			value !== null &&
+			value !== undefined &&
+			!hasPartTree &&
+			item.nodes.length === 1 &&
+			item.nodes[0].nodeType === Node.TEXT_NODE
+		) {
+			item.nodes[0].nodeValue = String(value);
+			item.value = value;
+			return false;
+		}
+
+		// The item's content type changed (e.g. was a template, now a plain
+		// value) — dispose the old part tree before discarding it.
 		disposeContainerParts(item.container);
 
 		for (const node of item.nodes) {
@@ -1017,15 +1176,18 @@ export class TemplateResult {
 		}
 
 		item.container = document.createDocumentFragment();
-		if (value instanceof Node) {
+		if (value instanceof TemplateResult) {
+			value.renderInto(item.container);
+		} else if (value instanceof Node) {
 			item.container.appendChild(value);
 		} else if (value !== null && value !== undefined) {
 			item.container.appendChild(document.createTextNode(String(value)));
 		}
 
 		item.nodes = Array.from(item.container.childNodes);
-		parent.insertBefore(item.container, endMarker);
+		parent.insertBefore(item.container, anchor);
 		item.value = value;
+		return true;
 	}
 
 	/**

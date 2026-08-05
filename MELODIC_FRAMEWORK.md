@@ -290,6 +290,14 @@ const myStyles = () => css`
 
 Caching is by `TemplateStringsArray` identity (WeakMap) with a 500-entry parsed template LRU cache. Part paths are pre-computed for direct node access without DOM tree walks.
 
+### Interpolated Arrays
+
+A plain array in a binding — `${items.map(item => html`…`)}` — is reused **by index** across renders: index `i` updates the nodes created for index `i` last time, growth appends, shrinkage disposes the tail, and a value whose type changed rebuilds only that index. Node identity is preserved, which keeps focus, selection, scroll position, transitions and `mousedown`→`mouseup` click sequences intact.
+
+Index-based reuse has no notion of item identity — use `repeat()` for lists that reorder, sort, filter, or take insertions anywhere but the end. Dev builds log a one-time advisory when an array actually churns (several items rebuilt in one update), and when an array mixes keyed and unkeyed items.
+
+> Changed in 3.1.0: unkeyed arrays previously rebuilt their entire subtree on every render. See `docs/TEMPLATE_SYSTEM.md` for the migration notes.
+
 ### Built-in Directives
 
 #### `repeat(items, keyFn, template)`
@@ -1523,7 +1531,7 @@ Source: `docs/CODING_PRACTICES.md`
 - `_`-prefixed properties bypass reactivity — use for internal state that shouldn't trigger renders
 - Signals provide fine-grained reactivity — prefer over plain properties for shared/computed state
 - `queueMicrotask` batches multiple property changes into a single render
-- `repeat()` with stable keys minimizes DOM mutations via LIS algorithm
+- Interpolated arrays are reused by index — `repeat()` with stable keys is what tracks items across reordering (and minimizes mutations via the LIS algorithm)
 - `repeatRaw()` for maximum performance when template overhead matters
 
 ### Anti-Patterns

@@ -321,6 +321,10 @@ function disposePart(part) {
 		for (const item of part.arrayState.items.values()) disposeContainerParts(item.container);
 		part.arrayState = void 0;
 	}
+	if (part.positionalArrayState) {
+		for (const item of part.positionalArrayState.items) disposeContainerParts(item.container);
+		part.positionalArrayState = void 0;
+	}
 	if (part.directiveState !== void 0) {
 		disposeDirectiveState(part.directiveState);
 		part.directiveState = void 0;
@@ -3140,6 +3144,21 @@ function warnUnsafePropertyBinding(name) {
 function isDevMode() {
 	return !(typeof import.meta !== "undefined" && true);
 }
+function warnUnkeyedArrayChurn(state, recreated, total) {
+	if (state.warnedChurn || recreated < 2 || total < 2) return;
+	if (!isDevMode()) return;
+	state.warnedChurn = true;
+	console.warn(`[melodic] An interpolated array rebuilt ${recreated} of ${total} items on one update. Unkeyed arrays are reused by index, so entries that change position lose their DOM nodes (and with them focus, scroll position, and in-flight clicks). Use repeat(items, keyFn, template) to track items by identity instead.`);
+}
+var warnedPartiallyKeyedParts = /* @__PURE__ */ new WeakSet();
+function warnPartiallyKeyedArray(part, values) {
+	if (!isDevMode() || warnedPartiallyKeyedParts.has(part)) return;
+	let keyed = 0;
+	for (const value of values) if (value && typeof value === "object" && value.__keyed === true) keyed++;
+	if (keyed === 0 || keyed === values.length) return;
+	warnedPartiallyKeyedParts.add(part);
+	console.warn(`[melodic] An interpolated array mixes keyed and unkeyed items (${keyed} of ${values.length} keyed). Keyed diffing requires every item to carry a key, so this array falls back to index-based reuse. Key every item, or none.`);
+}
 var ANY_MARKER_REGEX = /* @__PURE__ */ new RegExp(`${COMMENT_NODE_MARKER}|${ATTRIBUTE_MARKER_PREFIX}\\d+__|__(?:event|prop|action|bool)-\\d+__`);
 function describeSnippet(html$1, index) {
 	const start = Math.max(0, index - 40);
@@ -3583,6 +3602,10 @@ var TemplateResult = class TemplateResult {
 			for (const item of part.arrayState.items.values()) disposeContainerParts(item.container);
 			part.arrayState = void 0;
 		}
+		if (part.positionalArrayState) {
+			for (const item of part.positionalArrayState.items) disposeContainerParts(item.container);
+			part.positionalArrayState = void 0;
+		}
 		if (part.renderedNodes && part.renderedNodes.length > 0) for (const node of part.renderedNodes) node.parentNode?.removeChild(node);
 		part.renderedNodes = [];
 	}
@@ -3640,6 +3663,7 @@ var TemplateResult = class TemplateResult {
 		const parent = part.endMarker.parentNode;
 		const keyedValues = this.getKeyedValues(values);
 		if (keyedValues) {
+			if (part.positionalArrayState) this.clearRenderedNodes(part);
 			const state = part.arrayState ?? {
 				items: /* @__PURE__ */ new Map(),
 				keys: []
@@ -3684,26 +3708,42 @@ var TemplateResult = class TemplateResult {
 			part.renderedNodes = newKeys.flatMap((key) => newItems.get(key).nodes);
 			return;
 		}
-		this.clearRenderedNodes(part);
-		const renderedNodes = [];
-		const renderedContainers = [];
-		for (const value of values) if (value instanceof TemplateResult) {
-			const fragment = document.createDocumentFragment();
-			value.renderInto(fragment);
-			const nodes = Array.from(fragment.childNodes);
-			renderedNodes.push(...nodes);
-			renderedContainers.push(fragment);
-			parent.insertBefore(fragment, part.endMarker);
-		} else if (value instanceof Node) {
-			renderedNodes.push(value);
-			parent.insertBefore(value, part.endMarker);
-		} else if (value !== null && value !== void 0) {
-			const textNode = document.createTextNode(String(value));
-			renderedNodes.push(textNode);
-			parent.insertBefore(textNode, part.endMarker);
+		warnPartiallyKeyedArray(part, values);
+		this.renderPositionalArray(part, values, parent);
+	}
+	renderPositionalArray(part, values, parent) {
+		const endMarker = part.endMarker;
+		const isUpdate = part.positionalArrayState !== void 0;
+		if (!isUpdate) this.clearRenderedNodes(part);
+		const state = part.positionalArrayState ?? { items: [] };
+		const items = state.items;
+		let recreated = 0;
+		for (let index = 0; index < values.length; index++) {
+			const value = values[index];
+			const existing = items[index];
+			if (existing) {
+				const anchor = this.findPositionalAnchor(items, index + 1, endMarker);
+				if (this.updateArrayItem(existing, value, parent, anchor)) recreated++;
+			} else {
+				const created = this.createArrayItem(value, parent, endMarker);
+				items[index] = {
+					value,
+					container: created.container,
+					nodes: created.nodes
+				};
+			}
 		}
-		part.renderedNodes = renderedNodes;
-		part.renderedContainers = renderedContainers.length > 0 ? renderedContainers : void 0;
+		if (items.length > values.length) for (const removed of items.splice(values.length)) {
+			disposeContainerParts(removed.container);
+			for (const node of removed.nodes) node.parentNode?.removeChild(node);
+		}
+		part.positionalArrayState = state;
+		part.renderedNodes = items.flatMap((item) => item.nodes);
+		if (isUpdate) warnUnkeyedArrayChurn(state, recreated, values.length);
+	}
+	findPositionalAnchor(items, from, endMarker) {
+		for (let index = from; index < items.length; index++) for (const node of items[index].nodes) if (node.parentNode) return node;
+		return endMarker;
 	}
 	getKeyedValues(values) {
 		if (values.length === 0) return null;
@@ -3729,21 +3769,30 @@ var TemplateResult = class TemplateResult {
 			nodes
 		};
 	}
-	updateArrayItem(item, value, parent, endMarker) {
-		if (value instanceof TemplateResult) {
-			item.nodes = renderDetachedItem(value, item.container, item.nodes, endMarker);
+	updateArrayItem(item, value, parent, anchor) {
+		const hasPartTree = item.container.__parts !== void 0;
+		if (value instanceof TemplateResult && hasPartTree) {
+			const previousNodes = item.nodes;
+			item.nodes = renderDetachedItem(value, item.container, item.nodes, anchor);
 			item.value = value;
-			return;
+			return item.nodes !== previousNodes;
 		}
-		if (value === item.value) return;
+		if (!(value instanceof TemplateResult) && value === item.value) return false;
+		if (!(value instanceof TemplateResult) && !(value instanceof Node) && value !== null && value !== void 0 && !hasPartTree && item.nodes.length === 1 && item.nodes[0].nodeType === Node.TEXT_NODE) {
+			item.nodes[0].nodeValue = String(value);
+			item.value = value;
+			return false;
+		}
 		disposeContainerParts(item.container);
 		for (const node of item.nodes) node.parentNode?.removeChild(node);
 		item.container = document.createDocumentFragment();
-		if (value instanceof Node) item.container.appendChild(value);
+		if (value instanceof TemplateResult) value.renderInto(item.container);
+		else if (value instanceof Node) item.container.appendChild(value);
 		else if (value !== null && value !== void 0) item.container.appendChild(document.createTextNode(String(value)));
 		item.nodes = Array.from(item.container.childNodes);
-		parent.insertBefore(item.container, endMarker);
+		parent.insertBefore(item.container, anchor);
 		item.value = value;
+		return true;
 	}
 	commitEventPart(part, value) {
 		const element = part.node;

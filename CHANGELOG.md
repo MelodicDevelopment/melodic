@@ -1,5 +1,25 @@
 # Changelog
 
+## 3.1.0
+
+### @melodicdev/core
+
+- **Unkeyed arrays now preserve DOM identity across renders (behaviour change — see the migration note below).** A plain `${items.map(item => html`…`)}` binding tore its entire subtree down and rebuilt it on *every* render: only the keyed path diffed and updated in place, and everything else fell through to `clearRenderedNodes` plus a full rebuild. The rendered output was always correct, so nothing ever failed loudly — what was destroyed was node identity, and identity is load-bearing. The browser only fires `click` when `mousedown` and `mouseup` land on the same node, so a list inside a template that re-renders faster than a human click (a signal on an animation-frame clock, a poll, a resize observer) could not be clicked at all: both mouse events fired, no `click` ever did, and the handler never ran. Focus, text selection, scroll position, `:hover`, CSS transitions and `IntersectionObserver`/`ResizeObserver` registrations were lost the same way. Arrays are now reused positionally — same length reuses every node, growth appends, shrinkage disposes and removes the tail, and an index whose value type changed (template ↔ Node ↔ primitive) is rebuilt in place at its own position. Reordering an unkeyed array still moves content between fixed nodes; `repeat(items, keyFn, template)` remains the way to track items by identity, and its LIS reordering is unchanged.
+- **Fixed an array item that changed from a primitive/Node to a TemplateResult rendering nothing.** The in-place update path assumed the item's container already held a part tree; when it did not (the item previously held a text node or a bare Node), the new template was rendered into the *detached* container and never reached the DOM, leaving the stale content live. Affected the keyed path too, where it was latent.
+- **Primitive array items update their existing text node** instead of replacing it, so text-only arrays no longer churn nodes either.
+- **New dev-mode advisories for arrays.** An unkeyed array that actually churns — two or more items rebuilt in a single update, the signature of entries shifting position — logs a one-time advisory naming `repeat(items, keyFn, template)`. Arrays that reuse cleanly are never warned about, since a plain `.map()` is now correct for the common case. Separately, an array that mixes keyed and unkeyed items warns once: keyed diffing requires *every* item to carry a key, so one unkeyed entry silently demoted the whole array to index-based reuse. Both are stripped in production builds like the existing template diagnostics.
+
+#### Migrating
+
+Two consequences are user-visible in existing apps:
+
+- **Custom elements inside unkeyed arrays are no longer recreated every render.** `onCreate`/`onDestroy` (and `connectedCallback`/`disconnectedCallback`) fired on each render before and now fire once. Code that relied on that repetition — re-reading a value in `onCreate`, re-registering something per render — needs to move to `onRender` or a signal. Per-render setup that was accidentally leaking is now correct.
+- **Per-node DOM state persists across renders.** Uncontrolled state that used to reset because the node was new each time — a native input's typed value, scroll position, an open `<details>` — now survives. Drive it from the template if it must reset.
+
+### Documentation
+
+- `docs/TEMPLATE_SYSTEM.md` and `MELODIC_FRAMEWORK.md` document interpolated-array reuse semantics, when index-based reuse is not enough (reorder/sort/filter/insert-not-at-end), the new dev advisories, and the 3.1.0 behaviour change.
+
 ## 3.0.3
 
 ### @melodicdev/core

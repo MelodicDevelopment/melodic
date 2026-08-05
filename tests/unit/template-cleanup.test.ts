@@ -98,19 +98,20 @@ describe('recursive part disposal', () => {
 		expect(container.textContent).toContain('b');
 	});
 
-	it('disposes non-keyed array items on re-render and removal', () => {
+	it('disposes removed non-keyed array items without disposing the reused ones', () => {
 		const template = (items: number[]) => html`<div>${items.map((i) => html`<span :track=${i}>${i}</span>`)}</div>`;
 
 		render(template([1, 2]), container);
 		expect(setups).toBe(2);
 
-		// Non-keyed arrays fully rebuild each render — old items must be disposed.
+		// Unkeyed arrays are reused positionally: index 0 survives untouched (no
+		// cleanup, no re-setup) and only the dropped tail item is disposed.
 		render(template([1]), container);
-		expect(cleanups).toBe(2);
-		expect(setups).toBe(3);
+		expect(cleanups).toBe(1);
+		expect(setups).toBe(2);
 
 		render(template([]), container);
-		expect(cleanups).toBe(3);
+		expect(cleanups).toBe(2);
 	});
 
 	it(':formControl cleanup runs when a when() branch removes the control binding', () => {

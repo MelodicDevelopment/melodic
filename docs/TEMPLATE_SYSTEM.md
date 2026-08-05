@@ -400,9 +400,36 @@ html`<span class="${cls}">${text}</span>`
 
 Component renders are batched per microtask. Multiple signal or property updates within the same tick coalesce into a single render, reducing redundant work while keeping UI responsive.
 
+### Arrays and DOM Identity
+
+An interpolated array — the plain `${items.map(item => html`…`)}` form — is reused **by index**. On re-render, index `i` of the new array updates the nodes created for index `i` of the previous one:
+
+| Change | Behaviour |
+|--------|-----------|
+| Same length, same structure | Every node reused, content updated in place |
+| Array grew | Leading items reused, the rest created |
+| Array shrank | Survivors reused, the tail disposed and removed |
+| Value type changed at an index (template ↔ Node ↔ primitive) | Just that index is rebuilt, in place |
+| Items reordered | Nodes stay at their index — the *content* shifts between them |
+
+Reuse preserves node identity, which matters more than it looks. The browser only fires `click` when `mousedown` and `mouseup` land on the same node, so a list that rebuilds between press and release cannot be clicked at all. Focus, text selection, scroll position, `:hover`, CSS transitions, and `IntersectionObserver`/`ResizeObserver` registrations are lost the same way.
+
+> **Changed in 3.1.0.** Unkeyed arrays previously tore down and rebuilt their entire subtree on every render. See [Behaviour change](#behaviour-change-in-310) below.
+
 ### repeat() Keys
 
 The `repeat(items, keyFn, template)` directive relies on stable keys for reuse and ordering. Use a key function that returns a unique, stable identifier (for example, a database id) to ensure correct updates when items are added, removed, or reordered.
+
+Index-based reuse has no notion of item identity, so reach for `repeat()` when a list is **reordered, sorted, filtered, or has items inserted anywhere but the end** — anything where item *n* of this render is not the same thing as item *n* of the last one. Without keys the DOM at each index is retargeted to a different item, which is visually correct but moves per-node state (focus, an open menu, an in-progress selection) to the wrong row.
+
+In dev builds, an array that actually churns — several items rebuilt in a single update — logs a one-time console advisory pointing at `repeat()`. A plain `.map()` that reuses cleanly is never warned about. Mixing keyed and unkeyed items in one array also warns: keyed diffing requires *every* item to carry a key, so a single unkeyed entry silently demotes the whole array to index-based reuse.
+
+### Behaviour change in 3.1.0
+
+Before 3.1.0 an unkeyed array disposed and recreated every one of its nodes on each render. Two consequences of the fix are worth checking in existing apps:
+
+- **Custom elements inside unkeyed arrays are no longer recreated per render.** `onCreate`/`onDestroy` (and `connectedCallback`/`disconnectedCallback`) fired on every render before, and now fire once. Setup work in `onCreate` that happened to re-run each frame will run only on the real creation — and per-render work that was accidentally leaking is now correct.
+- **Per-node DOM state persists across renders.** Uncontrolled state — a native input's typed value, scroll position, an open `<details>` — used to reset each render because the node was new. It now survives, like every other framework. Drive that state from the template if you need it reset.
 
 ### Commit Before Append
 

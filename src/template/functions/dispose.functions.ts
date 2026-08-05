@@ -32,7 +32,7 @@ export function disposeDirectiveState(state: unknown): void {
 /**
  * Dispose a single template part: runs its action cleanup, disposes its
  * directive state, and recursively disposes any nested rendered containers
- * (nested templates, keyed/plain array items).
+ * (nested templates, keyed/positional array items).
  */
 export function disposePart(part: ITemplatePart): void {
 	// Remove the stable event-part wrapper listener (registered once at part
@@ -74,6 +74,13 @@ export function disposePart(part: ITemplatePart): void {
 			disposeContainerParts(item.container);
 		}
 		part.arrayState = undefined;
+	}
+
+	if (part.positionalArrayState) {
+		for (const item of part.positionalArrayState.items) {
+			disposeContainerParts(item.container);
+		}
+		part.positionalArrayState = undefined;
 	}
 
 	if (part.directiveState !== undefined) {
