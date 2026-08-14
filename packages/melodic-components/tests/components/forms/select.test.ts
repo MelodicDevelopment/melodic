@@ -1,10 +1,11 @@
-import { describe, it, expect, afterEach, beforeAll } from 'vitest';
+import { describe, it, expect, afterEach, beforeAll, vi } from 'vitest';
 import '../../../src/components/forms/select/select.component';
 import {
 	flush,
 	createComponent,
 	removeComponent,
-	shadowQuery
+	shadowQuery,
+	captureEvent
 } from '../../helpers/component-test-utils';
 import { installPopoverPolyfill } from '../../helpers/popover-polyfill';
 
@@ -134,6 +135,135 @@ describe('ml-select', () => {
 			trigger.click();
 			await flush();
 			expect(el.isOpen).toBe(true);
+		});
+	});
+
+	describe('typeahead', () => {
+		const states = [
+			{ value: 'al', label: 'Alabama' },
+			{ value: 'me', label: 'Maine' },
+			{ value: 'md', label: 'Maryland' },
+			{ value: 'mi', label: 'Michigan' },
+			{ value: 'mn', label: 'Minnesota' },
+			{ value: 'oh', label: 'Ohio' }
+		];
+
+		const press = (key: string): void => {
+			el.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true }));
+		};
+
+		afterEach(() => {
+			vi.useRealTimers();
+		});
+
+		it('jumps focus to the first matching option while open', async () => {
+			el = createComponent('ml-select', { properties: { options: states } });
+			await flush();
+			el.component.open();
+			await flush();
+			expect(el.focusedIndex).toBe(0); // Alabama
+
+			press('m');
+			await flush();
+			expect(el.focusedIndex).toBe(1); // Maine
+		});
+
+		it('accumulates the buffer so "mi" matches Michigan, not Maine', async () => {
+			el = createComponent('ml-select', { properties: { options: states } });
+			await flush();
+			el.component.open();
+			await flush();
+
+			press('m');
+			press('i');
+			await flush();
+			expect(el.focusedIndex).toBe(3); // Michigan
+		});
+
+		it('resets the buffer after the typeahead timeout', async () => {
+			vi.useFakeTimers({ now: Date.now() });
+			el = createComponent('ml-select', { properties: { options: states } });
+			await flush();
+			el.component.open();
+			await flush();
+
+			press('m');
+			await flush();
+			expect(el.focusedIndex).toBe(1); // Maine
+
+			vi.advanceTimersByTime(800);
+			press('o');
+			await flush();
+			// A stale "mo" buffer would match nothing; a fresh "o" jumps to Ohio
+			expect(el.focusedIndex).toBe(5);
+		});
+
+		it('cycles through matches on repeated presses of the same letter', async () => {
+			el = createComponent('ml-select', { properties: { options: states } });
+			await flush();
+			el.component.open();
+			await flush();
+
+			press('m');
+			await flush();
+			expect(el.focusedIndex).toBe(1); // Maine
+
+			press('m');
+			await flush();
+			expect(el.focusedIndex).toBe(2); // Maryland
+
+			press('m');
+			press('m');
+			press('m');
+			await flush();
+			expect(el.focusedIndex).toBe(1); // Michigan → Minnesota → wraps to Maine
+		});
+
+		it('skips disabled options', async () => {
+			el = createComponent('ml-select', {
+				properties: {
+					options: [
+						{ value: 'al', label: 'Alabama' },
+						{ value: 'me', label: 'Maine', disabled: true },
+						{ value: 'md', label: 'Maryland' }
+					]
+				}
+			});
+			await flush();
+			el.component.open();
+			await flush();
+
+			press('m');
+			await flush();
+			expect(el.focusedIndex).toBe(2); // Maryland — Maine is disabled
+		});
+
+		it('selects the match directly and emits ml:change while closed', async () => {
+			el = createComponent('ml-select', { properties: { options: states } });
+			await flush();
+
+			const changed = captureEvent<{ value: string }>(el, 'ml:change');
+			press('m');
+			const event = await changed;
+
+			expect(event.detail.value).toBe('me'); // Maine
+			expect(el.value).toBe('me');
+			expect(el.isOpen).toBe(false);
+		});
+
+		it('moves focus without toggling values in multiple mode', async () => {
+			el = createComponent('ml-select', {
+				attributes: { multiple: '' },
+				properties: { options: states }
+			});
+			await flush();
+			el.component.open();
+			await flush();
+
+			press('m');
+			await flush();
+			expect(el.focusedIndex).toBe(1); // Maine
+			expect(el.values).toEqual([]);
 		});
 	});
 });

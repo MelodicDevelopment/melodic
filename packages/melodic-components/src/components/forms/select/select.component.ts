@@ -23,6 +23,9 @@ registerAdapter<string | string[]>((el) => el.tagName === 'ML-SELECT', {
 	setDisabled: (el, disabled) => { (el as unknown as { disabled: boolean }).disabled = disabled; }
 });
 
+/** Idle time after which the typeahead buffer resets (matches native select behavior) */
+const TYPEAHEAD_RESET_MS = 700;
+
 /**
  * ml-select - Custom select/dropdown component
  *
@@ -117,6 +120,8 @@ export class SelectComponent implements IElementRef, OnCreate, OnDestroy {
 	}));
 	private _lastCloseTime = 0;
 	private _syncingValues = false;
+	private _typeaheadBuffer = '';
+	private _typeaheadLastTime = 0;
 
 	public onCreate(): void {
 		this.elementRef.addEventListener('keydown', this._handleKeyDown);
@@ -351,6 +356,7 @@ export class SelectComponent implements IElementRef, OnCreate, OnDestroy {
 			this.isOpen = false;
 			this.focusedIndex = -1;
 			this.search = '';
+			this._typeaheadBuffer = '';
 			this._lastCloseTime = Date.now();
 			this.stopPositioning();
 			this.elementRef.dispatchEvent(
@@ -423,6 +429,7 @@ export class SelectComponent implements IElementRef, OnCreate, OnDestroy {
 				event.preventDefault();
 				if (this.isOpen) {
 					this.focusedIndex = this.findFirstEnabledIndex();
+					this.scrollFocusedOptionIntoView();
 				}
 				break;
 
@@ -430,6 +437,7 @@ export class SelectComponent implements IElementRef, OnCreate, OnDestroy {
 				event.preventDefault();
 				if (this.isOpen) {
 					this.focusedIndex = this.findLastEnabledIndex();
+					this.scrollFocusedOptionIntoView();
 				}
 				break;
 
@@ -438,8 +446,69 @@ export class SelectComponent implements IElementRef, OnCreate, OnDestroy {
 				break;
 
 			default:
+				if (!isSearchInput) {
+					this.handleTypeahead(event);
+				}
 				break;
 		}
+	}
+
+	/** Native-select-style type-to-jump: accumulate printable characters and jump to the matching option */
+	private handleTypeahead(event: KeyboardEvent): void {
+		if (event.key.length !== 1 || event.ctrlKey || event.metaKey || event.altKey) return;
+
+		event.preventDefault();
+
+		const now = Date.now();
+		if (now - this._typeaheadLastTime > TYPEAHEAD_RESET_MS) {
+			this._typeaheadBuffer = '';
+		}
+		this._typeaheadLastTime = now;
+		this._typeaheadBuffer += event.key.toLowerCase();
+
+		// Repeated presses of the same letter cycle through its matches instead of matching "mm..."
+		const isRepeatedChar =
+			this._typeaheadBuffer.length > 1 &&
+			this._typeaheadBuffer.split('').every((char) => char === this._typeaheadBuffer[0]);
+		const query = isRepeatedChar ? this._typeaheadBuffer[0] : this._typeaheadBuffer;
+
+		const options = this.getActiveOptions();
+		const startIndex = this.isOpen
+			? this.focusedIndex
+			: options.findIndex((opt) => opt.value === this.value);
+		const matchIndex = this.findTypeaheadMatch(query, startIndex);
+		if (matchIndex < 0) return;
+
+		if (this.isOpen) {
+			this.focusedIndex = matchIndex;
+			this.scrollFocusedOptionIntoView();
+			return;
+		}
+
+		if (this.multiple) return;
+
+		this.selectOption(options[matchIndex]);
+	}
+
+	/** Find the first enabled option whose label starts with query, searching forward from startIndex + 1 and wrapping */
+	private findTypeaheadMatch(query: string, startIndex: number): number {
+		const options = this.getActiveOptions();
+
+		for (let offset = 1; offset <= options.length; offset++) {
+			const index = (startIndex + offset) % options.length;
+			const option = options[index];
+			if (!option.disabled && option.label.toLowerCase().startsWith(query)) {
+				return index;
+			}
+		}
+		return -1;
+	}
+
+	/** Keep the keyboard-focused option visible within the scrollable dropdown */
+	private scrollFocusedOptionIntoView(): void {
+		if (this.focusedIndex < 0) return;
+		const optionEl = this.elementRef.shadowRoot?.getElementById(this.optionId(this.focusedIndex));
+		optionEl?.scrollIntoView({ block: 'nearest' });
 	}
 
 	/** Move focus to next enabled option */
@@ -451,6 +520,7 @@ export class SelectComponent implements IElementRef, OnCreate, OnDestroy {
 		while (index < options.length) {
 			if (!options[index].disabled) {
 				this.focusedIndex = index;
+				this.scrollFocusedOptionIntoView();
 				return;
 			}
 			index++;
@@ -466,6 +536,7 @@ export class SelectComponent implements IElementRef, OnCreate, OnDestroy {
 		while (index >= 0) {
 			if (!options[index].disabled) {
 				this.focusedIndex = index;
+				this.scrollFocusedOptionIntoView();
 				return;
 			}
 			index--;
