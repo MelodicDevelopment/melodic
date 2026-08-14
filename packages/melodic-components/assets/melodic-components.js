@@ -321,6 +321,10 @@ function disposePart(part) {
 		for (const item of part.arrayState.items.values()) disposeContainerParts(item.container);
 		part.arrayState = void 0;
 	}
+	if (part.positionalArrayState) {
+		for (const item of part.positionalArrayState.items) disposeContainerParts(item.container);
+		part.positionalArrayState = void 0;
+	}
 	if (part.directiveState !== void 0) {
 		disposeDirectiveState(part.directiveState);
 		part.directiveState = void 0;
@@ -3140,6 +3144,21 @@ function warnUnsafePropertyBinding(name) {
 function isDevMode() {
 	return !(typeof import.meta !== "undefined" && true);
 }
+function warnUnkeyedArrayChurn(state, recreated, total) {
+	if (state.warnedChurn || recreated < 2 || total < 2) return;
+	if (!isDevMode()) return;
+	state.warnedChurn = true;
+	console.warn(`[melodic] An interpolated array rebuilt ${recreated} of ${total} items on one update. Unkeyed arrays are reused by index, so entries that change position lose their DOM nodes (and with them focus, scroll position, and in-flight clicks). Use repeat(items, keyFn, template) to track items by identity instead.`);
+}
+var warnedPartiallyKeyedParts = /* @__PURE__ */ new WeakSet();
+function warnPartiallyKeyedArray(part, values) {
+	if (!isDevMode() || warnedPartiallyKeyedParts.has(part)) return;
+	let keyed = 0;
+	for (const value of values) if (value && typeof value === "object" && value.__keyed === true) keyed++;
+	if (keyed === 0 || keyed === values.length) return;
+	warnedPartiallyKeyedParts.add(part);
+	console.warn(`[melodic] An interpolated array mixes keyed and unkeyed items (${keyed} of ${values.length} keyed). Keyed diffing requires every item to carry a key, so this array falls back to index-based reuse. Key every item, or none.`);
+}
 var ANY_MARKER_REGEX = /* @__PURE__ */ new RegExp(`${COMMENT_NODE_MARKER}|${ATTRIBUTE_MARKER_PREFIX}\\d+__|__(?:event|prop|action|bool)-\\d+__`);
 function describeSnippet(html$1, index) {
 	const start = Math.max(0, index - 40);
@@ -3151,12 +3170,17 @@ function warnUnsupportedBinding(position, html$1, index) {
 	console.warn(`[melodic] Template contains a binding in an unsupported position (${position}). The parser cannot track bindings here, so the value will not render or update. Offending template: ${describeSnippet(html$1, index)}`);
 }
 function warnUnsupportedBindingPositions(html$1) {
-	if (!isDevMode()) return;
+	if (!isDevMode()) return false;
+	let warned$1 = false;
+	const report = (position, index) => {
+		warned$1 = true;
+		warnUnsupportedBinding(position, html$1, index);
+	};
 	const rawTextRegex = /<(textarea|title)(?:\s[^>]*)?>([\s\S]*?)<\/\1\s*>/gi;
 	let rawTextMatch;
-	while ((rawTextMatch = rawTextRegex.exec(html$1)) !== null) if (ANY_MARKER_REGEX.test(rawTextMatch[2])) warnUnsupportedBinding(`inside <${rawTextMatch[1].toLowerCase()}> content`, html$1, rawTextMatch.index);
+	while ((rawTextMatch = rawTextRegex.exec(html$1)) !== null) if (ANY_MARKER_REGEX.test(rawTextMatch[2])) report(`inside <${rawTextMatch[1].toLowerCase()}> content`, rawTextMatch.index);
 	const tagNameIndex = html$1.search(/* @__PURE__ */ new RegExp(`</?${COMMENT_NODE_MARKER}`));
-	if (tagNameIndex !== -1) warnUnsupportedBinding("tag-name position", html$1, tagNameIndex);
+	if (tagNameIndex !== -1) report("tag-name position", tagNameIndex);
 	let searchFrom = 0;
 	for (;;) {
 		const open = html$1.indexOf("<!--", searchFrom);
@@ -3167,9 +3191,21 @@ function warnUnsupportedBindingPositions(html$1) {
 		}
 		const close = html$1.indexOf("-->", open + 4);
 		const content = close === -1 ? html$1.slice(open + 4) : html$1.slice(open + 4, close);
-		if (content.includes(MARKER) || /__(?:event|prop|action|bool)-\d+__/.test(content)) warnUnsupportedBinding("inside an HTML comment", html$1, open);
+		if (content.includes(MARKER) || /__(?:event|prop|action|bool)-\d+__/.test(content)) report("inside an HTML comment", open);
 		searchFrom = close === -1 ? html$1.length : close + 3;
 	}
+	return warned$1;
+}
+function warnLeakedBindings(partPaths, expressionCount, html$1) {
+	if (!isDevMode()) return;
+	const anchored = /* @__PURE__ */ new Set();
+	for (const partPath of partPaths) if (partPath.attributeIndices) for (const index of partPath.attributeIndices) anchored.add(index);
+	else if (partPath.index >= 0) anchored.add(partPath.index);
+	const lost = [];
+	for (let index = 0; index < expressionCount; index++) if (!anchored.has(index)) lost.push(index);
+	if (lost.length === 0) return;
+	const markerIndex = html$1.indexOf(createAttributeMarker(lost[0]));
+	console.warn(`[melodic] Template part marker leaked: ${lost.length} binding${lost.length === 1 ? "" : "s"} (value index ${lost.join(", ")}) could not be anchored to the parsed template and will never render or update. The usual cause is an unbalanced quote in an attribute value, which swallows the markup that follows it. Offending template: ${describeSnippet(html$1, markerIndex === -1 ? 0 : markerIndex)}`);
 }
 function extractListenerOptions(value) {
 	const { capture, once, passive } = value;
@@ -3250,7 +3286,9 @@ var TemplateResult = class TemplateResult {
 			const s = this.strings[i];
 			const valueIndex = i - 1;
 			const match = /([@.:?]?[\w:-]+)\s*=\s*["']?$/.exec(html$1);
-			const quotedAttrMatch = /([@.:?]?[\w:-]+)\s*=\s*(["'])([^"']*)$/.exec(html$1);
+			const doubleQuotedAttrMatch = /([@.:?]?[\w:-]+)\s*=\s*(")([^"]*)$/.exec(html$1);
+			const singleQuotedAttrMatch = /([@.:?]?[\w:-]+)\s*=\s*(')([^']*)$/.exec(html$1);
+			const quotedAttrMatch = doubleQuotedAttrMatch && singleQuotedAttrMatch ? doubleQuotedAttrMatch.index >= singleQuotedAttrMatch.index ? doubleQuotedAttrMatch : singleQuotedAttrMatch : doubleQuotedAttrMatch ?? singleQuotedAttrMatch;
 			let attrKey = "___";
 			if (activeAttributeName) html$1 += createAttributeMarker(valueIndex);
 			else {
@@ -3287,7 +3325,7 @@ var TemplateResult = class TemplateResult {
 				}
 			}
 		}
-		warnUnsupportedBindingPositions(html$1);
+		const hasUnsupportedBinding = warnUnsupportedBindingPositions(html$1);
 		const element = document.createElement("template");
 		element.innerHTML = html$1;
 		const partPaths = [];
@@ -3396,6 +3434,7 @@ var TemplateResult = class TemplateResult {
 			}
 		};
 		walkTemplate(element.content, []);
+		if (!hasUnsupportedBinding) warnLeakedBindings(partPaths, this.strings.length - 1, html$1);
 		cached = {
 			element,
 			parts,
@@ -3563,6 +3602,10 @@ var TemplateResult = class TemplateResult {
 			for (const item of part.arrayState.items.values()) disposeContainerParts(item.container);
 			part.arrayState = void 0;
 		}
+		if (part.positionalArrayState) {
+			for (const item of part.positionalArrayState.items) disposeContainerParts(item.container);
+			part.positionalArrayState = void 0;
+		}
 		if (part.renderedNodes && part.renderedNodes.length > 0) for (const node of part.renderedNodes) node.parentNode?.removeChild(node);
 		part.renderedNodes = [];
 	}
@@ -3620,6 +3663,7 @@ var TemplateResult = class TemplateResult {
 		const parent = part.endMarker.parentNode;
 		const keyedValues = this.getKeyedValues(values);
 		if (keyedValues) {
+			if (part.positionalArrayState) this.clearRenderedNodes(part);
 			const state = part.arrayState ?? {
 				items: /* @__PURE__ */ new Map(),
 				keys: []
@@ -3664,26 +3708,42 @@ var TemplateResult = class TemplateResult {
 			part.renderedNodes = newKeys.flatMap((key) => newItems.get(key).nodes);
 			return;
 		}
-		this.clearRenderedNodes(part);
-		const renderedNodes = [];
-		const renderedContainers = [];
-		for (const value of values) if (value instanceof TemplateResult) {
-			const fragment = document.createDocumentFragment();
-			value.renderInto(fragment);
-			const nodes = Array.from(fragment.childNodes);
-			renderedNodes.push(...nodes);
-			renderedContainers.push(fragment);
-			parent.insertBefore(fragment, part.endMarker);
-		} else if (value instanceof Node) {
-			renderedNodes.push(value);
-			parent.insertBefore(value, part.endMarker);
-		} else if (value !== null && value !== void 0) {
-			const textNode = document.createTextNode(String(value));
-			renderedNodes.push(textNode);
-			parent.insertBefore(textNode, part.endMarker);
+		warnPartiallyKeyedArray(part, values);
+		this.renderPositionalArray(part, values, parent);
+	}
+	renderPositionalArray(part, values, parent) {
+		const endMarker = part.endMarker;
+		const isUpdate = part.positionalArrayState !== void 0;
+		if (!isUpdate) this.clearRenderedNodes(part);
+		const state = part.positionalArrayState ?? { items: [] };
+		const items = state.items;
+		let recreated = 0;
+		for (let index = 0; index < values.length; index++) {
+			const value = values[index];
+			const existing = items[index];
+			if (existing) {
+				const anchor = this.findPositionalAnchor(items, index + 1, endMarker);
+				if (this.updateArrayItem(existing, value, parent, anchor)) recreated++;
+			} else {
+				const created = this.createArrayItem(value, parent, endMarker);
+				items[index] = {
+					value,
+					container: created.container,
+					nodes: created.nodes
+				};
+			}
 		}
-		part.renderedNodes = renderedNodes;
-		part.renderedContainers = renderedContainers.length > 0 ? renderedContainers : void 0;
+		if (items.length > values.length) for (const removed of items.splice(values.length)) {
+			disposeContainerParts(removed.container);
+			for (const node of removed.nodes) node.parentNode?.removeChild(node);
+		}
+		part.positionalArrayState = state;
+		part.renderedNodes = items.flatMap((item) => item.nodes);
+		if (isUpdate) warnUnkeyedArrayChurn(state, recreated, values.length);
+	}
+	findPositionalAnchor(items, from, endMarker) {
+		for (let index = from; index < items.length; index++) for (const node of items[index].nodes) if (node.parentNode) return node;
+		return endMarker;
 	}
 	getKeyedValues(values) {
 		if (values.length === 0) return null;
@@ -3709,21 +3769,30 @@ var TemplateResult = class TemplateResult {
 			nodes
 		};
 	}
-	updateArrayItem(item, value, parent, endMarker) {
-		if (value instanceof TemplateResult) {
-			item.nodes = renderDetachedItem(value, item.container, item.nodes, endMarker);
+	updateArrayItem(item, value, parent, anchor) {
+		const hasPartTree = item.container.__parts !== void 0;
+		if (value instanceof TemplateResult && hasPartTree) {
+			const previousNodes = item.nodes;
+			item.nodes = renderDetachedItem(value, item.container, item.nodes, anchor);
 			item.value = value;
-			return;
+			return item.nodes !== previousNodes;
 		}
-		if (value === item.value) return;
+		if (!(value instanceof TemplateResult) && value === item.value) return false;
+		if (!(value instanceof TemplateResult) && !(value instanceof Node) && value !== null && value !== void 0 && !hasPartTree && item.nodes.length === 1 && item.nodes[0].nodeType === Node.TEXT_NODE) {
+			item.nodes[0].nodeValue = String(value);
+			item.value = value;
+			return false;
+		}
 		disposeContainerParts(item.container);
 		for (const node of item.nodes) node.parentNode?.removeChild(node);
 		item.container = document.createDocumentFragment();
-		if (value instanceof Node) item.container.appendChild(value);
+		if (value instanceof TemplateResult) value.renderInto(item.container);
+		else if (value instanceof Node) item.container.appendChild(value);
 		else if (value !== null && value !== void 0) item.container.appendChild(document.createTextNode(String(value)));
 		item.nodes = Array.from(item.container.childNodes);
-		parent.insertBefore(item.container, endMarker);
+		parent.insertBefore(item.container, anchor);
 		item.value = value;
+		return true;
 	}
 	commitEventPart(part, value) {
 		const element = part.node;
@@ -9925,6 +9994,7 @@ registerAdapter((el) => el.tagName === "ML-SELECT", {
 		el.disabled = disabled;
 	}
 });
+var TYPEAHEAD_RESET_MS = 700;
 var SelectComponent = class SelectComponent$1 {
 	constructor() {
 		this.label = "";
@@ -9951,6 +10021,8 @@ var SelectComponent = class SelectComponent$1 {
 		}));
 		this._lastCloseTime = 0;
 		this._syncingValues = false;
+		this._typeaheadBuffer = "";
+		this._typeaheadLastTime = 0;
 		this.optionId = (index) => {
 			return `${this.listboxId}-option-${index}`;
 		};
@@ -10110,6 +10182,7 @@ var SelectComponent = class SelectComponent$1 {
 			this.isOpen = false;
 			this.focusedIndex = -1;
 			this.search = "";
+			this._typeaheadBuffer = "";
 			this._lastCloseTime = Date.now();
 			this.stopPositioning();
 			this.elementRef.dispatchEvent(new CustomEvent("ml:close", {
@@ -10158,17 +10231,58 @@ var SelectComponent = class SelectComponent$1 {
 				break;
 			case "Home":
 				event.preventDefault();
-				if (this.isOpen) this.focusedIndex = this.findFirstEnabledIndex();
+				if (this.isOpen) {
+					this.focusedIndex = this.findFirstEnabledIndex();
+					this.scrollFocusedOptionIntoView();
+				}
 				break;
 			case "End":
 				event.preventDefault();
-				if (this.isOpen) this.focusedIndex = this.findLastEnabledIndex();
+				if (this.isOpen) {
+					this.focusedIndex = this.findLastEnabledIndex();
+					this.scrollFocusedOptionIntoView();
+				}
 				break;
 			case "Tab":
 				this.close();
 				break;
-			default: break;
+			default:
+				if (!isSearchInput) this.handleTypeahead(event);
+				break;
 		}
+	}
+	handleTypeahead(event) {
+		if (event.key.length !== 1 || event.ctrlKey || event.metaKey || event.altKey) return;
+		event.preventDefault();
+		const now = Date.now();
+		if (now - this._typeaheadLastTime > TYPEAHEAD_RESET_MS) this._typeaheadBuffer = "";
+		this._typeaheadLastTime = now;
+		this._typeaheadBuffer += event.key.toLowerCase();
+		const query = this._typeaheadBuffer.length > 1 && this._typeaheadBuffer.split("").every((char) => char === this._typeaheadBuffer[0]) ? this._typeaheadBuffer[0] : this._typeaheadBuffer;
+		const options = this.getActiveOptions();
+		const startIndex = this.isOpen ? this.focusedIndex : options.findIndex((opt) => opt.value === this.value);
+		const matchIndex = this.findTypeaheadMatch(query, startIndex);
+		if (matchIndex < 0) return;
+		if (this.isOpen) {
+			this.focusedIndex = matchIndex;
+			this.scrollFocusedOptionIntoView();
+			return;
+		}
+		if (this.multiple) return;
+		this.selectOption(options[matchIndex]);
+	}
+	findTypeaheadMatch(query, startIndex) {
+		const options = this.getActiveOptions();
+		for (let offset$1 = 1; offset$1 <= options.length; offset$1++) {
+			const index = (startIndex + offset$1) % options.length;
+			const option = options[index];
+			if (!option.disabled && option.label.toLowerCase().startsWith(query)) return index;
+		}
+		return -1;
+	}
+	scrollFocusedOptionIntoView() {
+		if (this.focusedIndex < 0) return;
+		(this.elementRef.shadowRoot?.getElementById(this.optionId(this.focusedIndex)))?.scrollIntoView({ block: "nearest" });
 	}
 	focusNextOption() {
 		let index = this.focusedIndex + 1;
@@ -10176,6 +10290,7 @@ var SelectComponent = class SelectComponent$1 {
 		while (index < options.length) {
 			if (!options[index].disabled) {
 				this.focusedIndex = index;
+				this.scrollFocusedOptionIntoView();
 				return;
 			}
 			index++;
@@ -10187,6 +10302,7 @@ var SelectComponent = class SelectComponent$1 {
 		while (index >= 0) {
 			if (!options[index].disabled) {
 				this.focusedIndex = index;
+				this.scrollFocusedOptionIntoView();
 				return;
 			}
 			index--;

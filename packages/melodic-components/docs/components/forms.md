@@ -418,7 +418,25 @@ interface SelectOption {
 - Multi: `ml:change` `{ values, options, option }` (last toggled option is in `option`)
 - `ml:open`, `ml:close`
 
-Supports full keyboard navigation. Multi-select shows selected items as inline tags with search filtering.
+**Keyboard navigation:**
+
+| Key | Behavior |
+|-----|----------|
+| `Enter` / `Space` | Open the dropdown; while open, select the focused option |
+| `ArrowDown` / `ArrowUp` | Open the dropdown / move focus through enabled options |
+| `Home` / `End` | Focus the first / last enabled option |
+| `Escape` | Close the dropdown |
+| `Tab` | Close the dropdown and move focus on |
+| Printable characters | Typeahead (see below) |
+
+**Typeahead (type-to-jump):** typing jumps to the first enabled option whose label starts with the typed characters, matching native `<select>` behavior. Characters accumulate into a buffer that resets after 700ms of inactivity, so typing `m`, `i` matches *Michigan* while a pause between presses starts a new search. Repeated presses of the same letter cycle through that letter's matches (`m`, `m` → *Maine* → *Maryland* → ...), wrapping to the top. Matching is case-insensitive and skips disabled options.
+
+- **Closed select:** the match is selected directly and `ml:change` fires, without opening the dropdown.
+- **Open dropdown:** keyboard focus moves to the match and it scrolls into view; nothing is selected until `Enter`/`Space`.
+- **Multi mode:** typeahead moves focus only — it never toggles values.
+- Keystrokes inside the multi-select search input are ignored by typeahead; that input filters the option list instead.
+
+Multi-select shows selected items as inline tags with search filtering.
 
 **Key CSS Custom Properties:**
 
