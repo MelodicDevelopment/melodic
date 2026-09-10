@@ -29,8 +29,8 @@ import { devWarn } from '../../devtools/dev-mode';
  * Use `:formControl` when you need validation, touched/dirty state or a form
  * group; `:model` is the lightweight option for a single value.
  */
-function modelDirective(element: Element, value: unknown, _name: string): AttributeDirectiveCleanupFunction | void {
-	void _name;
+function modelDirective(element: Element, value: unknown, name: string): AttributeDirectiveCleanupFunction | void {
+	void name;
 
 	if (!isSignal(value)) {
 		devWarn('model-not-signal', ':model expects a signal — for example `:model=${this.name}` where `name = signal("")`. Received:', value);

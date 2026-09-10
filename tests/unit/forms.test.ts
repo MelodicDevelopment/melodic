@@ -3,9 +3,7 @@ import { MelodicComponent } from '../../src/components/decorators/melodic-compon
 import { html } from '../../src/template';
 import {
 	AbstractControl,
-	FormControl,
 	type FormGroup,
-	FormArray,
 	createFormControl,
 	createFormGroup,
 	createFormArray,

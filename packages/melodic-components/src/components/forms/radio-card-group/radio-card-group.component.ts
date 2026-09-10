@@ -57,7 +57,7 @@ export class RadioCardGroupComponent implements IElementRef, OnCreate, OnDestroy
 
 	public onCreate(): void {
 		this.elementRef.addEventListener('ml:card-select', this._handleCardSelect as EventListener);
-		this.elementRef.addEventListener('keydown', this._handleKeyDown);
+		this.elementRef.addEventListener('keydown', this.handleGroupKeyDown);
 		// Re-sync when slotted cards are added/removed.
 		this.elementRef.shadowRoot?.querySelector('slot')?.addEventListener('slotchange', this.handleSlotChange);
 	}
@@ -71,7 +71,7 @@ export class RadioCardGroupComponent implements IElementRef, OnCreate, OnDestroy
 
 	public onDestroy(): void {
 		this.elementRef.removeEventListener('ml:card-select', this._handleCardSelect as EventListener);
-		this.elementRef.removeEventListener('keydown', this._handleKeyDown);
+		this.elementRef.removeEventListener('keydown', this.handleGroupKeyDown);
 	}
 
 	/**
@@ -79,7 +79,7 @@ export class RadioCardGroupComponent implements IElementRef, OnCreate, OnDestroy
 	 * Cards live in their own shadow roots, so native radio grouping does not
 	 * apply and this has to be done by hand (mirrors ml-radio-group).
 	 */
-	private readonly _handleKeyDown = (event: KeyboardEvent): void => {
+	private readonly handleGroupKeyDown = (event: KeyboardEvent): void => {
 		const keys = ['ArrowDown', 'ArrowRight', 'ArrowUp', 'ArrowLeft'];
 		if (!keys.includes(event.key)) {
 			return;

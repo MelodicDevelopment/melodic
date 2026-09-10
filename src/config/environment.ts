@@ -1,6 +1,6 @@
 export type Environment = 'dev' | 'qa' | 'prod';
 
-interface IViteEnv {
+export interface IViteEnv {
 	VITE_ENV?: string;
 	MODE?: string;
 	PROD?: boolean;
@@ -23,7 +23,13 @@ function isEnvironment(value: unknown): value is Environment {
 }
 
 /**
- * Resolve the current environment, in order:
+ * Resolve an environment from a bundler env object.
+ *
+ * Separated from `getEnvironment()` so the precedence rules are testable —
+ * `import.meta.env` is statically replaced per module at build time, so it
+ * cannot be mutated from a test.
+ *
+ * Order:
  *
  * 1. an explicit `VITE_ENV` (`dev` | `qa` | `prod`)
  * 2. Vite's `MODE` — so `vite build --mode qa` resolves to `'qa'` instead of
@@ -33,9 +39,7 @@ function isEnvironment(value: unknown): value is Environment {
  * 3. `PROD`
  * 4. `'dev'`
  */
-export function getEnvironment(): Environment {
-	const env = readEnv();
-
+export function resolveEnvironment(env: IViteEnv | undefined): Environment {
 	if (env && isEnvironment(env.VITE_ENV)) {
 		return env.VITE_ENV;
 	}
@@ -58,6 +62,11 @@ export function getEnvironment(): Environment {
 	}
 
 	return 'dev';
+}
+
+/** The current environment, resolved from the build's env. */
+export function getEnvironment(): Environment {
+	return resolveEnvironment(readEnv());
 }
 
 export const environment: Environment = getEnvironment();

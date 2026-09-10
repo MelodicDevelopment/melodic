@@ -19,7 +19,7 @@ export {
 export type * from './components';
 
 // Config
-export { APP_CONFIG, defineConfig, environment, getEnvironment, provideConfig } from './config';
+export { APP_CONFIG, defineConfig, environment, getEnvironment, provideConfig, resolveEnvironment } from './config';
 export type * from './config';
 
 // Forms

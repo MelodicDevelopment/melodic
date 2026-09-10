@@ -1,4 +1,4 @@
-export { environment, getEnvironment } from './environment';
+export { environment, getEnvironment, resolveEnvironment } from './environment';
 export { defineConfig } from './define-config';
 export { APP_CONFIG } from './injection-tokens';
 export { provideConfig } from './provide-config';

@@ -1,8 +1,309 @@
 # Changelog
 
-## 3.1.1 (unreleased)
+## 4.0.0
+
+A large review-driven pass across the framework and the component library. It fixes ~90
+findings, adds render-time signal tracking, and introduces `@melodicdev/core/testing` and
+`@melodicdev/core/devtools`. It is a major release because several behaviours deliberately
+changed — see [Migrating](#migrating-to-400) at the end of this entry.
 
 ### @melodicdev/core
+
+#### Reactivity
+
+- **Templates now track every signal they read.** The template body runs inside a
+  `SignalEffect` whose invalidation schedules the next render, so a template reading
+  `this.auth.user()` from an injected service, a signal nested inside an object or array,
+  or a computed from anywhere re-renders like any other reactive source. Previously only
+  component *fields* whose value happened to be a `Signal` were subscribed and everything
+  else silently never updated — the single largest usability gap in the framework.
+  Lifecycle hooks are deliberately not tracked: reads in `onInit`/`onCreate`/`onRender`
+  belong to your code, not to the render.
+- **Components render once on mount, not twice.** Initial attribute writes and `.prop=`
+  bindings scheduled a render before connect, and `connectedCallback` then rendered
+  synchronously, so the queued microtask rendered again. A `_dirty` flag makes the
+  microtask skip when a render already happened. A three-item `repeat()` rendered six item
+  templates before this.
+- **Render loops are detected and stopped.** A property written from `onRender` re-rendered
+  through microtasks forever, with no error and no stack overflow — just a wedged tab. A
+  component that renders 25 times in one macrotask is now stopped and reported.
+- **New `effect()`**, with immediate first run, cleanup functions, `{ name }` and
+  `{ manual }` options, and automatic disposal with its owning component.
+- **New `untracked()`** to read signals without subscribing the surrounding effect,
+  computed or render.
+- **`SignalEffect.run()` executes its first run synchronously**, even inside a batch or a
+  flush. Deferring it meant code immediately after `effect.run()` observed an effect that
+  had not run yet, which made a predictable `effect()` helper impossible to build.
+- `signal()`, `computed()` and `SignalEffect` accept an optional `{ name }`, used in
+  destroyed-signal and circular-effect messages and in DevTools.
+- **`computed()` created during a render warns in dev.** A new one is created on every
+  render and each lives until the component unmounts (21 live computeds after 20 updates).
+- **A field named like a native `HTMLElement` property** (`hidden`, `title`, `id`, `slot`,
+  `dir`, `tabIndex`, …) is no longer mirrored onto the element, and warns in dev.
+  `el.setAttribute('hidden', '')` used to leave `el.hidden === false`.
+- **An element re-attached after teardown is no longer a zombie.** Teardown now clears the
+  root's `__parts`/`__templateKey`, so a reconnect re-initialises instead of taking the
+  unchanged-template fast path with handlers that never re-attach.
+
+#### Templates
+
+- **Text after `word=` is no longer parsed as an attribute binding.** The parser tracks
+  whether the cursor sits inside an open tag (quote-aware), so `` html`<p>Total=${n}</p>` ``
+  renders the value instead of a leaked marker — silently, in production.
+- **Quoted special bindings no longer emit a stray quote attribute.** `@click="${h}"`,
+  `.value="${v}"` and `?disabled="${b}"` kept the closing quote, and browsers created an
+  attribute literally named `"`.
+- **A directive inside a composite attribute keeps the other segments.**
+  `class="card ${classMap({active})}"` rendered `class="active"`; it now renders
+  `class="card active"`. Static segments are written first, then each directive segment
+  runs against the element with its own state.
+- **Duplicate keys no longer orphan DOM.** `repeat()` and keyed interpolated arrays track
+  old items in per-key queues, so a shadowed item is either reused or removed — never left
+  stranded — and dev mode warns.
+- **New `live()` directive** for user-editable properties: `.value=${live(text)}` compares
+  against the element's current value, so resetting the model to the value it already held
+  actually clears what the user typed.
+- `repeat()` calls `keyFn` once per item per render (it was two or three times), and no
+  longer allocates an unused key→index map.
+- `getAttributeValues()` is only built when a template declares the parameter.
+
+#### Routing
+
+- **A guard redirect no longer skips the redirect target's guards.** A guard returning a
+  path triggered `navigate(target, { skipGuards: true })`, so a guard that redirected into
+  a protected route opened it.
+- **Redirect chains are bounded** at 10 hops and report the chain. `{a → /b, b → /a}` (or a
+  route redirecting to itself) previously recursed through microtasks until the heap died.
+- **A deactivation guard is asked once per navigation**, not once per redirect hop.
+- **Guard redirects no longer inherit the caller's `queryParams` or `data`**
+  (`/login?tab=users`).
+- **`redirectTo` substitutes params**, so `{ path: 'u/:id', redirectTo: '/users/:id' }`
+  works. A parametrised `redirectTo` previously never matched at all.
+- **Query params are inserted before the fragment** — `/docs?q=1#intro`, not
+  `/docs#intro?q=1`, where the query is part of the fragment and `location.search` is empty.
+- **Repeat navigation to the current URL is ignored by default** (new `onSameUrlNavigation`
+  option) instead of pushing a duplicate history entry and re-running resolvers. A
+  hash-only popstate no longer re-runs the whole pipeline.
+- **A blocked back/forward steps back by the right delta.** The router stamps a history
+  index onto `history.state` and uses `history.go(delta)`; a `replaceState` over the entry
+  the browser had already moved to turned `[A,B,C]` into `[A,C,C]`.
+- **Scroll restoration across back/forward**, and hash scrolling that searches shadow roots
+  — `getElementById` never sees an anchor inside a routed component's shadow DOM, which is
+  where essentially all Melodic content lives.
+- **New reactive route state**: `router.params`, `router.queryParams`, `router.resolvedData`
+  and `router.events` are signals. Reading `params()` in a template is the supported way to
+  react to `/users/1 → /users/2`, where the component stays mounted and `onCreate` does not
+  run again; a component may also implement `onRouteChange`. The outlet re-renders the leaf
+  on a param change either way.
+- **`router.events`** emits `start` / `redirect` / `blocked` / `error` / `superseded` /
+  `end`, so a progress bar or a resolver-failure toast can finally be built.
+- **Sibling outlets are no longer mistaken for a parent.** Two outlets in one shadow root
+  made the second a "child" of the first and rendered it at the wrong depth.
+- **A matched route with no component clears the previous view** instead of leaving the old
+  page on screen under the new URL.
+- Route matchers are cached per route (they were rebuilt for every route on every match,
+  several matches per navigation), and the resolvers of one route run concurrently.
+- `router.getParams<'users/:id'>()` infers the param names from the path string.
+- `provideRouter(routes, options)` is documented, and the example app uses it.
+
+#### Forms
+
+- **Disabled controls no longer make a form invalid.** `value()` excluded them but `invalid`
+  did not, so a disabled `required` field blocked submit forever on a field the user could
+  not reach.
+- **`updateOn` now governs when the VIEW writes to the model.** Previously the
+  `:formControl` directive wrote on every keystroke regardless, and only *validation*
+  timing changed. A programmatic `setValue` always validates. Aggregates honour their own
+  `updateOn`.
+- **`createValidator` attaches its default message to the validator** instead of
+  overwriting the global registry; pass `{ global: true }` for the old behaviour. Message
+  resolution is now per-control → parent chain → producing validator → global → code.
+- **Built-in validators accept nullable input**, so they type-check on
+  `FormControl<string | null>`.
+- **New `:model` directive** for two-way binding a signal to any adapter-backed control.
+
+#### HTTP, state, DI, bootstrap, config
+
+- **A non-JSON body under a JSON content-type keeps its status.** A 502 HTML error page
+  became a `NetworkError`, so retry and auth interceptors keyed on `HttpError` never fired.
+- **Keyed `dispatch(key, action)` applies every matching reducer** in that slice, as the
+  key-less form always did; it used to take only the first.
+- **New `store.snapshot()` / `snapshotSlice()`** for untracked reads outside a component,
+  where `select()` leaked one live computed per call (100 guard invocations left 100
+  dependents attached to the state signal).
+- **`@Service` fields are writable**, so a test can assign a fake without a container. New
+  `inject()` / `injectOptional()` derive the type from the token — unlike
+  `@Service(HttpClient) http!: Logger`, which compiles. New `Injector.entries()`, and a dev
+  warning when a token whose singleton was already resolved is re-bound.
+- **`IMelodicApp.http` is populated**, and `IMelodicApp` is bound **before** `onReady` runs
+  so startup work can resolve it. A throwing `onReady` releases the binding.
+- **`RouterService` resolves `RouteContextService` through the injector**, so
+  `Injector.get(RouteContextService)` is no longer a different, empty instance.
+- **`getEnvironment()` respects Vite's `MODE`** — `vite build --mode qa` resolves to `'qa'`
+  instead of falling through to `'prod'` and quietly using production configuration.
+
+#### Developer experience
+
+- **One dev-mode switch.** `src/devtools/dev-mode.ts` is the single source: template
+  diagnostics, dev warnings and the DevTools hook all consult it, and
+  `bootstrap({ devMode })` sets it. Left unset it follows the build, with a localhost
+  fallback so no-bundler/CDN consumers get diagnostics too. `bundle/melodic-core.js` is now
+  built with `import.meta.env.DEV` defined **true**, so a CDN consumer can choose a build
+  that warns.
+- **New entry point `@melodicdev/core/testing`** — `mount`, `flush`, `query`, `queryAll`,
+  `text`, `captureEvents`, `unmountAll`. See `docs/TESTING.md`.
+- **New entry point `@melodicdev/core/devtools`** — the dev-mode switch, an in-page
+  `window.__MELODIC_DEVTOOLS_HOOK__` (inert until something subscribes) and a
+  `window.melodic` console API: `components()`, `instances()`, `inspect($0)`, `bindings()`,
+  `trace()`.
+- **New `emit(host, name, detail)`** with the `composed`/`bubbles` defaults a component
+  actually wants — without `composed`, an event stops at the shadow boundary and the
+  consumer never sees it.
+- **`attributes` may be a typed map**: `attributes: { open: 'boolean', offset: 'number' }`.
+  Dev mode warns about an attribute name containing an uppercase letter (it can never fire)
+  and about one pointed at a method.
+- `@MelodicComponent` warns when a second class registers under an existing selector, and
+  every registration is recorded for tooling (`getComponentDefinitions()`).
+- **Global styles survive a rejected or cross-origin stylesheet** instead of producing one
+  unhandled rejection per constructed component; new `refreshGlobalStyles()` adopts sheets
+  added later.
+- New `docs/API_SURFACE.md` documents every export, grouped application / extension /
+  internal — no name you can import is undocumented any more.
+
+### @melodicdev/components
+
+#### Programmatic state
+
+- **`ml-button-group`, `ml-tabs` and `ml-steps` sync their slotted children from
+  `onRender`.** Slotted children are light DOM, so the component's own re-render never
+  touched them: a programmatic `value`/`active`/`variant` write — including one from a
+  `:formControl` binding, `setValue` or `reset` — was ignored entirely.
+- `ml-button-group` reads an item's `value` **property** before its attribute, so
+  property-bound items are seen.
+- **`ml-step` observes `href`**, so routed slotted steps navigate as documented.
+- `ml-calendar-view`'s mini-calendar month state is reactive, so prev/next actually move it.
+- `ml-calendar` navigates on a property write, not only an attribute write.
+- Tabs and steps route matching prefers the **longest** matching `href`, so `/admin` no
+  longer shadows `/admin/users`.
+- `routed` can be toggled after mount without leaking or losing the navigation listener.
+
+#### Accessibility
+
+- **`ml-form-field`** describes and labels its slotted control across the shadow boundary
+  (`ariaDescribedByElements`, with an `aria-description` fallback); an IDREF into a shadow
+  root resolves to nothing. Clicking the label focuses the control, and `disabled` is
+  cleared as well as set.
+- **`ml-tooltip`** (and the tooltip directive) describe the trigger with the content
+  *element* — the tooltip was wired to look right in the DOM and was never announced.
+- **`ml-dropdown`** puts `aria-haspopup`/`aria-expanded`/`aria-activedescendant` on the
+  trigger's focusable control rather than on the `ml-button` host.
+- **`ml-input` / `ml-textarea`** give their inner control an accessible name when there is
+  no visible label (an `aria-label` on the host named the custom element, not the input).
+- **Table and data-grid headers are keyboard operable**: Enter/Space sorts, Ctrl/Cmd+Arrow
+  reorders a grid column. Both were mouse-only.
+- **Roving tabindex** for calendar days/months/years and for radio cards — a group is one
+  tab stop, not thirty — with arrow-key navigation on radio cards.
+- **`ml-calendar-view`** day cells and event pills are focusable, labelled and activate on
+  Enter/Space; arrow keys move between days.
+- Steps activate on Enter/Space, not clicks only.
+- `ml-app-shell`'s mobile drawer closes on Escape, carries `aria-expanded`/`aria-controls`,
+  and moves focus into the drawer and back to the menu button.
+- The toast container is an `aria-live` region, and only `error` toasts use `role="alert"`.
+- New cross-root ARIA utilities: `setCrossRootDescription`, `setCrossRootLabel`,
+  `setCrossRootActiveDescendant`, `getFocusableControl`.
+
+#### Behaviour
+
+- **`ml-select` / `ml-autocomplete` only claim Escape while open**, so an enclosing dialog
+  or drawer can still be dismissed with focus in the field.
+- `ml-select` commits the focused option when Enter is pressed from the search input
+  (multiple mode keeps focus there, so Enter could select nothing at all).
+- **`DialogRef.afterOpened`/`afterClosed` are one-shot** and return an unsubscribe function;
+  new `onOpened`/`onClosed` for listeners that survive every open. An inline `<ml-dialog>`
+  reuses its ref, so callbacks accumulated across opens.
+- **`ml-toast` clears its auto-dismiss timer on destroy.**
+- **`ToastService` returns a handle**, gained `dismissAll()` and `setMaxVisible()`.
+- `ml-popover` manual mode closes on Escape instead of trapping focus with no exit.
+- `ml-autocomplete` observes `toggle` (so a popover the platform hides no longer leaves it
+  stuck open) and turns a rejected `searchFn` into an `ml:search-error` event instead of an
+  unhandled rejection with a spinner running forever.
+- `ml-time-picker` only returns focus when focus was still inside it, and its steppers and
+  Now button respect `min`/`max`.
+- `ml-file-upload` counts `maxFiles` across the whole selection, and both change paths
+  report `detail.files` as the full selection.
+- `ml-pagination` clamps the active page into the rendered range, so a page beyond the range
+  no longer leaves nothing marked `aria-current`.
+- `ml-sidebar` notices content slotted after mount.
+- **`toggleTheme()` adopts the document's existing `data-theme`**, so it is no longer a
+  no-op after an inline anti-FOUC script.
+
+#### Performance
+
+- `ml-table` and `ml-data-grid` memoize their filter/sort/page pipeline, which the virtual
+  scroller called on **every scroll event** and four to six times per render.
+- The data grid no longer forces layout on every render, and a column resize drives its
+  width through a CSS custom property instead of re-rendering every row on each
+  `pointermove`.
+- Select and autocomplete option keys no longer embed selection state, so toggling an option
+  stops destroying and rebuilding its DOM.
+- Steps' status lookup is O(n) rather than O(n²).
+
+#### Styling and localization
+
+- **`ml-calendar-view` and `ml-date-picker` take a `locale`** (defaulting to the document's
+  `lang`). Month and weekday names come from `Intl` instead of hardcoded English arrays, and
+  the date format from the locale instead of a hardcoded `MM/DD/YYYY`.
+- Tab and step panels use `hidden` rather than an inline `display`, so consumers can style
+  them.
+- `ml-stack` and `ml-container` drive layout through component-scoped custom properties
+  instead of inline styles that no stylesheet rule could override.
+- `ml-app-shell` implements `sidebar-collapsed` (it had zero CSS rules) and shares its
+  breakpoint between CSS and JS through `--ml-app-shell-mobile-breakpoint`.
+- Alert, progress, pagination and tab-panel declare the custom properties their rules
+  reference; pagination gained a `:focus-visible` ring.
+- Sidebar, breadcrumb and page-section anchors route through the router when one is
+  registered, instead of triggering a full page load while tabs and steps navigate
+  client-side.
+- `ml-icon` warns in dev on an unknown icon name (it rendered an empty `<i>`).
+- `ml-checkbox` gained `name`/`value`; `ml-input` gained `name`, `maxlength`, `minlength`,
+  `min`, `max`, `step`, `pattern` and `inputmode`.
+
+### @melodicdev/cli
+
+- The scaffold no longer hardcodes `devMode: true` — it shipped every dev diagnostic to
+  production. Its tsconfig includes `vite/client` types, and the sample app models derived
+  state with `computed()` instead of methods re-run on every read.
+
+### Migrating to 4.0.0
+
+- **Disabled controls no longer count toward validity.** A form that relied on a disabled
+  `required` control keeping `invalid` true will now submit. That is the fix.
+- **`updateOn` changes when the view writes to the model.** With `'blur'` or `'submit'`, the
+  control's value now updates at that point rather than on every keystroke. Use `'change'`
+  (the default) for the previous behaviour.
+- **`createValidator(code, fn, message)` no longer writes to the global message registry.**
+  Controls using *that validator* still get the message. If you relied on it applying to
+  other validators producing the same code, pass `{ global: true }`.
+- **`DialogRef.afterClosed`/`afterOpened` fire once per registration.** Register inside the
+  code that opens the dialog (the common pattern, and now leak-free), or switch to
+  `onClosed`/`onOpened` for a listener that should survive every open.
+- **Tab and step panels are hidden with the `hidden` attribute**, not an inline
+  `display: none`. CSS that assumed the inline style needs `[hidden] { display: none }` —
+  the components' own styles already do this.
+- **A component field named like a native `HTMLElement` property is no longer mirrored onto
+  the element.** `element.hidden`/`title`/`id` now read the platform value. Rename the field.
+- **Repeat navigation to the current URL is ignored.** Pass `onSameUrlNavigation: 'reload'`
+  where you relied on it re-running resolvers.
+- **A guard redirect now runs the target's guards**, so a redirect into a protected area can
+  be blocked. Apps that relied on the bypass will see the block; that is the fix.
+- **Templates re-render on every signal they read.** A component reading a frequently
+  changing signal in its template now re-renders with it. Wrap reads you do not want tracked
+  in `untracked()`.
+- `@melodicdev/components` requires `@melodicdev/core` `^4.0.0`.
+
+### Also included: the unreleased 3.1.1 hardening pass
+
+#### @melodicdev/core
 
 - **Fixed lazily loaded and default child routes bypassing their guards.** `loadChildren` was resolved inside the outlet *after* the router had already committed the parent match, so the loaded children were matched and rendered by nested outlets without ever passing through the service's guard/resolver pipeline — a child `canActivate` returning `false` ran zero times and the child rendered anyway. Separately, the matcher stopped at an exact parent match and never descended into a `path: ''` child, so a default child's guards were also skipped. Lazy loading (`loadChildren` and `loadComponent`) now happens inside the navigation pipeline: the router matches, loads, re-matches into the loaded routes, and only then runs every guard and resolver on the complete chain before committing. Default children are part of the match chain. Each lazy loader is invoked once and its promise shared. A failed load fails the navigation (or renders the 404 view on initial load / back-forward). Outlets render `matches[depth]` of the committed chain and no longer re-match the URL themselves.
 - **Fixed a slow lazy route overwriting a newer screen** and **outlet route reassignment installing the previous route array.** Outlet renders now carry a generation that is checked after every await and invalidated on destroy; `onPropertyChange` uses the incoming value (the hook fires before the field updates).
