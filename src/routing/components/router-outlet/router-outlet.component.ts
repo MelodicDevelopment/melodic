@@ -6,6 +6,7 @@ import type { IRouteContext } from '../../interfaces/iroute-context.interface';
 import { html } from '../../../template/functions/html.function';
 import type { IRouteMatch } from '../../interfaces/iroute-match.interface';
 import type { IRouteMatchResult } from '../../interfaces/iroute-match-result.interface';
+import type { IRouteChangeAware } from '../../interfaces/iroute-change.interface';
 
 /**
  * Custom event for child outlets to request their context from parent.
@@ -38,6 +39,9 @@ export class RouterOutletComponent {
 	private _depth: number = 0;
 	private _context: IRouteContext | null = null;
 	private _currentComponent: string | null = null;
+	// Identity of the currently rendered match (route + params), so a param
+	// change under an unchanged component tag is still detected.
+	private _currentSignature: string | null = null;
 	private _currentElement: HTMLElement | null = null;
 	private _childOutlets: Map<string, RouterOutletComponent> = new Map();
 	private _parentOutlet: RouterOutletComponent | null = null;
@@ -111,6 +115,7 @@ export class RouterOutletComponent {
 		void oldValue;
 		if (name === 'routes' && this._initialized) {
 			this._currentComponent = null;
+			this._currentSignature = null;
 
 			// Routes changed - update router if root and re-run the pipeline.
 			// The hook fires BEFORE the backing field updates, so use the
@@ -130,38 +135,46 @@ export class RouterOutletComponent {
 		return this._context;
 	}
 
+	/**
+	 * Walk strictly upwards — ancestors in the current root, then the shadow
+	 * host, then repeat — to find the outlet this one nests inside.
+	 *
+	 * Looking for *any* `router-outlet` inside the host's shadow root (as this
+	 * used to) picks whichever one comes first in document order, so two
+	 * sibling outlets in the same component made the second a "child" of the
+	 * first and rendered it at the wrong depth.
+	 */
 	private findParentOutlet(): void {
-		let element: Element | null = this.elementRef;
+		let node: Element = this.elementRef;
 
-		while (element) {
-			// Check shadow DOM host
-			const root = element.getRootNode() as ShadowRoot;
-			if (root instanceof ShadowRoot) {
-				element = root.host;
+		for (let hops = 0; hops < 64; hops++) {
+			const ancestor = node.parentElement?.closest?.('router-outlet');
+			if (ancestor && ancestor !== this.elementRef) {
+				this.adoptParentOutlet(ancestor);
+				return;
+			}
 
-				// Check if host contains a router-outlet (the parent)
-				if (element.tagName.toLowerCase() !== 'router-outlet') {
-					const parentOutlet = element.shadowRoot?.querySelector('router-outlet');
-					if (parentOutlet && parentOutlet !== this.elementRef) {
-						this._parentOutlet = (parentOutlet as any).component as RouterOutletComponent;
-						this._depth = (this._parentOutlet?._depth ?? -1) + 1;
-						return;
-					}
-				}
-			} else {
-				// Regular DOM - look for parent outlet
-				const parentOutlet = element.closest?.('router-outlet');
-				if (parentOutlet && parentOutlet !== this.elementRef) {
-					this._parentOutlet = (parentOutlet as any).component as RouterOutletComponent;
-					this._depth = (this._parentOutlet?._depth ?? -1) + 1;
-					return;
-				}
+			const root = node.getRootNode();
+			if (!(root instanceof ShadowRoot)) {
 				break;
 			}
+
+			const host = root.host;
+			if (host.tagName.toLowerCase() === 'router-outlet' && host !== this.elementRef) {
+				this.adoptParentOutlet(host);
+				return;
+			}
+
+			node = host;
 		}
 
 		// No parent found - this is root
 		this._depth = 0;
+	}
+
+	private adoptParentOutlet(element: Element): void {
+		this._parentOutlet = ((element as unknown as { component?: RouterOutletComponent }).component ?? null) as RouterOutletComponent | null;
+		this._depth = (this._parentOutlet?._depth ?? -1) + 1;
 	}
 
 	/**
@@ -286,13 +299,35 @@ export class RouterOutletComponent {
 		}
 	}
 
+	/**
+	 * Identity of a rendered match: the route object plus the params that
+	 * produced it. Two navigations to `/users/1` and `/users/2` match the same
+	 * route with the same component tag but are NOT the same view.
+	 */
+	private matchSignature(match: IRouteMatch): string {
+		return `${match.fullPath}|${JSON.stringify(match.params)}`;
+	}
+
 	private async renderMatch(match: IRouteMatch): Promise<void> {
 		const route = match.route;
+		const signature = this.matchSignature(match);
 
 		if (route.component === this._currentComponent) {
+			// Same component tag. If the params changed (`/users/1 → /users/2`)
+			// the mounted instance is showing stale data: `onCreate` will not
+			// run again, so tell it explicitly and re-render it. Templates
+			// reading `router.params()` re-render on their own; this covers
+			// templates reading `getParam()` and components that need a hook.
+			if (signature !== this._currentSignature) {
+				this._currentSignature = signature;
+				this.notifyRouteChange(match);
+			}
+
 			this.updateChildOutlets();
 			return;
 		}
+
+		this._currentSignature = signature;
 
 		const generation = ++this._renderGeneration;
 
@@ -317,6 +352,41 @@ export class RouterOutletComponent {
 
 		if (route.component) {
 			await this.renderComponent(route.component);
+		} else {
+			// A matched route with no component contributes no view. Leaving
+			// the previous element mounted showed the *old* page under the new
+			// URL; clear it instead.
+			this.clearCurrentElement();
+			this._currentComponent = null;
+			this.updateChildOutlets();
+		}
+	}
+
+	/**
+	 * Tell a component that stayed mounted across a route change that its
+	 * params/resolved data moved, then re-render it.
+	 */
+	private notifyRouteChange(match: IRouteMatch): void {
+		const element = this._currentElement as (HTMLElement & { component?: IRouteChangeAware; requestRender?: () => void }) | null;
+
+		if (!element) {
+			return;
+		}
+
+		element.component?.onRouteChange?.({
+			params: { ...match.params },
+			queryParams: this._router.getQueryParams(),
+			resolvedData: this._router.getResolvedData(),
+			match
+		});
+
+		element.requestRender?.();
+	}
+
+	private clearCurrentElement(): void {
+		if (this._currentElement) {
+			this._currentElement.remove();
+			this._currentElement = null;
 		}
 	}
 
@@ -327,10 +397,7 @@ export class RouterOutletComponent {
 			return;
 		}
 
-		if (this._currentElement) {
-			this._currentElement.remove();
-			this._currentElement = null;
-		}
+		this.clearCurrentElement();
 
 		this._currentComponent = componentTag;
 

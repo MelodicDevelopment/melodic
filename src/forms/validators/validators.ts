@@ -14,6 +14,16 @@ registerDefaultMessages({
 
 const EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
 
+/**
+ * Built-in validators accept nullable input on purpose. A validator's
+ * parameter type is contravariant, so a `ValidatorFn<string>` is NOT assignable
+ * to a `FormControl<string | null>` — declaring the wider input makes the
+ * built-ins usable on the nullable controls real forms produce, and they all
+ * already treat null/undefined as "nothing to check".
+ */
+type NullableString = string | null | undefined;
+type NullableNumber = number | null | undefined;
+
 function isEmpty(value: unknown): boolean {
 	return value === null || value === undefined || value === '' || (Array.isArray(value) && value.length === 0);
 }
@@ -23,8 +33,8 @@ export const Validators = {
 		return isEmpty(value) ? { required: { code: 'required' } } : null;
 	},
 
-	minLength(min: number): ValidatorFn<string> {
-		return (value: string): ValidationErrors | null => {
+	minLength(min: number): ValidatorFn<NullableString> {
+		return (value: NullableString): ValidationErrors | null => {
 			if (!value || value.length === 0) return null;
 			return value.length < min
 				? { minLength: { code: 'minLength', params: { min, actual: value.length } } }
@@ -32,8 +42,8 @@ export const Validators = {
 		};
 	},
 
-	maxLength(max: number): ValidatorFn<string> {
-		return (value: string): ValidationErrors | null => {
+	maxLength(max: number): ValidatorFn<NullableString> {
+		return (value: NullableString): ValidationErrors | null => {
 			if (!value) return null;
 			return value.length > max
 				? { maxLength: { code: 'maxLength', params: { max, actual: value.length } } }
@@ -41,8 +51,8 @@ export const Validators = {
 		};
 	},
 
-	pattern(regex: RegExp): ValidatorFn<string> {
-		return (value: string): ValidationErrors | null => {
+	pattern(regex: RegExp): ValidatorFn<NullableString> {
+		return (value: NullableString): ValidationErrors | null => {
 			if (!value) return null;
 			return !regex.test(value)
 				? { pattern: { code: 'pattern', params: { pattern: regex.toString() } } }
@@ -50,13 +60,13 @@ export const Validators = {
 		};
 	},
 
-	email(value: string): ValidationErrors | null {
+	email(value: NullableString): ValidationErrors | null {
 		if (!value) return null;
 		return !EMAIL_REGEX.test(value) ? { email: { code: 'email' } } : null;
 	},
 
-	min(minValue: number): ValidatorFn<number> {
-		return (value: number): ValidationErrors | null => {
+	min(minValue: number): ValidatorFn<NullableNumber> {
+		return (value: NullableNumber): ValidationErrors | null => {
 			if (value === null || value === undefined) return null;
 			return value < minValue
 				? { min: { code: 'min', params: { min: minValue, actual: value } } }
@@ -64,8 +74,8 @@ export const Validators = {
 		};
 	},
 
-	max(maxValue: number): ValidatorFn<number> {
-		return (value: number): ValidationErrors | null => {
+	max(maxValue: number): ValidatorFn<NullableNumber> {
+		return (value: NullableNumber): ValidationErrors | null => {
 			if (value === null || value === undefined) return null;
 			return value > maxValue
 				? { max: { code: 'max', params: { max: maxValue, actual: value } } }
@@ -73,8 +83,8 @@ export const Validators = {
 		};
 	},
 
-	range(minValue: number, maxValue: number): ValidatorFn<number> {
-		return (value: number): ValidationErrors | null => {
+	range(minValue: number, maxValue: number): ValidatorFn<NullableNumber> {
+		return (value: NullableNumber): ValidationErrors | null => {
 			if (value === null || value === undefined) return null;
 			if (value < minValue || value > maxValue) {
 				return { range: { code: 'range', params: { min: minValue, max: maxValue, actual: value } } };

@@ -2,9 +2,19 @@ import { Injector } from '../../injection';
 import type { IAppConfig } from '../interfaces/iapp-config.interface';
 import type { IMelodicApp } from '../interfaces/imelodic-app.interface';
 import type { Token } from '../../injection';
+import { isDevMode, setDevMode } from '../../devtools/dev-mode';
+import { HttpClient } from '../../http/classes/http-client.class';
 
 export async function bootstrap(config: IAppConfig = {}): Promise<IMelodicApp> {
-	const devMode = config.devMode ?? false;
+	// `devMode` now drives the framework-wide switch (template diagnostics,
+	// DevTools hooks, dev warnings) rather than only bootstrap's own logging.
+	// Left unset it follows the build: `import.meta.env.DEV` under a bundler,
+	// a localhost check without one.
+	if (config.devMode !== undefined) {
+		setDevMode(config.devMode);
+	}
+
+	const devMode = isDevMode();
 	const errorHandlers: { type: string; handler: EventListener }[] = [];
 
 	if (devMode) {
@@ -40,10 +50,17 @@ export async function bootstrap(config: IAppConfig = {}): Promise<IMelodicApp> {
 
 	// Anything acquired so far is released if a later step fails: no window
 	// handlers or half-mounted root may outlive a bootstrap that threw.
+	let boundApp: IMelodicApp | null = null;
+
 	const rollback = (): void => {
 		removeErrorHandlers();
 		if (rootElement?.parentNode) {
 			rootElement.parentNode.removeChild(rootElement);
+		}
+		// onReady now runs after the binding, so a throwing hook must not leave
+		// a half-built app resolvable.
+		if (boundApp && Injector.getBinding('IMelodicApp')?.getInstance() === boundApp) {
+			Injector.unbind('IMelodicApp');
 		}
 	};
 
@@ -94,6 +111,8 @@ export async function bootstrap(config: IAppConfig = {}): Promise<IMelodicApp> {
 		const app: IMelodicApp = {
 			isDevMode: devMode,
 			rootElement,
+			// Populated below, once the injector is known to have one.
+			http: undefined,
 
 			get<T>(token: Token<T>): T {
 				return Injector.get(token);
@@ -124,6 +143,17 @@ export async function bootstrap(config: IAppConfig = {}): Promise<IMelodicApp> {
 			}
 		};
 
+		// `IMelodicApp.http` is documented as the app's HTTP client; it was
+		// never populated, so `app.http` was always undefined.
+		if (Injector.has(HttpClient)) {
+			app.http = Injector.get(HttpClient);
+		}
+
+		// Bind BEFORE onReady: the hook is the documented place to kick off
+		// startup work, and that work commonly resolves `IMelodicApp`.
+		Injector.bindValue('IMelodicApp', app);
+		boundApp = app;
+
 		if (config.onReady) {
 			config.onReady();
 		}
@@ -131,8 +161,6 @@ export async function bootstrap(config: IAppConfig = {}): Promise<IMelodicApp> {
 		if (devMode) {
 			console.log('[Melodic] Bootstrap complete');
 		}
-
-		Injector.bindValue('IMelodicApp', app);
 
 		return app;
 	} catch (error) {

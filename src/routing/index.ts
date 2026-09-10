@@ -28,6 +28,8 @@ export type { IRouteContextChangeEvent } from './interfaces/iroute-context-chang
 // Types - Navigation
 export type { INavigationOptions } from './interfaces/inavigation-options.interface';
 export type { INavigationResult } from './interfaces/inavigation-result.interface';
+export type { INavigationEvent, NavigationEventType } from './interfaces/inavigation-event.interface';
+export type { IRouteChange, IRouteChangeAware } from './interfaces/iroute-change.interface';
 
 // Classes
 export { RouteMatcher } from './classes/route-matcher.class';
@@ -39,6 +41,9 @@ export { matchRouteTree } from './functions/match-route-tree.function';
 export { findRouteByName } from './functions/find-route-by-name.function';
 export { buildPathFromRoute } from './functions/build-path-from-route.function';
 export { provideRouter } from './functions/provide-router.function';
+export type { IRouterOptions } from './functions/provide-router.function';
+export { parseUrlParts, appendQueryParams } from './functions/url-parts.function';
+export type { IUrlParts } from './functions/url-parts.function';
 export { installHistoryEvents } from './functions/install-history-events.function';
 export { isSafeUrl } from './functions/is-safe-url.function';
 

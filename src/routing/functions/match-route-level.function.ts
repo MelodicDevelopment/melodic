@@ -12,6 +12,40 @@ function resolveRedirectTarget(redirectTo: string, basePath: string): string {
 }
 
 /**
+ * Route matchers are pure functions of `route.path`, so building one per route
+ * per match — several times per navigation — is wasted work. Cached against the
+ * route object itself, which is stable for the life of the route tree.
+ */
+const matcherCache = new WeakMap<IRoute, RouteMatcher>();
+
+function getMatcher(route: IRoute): RouteMatcher {
+	let matcher = matcherCache.get(route);
+
+	if (!matcher) {
+		matcher = new RouteMatcher(route.path);
+		matcherCache.set(route, matcher);
+	}
+
+	return matcher;
+}
+
+/**
+ * Substitute `:name` / `*name` tokens in a `redirectTo` target with the params
+ * captured by the matched route, so `{ path: 'u/:id', redirectTo: 'users/:id' }`
+ * sends `/u/7` to `/users/7` rather than to the literal `/users/:id`.
+ */
+function substituteRedirectParams(redirectTo: string, params: Record<string, string>): string {
+	if (!redirectTo.includes(':') && !redirectTo.includes('*')) {
+		return redirectTo;
+	}
+
+	return redirectTo.replace(/[:*](\w+)/g, (token, name: string) => {
+		const value = params[name];
+		return value === undefined ? token : encodeURIComponent(value);
+	});
+}
+
+/**
  * Upper bound on nesting depth. Route trees are finite, but a misconfigured
  * tree that shares a children array with an ancestor would otherwise recurse
  * forever through default (empty-path) children.
@@ -36,18 +70,23 @@ export function matchRouteLevel(
 	let partialFallback: IRouteMatchResult | null = null;
 
 	for (const route of routes) {
-		const matcher = new RouteMatcher(route.path);
+		const matcher = getMatcher(route);
 
-		if (route.redirectTo && route.path === remainingPath) {
+		const exactMatch = matcher.parse(remainingPath);
+
+		// A redirecting route redirects whenever it matches — including when it
+		// carries params (`{ path: 'u/:id', redirectTo: 'users/:id' }`), which a
+		// literal `route.path === remainingPath` comparison never saw.
+		if (route.redirectTo && exactMatch !== null) {
+			const redirectParams = { ...accumulatedParams, ...exactMatch };
+
 			return {
 				matches: accumulatedMatches,
 				params: accumulatedParams,
 				isExactMatch: false,
-				redirectTo: resolveRedirectTarget(route.redirectTo, basePath)
+				redirectTo: resolveRedirectTarget(substituteRedirectParams(route.redirectTo, redirectParams), basePath)
 			};
 		}
-
-		const exactMatch = matcher.parse(remainingPath);
 
 		if (exactMatch !== null) {
 			const matchedPath = remainingPath;
@@ -72,7 +111,7 @@ export function matchRouteLevel(
 						matches: accumulatedMatches,
 						params: accumulatedParams,
 						isExactMatch: false,
-						redirectTo: resolveRedirectTarget(emptyRedirect.redirectTo, fullPath)
+						redirectTo: resolveRedirectTarget(substituteRedirectParams(emptyRedirect.redirectTo, accumulatedParams), fullPath)
 					};
 				}
 

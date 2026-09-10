@@ -22,9 +22,10 @@ export class FormControl<T = unknown> extends AbstractControl<T> {
 			this._dirty.set(false);
 		}
 
-		if (this.updateOn === 'change') {
-			void this.runValidation();
-		}
+		// A programmatic write always revalidates. `updateOn` governs when the
+		// VIEW writes to the model (see the formControl directive), not whether
+		// application code that sets a value gets a validated control back.
+		void this.runValidation();
 	}
 
 	public patchValue(value: Partial<T>, options?: SetValueOptions): void {

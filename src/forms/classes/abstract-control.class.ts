@@ -33,6 +33,8 @@ export abstract class AbstractControl<T = unknown> {
 	protected readonly _ownDisabled = signal<boolean>(false);
 	protected _asyncValidationId = 0;
 	protected _destroyed = false;
+	/** Which validator produced each error code, for message resolution. */
+	protected readonly _errorSources = new Map<string, ValidatorFn<T> | AsyncValidatorFn<T>>();
 
 	constructor(initialValue: T, options: ControlOptions<T> = {}) {
 		this.value = signal<T>(initialValue);
@@ -62,7 +64,11 @@ export abstract class AbstractControl<T = unknown> {
 		this.pristine = computed(() => !this.dirty());
 		this.untouched = computed(() => !this.touched());
 		this.enabled = computed(() => !this.disabled());
-		this.invalid = computed(() => this.errors() !== null || this.hasInvalidChild());
+		// A disabled control takes no part in validity: it is excluded from
+		// value(), so letting it stay invalid blocked submit on a field the
+		// user cannot even reach. Disabled children are skipped by
+		// hasInvalidChild() for the same reason.
+		this.invalid = computed(() => !this.disabled() && (this.errors() !== null || this.hasInvalidChild()));
 		this.valid = computed(() => !this.invalid() && !this.pending());
 
 		this.state = computed<ControlState>(() => ({
@@ -183,6 +189,11 @@ export abstract class AbstractControl<T = unknown> {
 			return resolveMessage(localMessage, params);
 		}
 
+		const validatorMessage = this.resolveFromValidator(code);
+		if (validatorMessage !== undefined) {
+			return resolveMessage(validatorMessage, params);
+		}
+
 		const globalMessage = getGlobalMessage(code);
 		if (globalMessage !== undefined) {
 			return resolveMessage(globalMessage, params);
@@ -197,6 +208,16 @@ export abstract class AbstractControl<T = unknown> {
 		const codes = Object.keys(errors);
 		if (codes.length === 0) return '';
 		return this.getErrorMessage(codes[0]);
+	}
+
+	/**
+	 * Default message declared by the validator that produced `code`, if any.
+	 * Scoping the message to the validator means `createValidator` no longer
+	 * has to overwrite a shared global entry.
+	 */
+	protected resolveFromValidator(code: string): MessageValue | undefined {
+		const source = this._errorSources.get(code);
+		return source?.messages?.[code];
 	}
 
 	protected resolveFromChain(code: string): MessageValue | undefined {
@@ -217,9 +238,14 @@ export abstract class AbstractControl<T = unknown> {
 		const value = this.value();
 		let errors: ValidationErrors | null = null;
 
+		this._errorSources.clear();
+
 		for (const validator of this._validators) {
 			const result = validator(value);
 			if (result !== null) {
+				for (const code of Object.keys(result)) {
+					this._errorSources.set(code, validator);
+				}
 				errors = { ...(errors ?? {}), ...result };
 			}
 		}
@@ -235,15 +261,18 @@ export abstract class AbstractControl<T = unknown> {
 			this._pending.set(true);
 
 			try {
-				const results = await Promise.all(this._asyncValidators.map((v) => v(value)));
+				const results = await Promise.all(this._asyncValidators.map(async (v) => ({ validator: v, result: await v(value) })));
 				// Superseded by a newer run, or the control was destroyed while
 				// we were waiting: its signals are gone, so write nothing.
 				if (id !== this._asyncValidationId || this._destroyed) {
 					return;
 				}
 
-				for (const result of results) {
+				for (const { validator, result } of results) {
 					if (result !== null) {
+						for (const code of Object.keys(result)) {
+							this._errorSources.set(code, validator);
+						}
 						errors = { ...(errors ?? {}), ...result };
 					}
 				}
@@ -289,6 +318,15 @@ export abstract class AbstractControl<T = unknown> {
 
 	protected hasInvalidChild(): boolean {
 		return false;
+	}
+
+	/**
+	 * Whether a child value change should re-run THIS control's own validators.
+	 * `updateOn: 'change'` validates on every write; `'blur'` waits for
+	 * `markAsTouched()`; `'submit'` waits for an explicit `validate()`.
+	 */
+	protected shouldValidateOnChange(): boolean {
+		return this.updateOn === 'change';
 	}
 
 	protected destroySignals(): void {

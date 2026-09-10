@@ -78,16 +78,41 @@ describe('FormControl validation', () => {
 		expect(c.valid()).toBe(true);
 	});
 
-	it('respects updateOn: blur', () => {
+	it('validates a programmatic setValue regardless of updateOn', () => {
+		// `updateOn` governs when the VIEW writes to the model (see the
+		// formControl directive); application code that sets a value always
+		// gets a validated control back.
 		const c = createFormControl<string>('', { validators: [Validators.required], updateOn: 'blur' });
+
 		c.setValue('hello');
-		c.errors.set(null);
-		c.setValue('');
-		// Errors not yet recomputed since updateOn is blur
 		expect(c.errors()).toBeNull();
+
+		c.setValue('');
+		expect(c.hasError('required')).toBe(true);
+	});
+
+	it('re-runs validation on blur for updateOn: blur', () => {
+		const c = createFormControl<string>('', { validators: [Validators.required], updateOn: 'blur' });
+		c.errors.set(null);
 
 		c.markAsTouched();
 		expect(c.hasError('required')).toBe(true);
+	});
+
+	it('skips a disabled control when computing group validity', () => {
+		const optional = createFormControl<string>('', { validators: [Validators.required] });
+		const group = createFormGroup<{ optional: string }>({ optional });
+
+		void group.value();
+		expect(group.invalid()).toBe(true);
+
+		optional.disable();
+		expect(optional.invalid()).toBe(false);
+		expect(group.invalid()).toBe(false);
+		expect(group.valid()).toBe(true);
+
+		optional.enable();
+		expect(group.invalid()).toBe(true);
 	});
 });
 
@@ -128,13 +153,28 @@ describe('Message resolution', () => {
 		expect(c.getFirstErrorMessage()).toBe('mystery');
 	});
 
-	it('createValidator registers a default message', () => {
-		registerDefaultMessages({}); // noop check
-		createValidator<string>('myCustom', () => false, 'My custom default');
+	it('carries its default message on the validator itself', () => {
 		const c = createFormControl<string>('x', {
-			validators: [createValidator<string>('myCustom', () => false)]
+			validators: [createValidator<string>('myCustom', () => false, 'My custom default')]
 		});
 		expect(c.getFirstErrorMessage()).toBe('My custom default');
+	});
+
+	it('does not overwrite the global registry unless asked', () => {
+		createValidator<string>('scoped', () => false, 'Scoped wording');
+
+		// A DIFFERENT validator using the same code keeps its own wording, and
+		// the global registry was never touched.
+		const other = createFormControl<string>('x', {
+			validators: [createValidator<string>('scoped', () => false)]
+		});
+		expect(other.getFirstErrorMessage()).toBe('scoped');
+
+		createValidator<string>('shared', () => false, 'Shared wording', { global: true });
+		const global = createFormControl<string>('x', {
+			validators: [createValidator<string>('shared', () => false)]
+		});
+		expect(global.getFirstErrorMessage()).toBe('Shared wording');
 	});
 });
 

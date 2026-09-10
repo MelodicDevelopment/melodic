@@ -110,6 +110,16 @@ export abstract class ComponentBase extends HTMLElement {
 		this._disposables.add(d);
 	}
 
+	/**
+	 * Queue a re-render of this component. Reactive fields and signals read in
+	 * the template do this automatically; call it when something the template
+	 * reads changed outside the reactive graph (the router does this when a
+	 * route param changes under a component that stays mounted).
+	 */
+	public requestRender(): void {
+		this.scheduleRender();
+	}
+
 	public getSelectCache(): Map<string, Signal<unknown>> {
 		return this._selectCache;
 	}

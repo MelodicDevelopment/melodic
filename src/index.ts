@@ -56,6 +56,7 @@ export {
 	RouterLinkCore,
 	RouterOutletComponent,
 	RouterService,
+	appendQueryParams,
 	buildPathFromRoute,
 	createDeactivateGuard,
 	createGuard,
@@ -64,6 +65,7 @@ export {
 	installHistoryEvents,
 	isSafeUrl,
 	matchRouteTree,
+	parseUrlParts,
 	provideRouter,
 	routerLinkDirective
 } from './routing';

@@ -7,6 +7,7 @@ import { isDirective } from '../directives/functions/is-directive.function';
 import { disposeParts, disposeContainerParts, disposeDirectiveState } from '../functions/dispose.functions';
 import { renderDetachedItem } from '../functions/render-detached.function';
 import { clearBetween, moveRange, removeRange } from '../functions/marker-range.functions';
+import { isDevMode } from '../../devtools/dev-mode';
 
 // Unique marker for identifying dynamic positions
 const MARKER = `m${Math.random().toString(36).slice(2, 9)}`;
@@ -24,17 +25,12 @@ const templateCache = new Map<string, ITemplateCache>();
 const warnedUnsafeProperties = new Set<string>();
 function warnUnsafePropertyBinding(name: string): void {
 	if (warnedUnsafeProperties.has(name)) return;
-	if (typeof import.meta !== 'undefined' && import.meta.env && !import.meta.env.DEV) return;
+	if (!isDevMode()) return;
 	warnedUnsafeProperties.add(name);
 	console.warn(
-		`[melodic] Property binding ".${name}" assigns raw HTML and is an XSS hazard if the value is not fully trusted. ` +
+		`[Melodic] Property binding ".${name}" assigns raw HTML and is an XSS hazard if the value is not fully trusted. ` +
 			'Prefer text interpolation, or unsafeHTML() with sanitized content.'
 	);
-}
-
-/** True outside production builds (mirrors the guard used by other dev-only warnings). */
-function isDevMode(): boolean {
-	return !(typeof import.meta !== 'undefined' && import.meta.env && !import.meta.env.DEV);
 }
 
 /**
@@ -51,7 +47,7 @@ function warnUnkeyedArrayChurn(state: { warnedChurn?: boolean }, recreated: numb
 	if (!isDevMode()) return;
 	state.warnedChurn = true;
 	console.warn(
-		`[melodic] An interpolated array rebuilt ${recreated} of ${total} items on one update. ` +
+		`[Melodic] An interpolated array rebuilt ${recreated} of ${total} items on one update. ` +
 			'Unkeyed arrays are reused by index, so entries that change position lose their DOM nodes ' +
 			'(and with them focus, scroll position, and in-flight clicks). ' +
 			'Use repeat(items, keyFn, template) to track items by identity instead.'
@@ -76,7 +72,7 @@ function warnPartiallyKeyedArray(part: ITemplatePart, values: unknown[]): void {
 
 	warnedPartiallyKeyedParts.add(part);
 	console.warn(
-		`[melodic] An interpolated array mixes keyed and unkeyed items (${keyed} of ${values.length} keyed). ` +
+		`[Melodic] An interpolated array mixes keyed and unkeyed items (${keyed} of ${values.length} keyed). ` +
 			'Keyed diffing requires every item to carry a key, so this array falls back to index-based reuse. ' +
 			'Key every item, or none.'
 	);
@@ -101,7 +97,7 @@ function describeSnippet(html: string, index: number): string {
 
 function warnUnsupportedBinding(position: string, html: string, index: number): void {
 	console.warn(
-		`[melodic] Template contains a binding in an unsupported position (${position}). ` +
+		`[Melodic] Template contains a binding in an unsupported position (${position}). ` +
 			`The parser cannot track bindings here, so the value will not render or update. ` +
 			`Offending template: ${describeSnippet(html, index)}`
 	);
@@ -213,7 +209,7 @@ function warnLeakedBindings(partPaths: IPartPath[], expressionCount: number, htm
 	const markerIndex = html.indexOf(createAttributeMarker(lost[0]));
 
 	console.warn(
-		`[melodic] Template part marker leaked: ${lost.length} binding${lost.length === 1 ? '' : 's'} ` +
+		`[Melodic] Template part marker leaked: ${lost.length} binding${lost.length === 1 ? '' : 's'} ` +
 			`(value index ${lost.join(', ')}) could not be anchored to the parsed template and will never render or update. ` +
 			`The usual cause is an unbalanced quote in an attribute value, which swallows the markup that follows it. ` +
 			`Offending template: ${describeSnippet(html, markerIndex === -1 ? 0 : markerIndex)}`

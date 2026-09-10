@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { html, render } from '../../src/template';
 import { repeat } from '../../src/template/directives/builtin/repeat.directive';
 import { MelodicComponent } from '../../src/components/decorators/melodic-component.decorator';
+import { setDevMode } from '../../src/devtools/dev-mode';
 
 /**
  * Unkeyed arrays — `${items.map(i => html`…`)}` — are reused positionally.
@@ -293,7 +294,7 @@ describe('unkeyed array dev warnings', () => {
 		render(churning(true), container);
 
 		expect(churnWarnings()).toHaveLength(1);
-		expect(String(churnWarnings()[0][0])).toContain('[melodic]');
+		expect(String(churnWarnings()[0][0])).toContain('[Melodic]');
 	});
 
 	it('does not warn for a keyed repeat() list', () => {
@@ -337,9 +338,8 @@ describe('unkeyed array dev warnings', () => {
 	});
 
 	it('stays silent in production builds', () => {
-		const original = import.meta.env.DEV;
 		try {
-			(import.meta.env as { DEV: boolean }).DEV = false;
+			setDevMode(false);
 
 			render(churning(false), container);
 			render(churning(true), container);
@@ -359,7 +359,7 @@ describe('unkeyed array dev warnings', () => {
 			expect(churnWarnings()).toHaveLength(0);
 			expect(mixedKeyWarnings()).toHaveLength(0);
 		} finally {
-			(import.meta.env as { DEV: boolean }).DEV = original;
+			setDevMode(null);
 		}
 	});
 });

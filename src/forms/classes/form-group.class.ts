@@ -33,7 +33,9 @@ export class FormGroup<T = Record<string, unknown>> extends AbstractControl<Form
 				controls[key as keyof T].value();
 			}
 			this.value.set(FormGroup.computeValue(controls));
-			void this.runValidation();
+			if (this.shouldValidateOnChange()) {
+				void this.runValidation();
+			}
 		});
 		this._childValueEffect.run();
 	}
@@ -136,7 +138,9 @@ export class FormGroup<T = Record<string, unknown>> extends AbstractControl<Form
 	public markAllAsTouched(): void {
 		// One aggregate value/validation pass for the whole write, not one per child.
 		batch(() => {
-			this._touched.set(true);
+			// markAsTouched (not a raw _touched write) so an `updateOn: 'blur'`
+			// group runs its own validators when the form is touched.
+			this.markAsTouched();
 			const controls = this.controls();
 			for (const key of Object.keys(controls)) {
 				controls[key as keyof T].markAllAsTouched();
@@ -232,12 +236,18 @@ export class FormGroup<T = Record<string, unknown>> extends AbstractControl<Form
 	protected override computePending(): boolean {
 		if (this._pending()) return true;
 		const controls = this.controls();
-		return Object.keys(controls).some((key) => controls[key as keyof T].pending());
+		return Object.keys(controls).some((key) => {
+			const control = controls[key as keyof T];
+			return !control.disabled() && control.pending();
+		});
 	}
 
 	protected override hasInvalidChild(): boolean {
 		const controls = this.controls();
-		return Object.keys(controls).some((key) => controls[key as keyof T].invalid());
+		return Object.keys(controls).some((key) => {
+			const control = controls[key as keyof T];
+			return !control.disabled() && control.invalid();
+		});
 	}
 
 	private static computeValue<T>(controls: FormGroupControls<T>, includeDisabled = false): FormGroupValue<T> {

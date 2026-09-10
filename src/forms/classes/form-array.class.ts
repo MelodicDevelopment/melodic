@@ -26,7 +26,9 @@ export class FormArray<T = unknown> extends AbstractControl<T[]> {
 			}
 			// Disabled controls are excluded from value() (Angular semantics).
 			this.value.set(controls.filter((c) => !c.disabled()).map((c) => c.value()));
-			void this.runValidation();
+			if (this.shouldValidateOnChange()) {
+				void this.runValidation();
+			}
 		});
 		this._childValueEffect.run();
 	}
@@ -136,7 +138,7 @@ export class FormArray<T = unknown> extends AbstractControl<T[]> {
 	public markAllAsTouched(): void {
 		// One aggregate value/validation pass for the whole write, not one per child.
 		batch(() => {
-			this._touched.set(true);
+			this.markAsTouched();
 			for (const control of this.controls()) {
 				control.markAllAsTouched();
 			}
@@ -221,10 +223,10 @@ export class FormArray<T = unknown> extends AbstractControl<T[]> {
 
 	protected override computePending(): boolean {
 		if (this._pending()) return true;
-		return this.controls().some((c) => c.pending());
+		return this.controls().some((c) => !c.disabled() && c.pending());
 	}
 
 	protected override hasInvalidChild(): boolean {
-		return this.controls().some((c) => c.invalid());
+		return this.controls().some((c) => !c.disabled() && c.invalid());
 	}
 }
