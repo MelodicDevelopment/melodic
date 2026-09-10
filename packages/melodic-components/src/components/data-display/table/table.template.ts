@@ -50,7 +50,10 @@ export function tableTemplate(c: TableComponent) {
 										[`ml-table__th--${col.align ?? 'left'}`]: true
 									})}
 									style=${col.width ? `width: ${col.width}` : ''}
+									tabindex=${col.sortable ? '0' : ''}
+									role=${col.sortable ? 'columnheader button' : ''}
 									@click=${() => c.handleSort(col)}
+									@keydown=${(e: KeyboardEvent) => c.handleHeaderKeyDown(col, e)}
 									aria-sort=${c.sortKey === col.key ? (c.sortDirection === 'asc' ? 'ascending' : 'descending') : 'none'}
 								>
 									<span class="ml-table__th-content">

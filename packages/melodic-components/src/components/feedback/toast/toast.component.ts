@@ -1,5 +1,5 @@
 import { MelodicComponent, html } from '@melodicdev/core';
-import type { IElementRef, OnCreate } from '@melodicdev/core';
+import type { IElementRef, OnCreate, OnDestroy } from '@melodicdev/core';
 import type { ToastVariant } from './toast-config.interface.js';
 import { toastTemplate } from './toast.template.js';
 import { toastStyles } from './toast.styles.js';
@@ -21,7 +21,7 @@ import { warnDeprecatedTitleOnce } from '../../../functions/index.js';
 	styles: toastStyles,
 	attributes: ['variant', 'toast-title', 'title', 'message', 'duration', 'dismissible']
 })
-export class ToastComponent implements IElementRef, OnCreate {
+export class ToastComponent implements IElementRef, OnCreate, OnDestroy {
 	public elementRef!: HTMLElement;
 
 	/** Toast variant */
@@ -53,6 +53,17 @@ export class ToastComponent implements IElementRef, OnCreate {
 	public onCreate(): void {
 		if (this.duration > 0) {
 			this._timer = setTimeout(() => this.dismiss(), this.duration);
+		}
+	}
+
+	public onDestroy(): void {
+		// A toast removed before its timer fires (dismissAll, a route change,
+		// the container being torn down) left the timer armed; it then ran
+		// dismiss() on a detached element and kept the component alive until
+		// it fired.
+		if (this._timer) {
+			clearTimeout(this._timer);
+			this._timer = null;
 		}
 	}
 

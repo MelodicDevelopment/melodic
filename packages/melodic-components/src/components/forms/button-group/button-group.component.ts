@@ -1,5 +1,5 @@
 import { MelodicComponent } from '@melodicdev/core';
-import type { IElementRef, OnCreate, OnDestroy } from '@melodicdev/core';
+import type { IElementRef, OnCreate, OnDestroy, OnRender } from '@melodicdev/core';
 import { registerAdapter } from '@melodicdev/core/forms';
 import type { ControlSize } from '../../../types/index.js';
 import { buttonGroupTemplate } from './button-group.template.js';
@@ -48,7 +48,7 @@ registerAdapter<string | string[]>((el) => el.tagName === 'ML-BUTTON-GROUP', {
 	styles: buttonGroupStyles,
 	attributes: ['value', 'variant', 'size', 'disabled', 'multiple', 'error']
 })
-export class ButtonGroupComponent implements IElementRef, OnCreate, OnDestroy {
+export class ButtonGroupComponent implements IElementRef, OnCreate, OnDestroy, OnRender {
 	public elementRef!: HTMLElement;
 
 	/** Currently selected value (single selection mode) */
@@ -74,6 +74,15 @@ export class ButtonGroupComponent implements IElementRef, OnCreate, OnDestroy {
 
 	public onCreate(): void {
 		this.elementRef.addEventListener('ml:item-click', this._handleItemClick as EventListener);
+		this.syncItems();
+	}
+
+	public onRender(): void {
+		// Sync slotted items after every render, so a programmatic `value` /
+		// `values` / `disabled` write — including one from a :formControl
+		// binding, setValue or reset — reaches them. Running the sync only on
+		// create, slotchange and click meant the group ignored every
+		// programmatic change.
 		this.syncItems();
 	}
 
@@ -121,7 +130,9 @@ export class ButtonGroupComponent implements IElementRef, OnCreate, OnDestroy {
 	private syncItems(): void {
 		const items = this.elementRef.querySelectorAll('ml-button-group-item');
 		items.forEach((item) => {
-			const itemValue = item.getAttribute('value') ?? '';
+			// Read the PROPERTY first: `.value=${x}` never writes an attribute,
+			// so an attribute-only read saw nothing for property-bound items.
+			const itemValue = (item as unknown as { value?: string }).value ?? item.getAttribute('value') ?? '';
 			const isActive = this.multiple ? this.values.includes(itemValue) : itemValue === this.value;
 
 			item.toggleAttribute('active', isActive);

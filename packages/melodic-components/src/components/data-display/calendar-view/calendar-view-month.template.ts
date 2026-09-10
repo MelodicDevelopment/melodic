@@ -5,13 +5,24 @@ import { formatTime } from './calendar-view.utils.js';
 
 function renderEventPill(c: CalendarViewComponent, event: CalendarEvent) {
 	const color = event.color || 'blue';
+	// A click-only <div> is invisible to keyboard and assistive tech; give the
+	// pill a button role, a tab stop and Enter/Space activation.
 	return html`
 		<div
 			class=${classMap({
 				'ml-cv__event-pill': true,
 				[`ml-cv__event-pill--${color}`]: true
 			})}
+			role="button"
+			tabindex="0"
+			aria-label=${event.title}
 			@click=${(e: Event) => { e.stopPropagation(); c.handleEventClick(event); }}
+			@keydown=${(e: KeyboardEvent) => {
+				if (e.key !== 'Enter' && e.key !== ' ') return;
+				e.preventDefault();
+				e.stopPropagation();
+				c.handleEventClick(event);
+			}}
 		>
 			${when(!event.allDay, () => html`
 				<span class="ml-cv__event-pill-time">${formatTime(event.start)}</span>
@@ -53,7 +64,12 @@ export function renderMonthView(c: CalendarViewComponent) {
 								'ml-cv__day-cell': true,
 								'ml-cv__day-cell--other-month': !day.isCurrentMonth
 							})}
+							role="gridcell"
+							tabindex=${day.iso === c.dayTabStop ? '0' : '-1'}
+							data-key=${day.iso}
+							aria-label=${day.iso}
 							@click=${() => c.handleDateClick(day.iso)}
+							@keydown=${(e: KeyboardEvent) => c.handleDayKeyDown(day.iso, e)}
 						>
 							<div class=${classMap({
 								'ml-cv__day-number': true,

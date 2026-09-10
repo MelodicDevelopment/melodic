@@ -17,7 +17,7 @@ import { radioCardStyles } from './radio-card.styles.js';
 	selector: 'ml-radio-card',
 	template: radioCardTemplate,
 	styles: radioCardStyles,
-	attributes: ['value', 'label', 'description', 'detail', 'icon', 'selected', 'disabled', 'group-disabled']
+	attributes: ['value', 'label', 'description', 'detail', 'icon', 'selected', 'disabled', 'group-disabled', 'tab-stop']
 })
 export class RadioCardComponent implements IElementRef {
 	public elementRef!: HTMLElement;
@@ -45,6 +45,13 @@ export class RadioCardComponent implements IElementRef {
 
 	/** Disabled state from parent group */
 	public groupDisabled = false;
+
+	/**
+	 * Whether this card is the group's single tab stop. A radio group is ONE
+	 * tab stop — every card being `tabindex="0"` made a five-option group five
+	 * stops instead of one, and broke the expected arrow-key navigation.
+	 */
+	public tabStop = false;
 
 	public get isDisabled(): boolean {
 		return this.disabled || this.groupDisabled;

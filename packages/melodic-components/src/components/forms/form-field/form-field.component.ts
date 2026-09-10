@@ -122,17 +122,59 @@ export class FormFieldComponent implements IElementRef, OnCreate, OnRender {
 			control.id = this.fieldId;
 		}
 
-		// Connect aria-describedby for hint/error; remove when neither is set.
-		// Writes are diffed so a no-change render doesn't touch the DOM.
-		this.syncAttribute(control, 'aria-describedby', this.describedBy || null);
+		// The hint and error live in THIS component's shadow root while the
+		// control is in the light DOM, so an `aria-describedby` IDREF between
+		// them never resolves. Element references do cross the boundary, so use
+		// `ariaDescribedByElements` where the browser supports it and fall back
+		// to copying the text into `aria-description`.
+		this.syncDescription(control);
 		this.syncAttribute(control, 'aria-invalid', this.error ? 'true' : null);
 		this.syncAttribute(control, 'aria-required', this.required ? 'true' : null);
 
-		// Set disabled if applicable
-		if (this.disabled && 'disabled' in control) {
-			(control as HTMLInputElement).disabled = true;
+		// Mirror the field's disabled state onto the control, in BOTH
+		// directions — it used to be set to true and never cleared, so a field
+		// that started disabled could never be re-enabled.
+		if ('disabled' in control) {
+			(control as HTMLInputElement).disabled = this.disabled;
+		} else {
+			this.syncAttribute(control, 'aria-disabled', this.disabled ? 'true' : null);
 		}
 	}
+
+	/** Point the control at the hint/error elements across the shadow boundary. */
+	private syncDescription(control: HTMLElement): void {
+		const root = this.elementRef.shadowRoot;
+		const describers = [this.error ? root?.getElementById(this.errorId) : null, this.hint ? root?.getElementById(this.hintId) : null].filter(
+			(element): element is HTMLElement => element !== null && element !== undefined
+		);
+
+		const reflected = control as HTMLElement & { ariaDescribedByElements?: Element[] | null };
+
+		if ('ariaDescribedByElements' in reflected) {
+			reflected.ariaDescribedByElements = describers.length > 0 ? describers : null;
+			this.syncAttribute(control, 'aria-description', null);
+			return;
+		}
+
+		// No element-reference support: carry the text itself. An IDREF here
+		// would point at nothing.
+		const description = describers
+			.map((element) => element.textContent?.trim() ?? '')
+			.filter(Boolean)
+			.join('. ');
+
+		this.syncAttribute(control, 'aria-description', description || null);
+	}
+
+	/**
+	 * Focus the slotted control when the label is clicked. `<label for=…>` can
+	 * only target an element in the same tree, so the label's `for` never
+	 * resolved to the light-DOM control.
+	 */
+	public handleLabelClick = (event: Event): void => {
+		event.preventDefault();
+		this._control?.focus();
+	};
 
 	private syncAttribute(el: HTMLElement, name: string, value: string | null): void {
 		if (value === null) {

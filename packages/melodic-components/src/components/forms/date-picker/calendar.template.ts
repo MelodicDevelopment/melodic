@@ -21,7 +21,8 @@ function dayGrid(c: CalendarComponent) {
 						'ml-calendar__day--disabled': day.isDisabled
 					})}
 					?disabled=${day.isDisabled || !day.isCurrentMonth}
-					tabindex=${day.isCurrentMonth ? '0' : '-1'}
+					data-key=${day.iso}
+					tabindex=${day.iso === c.dayTabStop ? '0' : '-1'}
 					aria-selected=${day.isSelected ? 'true' : 'false'}
 					aria-label=${day.iso}
 					@click=${() => c.selectDay(day)}
@@ -47,7 +48,8 @@ function monthGrid(c: CalendarComponent) {
 						'ml-calendar__cell--disabled': m.isDisabled
 					})}
 					?disabled=${m.isDisabled}
-					tabindex="0"
+					data-key=${String(m.index)}
+					tabindex=${m.index === c.monthTabStop ? '0' : '-1'}
 					aria-selected=${m.isSelected ? 'true' : 'false'}
 					aria-label=${m.label}
 					@click=${() => c.selectViewMonth(m)}
@@ -72,7 +74,8 @@ function yearGrid(c: CalendarComponent) {
 						'ml-calendar__cell--disabled': y.isDisabled
 					})}
 					?disabled=${y.isDisabled}
-					tabindex=${y.isDisabled ? '-1' : '0'}
+					data-key=${String(y.year)}
+					tabindex=${y.year === c.yearTabStop ? '0' : '-1'}
 					aria-selected=${y.isSelected ? 'true' : 'false'}
 					aria-label=${String(y.year)}
 					@click=${() => c.selectViewYear(y)}

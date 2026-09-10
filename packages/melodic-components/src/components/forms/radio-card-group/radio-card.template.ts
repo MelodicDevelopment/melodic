@@ -12,7 +12,7 @@ export function radioCardTemplate(c: RadioCardComponent) {
 			role="radio"
 			aria-checked=${c.selected ? 'true' : 'false'}
 			aria-disabled=${c.isDisabled ? 'true' : 'false'}
-			tabindex=${c.isDisabled ? '-1' : '0'}
+			tabindex=${c.isDisabled || !c.tabStop ? '-1' : '0'}
 			@click=${c.handleClick}
 			@keydown=${(e: KeyboardEvent) => { if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); c.handleClick(); } }}
 		>

@@ -5,6 +5,7 @@ import { OverlayPositioner } from '../../../utils/overlay/index.js';
 import { newID, type UniqueID } from '../../../functions/new-id.function.js';
 import { tooltipTemplate } from './tooltip.template.js';
 import { tooltipStyles } from './tooltip.styles.js';
+import { setCrossRootDescription } from '../../../utils/accessibility/cross-root-aria.js';
 
 /**
  * ml-tooltip - Tooltip component that shows on hover/focus
@@ -125,19 +126,24 @@ export class TooltipComponent implements IElementRef, OnCreate, OnDestroy {
 	};
 
 	/**
-	 * Point the slotted trigger's aria-describedby at the tooltip content.
-	 * Note: id references cannot cross INTO a shadow root, so this fully works
-	 * for triggers whose accessible node is the slotted element itself (e.g. a
-	 * plain <button>); composite triggers with their own shadow root surface
-	 * the description on their host element.
+	 * Describe the slotted trigger with the tooltip's content element.
+	 *
+	 * An `aria-describedby` IDREF pointing INTO this component's shadow root
+	 * resolves to nothing, so the tooltip was set up to look correct in the DOM
+	 * and was never announced. Element references cross the boundary; where
+	 * they are unsupported the text is copied onto the trigger instead.
 	 */
 	private readonly syncTriggerAria = (): void => {
-		const slot = this.elementRef.shadowRoot?.querySelector('.ml-tooltip__trigger slot') as HTMLSlotElement | null;
-		const assigned = slot?.assignedElements() ?? [];
-		const trigger = assigned[0] as HTMLElement | undefined;
-		if (trigger && !trigger.hasAttribute('aria-describedby')) {
-			trigger.setAttribute('aria-describedby', this.tooltipID);
+		const root = this.elementRef.shadowRoot;
+		const slot = root?.querySelector('.ml-tooltip__trigger slot') as HTMLSlotElement | null;
+		const trigger = (slot?.assignedElements() ?? [])[0] as HTMLElement | undefined;
+		const content = root?.querySelector('.ml-tooltip__content') as HTMLElement | null;
+
+		if (!trigger || trigger.hasAttribute('aria-describedby')) {
+			return;
 		}
+
+		setCrossRootDescription(trigger, content ? [content] : []);
 	};
 
 	private startPositioning(): void {

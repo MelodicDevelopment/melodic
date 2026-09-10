@@ -393,6 +393,59 @@ export class CalendarComponent implements IElementRef, OnInit, OnAttributeChange
 
 	// ── Keyboard navigation ─────────────────────────────────────────────────
 
+	/**
+	 * Key of the single tabbable cell (roving tabindex).
+	 *
+	 * Every current-month day used to be `tabindex="0"`, so tabbing through a
+	 * form meant ~30 stops inside one calendar. A grid is one tab stop; arrow
+	 * keys move within it.
+	 */
+	public rovingKey = '';
+
+	/** Day cell that carries the tab stop. */
+	public get dayTabStop(): string {
+		const candidates = this.days.filter((day) => day.isCurrentMonth && !day.isDisabled);
+		if (candidates.length === 0) {
+			return '';
+		}
+
+		if (this.rovingKey && candidates.some((day) => day.iso === this.rovingKey)) {
+			return this.rovingKey;
+		}
+
+		return (candidates.find((day) => day.isSelected) ?? candidates.find((day) => day.isToday) ?? candidates[0]).iso;
+	}
+
+	/** Month cell that carries the tab stop. */
+	public get monthTabStop(): number {
+		const candidates = this.months.filter((month) => !month.isDisabled);
+		if (candidates.length === 0) {
+			return -1;
+		}
+
+		const roving = Number.parseInt(this.rovingKey, 10);
+		if (!Number.isNaN(roving) && candidates.some((month) => month.index === roving)) {
+			return roving;
+		}
+
+		return (candidates.find((month) => month.isSelected) ?? candidates.find((month) => month.isCurrent) ?? candidates[0]).index;
+	}
+
+	/** Year cell that carries the tab stop. */
+	public get yearTabStop(): number {
+		const candidates = this.years.filter((year) => !year.isDisabled);
+		if (candidates.length === 0) {
+			return -1;
+		}
+
+		const roving = Number.parseInt(this.rovingKey, 10);
+		if (!Number.isNaN(roving) && candidates.some((year) => year.year === roving)) {
+			return roving;
+		}
+
+		return (candidates.find((year) => year.isSelected) ?? candidates.find((year) => year.isCurrent) ?? candidates[0]).year;
+	}
+
 	public handleGridKeyDown = (event: KeyboardEvent): void => {
 		const key = event.key;
 		if (key !== 'ArrowLeft' && key !== 'ArrowRight' && key !== 'ArrowUp' && key !== 'ArrowDown' && key !== 'Home' && key !== 'End') {
@@ -402,9 +455,10 @@ export class CalendarComponent implements IElementRef, OnInit, OnAttributeChange
 		if (!target || target.tagName !== 'BUTTON') return;
 		const grid = target.closest('.ml-calendar__grid, .ml-calendar__cell-grid') as HTMLElement | null;
 		if (!grid) return;
-		const cells = Array.from(grid.querySelectorAll<HTMLButtonElement>('button:not([disabled])')).filter(
-			(el) => el.tabIndex !== -1
-		);
+		// Every enabled cell participates in arrow navigation; only one of them
+		// is a tab stop, so filtering by tabIndex here would leave the arrows
+		// with a single cell to move between.
+		const cells = Array.from(grid.querySelectorAll<HTMLButtonElement>('button:not([disabled])'));
 		if (cells.length === 0) return;
 		const idx = cells.indexOf(target as HTMLButtonElement);
 		if (idx === -1) return;
@@ -424,7 +478,9 @@ export class CalendarComponent implements IElementRef, OnInit, OnAttributeChange
 			return;
 		}
 		event.preventDefault();
-		cells[nextIdx].focus();
+		const next = cells[nextIdx];
+		this.rovingKey = next.dataset.key ?? '';
+		next.focus();
 	};
 
 	// ── Helpers ─────────────────────────────────────────────────────────────

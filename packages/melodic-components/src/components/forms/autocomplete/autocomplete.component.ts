@@ -529,6 +529,13 @@ export class AutocompleteComponent implements IElementRef, OnCreate, OnDestroy {
 				break;
 
 			case 'Escape':
+				// Only claim Escape while the listbox is actually open.
+				// preventDefault() on a closed control cancelled the platform's
+				// close-watcher, so an enclosing dialog or drawer could not be
+				// dismissed with Escape while focus sat on this field.
+				if (!this.isOpen) {
+					return;
+				}
 				event.preventDefault();
 				this.close();
 				break;

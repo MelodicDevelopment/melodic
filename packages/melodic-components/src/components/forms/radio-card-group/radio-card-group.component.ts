@@ -57,6 +57,7 @@ export class RadioCardGroupComponent implements IElementRef, OnCreate, OnDestroy
 
 	public onCreate(): void {
 		this.elementRef.addEventListener('ml:card-select', this._handleCardSelect as EventListener);
+		this.elementRef.addEventListener('keydown', this._handleKeyDown);
 		// Re-sync when slotted cards are added/removed.
 		this.elementRef.shadowRoot?.querySelector('slot')?.addEventListener('slotchange', this.handleSlotChange);
 	}
@@ -70,7 +71,47 @@ export class RadioCardGroupComponent implements IElementRef, OnCreate, OnDestroy
 
 	public onDestroy(): void {
 		this.elementRef.removeEventListener('ml:card-select', this._handleCardSelect as EventListener);
+		this.elementRef.removeEventListener('keydown', this._handleKeyDown);
 	}
+
+	/**
+	 * Arrow-key navigation across the group, as the radio pattern requires.
+	 * Cards live in their own shadow roots, so native radio grouping does not
+	 * apply and this has to be done by hand (mirrors ml-radio-group).
+	 */
+	private readonly _handleKeyDown = (event: KeyboardEvent): void => {
+		const keys = ['ArrowDown', 'ArrowRight', 'ArrowUp', 'ArrowLeft'];
+		if (!keys.includes(event.key)) {
+			return;
+		}
+
+		const cards = [...this.elementRef.querySelectorAll('ml-radio-card')].filter(
+			(card) => !card.hasAttribute('disabled') && !card.hasAttribute('group-disabled')
+		);
+		if (cards.length === 0) {
+			return;
+		}
+
+		const currentIndex = Math.max(
+			0,
+			cards.findIndex((card) => (card.getAttribute('value') ?? '') === this.value)
+		);
+		const forward = event.key === 'ArrowDown' || event.key === 'ArrowRight';
+		const next = cards[(currentIndex + (forward ? 1 : -1) + cards.length) % cards.length];
+
+		event.preventDefault();
+		this.value = next.getAttribute('value') ?? '';
+		this.syncCards();
+		(next as HTMLElement).focus();
+
+		this.elementRef.dispatchEvent(
+			new CustomEvent('ml:change', {
+				bubbles: true,
+				composed: true,
+				detail: { value: this.value }
+			})
+		);
+	};
 
 	public handleSlotChange = (): void => {
 		this.syncCards();
@@ -103,11 +144,17 @@ export class RadioCardGroupComponent implements IElementRef, OnCreate, OnDestroy
 			}
 		}
 
+		// The tab stop is the selected card, or the first enabled one when
+		// nothing is selected yet — one stop for the whole group.
+		const enabled = [...cards].filter((card) => !card.hasAttribute('disabled'));
+		const tabStopCard = enabled.find((card) => (card.getAttribute('value') ?? '') === this.value) ?? enabled[0];
+
 		cards.forEach((card) => {
 			const cardValue = card.getAttribute('value') ?? '';
 			const isSelected = cardValue === this.value;
 			card.toggleAttribute('selected', isSelected);
 			card.toggleAttribute('group-disabled', this.disabled);
+			card.toggleAttribute('tab-stop', card === tabStopCard);
 		});
 	}
 }

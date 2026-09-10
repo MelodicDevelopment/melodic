@@ -15,7 +15,7 @@ export function formFieldTemplate(c: FormFieldComponent) {
 			${when(
 				!!c.label,
 				() => html`
-					<label class="ml-form-field__label" for=${c.fieldId}>
+					<label class="ml-form-field__label" @click=${c.handleLabelClick}>
 						${c.label}
 						${when(c.required, () => html`<span class="ml-form-field__required">*</span>`)}
 					</label>

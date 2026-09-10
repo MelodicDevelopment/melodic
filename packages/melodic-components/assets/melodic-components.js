@@ -99,6 +99,48 @@ const setActiveComponent = (component) => {
 	activeComponent = component;
 };
 const getActiveComponent = () => activeComponent;
+function readEnv$1() {
+	try {
+		return typeof import.meta !== "undefined" ? {
+			"BASE_URL": "/",
+			"DEV": false,
+			"MODE": "development",
+			"PROD": true,
+			"SSR": false
+		} : void 0;
+	} catch {
+		return;
+	}
+}
+function detect() {
+	const env = readEnv$1();
+	if (env) {
+		if (typeof env.DEV === "boolean") return env.DEV;
+		if (typeof env.PROD === "boolean") return !env.PROD;
+		if (typeof env.MODE === "string") return env.MODE !== "production";
+	}
+	if (typeof location !== "undefined" && typeof location.hostname === "string") return location.hostname === "localhost" || location.hostname === "127.0.0.1" || location.hostname === "[::1]" || location.hostname === "";
+	return false;
+}
+var override = null;
+var cached = null;
+function isDevMode() {
+	if (override !== null) return override;
+	if (cached === null) cached = detect();
+	return cached;
+}
+function setDevMode(enabled) {
+	override = enabled;
+}
+var warned$1 = /* @__PURE__ */ new Set();
+function devWarn(key, ...message) {
+	if (!isDevMode() || warned$1.has(key)) return;
+	warned$1.add(key);
+	console.warn("[Melodic]", ...message);
+}
+function resetDevWarnings() {
+	warned$1.clear();
+}
 var InjectionEngine = class {
 	constructor() {
 		this._bindings = /* @__PURE__ */ new Map();
@@ -123,14 +165,20 @@ var InjectionEngine = class {
 		if (options?.singleton !== void 0) binding.setSingleton(options.singleton);
 		if (options?.dependencies) binding.withDependencies(options.dependencies);
 		if (options?.args) binding.withArgs(options.args);
+		this.warnOnRebind(key);
 		this._bindings.set(key, binding);
 		return binding;
+	}
+	warnOnRebind(key) {
+		const existing = this._bindings.get(key);
+		if (existing?.isSingleton && existing.getInstance() !== void 0) devWarn(`rebind:${describeToken(key)}`, `'${describeToken(key)}' was re-bound after its singleton had already been resolved. Consumers holding the previous instance keep it, so two versions are now live. Bind before the first resolution, or call Injector.unbind() first.`);
 	}
 	bindValue(token, value) {
 		const key = getTokenKey(token);
 		const binding = new Binding(key, token, "value");
 		binding.setInstance(value);
 		binding.setSingleton(true);
+		this.warnOnRebind(key);
 		this._bindings.set(key, binding);
 		return binding;
 	}
@@ -155,6 +203,9 @@ var InjectionEngine = class {
 	getBinding(token) {
 		const key = getTokenKey(token);
 		return this._bindings.get(key);
+	}
+	entries() {
+		return [...this._bindings.entries()];
 	}
 	unbind(token) {
 		const key = getTokenKey(token);
@@ -205,11 +256,19 @@ function Service(token) {
 	return function(target, propertyKey) {
 		const metadataKey = `__service_${String(propertyKey)}`;
 		target[metadataKey] = token;
+		const cacheKey = `__cached_${String(propertyKey)}`;
 		Object.defineProperty(target, propertyKey, {
 			get() {
-				const cacheKey = `__cached_${String(propertyKey)}`;
 				if (!Object.prototype.hasOwnProperty.call(this, cacheKey)) this[cacheKey] = Injector.get(token);
 				return this[cacheKey];
+			},
+			set(value) {
+				Object.defineProperty(this, cacheKey, {
+					value,
+					writable: true,
+					enumerable: false,
+					configurable: true
+				});
 			},
 			enumerable: true,
 			configurable: true
@@ -219,1747 +278,141 @@ function Service(token) {
 function createToken(description) {
 	return Symbol(description);
 }
-async function bootstrap(config = {}) {
-	const devMode = config.devMode ?? false;
-	const errorHandlers = [];
-	if (devMode) console.log("[Melodic] Bootstrap starting...");
-	if (config.onError) {
-		const errorHandler = (event) => {
-			config.onError(event.error, "error");
-		};
-		const rejectionHandler = (event) => {
-			config.onError(event.reason, "unhandledrejection");
-		};
-		window.addEventListener("error", errorHandler);
-		window.addEventListener("unhandledrejection", rejectionHandler);
-		errorHandlers.push({
-			type: "error",
-			handler: errorHandler
-		}, {
-			type: "unhandledrejection",
-			handler: rejectionHandler
-		});
-	}
-	let rootElement;
-	let destroyed = false;
-	const removeErrorHandlers = () => {
-		for (const { type, handler } of errorHandlers) window.removeEventListener(type, handler);
-		errorHandlers.length = 0;
-	};
-	const rollback = () => {
-		removeErrorHandlers();
-		if (rootElement?.parentNode) rootElement.parentNode.removeChild(rootElement);
-	};
-	try {
-		if (config.onBefore) {
-			if (devMode) console.log("[Melodic] Running onBefore hook...");
-			await config.onBefore();
-		}
-		if (config.providers) {
-			for (const provider of config.providers) provider(Injector);
-			if (devMode) console.log("[Melodic] Custom providers registered");
-		}
-		if (config.rootComponent && config.target) {
-			const targetEl = typeof config.target === "string" ? document.querySelector(config.target) : config.target;
-			if (!targetEl) throw new Error(`[Melodic] Target element not found: ${config.target}`);
-			if (!customElements.get(config.rootComponent)) throw new Error(`[Melodic] Component <${config.rootComponent}> is not registered. Make sure to import the component file before calling bootstrap().`);
-			rootElement = document.createElement(config.rootComponent);
-			targetEl.appendChild(rootElement);
-			if (devMode) console.log("[Melodic] Mounted root component", {
-				component: config.rootComponent,
-				target: config.target
-			});
-		}
-		const app = {
-			isDevMode: devMode,
-			rootElement,
-			get(token) {
-				return Injector.get(token);
-			},
-			destroy() {
-				if (destroyed) return;
-				destroyed = true;
-				removeErrorHandlers();
-				if (rootElement?.parentNode) rootElement.parentNode.removeChild(rootElement);
-				if (Injector.getBinding("IMelodicApp")?.getInstance() === app) Injector.unbind("IMelodicApp");
-				app.rootElement = void 0;
-				if (devMode) console.log("[Melodic] Application destroyed");
+function inject(token) {
+	return Injector.get(token);
+}
+function injectOptional(token, fallback) {
+	return Injector.has(token) ? Injector.get(token) : fallback;
+}
+var registry$1 = /* @__PURE__ */ new Map();
+function registerComponentDefinition(entry) {
+	registry$1.set(entry.selector, entry);
+}
+function getComponentDefinition(selector) {
+	return registry$1.get(selector);
+}
+function getComponentDefinitions() {
+	return [...registry$1.values()];
+}
+var HOOK_KEY = "__MELODIC_DEVTOOLS_HOOK__";
+var hook;
+function createHook() {
+	const listeners = /* @__PURE__ */ new Map();
+	let id = 0;
+	let listening = false;
+	return {
+		version: "1",
+		components: /* @__PURE__ */ new Map(),
+		get listening() {
+			return listening;
+		},
+		nextId: () => ++id,
+		emit(event) {
+			if (!listening) return;
+			for (const listener of listeners.get(event.type) ?? []) listener(event);
+			for (const listener of listeners.get("*") ?? []) listener(event);
+		},
+		on(type, listener) {
+			listening = true;
+			let set = listeners.get(type);
+			if (!set) {
+				set = /* @__PURE__ */ new Set();
+				listeners.set(type, set);
 			}
-		};
-		if (config.onReady) config.onReady();
-		if (devMode) console.log("[Melodic] Bootstrap complete");
-		Injector.bindValue("IMelodicApp", app);
-		return app;
-	} catch (error) {
-		rollback();
-		throw error;
-	}
-}
-function render(result, container) {
-	result.renderInto(container);
-}
-const SIGNAL_MARKER = Symbol("melodic.signal");
-const DEPENDENTS = Symbol("melodic.signal.dependents");
-const isSignal = (value) => {
-	return typeof value === "function" && SIGNAL_MARKER in value;
-};
-function disposeDirectiveState(state) {
-	if (state !== null && typeof state === "object" && typeof state.__dispose === "function") try {
-		state.__dispose();
-	} catch (error) {
-		console.error("Directive state disposal failed:", error);
-	}
-}
-function disposePart(part) {
-	if (part.eventWrapper) {
-		if (part.eventAttached && part.node && part.name) part.node.removeEventListener(part.name, part.eventWrapper, part.eventOptions);
-		part.eventWrapper = void 0;
-		part.eventHandler = void 0;
-		part.eventOptions = void 0;
-		part.eventAttached = false;
-	}
-	if (part.actionCleanup) try {
-		part.actionCleanup();
-	} catch (error) {
-		console.error("Action directive cleanup failed:", error);
-	} finally {
-		part.actionCleanup = void 0;
-	}
-	if (part.nestedContainer) {
-		disposeContainerParts(part.nestedContainer);
-		part.nestedContainer = void 0;
-	}
-	if (part.renderedContainers) {
-		for (const container of part.renderedContainers) disposeContainerParts(container);
-		part.renderedContainers = void 0;
-	}
-	if (part.arrayState) {
-		for (const item of part.arrayState.items.values()) disposeContainerParts(item.container);
-		part.arrayState = void 0;
-	}
-	if (part.positionalArrayState) {
-		for (const item of part.positionalArrayState.items) disposeContainerParts(item.container);
-		part.positionalArrayState = void 0;
-	}
-	if (part.directiveState !== void 0) {
-		disposeDirectiveState(part.directiveState);
-		part.directiveState = void 0;
-		part.directiveType = void 0;
-	}
-}
-function disposeParts(parts) {
-	for (const part of parts) disposePart(part);
-}
-function disposeContainerParts(container) {
-	const parts = container.__parts;
-	if (parts) disposeParts(parts);
-}
-var globalStylesAttribute = "melodic-styles";
-var globalStyleSelector = `style[${globalStylesAttribute}], link[rel="stylesheet"][${globalStylesAttribute}]`;
-var cachedCssSheets = [];
-var loadingPromise = null;
-const applyGlobalStyles = (root) => {
-	if (hasCachedSheets()) {
-		applyAdoptedSheets(root);
-		return;
-	}
-	if (!loadingPromise) loadingPromise = loadStyles();
-	loadingPromise.then(() => applyAdoptedSheets(root));
-};
-var loadStyles = async () => {
-	const globalStyleElements = document.querySelectorAll(globalStyleSelector);
-	if (globalStyleElements.length === 0) return;
-	for (const element of globalStyleElements) {
-		if (element instanceof HTMLStyleElement) {
-			cacheCssSheet(element.textContent ?? "");
-			continue;
-		}
-		if (element instanceof HTMLLinkElement) {
-			if (!element.sheet) await new Promise((resolve) => {
-				element.addEventListener("load", () => resolve(), { once: true });
-			});
-			cacheCssSheet(Array.from(element.sheet?.cssRules ?? []).map((rule) => rule.cssText).join("\n"));
-		}
-	}
-};
-var applyAdoptedSheets = (root) => {
-	const adopted = root.adoptedStyleSheets ?? [];
-	const newSheets = cachedCssSheets.filter((sheet) => !adopted.includes(sheet));
-	if (newSheets.length > 0) root.adoptedStyleSheets = [...adopted, ...newSheets];
-};
-var cacheCssSheet = (text) => {
-	const trimmedText = text.trim();
-	if (trimmedText.length > 0) {
-		const sheet = new CSSStyleSheet();
-		sheet.replaceSync(trimmedText);
-		cachedCssSheets.push(sheet);
-	}
-};
-var hasCachedSheets = () => {
-	return cachedCssSheets.length > 0;
-};
-var cssTextCache = /* @__PURE__ */ new WeakMap();
-var sheetCache = /* @__PURE__ */ new Map();
-var constructedSheetsSupported;
-function supportsConstructedStyleSheets() {
-	if (constructedSheetsSupported === void 0) try {
-		constructedSheetsSupported = typeof CSSStyleSheet !== "undefined" && typeof CSSStyleSheet.prototype.replaceSync === "function" && typeof ShadowRoot !== "undefined" && "adoptedStyleSheets" in ShadowRoot.prototype && new CSSStyleSheet() instanceof CSSStyleSheet;
-	} catch {
-		constructedSheetsSupported = false;
-	}
-	return constructedSheetsSupported;
-}
-function getComponentStyleSheet(stylesFactory) {
-	if (!supportsConstructedStyleSheets()) return null;
-	let cssText = cssTextCache.get(stylesFactory);
-	if (cssText === void 0) {
-		cssText = renderStylesToText(stylesFactory());
-		cssTextCache.set(stylesFactory, cssText);
-	}
-	let sheet = sheetCache.get(cssText);
-	if (sheet === void 0) {
-		try {
-			const created = new CSSStyleSheet();
-			created.replaceSync(cssText);
-			sheet = created;
-		} catch {
-			sheet = null;
-		}
-		sheetCache.set(cssText, sheet);
-	}
-	return sheet;
-}
-function renderStylesToText(result) {
-	const host = document.createElement("style");
-	render(result, host);
-	const text = host.textContent ?? "";
-	disposeContainerParts(host);
-	return text;
-}
-var activeEffect = null;
-const setActiveEffect = (effect) => {
-	activeEffect = effect;
-};
-const getActiveEffect = () => activeEffect;
-var MAX_FLUSH_RUNS = 100;
-var batchDepth = 0;
-var flushing = false;
-var pendingNotifications = /* @__PURE__ */ new Set();
-var pendingEffects = /* @__PURE__ */ new Set();
-var flushRuns = /* @__PURE__ */ new Map();
-function isCoalescingEffects() {
-	return batchDepth > 0 || flushing;
-}
-function scheduleNotify(notify) {
-	pendingNotifications.add(notify);
-}
-function scheduleEffect(effect) {
-	pendingEffects.add(effect);
-}
-function unscheduleEffect(effect) {
-	pendingEffects.delete(effect);
-}
-function flush() {
-	if (batchDepth > 0 || flushing) return;
-	flushBatch();
-}
-function circularError() {
-	return /* @__PURE__ */ new Error(`Circular dependency detected in effect: exceeded ${MAX_FLUSH_RUNS} synchronous re-runs. An effect is repeatedly writing to a signal it also reads.`);
-}
-function rethrow(errors) {
-	if (errors.length === 1) throw errors[0];
-	if (errors.length > 1) throw new AggregateError(errors, `${errors.length} signal subscribers threw during flush`);
-}
-function flushBatch() {
-	flushing = true;
-	const errors = [];
-	try {
-		while (pendingNotifications.size > 0 || pendingEffects.size > 0) {
-			if (pendingNotifications.size > 0) {
-				const notifications = [...pendingNotifications];
-				pendingNotifications.clear();
-				for (const notify of notifications) try {
-					notify();
-				} catch (error) {
-					errors.push(error);
-				}
-			}
-			if (pendingEffects.size > 0) {
-				const effects = [...pendingEffects];
-				pendingEffects.clear();
-				for (const effect of effects) {
-					const runs = (flushRuns.get(effect) ?? 0) + 1;
-					if (runs > MAX_FLUSH_RUNS) {
-						pendingNotifications.clear();
-						pendingEffects.clear();
-						throw errors.length > 0 ? new AggregateError([circularError(), ...errors], "Circular dependency detected in effect") : circularError();
-					}
-					flushRuns.set(effect, runs);
-					try {
-						effect.runNow();
-					} catch (error) {
-						errors.push(error);
-					}
-				}
-			}
-		}
-	} finally {
-		flushing = false;
-		flushRuns.clear();
-	}
-	rethrow(errors);
-}
-function batch(fn) {
-	batchDepth++;
-	try {
-		return fn();
-	} finally {
-		batchDepth--;
-		if (batchDepth === 0) flushBatch();
-	}
-}
-var MAX_EFFECT_ITERATIONS = 100;
-var SignalEffect = class {
-	constructor(execute, options) {
-		this.execute = execute;
-		this._dependencies = /* @__PURE__ */ new Set();
-		this._isRunning = false;
-		this._needsRerun = false;
-		this._destroyed = false;
-		this._onInvalidate = options?.onInvalidate;
-		this.run = () => {
-			if (this._destroyed) return;
-			if (isCoalescingEffects()) {
-				scheduleEffect(this);
-				return;
-			}
-			this.runNow();
-		};
-	}
-	get destroyed() {
-		return this._destroyed;
-	}
-	invalidate() {
-		if (this._destroyed) return;
-		if (this._onInvalidate) {
-			this._onInvalidate();
-			return;
-		}
-		scheduleEffect(this);
-	}
-	runNow() {
-		if (this._destroyed) return;
-		if (this._isRunning) {
-			this._needsRerun = true;
-			return;
-		}
-		this._isRunning = true;
-		let iterations = 0;
-		try {
-			do {
-				if (++iterations > MAX_EFFECT_ITERATIONS) {
-					this._needsRerun = false;
-					throw new Error(`Circular dependency detected in effect: exceeded ${MAX_EFFECT_ITERATIONS} synchronous re-runs. An effect is repeatedly writing to a signal it also reads.`);
-				}
-				this._needsRerun = false;
-				this.clearDependencies();
-				const prevEffect = getActiveEffect();
-				setActiveEffect(this);
-				try {
-					this.execute();
-				} finally {
-					setActiveEffect(prevEffect);
-				}
-			} while (this._needsRerun && !this._destroyed);
-		} finally {
-			this._isRunning = false;
-		}
-	}
-	addDependency(producer) {
-		this._dependencies.add(producer);
-	}
-	clearDependencies() {
-		this._dependencies.forEach((producer) => {
-			producer[DEPENDENTS].delete(this);
-		});
-		this._dependencies.clear();
-	}
-	destroy() {
-		this._destroyed = true;
-		this._needsRerun = false;
-		this.clearDependencies();
-		unscheduleEffect(this);
-	}
-};
-var DESTROYED_MESSAGE$1 = "Signal accessed after destruction. Holding a signal beyond its owning component (e.g. cached on a long-lived service) is a bug — the signal is destroyed when its component disconnects.";
-function notifyAll(subscribers, value) {
-	const errors = [];
-	for (const subscriber of subscribers) try {
-		subscriber(value);
-	} catch (error) {
-		errors.push(error);
-	}
-	if (errors.length === 1) throw errors[0];
-	if (errors.length > 1) throw new AggregateError(errors, `${errors.length} signal subscribers threw`);
-}
-function signal(initialValue) {
-	let value = initialValue;
-	let destroyed = false;
-	const subscribers = /* @__PURE__ */ new Set();
-	const dependents = /* @__PURE__ */ new Set();
-	const notify = () => {
-		notifyAll([...subscribers], value);
-	};
-	const read = (() => {
-		if (destroyed) throw new Error(DESTROYED_MESSAGE$1);
-		const activeEffect$1 = getActiveEffect();
-		if (activeEffect$1) {
-			activeEffect$1.addDependency(read);
-			dependents.add(activeEffect$1);
-		}
-		return value;
-	});
-	read.set = (newValue) => {
-		if (destroyed) throw new Error(DESTROYED_MESSAGE$1);
-		if (Object.is(value, newValue)) return;
-		value = newValue;
-		if (subscribers.size > 0) scheduleNotify(notify);
-		for (const dependent of [...dependents]) dependent.invalidate();
-		flush();
-	};
-	read.update = (updater) => {
-		if (destroyed) throw new Error(DESTROYED_MESSAGE$1);
-		read.set(updater(value));
-	};
-	read.subscribe = (subscriber) => {
-		if (destroyed) throw new Error(DESTROYED_MESSAGE$1);
-		subscribers.add(subscriber);
-		return () => subscribers.delete(subscriber);
-	};
-	read.unsubscribe = (subscriber) => {
-		subscribers.delete(subscriber);
-	};
-	read.destroy = () => {
-		if (destroyed) return;
-		destroyed = true;
-		subscribers.clear();
-		dependents.clear();
-	};
-	Object.defineProperty(read, SIGNAL_MARKER, {
-		value: true,
-		enumerable: false,
-		configurable: false
-	});
-	Object.defineProperty(read, DEPENDENTS, {
-		value: dependents,
-		enumerable: false,
-		configurable: false
-	});
-	return read;
-}
-var DESTROYED_MESSAGE = "Signal accessed after destruction. Holding a signal beyond its owning component (e.g. cached on a long-lived service) is a bug — the signal is destroyed when its component disconnects.";
-var READ_ONLY_MESSAGE = "Cannot write to a computed signal — its value is derived from its sources. Update the source signal(s) instead.";
-function computed(computation) {
-	let value;
-	let dirty = true;
-	let destroyed = false;
-	const subscribers = /* @__PURE__ */ new Set();
-	const dependents = /* @__PURE__ */ new Set();
-	const recompute = () => {
-		tracker.clearDependencies();
-		const prevEffect = getActiveEffect();
-		setActiveEffect(tracker);
-		try {
-			value = computation();
-			dirty = false;
-		} finally {
-			setActiveEffect(prevEffect);
-		}
-	};
-	const tracker = new SignalEffect(() => {
-		if (destroyed) return;
-		const previous = value;
-		if (dirty) recompute();
-		if (!Object.is(previous, value)) notifyAll([...subscribers], value);
-	}, { onInvalidate: () => {
-		if (destroyed || dirty) return;
-		dirty = true;
-		for (const dependent of [...dependents]) dependent.invalidate();
-		if (subscribers.size > 0) scheduleEffect(tracker);
-	} });
-	const read = (() => {
-		if (destroyed) throw new Error(DESTROYED_MESSAGE);
-		const activeEffect$1 = getActiveEffect();
-		if (activeEffect$1) {
-			activeEffect$1.addDependency(read);
-			dependents.add(activeEffect$1);
-		}
-		if (dirty) recompute();
-		return value;
-	});
-	read.set = () => {
-		throw new Error(READ_ONLY_MESSAGE);
-	};
-	read.update = () => {
-		throw new Error(READ_ONLY_MESSAGE);
-	};
-	read.subscribe = (subscriber) => {
-		if (destroyed) throw new Error(DESTROYED_MESSAGE);
-		if (dirty) recompute();
-		subscribers.add(subscriber);
-		return () => subscribers.delete(subscriber);
-	};
-	read.unsubscribe = (subscriber) => {
-		subscribers.delete(subscriber);
-	};
-	read.destroy = () => {
-		if (destroyed) return;
-		destroyed = true;
-		tracker.destroy();
-		dependents.clear();
-		subscribers.clear();
-	};
-	Object.defineProperty(read, SIGNAL_MARKER, {
-		value: true,
-		enumerable: false,
-		configurable: false
-	});
-	Object.defineProperty(read, DEPENDENTS, {
-		value: dependents,
-		enumerable: false,
-		configurable: false
-	});
-	getActiveComponent()?.registerDisposable(read);
-	return read;
-}
-var globalMessages = {};
-function registerDefaultMessages(messages) {
-	for (const code of Object.keys(messages)) globalMessages[code] = messages[code];
-}
-function setDefaultMessage(code, message) {
-	globalMessages[code] = message;
-}
-function getGlobalMessage(code) {
-	return globalMessages[code];
-}
-function resolveMessage(message, params) {
-	if (typeof message === "function") return message(params ?? {});
-	return message;
-}
-var AbstractControl = class {
-	constructor(initialValue, options = {}) {
-		this.parent = null;
-		this._validators = [];
-		this._asyncValidators = [];
-		this._touched = signal(false);
-		this._dirty = signal(false);
-		this._pending = signal(false);
-		this._ownDisabled = signal(false);
-		this._asyncValidationId = 0;
-		this._destroyed = false;
-		this.value = signal(initialValue);
-		this.errors = signal(null);
-		this._validators = options.validators ?? [];
-		this._asyncValidators = options.asyncValidators ?? [];
-		this._ownDisabled.set(options.disabled ?? false);
-		this.updateOn = options.updateOn ?? "change";
-		this.messages = options.messages ?? {};
-		const consumer = getActiveComponent();
-		if (consumer) consumer.registerDisposable(this);
-	}
-	initializeAggregates() {
-		this.dirty = computed(() => this.computeDirty());
-		this.touched = computed(() => this.computeTouched());
-		this.pending = computed(() => this.computePending());
-		this.disabled = computed(() => this.computeDisabled());
-		this.pristine = computed(() => !this.dirty());
-		this.untouched = computed(() => !this.touched());
-		this.enabled = computed(() => !this.disabled());
-		this.invalid = computed(() => this.errors() !== null || this.hasInvalidChild());
-		this.valid = computed(() => !this.invalid() && !this.pending());
-		this.state = computed(() => ({
-			dirty: this.dirty(),
-			touched: this.touched(),
-			pristine: !this.dirty(),
-			untouched: !this.touched(),
-			valid: !this.invalid() && !this.pending(),
-			invalid: this.invalid(),
-			pending: this.pending(),
-			disabled: this.disabled(),
-			enabled: !this.disabled()
-		}));
-	}
-	get destroyed() {
-		return this._destroyed;
-	}
-	getRawValue() {
-		return this.value();
-	}
-	markAsTouched() {
-		this._touched.set(true);
-		if (this.updateOn === "blur") this.runValidation();
-	}
-	markAsUntouched() {
-		this._touched.set(false);
-	}
-	markAsDirty() {
-		this._dirty.set(true);
-	}
-	markAsPristine() {
-		this._dirty.set(false);
-	}
-	markAllAsTouched() {
-		this.markAsTouched();
-	}
-	markAllAsUntouched() {
-		this.markAsUntouched();
-	}
-	markAllAsDirty() {
-		this.markAsDirty();
-	}
-	markAllAsPristine() {
-		this.markAsPristine();
-	}
-	disable() {
-		this._ownDisabled.set(true);
-	}
-	enable() {
-		this._ownDisabled.set(false);
-	}
-	setValidators(validators) {
-		this._validators = validators;
-		this.runValidation();
-	}
-	addValidators(validators) {
-		this._validators = [...this._validators, ...validators];
-		this.runValidation();
-	}
-	removeValidators(validators) {
-		this._validators = this._validators.filter((v) => !validators.includes(v));
-		this.runValidation();
-	}
-	setAsyncValidators(validators) {
-		this._asyncValidators = validators;
-		this.runValidation();
-	}
-	async validate() {
-		await this.runValidation();
-	}
-	getError(code) {
-		return this.errors()?.[code] ?? null;
-	}
-	hasError(code) {
-		return this.errors()?.[code] !== void 0;
-	}
-	getErrorMessage(code) {
-		const error = this.getError(code);
-		if (!error) return "";
-		const params = error.params;
-		const localMessage = this.resolveFromChain(code);
-		if (localMessage !== void 0) return resolveMessage(localMessage, params);
-		const globalMessage = getGlobalMessage(code);
-		if (globalMessage !== void 0) return resolveMessage(globalMessage, params);
-		return code;
-	}
-	getFirstErrorMessage() {
-		const errors = this.errors();
-		if (!errors) return "";
-		const codes = Object.keys(errors);
-		if (codes.length === 0) return "";
-		return this.getErrorMessage(codes[0]);
-	}
-	resolveFromChain(code) {
-		let control = this;
-		while (control !== null) {
-			if (control.messages[code] !== void 0) return control.messages[code];
-			control = control.parent;
-		}
-	}
-	async runValidation() {
-		const id = ++this._asyncValidationId;
-		const value = this.value();
-		let errors = null;
-		for (const validator of this._validators) {
-			const result = validator(value);
-			if (result !== null) errors = {
-				...errors ?? {},
-				...result
+			set.add(listener);
+			return () => {
+				set.delete(listener);
 			};
 		}
-		if (errors !== null) {
-			this._pending.set(false);
-			this.errors.set(errors);
-			return;
-		}
-		if (this._asyncValidators.length > 0) {
-			this._pending.set(true);
-			try {
-				const results = await Promise.all(this._asyncValidators.map((v) => v(value)));
-				if (id !== this._asyncValidationId || this._destroyed) return;
-				for (const result of results) if (result !== null) errors = {
-					...errors ?? {},
-					...result
-				};
-			} catch (error) {
-				if (id !== this._asyncValidationId || this._destroyed) return;
-				console.error("Async validator failed:", error);
-				errors = {
-					...errors ?? {},
-					asyncValidator: {
-						code: "asyncValidator",
-						params: { message: error instanceof Error ? error.message : String(error) }
-					}
-				};
-			} finally {
-				if (id === this._asyncValidationId && !this._destroyed) this._pending.set(false);
-			}
-		}
-		if (id === this._asyncValidationId && !this._destroyed) this.errors.set(errors);
-	}
-	computeDirty() {
-		return this._dirty();
-	}
-	computeTouched() {
-		return this._touched();
-	}
-	computePending() {
-		return this._pending();
-	}
-	computeDisabled() {
-		return this._ownDisabled();
-	}
-	hasInvalidChild() {
-		return false;
-	}
-	destroySignals() {
-		this.value.destroy();
-		this.errors.destroy();
-		this._touched.destroy();
-		this._dirty.destroy();
-		this._pending.destroy();
-		this._ownDisabled.destroy();
-		this.dirty.destroy();
-		this.touched.destroy();
-		this.pristine.destroy();
-		this.untouched.destroy();
-		this.valid.destroy();
-		this.invalid.destroy();
-		this.pending.destroy();
-		this.disabled.destroy();
-		this.enabled.destroy();
-		this.state.destroy();
-	}
-};
-var ComponentBase = class extends HTMLElement {
-	constructor(meta, component, pending) {
-		super();
-		this._renderScheduled = false;
-		this._booleanProperties = /* @__PURE__ */ new Set();
-		this._numberProperties = /* @__PURE__ */ new Set();
-		this._stringProperties = /* @__PURE__ */ new Set();
-		this._rendering = false;
-		this._selectEpoch = 0;
-		this._renderScopedSelects = /* @__PURE__ */ new Map();
-		this._reactiveSourceEntries = [];
-		this._created = false;
-		this._destroyed = false;
-		this._teardownScheduled = false;
-		this._meta = meta;
-		this._component = component;
-		this._component.elementRef = this;
-		const declaredTypes = component.constructor.propertyTypes;
-		if (declaredTypes) {
-			for (const [prop, type] of Object.entries(declaredTypes)) if (type === "boolean") this._booleanProperties.add(prop);
-			else if (type === "number") this._numberProperties.add(prop);
-			else if (type === "string") this._stringProperties.add(prop);
-		}
-		this._disposables = pending?.disposables ?? /* @__PURE__ */ new Set();
-		this._selectCache = pending?.selectCache ?? /* @__PURE__ */ new Map();
-		this._root = this.attachShadow({ mode: "open" });
-		applyGlobalStyles(this._root);
-		this._style = this.renderStyles();
-		const prevActive = getActiveComponent();
-		setActiveComponent(this);
-		try {
-			this.observe();
-			if (this._component.onInit) this._component.onInit();
-		} finally {
-			setActiveComponent(prevActive);
-		}
-	}
-	get component() {
-		return this._component;
-	}
-	registerDisposable(d) {
-		this._disposables.add(d);
-	}
-	getSelectCache() {
-		return this._selectCache;
-	}
-	touchSelectEntry(fullKey) {
-		if (this._renderScopedSelects.has(fullKey)) this._renderScopedSelects.set(fullKey, this._selectEpoch);
-	}
-	trackSelectEntry(fullKey, sig) {
-		if (!this._rendering) return;
-		this._renderScopedSelects.set(fullKey, this._selectEpoch);
-		sig.subscribe(() => this.scheduleRender());
-	}
-	connectedCallback() {
-		this._teardownScheduled = false;
-		this.subscribeReactiveSources();
-		this.render();
-		const prev = getActiveComponent();
-		setActiveComponent(this);
-		try {
-			if (!this._created) {
-				this._created = true;
-				this._component.onCreate?.();
-			}
-			this._component.onConnect?.();
-		} finally {
-			setActiveComponent(prev);
-		}
-	}
-	disconnectedCallback() {
-		for (const entry of this._reactiveSourceEntries) {
-			for (const unsubscribe of entry.unsubscribers) unsubscribe();
-			entry.unsubscribers = [];
-		}
-		try {
-			this._component.onDisconnect?.();
-		} finally {
-			if (!this._teardownScheduled && !this._destroyed) {
-				this._teardownScheduled = true;
-				queueMicrotask(() => {
-					this._teardownScheduled = false;
-					if (!this.isConnected && !this._destroyed) this.teardown();
-				});
-			}
-		}
-	}
-	attributeChangedCallback(attribute, oldVal, newVal) {
-		const prop = attribute.replace(/-([a-z])/g, (_, ch) => ch.toUpperCase());
-		const component = this._component;
-		const current = component[prop];
-		const value = this.coerceAttributeValue(prop, newVal, current);
-		if (!Object.is(current, value)) {
-			component[prop] = value;
-			this.scheduleRender();
-		}
-		if (this._component.onAttributeChange !== void 0) this._component.onAttributeChange(attribute, oldVal, newVal);
-	}
-	coerceAttributeValue(prop, raw, current) {
-		if (this._stringProperties.has(prop)) return raw;
-		if (this._booleanProperties.has(prop) || typeof current === "boolean") return raw !== null && raw !== "false";
-		if (this._numberProperties.has(prop) || typeof current === "number") {
-			if (raw === null || raw.trim() === "") return raw;
-			const parsed = Number(raw);
-			return Number.isNaN(parsed) ? raw : parsed;
-		}
-		if ((current === void 0 || current === null) && (raw === "true" || raw === "false")) return raw === "true";
-		return raw;
-	}
-	teardown() {
-		this._destroyed = true;
-		const parts = this._root.__parts;
-		if (parts) disposeParts(parts);
-		try {
-			if (this._component.onDestroy !== void 0) this._component.onDestroy();
-		} finally {
-			for (const d of this._disposables) try {
-				d.destroy();
-			} catch (error) {
-				console.error("Disposable cleanup failed:", error);
-			}
-			this._disposables.clear();
-			this._selectCache.clear();
-		}
-	}
-	renderStyles() {
-		if (!this._meta.styles) return null;
-		const sheet = getComponentStyleSheet(this._meta.styles);
-		if (sheet) {
-			this._root.adoptedStyleSheets = [...this._root.adoptedStyleSheets, sheet];
-			return null;
-		}
-		const styleNode = document.createElement("style");
-		render(this._meta.styles(), styleNode);
-		return this._root.appendChild(styleNode);
-	}
-	render() {
-		const prev = getActiveComponent();
-		setActiveComponent(this);
-		this._rendering = true;
-		this._selectEpoch++;
-		try {
-			if (this._meta.template) {
-				render(this._meta.template(this._component, this.getAttributeValues()), this._root);
-				if (this._style && this._style.parentNode !== this._root) this._root.appendChild(this._style);
-			}
-			if (this._component.onRender !== void 0) this._component.onRender();
-		} finally {
-			this._rendering = false;
-			setActiveComponent(prev);
-			this.sweepRenderScopedSelects();
-		}
-	}
-	sweepRenderScopedSelects() {
-		for (const [key, epoch] of this._renderScopedSelects) {
-			if (epoch === this._selectEpoch) continue;
-			const sig = this._selectCache.get(key);
-			this._renderScopedSelects.delete(key);
-			this._selectCache.delete(key);
-			if (sig) {
-				this._disposables.delete(sig);
-				sig.destroy();
-			}
-		}
-	}
-	scheduleRender() {
-		if (this._renderScheduled) return;
-		this._renderScheduled = true;
-		queueMicrotask(() => {
-			this._renderScheduled = false;
-			if (this.isConnected) this.render();
-		});
-	}
-	observe() {
-		const properties = [];
-		const seen = /* @__PURE__ */ new Set();
-		let proto = this._component;
-		while (proto && proto !== Object.prototype) {
-			for (const prop of Object.getOwnPropertyNames(proto)) if (!seen.has(prop)) {
-				seen.add(prop);
-				properties.push(prop);
-			}
-			proto = Object.getPrototypeOf(proto);
-		}
-		const getterOnly = [];
-		const sourceProps = [];
-		const filtered = properties.filter((prop) => {
-			if (prop.startsWith("_") || prop === "elementRef" || prop === "constructor") return false;
-			const descriptor = this.getPropertyDescriptor(this._component, prop);
-			if (descriptor && descriptor.get && !descriptor.set) {
-				getterOnly.push(prop);
-				return false;
-			}
-			const value = this._component[prop];
-			if (isSignal(value) || value instanceof AbstractControl) {
-				sourceProps.push(prop);
-				return false;
-			}
-			if (typeof value === "function") return false;
-			return true;
-		});
-		for (const prop of sourceProps) this.observeReactiveSource(prop);
-		for (const prop of filtered) {
-			const descriptor = this.getPropertyDescriptor(this._component, prop);
-			const wrapperValue = Object.getOwnPropertyDescriptor(this, prop)?.value;
-			let value = wrapperValue === void 0 ? this._component[prop] : wrapperValue;
-			if (typeof value === "boolean") this._booleanProperties.add(prop);
-			else if (typeof value === "number") this._numberProperties.add(prop);
-			let componentGetter = () => value;
-			let componentSetter = (newVal) => {
-				if (!Object.is(value, newVal)) {
-					this._component.onPropertyChange?.(prop, value, newVal);
-					value = newVal;
-					this.scheduleRender();
-				}
-			};
-			if (descriptor?.get) {
-				const originalGetter = descriptor.get;
-				componentGetter = () => originalGetter.call(this._component);
-			}
-			if (descriptor?.set) {
-				const originalSetter = descriptor.set;
-				const baseSetter = componentSetter;
-				componentSetter = (newVal) => {
-					originalSetter.call(this._component, newVal);
-					baseSetter(newVal);
-				};
-			}
-			Object.defineProperty(this._component, prop, {
-				get: componentGetter,
-				set: componentSetter,
-				enumerable: true,
-				configurable: true
-			});
-			Object.defineProperty(this, prop, {
-				get: componentGetter,
-				set: componentSetter,
-				enumerable: true,
-				configurable: true
-			});
-		}
-		for (const prop of getterOnly) {
-			if (Object.prototype.hasOwnProperty.call(this, prop)) continue;
-			Object.defineProperty(this, prop, {
-				get: () => this._component[prop],
-				set: () => {},
-				enumerable: true,
-				configurable: true
-			});
-		}
-	}
-	getPropertyDescriptor(target, prop) {
-		let current = target;
-		while (current && current !== Object.prototype) {
-			const descriptor = Object.getOwnPropertyDescriptor(current, prop);
-			if (descriptor) return descriptor;
-			current = Object.getPrototypeOf(current);
-		}
-	}
-	getAttributeValues() {
-		const attributes = {};
-		this.getAttributeNames().forEach((attrName) => {
-			attributes[attrName] = this.getAttribute(attrName) ?? "";
-		});
-		return attributes;
-	}
-	subscribeReactiveSources() {
-		if (this._destroyed) return;
-		for (const entry of this._reactiveSourceEntries) {
-			for (const unsubscribe of entry.unsubscribers) unsubscribe();
-			entry.unsubscribers = entry.signals.map((signal$1) => signal$1.subscribe(() => this.scheduleRender()));
-		}
-	}
-	collectSourceSignals(value) {
-		if (isSignal(value)) return [value];
-		if (value instanceof AbstractControl) return [value.value, value.state];
-		return [];
-	}
-	observeReactiveSource(prop) {
-		const component = this._component;
-		const entry = {
-			signals: this.collectSourceSignals(component[prop]),
-			unsubscribers: []
-		};
-		this._reactiveSourceEntries.push(entry);
-		const descriptor = this.getPropertyDescriptor(this._component, prop);
-		if (descriptor && (descriptor.get || descriptor.set)) return;
-		let current = component[prop];
-		Object.defineProperty(this._component, prop, {
-			get: () => current,
-			set: (newVal) => {
-				if (Object.is(current, newVal)) return;
-				this._component.onPropertyChange?.(prop, current, newVal);
-				current = newVal;
-				for (const unsubscribe of entry.unsubscribers) unsubscribe();
-				entry.unsubscribers = [];
-				entry.signals = this.collectSourceSignals(newVal);
-				if (this.isConnected && !this._destroyed) entry.unsubscribers = entry.signals.map((signal$1) => signal$1.subscribe(() => this.scheduleRender()));
-				this.scheduleRender();
-			},
-			enumerable: true,
-			configurable: true
-		});
-	}
-};
-var RESERVED_SELECTORS = new Set([
-	"annotation-xml",
-	"color-profile",
-	"font-face",
-	"font-face-src",
-	"font-face-uri",
-	"font-face-format",
-	"font-face-name",
-	"missing-glyph"
-]);
-function assertValidSelector(selector) {
-	if (typeof selector !== "string" || selector.length === 0) throw new Error("@MelodicComponent: \"selector\" is required and must be a non-empty string (e.g. \"app-card\").");
-	if (!selector.includes("-")) throw new Error(`@MelodicComponent: invalid selector "${selector}". Custom element names must contain a hyphen — use a prefixed name such as "app-${selector}".`);
-	if (!/^[a-z]/.test(selector) || /[A-Z]/.test(selector) || /\s/.test(selector)) throw new Error(`@MelodicComponent: invalid selector "${selector}". Custom element names must start with a lowercase letter and must not contain uppercase letters or whitespace.`);
-	if (RESERVED_SELECTORS.has(selector)) throw new Error(`@MelodicComponent: "${selector}" is a reserved name and cannot be used as a custom element selector.`);
-}
-function MelodicComponent(meta) {
-	return function(component) {
-		assertValidSelector(meta.selector);
-		if (customElements.get(meta.selector) === void 0) {
-			const webComponent = class extends ComponentBase {
-				constructor() {
-					const dependencies = resolveInjectedParams(component, (token) => Injector.get(token));
-					const disposables = /* @__PURE__ */ new Set();
-					const selectCache = /* @__PURE__ */ new Map();
-					const placeholder = {
-						getSelectCache: () => selectCache,
-						registerDisposable: (d) => {
-							disposables.add(d);
-						}
-					};
-					const prevActive = getActiveComponent();
-					setActiveComponent(placeholder);
-					let userInstance;
-					try {
-						userInstance = Reflect.construct(component, dependencies);
-					} finally {
-						setActiveComponent(prevActive);
-					}
-					super(meta, userInstance, {
-						disposables,
-						selectCache
-					});
-				}
-				static #_ = this.observedAttributes = meta.attributes ?? [];
-			};
-			const componentWithSelector = component;
-			componentWithSelector.selector = meta.selector;
-			customElements.define(meta.selector, webComponent);
-		}
 	};
 }
-function getEnvironment() {
-	const viteEnv = void 0;
-	if (viteEnv === "dev" || viteEnv === "qa" || viteEnv === "prod") return viteEnv;
-	return "prod";
+function getHook() {
+	if (hook !== void 0) return hook;
+	if (typeof window === "undefined" || !isDevMode()) {
+		hook = null;
+		return hook;
+	}
+	hook = window[HOOK_KEY] ?? createHook();
+	window[HOOK_KEY] = hook;
+	return hook;
 }
-const environment = getEnvironment();
-var UNSAFE_MERGE_KEYS = new Set([
-	"__proto__",
-	"constructor",
-	"prototype"
-]);
-function deepMerge(target, source) {
-	const result = { ...target };
-	for (const key of Object.keys(source)) {
-		if (UNSAFE_MERGE_KEYS.has(key)) continue;
-		const targetVal = result[key];
-		const sourceVal = source[key];
-		if (sourceVal !== null && typeof sourceVal === "object" && !Array.isArray(sourceVal) && targetVal !== null && typeof targetVal === "object" && !Array.isArray(targetVal)) result[key] = deepMerge(targetVal, sourceVal);
-		else result[key] = sourceVal;
-	}
-	return result;
-}
-function defineConfig(definition) {
-	const envOverrides = definition[environment];
-	const resolved = envOverrides ? deepMerge(definition.base, envOverrides) : { ...definition.base };
-	if (definition.extends) return deepMerge(definition.extends, resolved);
-	return resolved;
-}
-const APP_CONFIG = createToken("APP_CONFIG");
-function provideConfig(config) {
-	return (injector) => {
-		injector.bindValue(APP_CONFIG, config);
-	};
-}
-var FormControl = class extends AbstractControl {
-	constructor(initialValue, options = {}) {
-		super(initialValue, options);
-		this.initialValue = initialValue;
-		this.initializeAggregates();
-		this.runValidation();
-	}
-	setValue(value, options) {
-		if (this._ownDisabled()) return;
-		this.value.set(value);
-		if (options?.markAsPristine) this._dirty.set(false);
-		if (this.updateOn === "change") this.runValidation();
-	}
-	patchValue(value, options) {
-		const current = this.value();
-		if (typeof current === "object" && current !== null && !Array.isArray(current)) this.setValue({
-			...current,
-			...value
-		}, options);
-		else this.setValue(value, options);
-	}
-	reset(value) {
-		this.value.set(value ?? this.initialValue);
-		this._dirty.set(false);
-		this._touched.set(false);
-		this.runValidation();
-	}
-	destroy() {
-		if (this._destroyed) return;
-		this._destroyed = true;
-		this.destroySignals();
-	}
-};
-var FormGroup = class FormGroup extends AbstractControl {
-	constructor(initialControls, options = {}) {
-		super(FormGroup.computeValue(initialControls), options);
-		this.controls = signal({ ...initialControls });
-		for (const key of Object.keys(initialControls)) initialControls[key].parent = this;
-		this.initializeAggregates();
-		this._childValueEffect = new SignalEffect(() => {
-			const controls = this.controls();
-			for (const key of Object.keys(controls)) controls[key].value();
-			this.value.set(FormGroup.computeValue(controls));
-			this.runValidation();
-		});
-		this._childValueEffect.run();
-	}
-	get(name) {
-		return this.controls()[name];
-	}
-	contains(name) {
-		return name in this.controls();
-	}
-	addControl(name, control) {
-		control.parent = this;
-		this.controls.update((current) => ({
-			...current,
-			[name]: control
-		}));
-	}
-	removeControl(name) {
-		const control = this.controls()[name];
-		if (!control) return;
-		control.parent = null;
-		this.controls.update((current) => {
-			const next = { ...current };
-			delete next[name];
-			return next;
-		});
-		control.destroy();
-	}
-	setValue(value, options) {
-		batch(() => {
-			if (this._ownDisabled()) return;
-			const controls = this.controls();
-			const controlKeys = Object.keys(controls);
-			const valueKeys = Object.keys(value);
-			for (const key of valueKeys) if (!(key in controls)) throw new Error(`FormGroup.setValue: unknown control name '${key}'. Use patchValue() for partial updates.`);
-			for (const key of controlKeys) if (!(key in value)) throw new Error(`FormGroup.setValue: missing value for control name '${key}'. Use patchValue() for partial updates.`);
-			for (const key of controlKeys) controls[key].setValue(value[key], options);
-			if (options?.markAsPristine) this._dirty.set(false);
-		});
-	}
-	getRawValue() {
-		return FormGroup.computeValue(this.controls(), true);
-	}
-	patchValue(value, options) {
-		batch(() => {
-			if (this._ownDisabled()) return;
-			const controls = this.controls();
-			for (const key of Object.keys(value)) if (value[key] !== void 0) controls[key]?.setValue(value[key], options);
-			if (options?.markAsPristine) this._dirty.set(false);
-		});
-	}
-	reset(value) {
-		batch(() => {
-			const controls = this.controls();
-			for (const key of Object.keys(controls)) {
-				const resetValue = value?.[key];
-				controls[key].reset(resetValue);
-			}
-		});
-	}
-	markAllAsTouched() {
-		batch(() => {
-			this._touched.set(true);
-			const controls = this.controls();
-			for (const key of Object.keys(controls)) controls[key].markAllAsTouched();
-		});
-	}
-	markAllAsUntouched() {
-		batch(() => {
-			this._touched.set(false);
-			const controls = this.controls();
-			for (const key of Object.keys(controls)) controls[key].markAllAsUntouched();
-		});
-	}
-	markAllAsDirty() {
-		batch(() => {
-			this._dirty.set(true);
-			const controls = this.controls();
-			for (const key of Object.keys(controls)) controls[key].markAllAsDirty();
-		});
-	}
-	markAllAsPristine() {
-		batch(() => {
-			this._dirty.set(false);
-			const controls = this.controls();
-			for (const key of Object.keys(controls)) controls[key].markAllAsPristine();
-		});
-	}
-	disable() {
-		batch(() => {
-			this._ownDisabled.set(true);
-			const controls = this.controls();
-			for (const key of Object.keys(controls)) controls[key].disable();
-		});
-	}
-	enable() {
-		batch(() => {
-			this._ownDisabled.set(false);
-			const controls = this.controls();
-			for (const key of Object.keys(controls)) controls[key].enable();
-		});
-	}
-	async validate() {
-		const controls = this.controls();
-		await Promise.all(Object.keys(controls).map((key) => controls[key].validate()));
-		await this.runValidation();
-	}
-	destroy() {
-		if (this._destroyed) return;
-		this._destroyed = true;
-		this._childValueEffect.destroy();
-		const controls = this.controls();
-		for (const key of Object.keys(controls)) controls[key].destroy();
-		this.destroySignals();
-		this.controls.destroy();
-	}
-	computeDirty() {
-		if (this._dirty()) return true;
-		const controls = this.controls();
-		return Object.keys(controls).some((key) => controls[key].dirty());
-	}
-	computeTouched() {
-		if (this._touched()) return true;
-		const controls = this.controls();
-		return Object.keys(controls).some((key) => controls[key].touched());
-	}
-	computePending() {
-		if (this._pending()) return true;
-		const controls = this.controls();
-		return Object.keys(controls).some((key) => controls[key].pending());
-	}
-	hasInvalidChild() {
-		const controls = this.controls();
-		return Object.keys(controls).some((key) => controls[key].invalid());
-	}
-	static computeValue(controls, includeDisabled = false) {
-		const result = {};
-		for (const key of Object.keys(controls)) {
-			const control = controls[key];
-			if (!includeDisabled && control.disabled()) continue;
-			result[key] = includeDisabled ? control.getRawValue() : control.value();
-		}
-		return result;
-	}
-};
-var FormArray = class extends AbstractControl {
-	constructor(initialControls, options = {}) {
-		super(initialControls.map((c) => c.value()), options);
-		this.controls = signal([...initialControls]);
-		for (const control of initialControls) control.parent = this;
-		this.initializeAggregates();
-		this._childValueEffect = new SignalEffect(() => {
-			const controls = this.controls();
-			for (const control of controls) control.value();
-			this.value.set(controls.filter((c) => !c.disabled()).map((c) => c.value()));
-			this.runValidation();
-		});
-		this._childValueEffect.run();
-	}
-	get length() {
-		return this.controls().length;
-	}
-	at(index) {
-		return this.controls()[index];
-	}
-	push(control) {
-		control.parent = this;
-		this.controls.update((current) => [...current, control]);
-	}
-	insert(index, control) {
-		control.parent = this;
-		this.controls.update((current) => {
-			const next = [...current];
-			next.splice(index, 0, control);
-			return next;
-		});
-	}
-	removeAt(index) {
-		const control = this.controls()[index];
-		if (!control) return;
-		control.parent = null;
-		this.controls.update((current) => current.filter((_, i) => i !== index));
-		control.destroy();
-	}
-	clear() {
-		const controls = this.controls();
-		for (const control of controls) control.parent = null;
-		this.controls.set([]);
-		for (const control of controls) control.destroy();
-	}
-	setValue(value, options) {
-		batch(() => {
-			if (this._ownDisabled()) return;
-			const controls = this.controls();
-			if (value.length !== controls.length) throw new Error(`FormArray.setValue: expected ${controls.length} value(s) but received ${value.length}. Use patchValue() for partial updates.`);
-			value.forEach((v, i) => {
-				controls[i].setValue(v, options);
-			});
-			if (options?.markAsPristine) this._dirty.set(false);
-		});
-	}
-	getRawValue() {
-		return this.controls().map((c) => c.getRawValue());
-	}
-	patchValue(value, options) {
-		batch(() => {
-			if (this._ownDisabled()) return;
-			const controls = this.controls();
-			value.forEach((v, i) => {
-				if (v !== void 0) controls[i]?.setValue(v, options);
-			});
-			if (options?.markAsPristine) this._dirty.set(false);
-		});
-	}
-	reset(value) {
-		batch(() => {
-			this.controls().forEach((control, i) => {
-				control.reset(value?.[i]);
-			});
-		});
-	}
-	markAllAsTouched() {
-		batch(() => {
-			this._touched.set(true);
-			for (const control of this.controls()) control.markAllAsTouched();
-		});
-	}
-	markAllAsUntouched() {
-		batch(() => {
-			this._touched.set(false);
-			for (const control of this.controls()) control.markAllAsUntouched();
-		});
-	}
-	markAllAsDirty() {
-		batch(() => {
-			this._dirty.set(true);
-			for (const control of this.controls()) control.markAllAsDirty();
-		});
-	}
-	markAllAsPristine() {
-		batch(() => {
-			this._dirty.set(false);
-			for (const control of this.controls()) control.markAllAsPristine();
-		});
-	}
-	disable() {
-		batch(() => {
-			this._ownDisabled.set(true);
-			for (const control of this.controls()) control.disable();
-		});
-	}
-	enable() {
-		batch(() => {
-			this._ownDisabled.set(false);
-			for (const control of this.controls()) control.enable();
-		});
-	}
-	async validate() {
-		await Promise.all(this.controls().map((c) => c.validate()));
-		await this.runValidation();
-	}
-	destroy() {
-		if (this._destroyed) return;
-		this._destroyed = true;
-		this._childValueEffect.destroy();
-		for (const control of this.controls()) control.destroy();
-		this.destroySignals();
-		this.controls.destroy();
-	}
-	computeDirty() {
-		if (this._dirty()) return true;
-		return this.controls().some((c) => c.dirty());
-	}
-	computeTouched() {
-		if (this._touched()) return true;
-		return this.controls().some((c) => c.touched());
-	}
-	computePending() {
-		if (this._pending()) return true;
-		return this.controls().some((c) => c.pending());
-	}
-	hasInvalidChild() {
-		return this.controls().some((c) => c.invalid());
-	}
-};
-function createFormControl(initialValue, options) {
-	return new FormControl(initialValue, options);
-}
-function createFormGroup(controls, options) {
-	return new FormGroup(controls, options);
-}
-function createFormArray(controls, options) {
-	return new FormArray(controls, options);
-}
-registerDefaultMessages({
-	required: "This field is required",
-	minLength: (params) => `Minimum length is ${params.min} characters`,
-	maxLength: (params) => `Maximum length is ${params.max} characters`,
-	pattern: "Value does not match required pattern",
-	email: "Please enter a valid email address",
-	min: (params) => `Value must be at least ${params.min}`,
-	max: (params) => `Value must be at most ${params.max}`,
-	range: (params) => `Value must be between ${params.min} and ${params.max}`
-});
-var EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
-function isEmpty(value) {
-	return value === null || value === void 0 || value === "" || Array.isArray(value) && value.length === 0;
-}
-const Validators = {
-	required(value) {
-		return isEmpty(value) ? { required: { code: "required" } } : null;
-	},
-	minLength(min) {
-		return (value) => {
-			if (!value || value.length === 0) return null;
-			return value.length < min ? { minLength: {
-				code: "minLength",
-				params: {
-					min,
-					actual: value.length
-				}
-			} } : null;
-		};
-	},
-	maxLength(max) {
-		return (value) => {
-			if (!value) return null;
-			return value.length > max ? { maxLength: {
-				code: "maxLength",
-				params: {
-					max,
-					actual: value.length
-				}
-			} } : null;
-		};
-	},
-	pattern(regex) {
-		return (value) => {
-			if (!value) return null;
-			return !regex.test(value) ? { pattern: {
-				code: "pattern",
-				params: { pattern: regex.toString() }
-			} } : null;
-		};
-	},
-	email(value) {
-		if (!value) return null;
-		return !EMAIL_REGEX.test(value) ? { email: { code: "email" } } : null;
-	},
-	min(minValue) {
-		return (value) => {
-			if (value === null || value === void 0) return null;
-			return value < minValue ? { min: {
-				code: "min",
-				params: {
-					min: minValue,
-					actual: value
-				}
-			} } : null;
-		};
-	},
-	max(maxValue) {
-		return (value) => {
-			if (value === null || value === void 0) return null;
-			return value > maxValue ? { max: {
-				code: "max",
-				params: {
-					max: maxValue,
-					actual: value
-				}
-			} } : null;
-		};
-	},
-	range(minValue, maxValue) {
-		return (value) => {
-			if (value === null || value === void 0) return null;
-			if (value < minValue || value > maxValue) return { range: {
-				code: "range",
-				params: {
-					min: minValue,
-					max: maxValue,
-					actual: value
-				}
-			} };
-			return null;
-		};
-	},
-	compose(...validators) {
-		return (value) => {
-			let errors = null;
-			for (const validator of validators) {
-				const result = validator(value);
-				if (result !== null) errors = {
-					...errors ?? {},
-					...result
-				};
-			}
-			return errors;
-		};
-	},
-	composeAsync(...validators) {
-		return async (value) => {
-			const results = await Promise.all(validators.map((v) => v(value)));
-			let errors = null;
-			for (const result of results) if (result !== null) errors = {
-				...errors ?? {},
-				...result
-			};
-			return errors;
-		};
-	}
-};
-function createValidator(code, validationFn, defaultMessage) {
-	if (defaultMessage !== void 0) setDefaultMessage(code, defaultMessage);
-	return (value) => {
-		if (validationFn(value)) return null;
-		return { [code]: { code } };
-	};
-}
-function createAsyncValidator(code, validationFn, defaultMessage) {
-	if (defaultMessage !== void 0) setDefaultMessage(code, defaultMessage);
-	return async (value) => {
-		if (await validationFn(value)) return null;
-		return { [code]: { code } };
-	};
-}
-var registry = [];
-function registerAdapter(predicate, adapter) {
-	registry.unshift({
-		predicate,
-		adapter
+function emitDevtools(type, payload) {
+	const active = getHook();
+	if (!active || !active.listening) return;
+	active.emit({
+		type,
+		ts: typeof performance !== "undefined" ? performance.now() : Date.now(),
+		payload: payload?.()
 	});
 }
-function getAdapter(element) {
-	for (const entry of registry) if (entry.predicate(element)) return entry.adapter;
+function devtoolsListening() {
+	const active = getHook();
+	return active !== null && active.listening;
 }
-const textAdapter = {
-	inputEvent: "input",
-	blurEvent: "focusout",
-	getValue(element) {
-		return element.value ?? "";
-	},
-	setValue(element, value) {
-		element.value = value !== null && value !== void 0 ? String(value) : "";
-	},
-	setDisabled(element, disabled) {
-		if (disabled) element.setAttribute("disabled", "");
-		else element.removeAttribute("disabled");
+function collectInstances(root, selector, found) {
+	for (const element of root.querySelectorAll("*")) {
+		const tag = element.tagName.toLowerCase();
+		if (tag.includes("-") && (selector === void 0 || tag === selector)) found.push(element);
+		if (element.shadowRoot) collectInstances(element.shadowRoot, selector, found);
 	}
-};
-const checkboxAdapter = {
-	inputEvent: "change",
-	blurEvent: "focusout",
-	getValue(element) {
-		return element.checked;
-	},
-	setValue(element, value) {
-		element.checked = Boolean(value);
-	},
-	setDisabled(element, disabled) {
-		if (disabled) element.setAttribute("disabled", "");
-		else element.removeAttribute("disabled");
-	}
-};
-const radioAdapter = {
-	inputEvent: "change",
-	blurEvent: "focusout",
-	getValue(element) {
-		const input = element;
-		return input.checked ? input.value : "";
-	},
-	setValue(element, value) {
-		const input = element;
-		input.checked = input.value === value;
-	},
-	setDisabled(element, disabled) {
-		if (disabled) element.setAttribute("disabled", "");
-		else element.removeAttribute("disabled");
-	}
-};
-function registerNativeAdapters() {
-	registerAdapter((el) => el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.tagName === "SELECT", textAdapter);
-	registerAdapter((el) => el.tagName === "INPUT" && el.type === "radio", radioAdapter);
-	registerAdapter((el) => el.tagName === "INPUT" && el.type === "checkbox", checkboxAdapter);
 }
-registerNativeAdapters();
-var directiveRegistry = /* @__PURE__ */ new Map();
-var findAttributeDirective = (name) => {
-	if (directiveRegistry.has(name)) return directiveRegistry.get(name);
-	const lowerName = name.toLowerCase();
-	for (const [key, value] of directiveRegistry) if (key.toLowerCase() === lowerName) return value;
-};
-function registerAttributeDirective(name, directive$1) {
-	directiveRegistry.set(name, directive$1);
+function isComponentElement(element) {
+	return "component" in element && element.component !== void 0;
 }
-function getAttributeDirective(name) {
-	return findAttributeDirective(name);
-}
-function hasAttributeDirective(name) {
-	return findAttributeDirective(name) !== void 0;
-}
-function unregisterAttributeDirective(name) {
-	return directiveRegistry.delete(name);
-}
-function getRegisteredDirectives() {
-	return Array.from(directiveRegistry.keys());
-}
-function formControlDirective(element, value, _) {
-	if (!(value instanceof AbstractControl)) {
-		console.warn("formControl directive: value must be an AbstractControl");
-		return;
-	}
-	const control = value;
-	const adapter = getAdapter(element);
-	if (!adapter) {
-		console.warn(`formControl directive: no adapter registered for <${element.tagName.toLowerCase()}>`);
-		return;
-	}
-	const cleanupFns = [];
-	const syncElementValue = (val) => {
-		if (control.destroyed) return;
-		adapter.setValue(element, val);
-	};
-	const syncDisabled = (disabled) => {
-		if (control.destroyed) return;
-		adapter.setDisabled?.(element, disabled);
-	};
-	const syncClasses = () => {
-		if (control.destroyed) return;
-		element.classList.toggle("mf-valid", control.valid());
-		element.classList.toggle("mf-invalid", control.invalid());
-		element.classList.toggle("mf-dirty", control.dirty());
-		element.classList.toggle("mf-pristine", control.pristine());
-		element.classList.toggle("mf-touched", control.touched());
-		element.classList.toggle("mf-pending", control.pending());
-		element.classList.toggle("mf-disabled", control.disabled());
-	};
-	const syncError = () => {
-		if (control.destroyed) return;
-		if (!control.touched() || !control.errors()) {
-			element.removeAttribute("error");
-			return;
-		}
-		const message = control.getFirstErrorMessage();
-		if (message) element.setAttribute("error", message);
-		else element.removeAttribute("error");
-	};
-	const handleInput = (event) => {
-		const target = event.target;
-		if (target === element || element.contains(target)) {
-			control.setValue(adapter.getValue(element));
-			control.markAsDirty();
+function createConsoleApi() {
+	return {
+		components: () => getComponentDefinitions().map((entry) => entry.selector),
+		instances: (selector) => {
+			const found = [];
+			collectInstances(document, selector?.toLowerCase(), found);
+			return found.filter(isComponentElement);
+		},
+		inspect: (element) => {
+			if (!isComponentElement(element)) return null;
+			const base = element;
+			const component = base.component;
+			const properties = {};
+			const sources = [];
+			for (const key of Object.keys(component)) {
+				if (key.startsWith("_") || key === "elementRef") continue;
+				const value = component[key];
+				if (typeof value === "function" && "__signal" in value) {
+					sources.push(key);
+					continue;
+				}
+				if (typeof value === "function") continue;
+				properties[key] = value;
+			}
+			return {
+				selector: base.selector,
+				element,
+				properties,
+				sources,
+				rendering: base.isRendering
+			};
+		},
+		bindings: () => Injector.entries().map(([key, binding]) => ({
+			token: describeToken(key),
+			type: binding.type,
+			singleton: binding.isSingleton,
+			resolved: binding.getInstance() !== void 0
+		})),
+		on: (type, listener) => getHook()?.on(type, listener) ?? (() => void 0),
+		trace: () => {
+			const hook$1 = getHook();
+			if (!hook$1) return () => void 0;
+			return hook$1.on("*", (event) => {
+				console.log(`%c${event.type}`, "color:#7c3aed;font-weight:600", event.payload ?? "");
+			});
 		}
 	};
-	const handleBlur = () => {
-		control.markAsTouched();
-	};
-	syncElementValue(control.value());
-	syncDisabled(control.disabled());
-	syncClasses();
-	syncError();
-	cleanupFns.push(control.value.subscribe((v) => syncElementValue(v)));
-	cleanupFns.push(control.disabled.subscribe((d) => syncDisabled(d)));
-	cleanupFns.push(control.state.subscribe(() => syncClasses()));
-	cleanupFns.push(control.state.subscribe(() => syncError()));
-	element.addEventListener(adapter.inputEvent, handleInput);
-	element.addEventListener(adapter.blurEvent, handleBlur);
-	element.setAttribute("data-form-control", "");
-	return () => {
-		element.removeEventListener(adapter.inputEvent, handleInput);
-		element.removeEventListener(adapter.blurEvent, handleBlur);
-		element.removeAttribute("data-form-control");
-		for (const fn of cleanupFns) fn();
-	};
 }
-registerAttributeDirective("formControl", formControlDirective);
+function installConsoleApi() {
+	if (typeof window === "undefined" || !isDevMode()) return;
+	const target = window;
+	if (target.melodic) return;
+	target.melodic = createConsoleApi();
+}
 var HttpBaseError = class HttpBaseError extends Error {
 	constructor(message, config, code) {
 		super(message);
@@ -2367,26 +820,2097 @@ var HttpClient = class {
 				});
 			}
 			const blob = new Blob(chunks);
-			if (contentType.includes("application/json")) {
-				const text = await blob.text();
-				return text ? JSON.parse(text) : null;
-			}
+			if (contentType.includes("application/json")) return this.parseJsonText(await blob.text(), response);
 			if (contentType.includes("text/")) return await blob.text();
 			if (this.isBinaryContentType(contentType)) return blob;
 			return await blob.text();
 		}
-		if (contentType.includes("application/json")) {
-			const text = await response.text();
-			return text ? JSON.parse(text) : null;
-		}
+		if (contentType.includes("application/json")) return this.parseJsonText(await response.text(), response);
 		if (contentType.includes("text/")) return await response.text();
 		if (this.isBinaryContentType(contentType)) return await response.blob();
 		return await response.text();
+	}
+	parseJsonText(text, response) {
+		if (!text) return null;
+		try {
+			return JSON.parse(text);
+		} catch {
+			if (response.ok) console.warn(`[Melodic] [HttpClient] Response for ${response.url} declared JSON but did not parse; returning the raw text.`);
+			return text;
+		}
 	}
 	isBinaryContentType(contentType) {
 		return contentType.includes("application/octet-stream") || contentType.includes("application/pdf") || contentType.includes("application/zip") || contentType.startsWith("image/") || contentType.startsWith("audio/") || contentType.startsWith("video/") || contentType.startsWith("font/");
 	}
 };
+async function bootstrap(config = {}) {
+	if (config.devMode !== void 0) setDevMode(config.devMode);
+	const devMode = isDevMode();
+	if (devMode) installConsoleApi();
+	const errorHandlers = [];
+	if (devMode) console.log("[Melodic] Bootstrap starting...");
+	if (config.onError) {
+		const errorHandler = (event) => {
+			config.onError(event.error, "error");
+		};
+		const rejectionHandler = (event) => {
+			config.onError(event.reason, "unhandledrejection");
+		};
+		window.addEventListener("error", errorHandler);
+		window.addEventListener("unhandledrejection", rejectionHandler);
+		errorHandlers.push({
+			type: "error",
+			handler: errorHandler
+		}, {
+			type: "unhandledrejection",
+			handler: rejectionHandler
+		});
+	}
+	let rootElement;
+	let destroyed = false;
+	const removeErrorHandlers = () => {
+		for (const { type, handler } of errorHandlers) window.removeEventListener(type, handler);
+		errorHandlers.length = 0;
+	};
+	let boundApp = null;
+	const rollback = () => {
+		removeErrorHandlers();
+		if (rootElement?.parentNode) rootElement.parentNode.removeChild(rootElement);
+		if (boundApp && Injector.getBinding("IMelodicApp")?.getInstance() === boundApp) Injector.unbind("IMelodicApp");
+	};
+	try {
+		if (config.onBefore) {
+			if (devMode) console.log("[Melodic] Running onBefore hook...");
+			await config.onBefore();
+		}
+		if (config.providers) {
+			for (const provider of config.providers) provider(Injector);
+			if (devMode) console.log("[Melodic] Custom providers registered");
+		}
+		if (config.rootComponent && config.target) {
+			const targetEl = typeof config.target === "string" ? document.querySelector(config.target) : config.target;
+			if (!targetEl) throw new Error(`[Melodic] Target element not found: ${config.target}`);
+			if (!customElements.get(config.rootComponent)) throw new Error(`[Melodic] Component <${config.rootComponent}> is not registered. Make sure to import the component file before calling bootstrap().`);
+			rootElement = document.createElement(config.rootComponent);
+			targetEl.appendChild(rootElement);
+			if (devMode) console.log("[Melodic] Mounted root component", {
+				component: config.rootComponent,
+				target: config.target
+			});
+		}
+		const app = {
+			isDevMode: devMode,
+			rootElement,
+			http: void 0,
+			get(token) {
+				return Injector.get(token);
+			},
+			destroy() {
+				if (destroyed) return;
+				destroyed = true;
+				removeErrorHandlers();
+				if (rootElement?.parentNode) rootElement.parentNode.removeChild(rootElement);
+				if (Injector.getBinding("IMelodicApp")?.getInstance() === app) Injector.unbind("IMelodicApp");
+				app.rootElement = void 0;
+				if (devMode) console.log("[Melodic] Application destroyed");
+			}
+		};
+		if (Injector.has(HttpClient)) app.http = Injector.get(HttpClient);
+		Injector.bindValue("IMelodicApp", app);
+		boundApp = app;
+		if (config.onReady) config.onReady();
+		if (devMode) console.log("[Melodic] Bootstrap complete");
+		return app;
+	} catch (error) {
+		rollback();
+		throw error;
+	}
+}
+function attributeNames(attributes) {
+	if (!attributes) return [];
+	return Array.isArray(attributes) ? attributes : Object.keys(attributes);
+}
+function attributeTypes(attributes) {
+	if (!attributes || Array.isArray(attributes)) return {};
+	return attributes;
+}
+function render(result, container) {
+	result.renderInto(container);
+}
+const SIGNAL_MARKER = Symbol("melodic.signal");
+const DEPENDENTS = Symbol("melodic.signal.dependents");
+const isSignal = (value) => {
+	return typeof value === "function" && SIGNAL_MARKER in value;
+};
+function disposeDirectiveState(state) {
+	if (state !== null && typeof state === "object" && typeof state.__dispose === "function") try {
+		state.__dispose();
+	} catch (error) {
+		console.error("Directive state disposal failed:", error);
+	}
+}
+function disposePart(part) {
+	if (part.eventWrapper) {
+		if (part.eventAttached && part.node && part.name) part.node.removeEventListener(part.name, part.eventWrapper, part.eventOptions);
+		part.eventWrapper = void 0;
+		part.eventHandler = void 0;
+		part.eventOptions = void 0;
+		part.eventAttached = false;
+	}
+	if (part.actionCleanup) try {
+		part.actionCleanup();
+	} catch (error) {
+		console.error("Action directive cleanup failed:", error);
+	} finally {
+		part.actionCleanup = void 0;
+	}
+	if (part.nestedContainer) {
+		disposeContainerParts(part.nestedContainer);
+		part.nestedContainer = void 0;
+	}
+	if (part.renderedContainers) {
+		for (const container of part.renderedContainers) disposeContainerParts(container);
+		part.renderedContainers = void 0;
+	}
+	if (part.arrayState) {
+		for (const item of part.arrayState.items) disposeContainerParts(item.container);
+		part.arrayState = void 0;
+	}
+	if (part.positionalArrayState) {
+		for (const item of part.positionalArrayState.items) disposeContainerParts(item.container);
+		part.positionalArrayState = void 0;
+	}
+	if (part.directiveState !== void 0) {
+		disposeDirectiveState(part.directiveState);
+		part.directiveState = void 0;
+		part.directiveType = void 0;
+	}
+}
+function disposeParts(parts) {
+	for (const part of parts) disposePart(part);
+}
+function disposeContainerParts(container) {
+	const parts = container.__parts;
+	if (parts) disposeParts(parts);
+}
+var globalStylesAttribute = "melodic-styles";
+var globalStyleSelector = `style[${globalStylesAttribute}], link[rel="stylesheet"][${globalStylesAttribute}]`;
+var cachedCssSheets = [];
+var loadingPromise = null;
+var pendingRoots = /* @__PURE__ */ new Set();
+const applyGlobalStyles = (root) => {
+	if (hasCachedSheets()) {
+		applyAdoptedSheets(root);
+		return;
+	}
+	pendingRoots.add(root);
+	if (!loadingPromise) loadingPromise = loadStyles().catch((error) => {
+		devWarn("global-styles-load", "Global styles could not be read. A cross-origin stylesheet cannot be adopted into shadow roots — serve it same-origin or inline it in a <style melodic-styles> element.", error);
+	}).finally(() => {
+		for (const pending of pendingRoots) applyAdoptedSheets(pending);
+		pendingRoots.clear();
+	});
+};
+const refreshGlobalStyles = async () => {
+	cachedCssSheets.length = 0;
+	loadingPromise = null;
+	await loadStyles().catch(() => void 0);
+	for (const ref of [...adoptedRoots]) {
+		const root = ref.deref();
+		if (root) applyAdoptedSheets(root);
+		else adoptedRoots.delete(ref);
+	}
+};
+var adoptedRoots = /* @__PURE__ */ new Set();
+var loadStyles = async () => {
+	const globalStyleElements = document.querySelectorAll(globalStyleSelector);
+	if (globalStyleElements.length === 0) return;
+	for (const element of globalStyleElements) {
+		if (element instanceof HTMLStyleElement) {
+			cacheCssSheet(element.textContent ?? "");
+			continue;
+		}
+		if (element instanceof HTMLLinkElement) {
+			if (!element.sheet) await new Promise((resolve) => {
+				element.addEventListener("load", () => resolve(), { once: true });
+				element.addEventListener("error", () => resolve(), { once: true });
+			});
+			try {
+				cacheCssSheet(Array.from(element.sheet?.cssRules ?? []).map((rule) => rule.cssText).join("\n"));
+			} catch (error) {
+				devWarn(`global-styles-cors:${element.href}`, `Global stylesheet "${element.href}" is cross-origin, so its rules cannot be copied into shadow roots. Serve it from the same origin to have it adopted.`, error);
+			}
+		}
+	}
+};
+var applyAdoptedSheets = (root) => {
+	adoptedRoots.add(new WeakRef(root));
+	const adopted = root.adoptedStyleSheets ?? [];
+	const newSheets = cachedCssSheets.filter((sheet) => !adopted.includes(sheet));
+	if (newSheets.length > 0) root.adoptedStyleSheets = [...adopted, ...newSheets];
+};
+var cacheCssSheet = (text) => {
+	const trimmedText = text.trim();
+	if (trimmedText.length > 0) {
+		const sheet = new CSSStyleSheet();
+		sheet.replaceSync(trimmedText);
+		cachedCssSheets.push(sheet);
+	}
+};
+var hasCachedSheets = () => {
+	return cachedCssSheets.length > 0;
+};
+var cssTextCache = /* @__PURE__ */ new WeakMap();
+var sheetCache = /* @__PURE__ */ new Map();
+var constructedSheetsSupported;
+function supportsConstructedStyleSheets() {
+	if (constructedSheetsSupported === void 0) try {
+		constructedSheetsSupported = typeof CSSStyleSheet !== "undefined" && typeof CSSStyleSheet.prototype.replaceSync === "function" && typeof ShadowRoot !== "undefined" && "adoptedStyleSheets" in ShadowRoot.prototype && new CSSStyleSheet() instanceof CSSStyleSheet;
+	} catch {
+		constructedSheetsSupported = false;
+	}
+	return constructedSheetsSupported;
+}
+function getComponentStyleSheet(stylesFactory) {
+	if (!supportsConstructedStyleSheets()) return null;
+	let cssText = cssTextCache.get(stylesFactory);
+	if (cssText === void 0) {
+		cssText = renderStylesToText(stylesFactory());
+		cssTextCache.set(stylesFactory, cssText);
+	}
+	let sheet = sheetCache.get(cssText);
+	if (sheet === void 0) {
+		try {
+			const created = new CSSStyleSheet();
+			created.replaceSync(cssText);
+			sheet = created;
+		} catch {
+			sheet = null;
+		}
+		sheetCache.set(cssText, sheet);
+	}
+	return sheet;
+}
+function renderStylesToText(result) {
+	const host = document.createElement("style");
+	render(result, host);
+	const text = host.textContent ?? "";
+	disposeContainerParts(host);
+	return text;
+}
+var activeEffect = null;
+const setActiveEffect = (effect$1) => {
+	activeEffect = effect$1;
+};
+const getActiveEffect = () => activeEffect;
+var MAX_FLUSH_RUNS = 100;
+var batchDepth = 0;
+var flushing = false;
+var pendingNotifications = /* @__PURE__ */ new Set();
+var pendingEffects = /* @__PURE__ */ new Set();
+var flushRuns = /* @__PURE__ */ new Map();
+function isCoalescingEffects() {
+	return batchDepth > 0 || flushing;
+}
+function scheduleNotify(notify) {
+	pendingNotifications.add(notify);
+}
+function scheduleEffect(effect$1) {
+	pendingEffects.add(effect$1);
+}
+function unscheduleEffect(effect$1) {
+	pendingEffects.delete(effect$1);
+}
+function flush() {
+	if (batchDepth > 0 || flushing) return;
+	flushBatch();
+}
+function circularError() {
+	return /* @__PURE__ */ new Error(`Circular dependency detected in effect: exceeded ${MAX_FLUSH_RUNS} synchronous re-runs. An effect is repeatedly writing to a signal it also reads.`);
+}
+function rethrow(errors) {
+	if (errors.length === 1) throw errors[0];
+	if (errors.length > 1) throw new AggregateError(errors, `${errors.length} signal subscribers threw during flush`);
+}
+function flushBatch() {
+	flushing = true;
+	emitDevtools("flush:start", () => ({
+		notifications: pendingNotifications.size,
+		effects: pendingEffects.size
+	}));
+	const errors = [];
+	try {
+		while (pendingNotifications.size > 0 || pendingEffects.size > 0) {
+			if (pendingNotifications.size > 0) {
+				const notifications = [...pendingNotifications];
+				pendingNotifications.clear();
+				for (const notify of notifications) try {
+					notify();
+				} catch (error) {
+					errors.push(error);
+				}
+			}
+			if (pendingEffects.size > 0) {
+				const effects = [...pendingEffects];
+				pendingEffects.clear();
+				for (const effect$1 of effects) {
+					const runs = (flushRuns.get(effect$1) ?? 0) + 1;
+					if (runs > MAX_FLUSH_RUNS) {
+						pendingNotifications.clear();
+						pendingEffects.clear();
+						throw errors.length > 0 ? new AggregateError([circularError(), ...errors], "Circular dependency detected in effect") : circularError();
+					}
+					flushRuns.set(effect$1, runs);
+					try {
+						effect$1.runNow();
+					} catch (error) {
+						errors.push(error);
+					}
+				}
+			}
+		}
+	} finally {
+		flushing = false;
+		flushRuns.clear();
+		emitDevtools("flush:end");
+	}
+	rethrow(errors);
+}
+function batch(fn) {
+	batchDepth++;
+	try {
+		return fn();
+	} finally {
+		batchDepth--;
+		if (batchDepth === 0) flushBatch();
+	}
+}
+var MAX_EFFECT_ITERATIONS = 100;
+var SignalEffect = class {
+	constructor(execute, options) {
+		this.execute = execute;
+		this._dependencies = /* @__PURE__ */ new Set();
+		this._isRunning = false;
+		this._needsRerun = false;
+		this._destroyed = false;
+		this._hasRun = false;
+		this._onInvalidate = options?.onInvalidate;
+		this.name = options?.name;
+		this.run = () => {
+			if (this._destroyed) return;
+			if (this._hasRun && isCoalescingEffects()) {
+				scheduleEffect(this);
+				return;
+			}
+			this.runNow();
+		};
+	}
+	get hasRun() {
+		return this._hasRun;
+	}
+	get destroyed() {
+		return this._destroyed;
+	}
+	invalidate() {
+		if (this._destroyed) return;
+		if (this._onInvalidate) {
+			this._onInvalidate();
+			return;
+		}
+		scheduleEffect(this);
+	}
+	runNow() {
+		if (this._destroyed) return;
+		if (this._isRunning) {
+			this._needsRerun = true;
+			return;
+		}
+		this._isRunning = true;
+		this._hasRun = true;
+		let iterations = 0;
+		try {
+			do {
+				if (++iterations > MAX_EFFECT_ITERATIONS) {
+					this._needsRerun = false;
+					throw new Error(`Circular dependency detected in effect${this.name ? ` '${this.name}'` : ""}: exceeded ${MAX_EFFECT_ITERATIONS} synchronous re-runs. An effect is repeatedly writing to a signal it also reads.`);
+				}
+				this._needsRerun = false;
+				this.clearDependencies();
+				const prevEffect = getActiveEffect();
+				setActiveEffect(this);
+				try {
+					emitDevtools("effect:run", () => ({ name: this.name }));
+					this.execute();
+				} finally {
+					setActiveEffect(prevEffect);
+				}
+			} while (this._needsRerun && !this._destroyed);
+		} finally {
+			this._isRunning = false;
+		}
+	}
+	addDependency(producer) {
+		this._dependencies.add(producer);
+	}
+	clearDependencies() {
+		this._dependencies.forEach((producer) => {
+			producer[DEPENDENTS].delete(this);
+		});
+		this._dependencies.clear();
+	}
+	destroy() {
+		this._destroyed = true;
+		this._needsRerun = false;
+		this.clearDependencies();
+		unscheduleEffect(this);
+	}
+};
+var destroyedMessage$1 = (name) => `Signal${name ? ` '${name}'` : ""} accessed after destruction. Holding a signal beyond its owning component (e.g. cached on a long-lived service) is a bug — the signal is destroyed when its component disconnects.`;
+function notifyAll(subscribers, value) {
+	const errors = [];
+	for (const subscriber of subscribers) try {
+		subscriber(value);
+	} catch (error) {
+		errors.push(error);
+	}
+	if (errors.length === 1) throw errors[0];
+	if (errors.length > 1) throw new AggregateError(errors, `${errors.length} signal subscribers threw`);
+}
+function signal(initialValue, options = {}) {
+	let value = initialValue;
+	let destroyed = false;
+	const subscribers = /* @__PURE__ */ new Set();
+	const dependents = /* @__PURE__ */ new Set();
+	const notify = () => {
+		notifyAll([...subscribers], value);
+	};
+	const read = (() => {
+		if (destroyed) throw new Error(destroyedMessage$1(options.name));
+		const activeEffect$1 = getActiveEffect();
+		if (activeEffect$1) {
+			activeEffect$1.addDependency(read);
+			dependents.add(activeEffect$1);
+		}
+		return value;
+	});
+	read.set = (newValue) => {
+		if (destroyed) throw new Error(destroyedMessage$1(options.name));
+		if (Object.is(value, newValue)) return;
+		value = newValue;
+		emitDevtools("signal:set", () => ({
+			name: options.name,
+			value: newValue
+		}));
+		if (subscribers.size > 0) scheduleNotify(notify);
+		for (const dependent of [...dependents]) dependent.invalidate();
+		flush();
+	};
+	read.update = (updater) => {
+		if (destroyed) throw new Error(destroyedMessage$1(options.name));
+		read.set(updater(value));
+	};
+	read.subscribe = (subscriber) => {
+		if (destroyed) throw new Error(destroyedMessage$1(options.name));
+		subscribers.add(subscriber);
+		return () => subscribers.delete(subscriber);
+	};
+	read.unsubscribe = (subscriber) => {
+		subscribers.delete(subscriber);
+	};
+	read.destroy = () => {
+		if (destroyed) return;
+		destroyed = true;
+		emitDevtools("signal:destroy", () => ({ name: options.name }));
+		subscribers.clear();
+		dependents.clear();
+	};
+	emitDevtools("signal:create", () => ({
+		name: options.name,
+		value: initialValue
+	}));
+	Object.defineProperty(read, SIGNAL_MARKER, {
+		value: true,
+		enumerable: false,
+		configurable: false
+	});
+	Object.defineProperty(read, DEPENDENTS, {
+		value: dependents,
+		enumerable: false,
+		configurable: false
+	});
+	return read;
+}
+var destroyedMessage = (name) => `Computed signal${name ? ` '${name}'` : ""} accessed after destruction. Holding a signal beyond its owning component (e.g. cached on a long-lived service) is a bug — the signal is destroyed when its component disconnects.`;
+var READ_ONLY_MESSAGE = "Cannot write to a computed signal — its value is derived from its sources. Update the source signal(s) instead.";
+function computed(computation, options = {}) {
+	let value;
+	let dirty = true;
+	let destroyed = false;
+	const subscribers = /* @__PURE__ */ new Set();
+	const dependents = /* @__PURE__ */ new Set();
+	const recompute = () => {
+		tracker.clearDependencies();
+		const prevEffect = getActiveEffect();
+		setActiveEffect(tracker);
+		try {
+			value = computation();
+			dirty = false;
+			emitDevtools("computed:recompute", () => ({
+				name: options.name,
+				value
+			}));
+		} finally {
+			setActiveEffect(prevEffect);
+		}
+	};
+	const tracker = new SignalEffect(() => {}, { onInvalidate: () => {
+		if (destroyed || dirty) return;
+		dirty = true;
+		for (const dependent of [...dependents]) dependent.invalidate();
+		if (subscribers.size > 0) scheduleEffect(notifier);
+	} });
+	let lastNotified;
+	const notifier = { runNow: () => {
+		if (destroyed) return;
+		if (dirty) recompute();
+		if (!Object.is(lastNotified, value)) {
+			lastNotified = value;
+			notifyAll([...subscribers], value);
+		}
+	} };
+	const read = (() => {
+		if (destroyed) throw new Error(destroyedMessage(options.name));
+		const activeEffect$1 = getActiveEffect();
+		if (activeEffect$1) {
+			activeEffect$1.addDependency(read);
+			dependents.add(activeEffect$1);
+		}
+		if (dirty) recompute();
+		return value;
+	});
+	read.set = () => {
+		throw new Error(READ_ONLY_MESSAGE);
+	};
+	read.update = () => {
+		throw new Error(READ_ONLY_MESSAGE);
+	};
+	read.subscribe = (subscriber) => {
+		if (destroyed) throw new Error(destroyedMessage(options.name));
+		if (dirty) recompute();
+		if (subscribers.size === 0) lastNotified = value;
+		subscribers.add(subscriber);
+		return () => subscribers.delete(subscriber);
+	};
+	read.unsubscribe = (subscriber) => {
+		subscribers.delete(subscriber);
+	};
+	read.destroy = () => {
+		if (destroyed) return;
+		destroyed = true;
+		tracker.destroy();
+		unscheduleEffect(notifier);
+		dependents.clear();
+		subscribers.clear();
+	};
+	Object.defineProperty(read, SIGNAL_MARKER, {
+		value: true,
+		enumerable: false,
+		configurable: false
+	});
+	Object.defineProperty(read, DEPENDENTS, {
+		value: dependents,
+		enumerable: false,
+		configurable: false
+	});
+	const owner = getActiveComponent();
+	owner?.registerDisposable(read);
+	if (owner?.isRendering) devWarn(`computed-in-render:${owner.selector ?? "component"}${options.name ? `:${options.name}` : ""}`, `computed()${options.name ? ` '${options.name}'` : ""} was created while <${owner.selector ?? "a component"}> was rendering. A new one is created on every render and they accumulate for the life of the component. Create it in a field initializer or onInit, or use store.select(key, fn, cacheKey), which is render-scoped.`);
+	return read;
+}
+function effect(fn, options = {}) {
+	let cleanup = null;
+	let destroyed = false;
+	const runCleanup = () => {
+		if (!cleanup) return;
+		const pending = cleanup;
+		cleanup = null;
+		try {
+			pending();
+		} catch (error) {
+			console.error(`[Melodic] Effect${options.name ? ` '${options.name}'` : ""} cleanup failed:`, error);
+		}
+	};
+	const signalEffect = new SignalEffect(() => {
+		runCleanup();
+		const result = fn();
+		cleanup = typeof result === "function" ? result : null;
+	}, options.name !== void 0 ? { name: options.name } : void 0);
+	const ref = {
+		run: () => {
+			if (!destroyed) signalEffect.run();
+		},
+		destroy: () => {
+			if (destroyed) return;
+			destroyed = true;
+			signalEffect.destroy();
+			runCleanup();
+		},
+		get destroyed() {
+			return destroyed;
+		}
+	};
+	getActiveComponent()?.registerDisposable(ref);
+	if (!options.manual) signalEffect.run();
+	return ref;
+}
+function untracked(fn) {
+	const previous = getActiveEffect();
+	setActiveEffect(null);
+	try {
+		return fn();
+	} finally {
+		setActiveEffect(previous);
+	}
+}
+var globalMessages = {};
+function registerDefaultMessages(messages) {
+	for (const code of Object.keys(messages)) globalMessages[code] = messages[code];
+}
+function setDefaultMessage(code, message) {
+	globalMessages[code] = message;
+}
+function getGlobalMessage(code) {
+	return globalMessages[code];
+}
+function resolveMessage(message, params) {
+	if (typeof message === "function") return message(params ?? {});
+	return message;
+}
+var AbstractControl = class {
+	constructor(initialValue, options = {}) {
+		this.parent = null;
+		this._validators = [];
+		this._asyncValidators = [];
+		this._touched = signal(false);
+		this._dirty = signal(false);
+		this._pending = signal(false);
+		this._ownDisabled = signal(false);
+		this._asyncValidationId = 0;
+		this._destroyed = false;
+		this._errorSources = /* @__PURE__ */ new Map();
+		this.value = signal(initialValue);
+		this.errors = signal(null);
+		this._validators = options.validators ?? [];
+		this._asyncValidators = options.asyncValidators ?? [];
+		this._ownDisabled.set(options.disabled ?? false);
+		this.updateOn = options.updateOn ?? "change";
+		this.messages = options.messages ?? {};
+		const consumer = getActiveComponent();
+		if (consumer) consumer.registerDisposable(this);
+	}
+	initializeAggregates() {
+		this.dirty = computed(() => this.computeDirty());
+		this.touched = computed(() => this.computeTouched());
+		this.pending = computed(() => this.computePending());
+		this.disabled = computed(() => this.computeDisabled());
+		this.pristine = computed(() => !this.dirty());
+		this.untouched = computed(() => !this.touched());
+		this.enabled = computed(() => !this.disabled());
+		this.invalid = computed(() => !this.disabled() && (this.errors() !== null || this.hasInvalidChild()));
+		this.valid = computed(() => !this.invalid() && !this.pending());
+		this.state = computed(() => ({
+			dirty: this.dirty(),
+			touched: this.touched(),
+			pristine: !this.dirty(),
+			untouched: !this.touched(),
+			valid: !this.invalid() && !this.pending(),
+			invalid: this.invalid(),
+			pending: this.pending(),
+			disabled: this.disabled(),
+			enabled: !this.disabled()
+		}));
+	}
+	get destroyed() {
+		return this._destroyed;
+	}
+	getRawValue() {
+		return this.value();
+	}
+	markAsTouched() {
+		this._touched.set(true);
+		if (this.updateOn === "blur") this.runValidation();
+	}
+	markAsUntouched() {
+		this._touched.set(false);
+	}
+	markAsDirty() {
+		this._dirty.set(true);
+	}
+	markAsPristine() {
+		this._dirty.set(false);
+	}
+	markAllAsTouched() {
+		this.markAsTouched();
+	}
+	markAllAsUntouched() {
+		this.markAsUntouched();
+	}
+	markAllAsDirty() {
+		this.markAsDirty();
+	}
+	markAllAsPristine() {
+		this.markAsPristine();
+	}
+	disable() {
+		this._ownDisabled.set(true);
+	}
+	enable() {
+		this._ownDisabled.set(false);
+	}
+	setValidators(validators) {
+		this._validators = validators;
+		this.runValidation();
+	}
+	addValidators(validators) {
+		this._validators = [...this._validators, ...validators];
+		this.runValidation();
+	}
+	removeValidators(validators) {
+		this._validators = this._validators.filter((v) => !validators.includes(v));
+		this.runValidation();
+	}
+	setAsyncValidators(validators) {
+		this._asyncValidators = validators;
+		this.runValidation();
+	}
+	async validate() {
+		await this.runValidation();
+	}
+	getError(code) {
+		return this.errors()?.[code] ?? null;
+	}
+	hasError(code) {
+		return this.errors()?.[code] !== void 0;
+	}
+	getErrorMessage(code) {
+		const error = this.getError(code);
+		if (!error) return "";
+		const params = error.params;
+		const localMessage = this.resolveFromChain(code);
+		if (localMessage !== void 0) return resolveMessage(localMessage, params);
+		const validatorMessage = this.resolveFromValidator(code);
+		if (validatorMessage !== void 0) return resolveMessage(validatorMessage, params);
+		const globalMessage = getGlobalMessage(code);
+		if (globalMessage !== void 0) return resolveMessage(globalMessage, params);
+		return code;
+	}
+	getFirstErrorMessage() {
+		const errors = this.errors();
+		if (!errors) return "";
+		const codes = Object.keys(errors);
+		if (codes.length === 0) return "";
+		return this.getErrorMessage(codes[0]);
+	}
+	resolveFromValidator(code) {
+		return this._errorSources.get(code)?.messages?.[code];
+	}
+	resolveFromChain(code) {
+		let control = this;
+		while (control !== null) {
+			if (control.messages[code] !== void 0) return control.messages[code];
+			control = control.parent;
+		}
+	}
+	async runValidation() {
+		const id = ++this._asyncValidationId;
+		const value = this.value();
+		let errors = null;
+		this._errorSources.clear();
+		for (const validator of this._validators) {
+			const result = validator(value);
+			if (result !== null) {
+				for (const code of Object.keys(result)) this._errorSources.set(code, validator);
+				errors = {
+					...errors ?? {},
+					...result
+				};
+			}
+		}
+		if (errors !== null) {
+			this._pending.set(false);
+			this.errors.set(errors);
+			return;
+		}
+		if (this._asyncValidators.length > 0) {
+			this._pending.set(true);
+			try {
+				const results = await Promise.all(this._asyncValidators.map(async (v) => ({
+					validator: v,
+					result: await v(value)
+				})));
+				if (id !== this._asyncValidationId || this._destroyed) return;
+				for (const { validator, result } of results) if (result !== null) {
+					for (const code of Object.keys(result)) this._errorSources.set(code, validator);
+					errors = {
+						...errors ?? {},
+						...result
+					};
+				}
+			} catch (error) {
+				if (id !== this._asyncValidationId || this._destroyed) return;
+				console.error("Async validator failed:", error);
+				errors = {
+					...errors ?? {},
+					asyncValidator: {
+						code: "asyncValidator",
+						params: { message: error instanceof Error ? error.message : String(error) }
+					}
+				};
+			} finally {
+				if (id === this._asyncValidationId && !this._destroyed) this._pending.set(false);
+			}
+		}
+		if (id === this._asyncValidationId && !this._destroyed) this.errors.set(errors);
+	}
+	computeDirty() {
+		return this._dirty();
+	}
+	computeTouched() {
+		return this._touched();
+	}
+	computePending() {
+		return this._pending();
+	}
+	computeDisabled() {
+		return this._ownDisabled();
+	}
+	hasInvalidChild() {
+		return false;
+	}
+	shouldValidateOnChange() {
+		return this.updateOn === "change";
+	}
+	destroySignals() {
+		this.value.destroy();
+		this.errors.destroy();
+		this._touched.destroy();
+		this._dirty.destroy();
+		this._pending.destroy();
+		this._ownDisabled.destroy();
+		this.dirty.destroy();
+		this.touched.destroy();
+		this.pristine.destroy();
+		this.untouched.destroy();
+		this.valid.destroy();
+		this.invalid.destroy();
+		this.pending.destroy();
+		this.disabled.destroy();
+		this.enabled.destroy();
+		this.state.destroy();
+	}
+};
+var MAX_RENDERS_PER_TASK = 25;
+var ComponentBase = class extends HTMLElement {
+	constructor(meta, component, pending) {
+		super();
+		this._renderScheduled = false;
+		this._booleanProperties = /* @__PURE__ */ new Set();
+		this._numberProperties = /* @__PURE__ */ new Set();
+		this._stringProperties = /* @__PURE__ */ new Set();
+		this._rendering = false;
+		this._selectEpoch = 0;
+		this._renderScopedSelects = /* @__PURE__ */ new Map();
+		this._reactiveSourceEntries = [];
+		this._created = false;
+		this._destroyed = false;
+		this._teardownScheduled = false;
+		this._dirty = true;
+		this._renderEffect = null;
+		this._rendersThisTask = 0;
+		this._renderBurstReset = null;
+		this._renderLoopReported = false;
+		this._devtoolsId = 0;
+		this._renderCount = 0;
+		this._meta = meta;
+		this._component = component;
+		this._component.elementRef = this;
+		const declaredTypes = {
+			...attributeTypes(meta.attributes),
+			...component.constructor.propertyTypes ?? {}
+		};
+		for (const [attribute, type] of Object.entries(declaredTypes)) {
+			const prop = attribute.replace(/-([a-z])/g, (_, ch) => ch.toUpperCase());
+			if (type === "boolean") this._booleanProperties.add(prop);
+			else if (type === "number") this._numberProperties.add(prop);
+			else if (type === "string") this._stringProperties.add(prop);
+		}
+		this._disposables = pending?.disposables ?? /* @__PURE__ */ new Set();
+		this._selectCache = pending?.selectCache ?? /* @__PURE__ */ new Map();
+		this._root = this.attachShadow({ mode: "open" });
+		applyGlobalStyles(this._root);
+		this._style = this.renderStyles();
+		const prevActive = getActiveComponent();
+		setActiveComponent(this);
+		try {
+			untracked(() => {
+				this.observe();
+				if (this._component.onInit) this._component.onInit();
+			});
+		} finally {
+			setActiveComponent(prevActive);
+		}
+	}
+	get component() {
+		return this._component;
+	}
+	get isRendering() {
+		return this._rendering;
+	}
+	get selector() {
+		return this._meta.selector;
+	}
+	registerDisposable(d) {
+		this._disposables.add(d);
+	}
+	requestRender() {
+		this.scheduleRender();
+	}
+	getSelectCache() {
+		return this._selectCache;
+	}
+	touchSelectEntry(fullKey) {
+		if (this._renderScopedSelects.has(fullKey)) this._renderScopedSelects.set(fullKey, this._selectEpoch);
+	}
+	trackSelectEntry(fullKey, sig) {
+		if (!this._rendering) return;
+		this._renderScopedSelects.set(fullKey, this._selectEpoch);
+		sig.subscribe(() => this.scheduleRender());
+	}
+	connectedCallback() {
+		this._teardownScheduled = false;
+		emitDevtools("component:connect", () => ({
+			id: this.devtoolsId(),
+			selector: this._meta.selector
+		}));
+		this.subscribeReactiveSources();
+		this.render();
+		const prev = getActiveComponent();
+		setActiveComponent(this);
+		try {
+			untracked(() => {
+				if (!this._created) {
+					this._created = true;
+					this._component.onCreate?.();
+				}
+				this._component.onConnect?.();
+			});
+		} finally {
+			setActiveComponent(prev);
+		}
+	}
+	disconnectedCallback() {
+		emitDevtools("component:disconnect", () => ({
+			id: this.devtoolsId(),
+			selector: this._meta.selector
+		}));
+		for (const entry of this._reactiveSourceEntries) {
+			for (const unsubscribe of entry.unsubscribers) unsubscribe();
+			entry.unsubscribers = [];
+		}
+		try {
+			untracked(() => this._component.onDisconnect?.());
+		} finally {
+			if (!this._teardownScheduled && !this._destroyed) {
+				this._teardownScheduled = true;
+				queueMicrotask(() => {
+					this._teardownScheduled = false;
+					if (!this.isConnected && !this._destroyed) this.teardown();
+				});
+			}
+		}
+	}
+	attributeChangedCallback(attribute, oldVal, newVal) {
+		const prop = attribute.replace(/-([a-z])/g, (_, ch) => ch.toUpperCase());
+		const component = this._component;
+		const current = component[prop];
+		const value = this.coerceAttributeValue(prop, newVal, current);
+		if (!Object.is(current, value)) {
+			component[prop] = value;
+			this.scheduleRender();
+		}
+		if (this._component.onAttributeChange !== void 0) untracked(() => this._component.onAttributeChange(attribute, oldVal, newVal));
+	}
+	coerceAttributeValue(prop, raw, current) {
+		if (this._stringProperties.has(prop)) return raw;
+		if (this._booleanProperties.has(prop) || typeof current === "boolean") return raw !== null && raw !== "false";
+		if (this._numberProperties.has(prop) || typeof current === "number") {
+			if (raw === null || raw.trim() === "") return raw;
+			const parsed = Number(raw);
+			return Number.isNaN(parsed) ? raw : parsed;
+		}
+		if ((current === void 0 || current === null) && (raw === "true" || raw === "false")) return raw === "true";
+		return raw;
+	}
+	teardown() {
+		this._destroyed = true;
+		if (this._devtoolsId !== 0) {
+			emitDevtools("component:destroy", () => ({
+				id: this._devtoolsId,
+				selector: this._meta.selector
+			}));
+			getHook()?.components.delete(this._devtoolsId);
+		}
+		if (this._renderBurstReset !== null) {
+			clearTimeout(this._renderBurstReset);
+			this._renderBurstReset = null;
+		}
+		this._renderEffect?.destroy();
+		this._renderEffect = null;
+		const root = this._root;
+		const parts = root.__parts;
+		if (parts) disposeParts(parts);
+		delete root.__parts;
+		delete root.__templateKey;
+		try {
+			if (this._component.onDestroy !== void 0) untracked(() => this._component.onDestroy());
+		} finally {
+			for (const d of this._disposables) try {
+				d.destroy();
+			} catch (error) {
+				console.error("Disposable cleanup failed:", error);
+			}
+			this._disposables.clear();
+			this._selectCache.clear();
+		}
+	}
+	renderStyles() {
+		if (!this._meta.styles) return null;
+		const sheet = getComponentStyleSheet(this._meta.styles);
+		if (sheet) {
+			this._root.adoptedStyleSheets = [...this._root.adoptedStyleSheets, sheet];
+			return null;
+		}
+		const styleNode = document.createElement("style");
+		render(this._meta.styles(), styleNode);
+		return this._root.appendChild(styleNode);
+	}
+	render() {
+		if (this.enteredRenderLoop()) return;
+		this._dirty = false;
+		if (!this._renderEffect) this._renderEffect = new SignalEffect(() => this.renderTemplate(), {
+			name: this._meta.selector,
+			onInvalidate: () => this.scheduleRender()
+		});
+		if (!devtoolsListening()) {
+			this._renderEffect.runNow();
+			return;
+		}
+		const started = performance.now();
+		this._renderEffect.runNow();
+		const elapsed = performance.now() - started;
+		this._renderCount++;
+		const record = getHook()?.components.get(this.devtoolsId());
+		if (record) {
+			record.renders = this._renderCount;
+			record.lastRenderMs = elapsed;
+		}
+		emitDevtools("component:render", () => ({
+			id: this.devtoolsId(),
+			selector: this._meta.selector,
+			ms: elapsed,
+			renders: this._renderCount
+		}));
+	}
+	devtoolsId() {
+		if (this._devtoolsId === 0) {
+			const hook$1 = getHook();
+			if (!hook$1) return 0;
+			this._devtoolsId = hook$1.nextId();
+			hook$1.components.set(this._devtoolsId, {
+				id: this._devtoolsId,
+				selector: this._meta.selector,
+				host: new WeakRef(this),
+				renders: this._renderCount,
+				lastRenderMs: 0
+			});
+		}
+		return this._devtoolsId;
+	}
+	renderTemplate() {
+		const prev = getActiveComponent();
+		setActiveComponent(this);
+		this._rendering = true;
+		this._selectEpoch++;
+		try {
+			if (this._meta.template) {
+				render(this._meta.template(this._component, this._meta.template.length > 1 ? this.getAttributeValues() : void 0), this._root);
+				if (this._style && this._style.parentNode !== this._root) this._root.appendChild(this._style);
+			}
+			if (this._component.onRender !== void 0) untracked(() => this._component.onRender());
+		} finally {
+			this._rendering = false;
+			setActiveComponent(prev);
+			this.sweepRenderScopedSelects();
+		}
+	}
+	enteredRenderLoop() {
+		if (++this._rendersThisTask <= MAX_RENDERS_PER_TASK) {
+			if (this._renderBurstReset === null) this._renderBurstReset = setTimeout(() => {
+				this._renderBurstReset = null;
+				this._rendersThisTask = 0;
+				this._renderLoopReported = false;
+			}, 0);
+			return false;
+		}
+		if (!this._renderLoopReported) {
+			this._renderLoopReported = true;
+			console.error(`[Melodic] <${this._meta.selector}> rendered ${MAX_RENDERS_PER_TASK} times without yielding and was stopped. A render loop is usually a property or signal written from onRender (or from the template itself), which schedules the render that writes it again.`);
+		}
+		return true;
+	}
+	sweepRenderScopedSelects() {
+		for (const [key, epoch] of this._renderScopedSelects) {
+			if (epoch === this._selectEpoch) continue;
+			const sig = this._selectCache.get(key);
+			this._renderScopedSelects.delete(key);
+			this._selectCache.delete(key);
+			if (sig) {
+				this._disposables.delete(sig);
+				sig.destroy();
+			}
+		}
+	}
+	scheduleRender() {
+		this._dirty = true;
+		if (this._renderScheduled) return;
+		this._renderScheduled = true;
+		queueMicrotask(() => {
+			this._renderScheduled = false;
+			if (this.isConnected && this._dirty) this.render();
+		});
+	}
+	observe() {
+		const properties = [];
+		const seen = /* @__PURE__ */ new Set();
+		let proto = this._component;
+		while (proto && proto !== Object.prototype) {
+			for (const prop of Object.getOwnPropertyNames(proto)) if (!seen.has(prop)) {
+				seen.add(prop);
+				properties.push(prop);
+			}
+			proto = Object.getPrototypeOf(proto);
+		}
+		const getterOnly = [];
+		const sourceProps = [];
+		const filtered = properties.filter((prop) => {
+			if (prop.startsWith("_") || prop === "elementRef" || prop === "constructor") return false;
+			const descriptor = this.getPropertyDescriptor(this._component, prop);
+			const isServiceAccessor = `__service_${prop}` in this._component;
+			if (descriptor && descriptor.get && (!descriptor.set || isServiceAccessor)) {
+				getterOnly.push(prop);
+				return false;
+			}
+			const value = this._component[prop];
+			if (isSignal(value) || value instanceof AbstractControl) {
+				sourceProps.push(prop);
+				return false;
+			}
+			if (typeof value === "function") return false;
+			return true;
+		});
+		for (const prop of sourceProps) this.observeReactiveSource(prop);
+		for (const prop of filtered) {
+			const descriptor = this.getPropertyDescriptor(this._component, prop);
+			const wrapperValue = Object.getOwnPropertyDescriptor(this, prop)?.value;
+			let value = wrapperValue === void 0 ? this._component[prop] : wrapperValue;
+			if (typeof value === "boolean") this._booleanProperties.add(prop);
+			else if (typeof value === "number") this._numberProperties.add(prop);
+			let componentGetter = () => value;
+			let componentSetter = (newVal) => {
+				if (!Object.is(value, newVal)) {
+					this._component.onPropertyChange?.(prop, value, newVal);
+					value = newVal;
+					this.scheduleRender();
+				}
+			};
+			if (descriptor?.get) {
+				const originalGetter = descriptor.get;
+				componentGetter = () => originalGetter.call(this._component);
+			}
+			if (descriptor?.set) {
+				const originalSetter = descriptor.set;
+				const baseSetter = componentSetter;
+				componentSetter = (newVal) => {
+					originalSetter.call(this._component, newVal);
+					baseSetter(newVal);
+				};
+			}
+			Object.defineProperty(this._component, prop, {
+				get: componentGetter,
+				set: componentSetter,
+				enumerable: true,
+				configurable: true
+			});
+			if (prop in HTMLElement.prototype) devWarn(`native-prop:${this._meta.selector}:${prop}`, `<${this._meta.selector}> declares a property "${prop}", which is also a native HTMLElement property. The native behaviour is kept on the element; the component's field is still reactive internally, but \`element.${prop}\` reads the platform value. Rename the field to avoid the collision.`);
+			else Object.defineProperty(this, prop, {
+				get: componentGetter,
+				set: componentSetter,
+				enumerable: true,
+				configurable: true
+			});
+		}
+		for (const prop of getterOnly) {
+			if (Object.prototype.hasOwnProperty.call(this, prop)) continue;
+			Object.defineProperty(this, prop, {
+				get: () => this._component[prop],
+				set: () => {},
+				enumerable: true,
+				configurable: true
+			});
+		}
+	}
+	getPropertyDescriptor(target, prop) {
+		let current = target;
+		while (current && current !== Object.prototype) {
+			const descriptor = Object.getOwnPropertyDescriptor(current, prop);
+			if (descriptor) return descriptor;
+			current = Object.getPrototypeOf(current);
+		}
+	}
+	getAttributeValues() {
+		const attributes = {};
+		this.getAttributeNames().forEach((attrName) => {
+			attributes[attrName] = this.getAttribute(attrName) ?? "";
+		});
+		return attributes;
+	}
+	subscribeReactiveSources() {
+		if (this._destroyed) return;
+		for (const entry of this._reactiveSourceEntries) {
+			for (const unsubscribe of entry.unsubscribers) unsubscribe();
+			entry.unsubscribers = entry.signals.map((signal$1) => signal$1.subscribe(() => this.scheduleRender()));
+		}
+	}
+	collectSourceSignals(value) {
+		if (isSignal(value)) return [value];
+		if (value instanceof AbstractControl) return [value.value, value.state];
+		return [];
+	}
+	observeReactiveSource(prop) {
+		const component = this._component;
+		const entry = {
+			signals: this.collectSourceSignals(component[prop]),
+			unsubscribers: []
+		};
+		this._reactiveSourceEntries.push(entry);
+		const descriptor = this.getPropertyDescriptor(this._component, prop);
+		if (descriptor && (descriptor.get || descriptor.set)) return;
+		let current = component[prop];
+		Object.defineProperty(this._component, prop, {
+			get: () => current,
+			set: (newVal) => {
+				if (Object.is(current, newVal)) return;
+				this._component.onPropertyChange?.(prop, current, newVal);
+				current = newVal;
+				for (const unsubscribe of entry.unsubscribers) unsubscribe();
+				entry.unsubscribers = [];
+				entry.signals = this.collectSourceSignals(newVal);
+				if (this.isConnected && !this._destroyed) entry.unsubscribers = entry.signals.map((signal$1) => signal$1.subscribe(() => this.scheduleRender()));
+				this.scheduleRender();
+			},
+			enumerable: true,
+			configurable: true
+		});
+	}
+};
+var RESERVED_SELECTORS = new Set([
+	"annotation-xml",
+	"color-profile",
+	"font-face",
+	"font-face-src",
+	"font-face-uri",
+	"font-face-format",
+	"font-face-name",
+	"missing-glyph"
+]);
+function assertValidSelector(selector) {
+	if (typeof selector !== "string" || selector.length === 0) throw new Error("@MelodicComponent: \"selector\" is required and must be a non-empty string (e.g. \"app-card\").");
+	if (!selector.includes("-")) throw new Error(`@MelodicComponent: invalid selector "${selector}". Custom element names must contain a hyphen — use a prefixed name such as "app-${selector}".`);
+	if (!/^[a-z]/.test(selector) || /[A-Z]/.test(selector) || /\s/.test(selector)) throw new Error(`@MelodicComponent: invalid selector "${selector}". Custom element names must start with a lowercase letter and must not contain uppercase letters or whitespace.`);
+	if (RESERVED_SELECTORS.has(selector)) throw new Error(`@MelodicComponent: "${selector}" is a reserved name and cannot be used as a custom element selector.`);
+}
+function warnAboutAttributes(meta, component) {
+	if (!isDevMode()) return;
+	for (const name of attributeNames(meta.attributes)) if (/[A-Z]/.test(name)) devWarn(`attr-case:${meta.selector}:${name}`, `<${meta.selector}> observes attribute "${name}", which can never fire — HTML lowercases attribute names. Use "${name.replace(/[A-Z]/g, (ch) => `-${ch.toLowerCase()}`)}" (it maps to the "${name}" property).`);
+	const prototype = component.prototype;
+	if (!prototype) return;
+	for (const name of attributeNames(meta.attributes)) {
+		const prop = name.replace(/-([a-z])/g, (_, ch) => ch.toUpperCase());
+		if (typeof prototype[prop] === "function") devWarn(`attr-method:${meta.selector}:${name}`, `<${meta.selector}> observes attribute "${name}", but "${prop}" is a method. Setting the attribute would replace the method with the attribute string.`);
+	}
+}
+function MelodicComponent(meta) {
+	return function(component) {
+		assertValidSelector(meta.selector);
+		warnAboutAttributes(meta, component);
+		const existing = getComponentDefinition(meta.selector);
+		if (existing && existing.componentClass !== component) devWarn(`duplicate-selector:${meta.selector}`, `Two classes were registered as <${meta.selector}> ('${existing.componentClass?.name ?? "unknown"}' and '${component.name}'). The first registration wins and the second is ignored — custom element names are global.`);
+		if (customElements.get(meta.selector) === void 0) {
+			const webComponent = class extends ComponentBase {
+				constructor() {
+					const dependencies = resolveInjectedParams(component, (token) => Injector.get(token));
+					const disposables = /* @__PURE__ */ new Set();
+					const selectCache = /* @__PURE__ */ new Map();
+					const placeholder = {
+						getSelectCache: () => selectCache,
+						registerDisposable: (d) => {
+							disposables.add(d);
+						}
+					};
+					const prevActive = getActiveComponent();
+					setActiveComponent(placeholder);
+					let userInstance;
+					try {
+						userInstance = untracked(() => Reflect.construct(component, dependencies));
+					} finally {
+						setActiveComponent(prevActive);
+					}
+					super(meta, userInstance, {
+						disposables,
+						selectCache
+					});
+				}
+				static #_ = this.observedAttributes = attributeNames(meta.attributes);
+			};
+			const componentWithSelector = component;
+			componentWithSelector.selector = meta.selector;
+			customElements.define(meta.selector, webComponent);
+		}
+		registerComponentDefinition({
+			selector: meta.selector,
+			componentClass: component,
+			meta
+		});
+		emitDevtools("component:define", () => ({
+			selector: meta.selector,
+			className: component.name
+		}));
+	};
+}
+function emit(host, name, detail, options = {}) {
+	return host.dispatchEvent(new CustomEvent(name, {
+		detail,
+		bubbles: options.bubbles ?? true,
+		composed: options.composed ?? true,
+		cancelable: options.cancelable ?? false
+	}));
+}
+function readEnv() {
+	try {
+		return typeof import.meta !== "undefined" ? {
+			"BASE_URL": "/",
+			"DEV": false,
+			"MODE": "development",
+			"PROD": true,
+			"SSR": false
+		} : void 0;
+	} catch {
+		return;
+	}
+}
+function isEnvironment(value) {
+	return value === "dev" || value === "qa" || value === "prod";
+}
+function getEnvironment() {
+	const env = readEnv();
+	if (env && isEnvironment(env.VITE_ENV)) return env.VITE_ENV;
+	const mode = env?.MODE;
+	if (typeof mode === "string") {
+		if (mode === "development") return "dev";
+		if (mode === "production") return "prod";
+		if (isEnvironment(mode)) return mode;
+	}
+	if (env?.PROD) return "prod";
+	return "dev";
+}
+const environment = getEnvironment();
+var UNSAFE_MERGE_KEYS = new Set([
+	"__proto__",
+	"constructor",
+	"prototype"
+]);
+function deepMerge(target, source) {
+	const result = { ...target };
+	for (const key of Object.keys(source)) {
+		if (UNSAFE_MERGE_KEYS.has(key)) continue;
+		const targetVal = result[key];
+		const sourceVal = source[key];
+		if (sourceVal !== null && typeof sourceVal === "object" && !Array.isArray(sourceVal) && targetVal !== null && typeof targetVal === "object" && !Array.isArray(targetVal)) result[key] = deepMerge(targetVal, sourceVal);
+		else result[key] = sourceVal;
+	}
+	return result;
+}
+function defineConfig(definition) {
+	const envOverrides = definition[environment];
+	const resolved = envOverrides ? deepMerge(definition.base, envOverrides) : { ...definition.base };
+	if (definition.extends) return deepMerge(definition.extends, resolved);
+	return resolved;
+}
+const APP_CONFIG = createToken("APP_CONFIG");
+function provideConfig(config) {
+	return (injector) => {
+		injector.bindValue(APP_CONFIG, config);
+	};
+}
+var FormControl = class extends AbstractControl {
+	constructor(initialValue, options = {}) {
+		super(initialValue, options);
+		this.initialValue = initialValue;
+		this.initializeAggregates();
+		this.runValidation();
+	}
+	setValue(value, options) {
+		if (this._ownDisabled()) return;
+		this.value.set(value);
+		if (options?.markAsPristine) this._dirty.set(false);
+		this.runValidation();
+	}
+	patchValue(value, options) {
+		const current = this.value();
+		if (typeof current === "object" && current !== null && !Array.isArray(current)) this.setValue({
+			...current,
+			...value
+		}, options);
+		else this.setValue(value, options);
+	}
+	reset(value) {
+		this.value.set(value ?? this.initialValue);
+		this._dirty.set(false);
+		this._touched.set(false);
+		this.runValidation();
+	}
+	destroy() {
+		if (this._destroyed) return;
+		this._destroyed = true;
+		this.destroySignals();
+	}
+};
+var FormGroup = class FormGroup extends AbstractControl {
+	constructor(initialControls, options = {}) {
+		super(FormGroup.computeValue(initialControls), options);
+		this.controls = signal({ ...initialControls });
+		for (const key of Object.keys(initialControls)) initialControls[key].parent = this;
+		this.initializeAggregates();
+		this._childValueEffect = new SignalEffect(() => {
+			const controls = this.controls();
+			for (const key of Object.keys(controls)) controls[key].value();
+			this.value.set(FormGroup.computeValue(controls));
+			if (this.shouldValidateOnChange()) this.runValidation();
+		});
+		this._childValueEffect.run();
+	}
+	get(name) {
+		return this.controls()[name];
+	}
+	contains(name) {
+		return name in this.controls();
+	}
+	addControl(name, control) {
+		control.parent = this;
+		this.controls.update((current) => ({
+			...current,
+			[name]: control
+		}));
+	}
+	removeControl(name) {
+		const control = this.controls()[name];
+		if (!control) return;
+		control.parent = null;
+		this.controls.update((current) => {
+			const next = { ...current };
+			delete next[name];
+			return next;
+		});
+		control.destroy();
+	}
+	setValue(value, options) {
+		batch(() => {
+			if (this._ownDisabled()) return;
+			const controls = this.controls();
+			const controlKeys = Object.keys(controls);
+			const valueKeys = Object.keys(value);
+			for (const key of valueKeys) if (!(key in controls)) throw new Error(`FormGroup.setValue: unknown control name '${key}'. Use patchValue() for partial updates.`);
+			for (const key of controlKeys) if (!(key in value)) throw new Error(`FormGroup.setValue: missing value for control name '${key}'. Use patchValue() for partial updates.`);
+			for (const key of controlKeys) controls[key].setValue(value[key], options);
+			if (options?.markAsPristine) this._dirty.set(false);
+		});
+	}
+	getRawValue() {
+		return FormGroup.computeValue(this.controls(), true);
+	}
+	patchValue(value, options) {
+		batch(() => {
+			if (this._ownDisabled()) return;
+			const controls = this.controls();
+			for (const key of Object.keys(value)) if (value[key] !== void 0) controls[key]?.setValue(value[key], options);
+			if (options?.markAsPristine) this._dirty.set(false);
+		});
+	}
+	reset(value) {
+		batch(() => {
+			const controls = this.controls();
+			for (const key of Object.keys(controls)) {
+				const resetValue = value?.[key];
+				controls[key].reset(resetValue);
+			}
+		});
+	}
+	markAllAsTouched() {
+		batch(() => {
+			this.markAsTouched();
+			const controls = this.controls();
+			for (const key of Object.keys(controls)) controls[key].markAllAsTouched();
+		});
+	}
+	markAllAsUntouched() {
+		batch(() => {
+			this._touched.set(false);
+			const controls = this.controls();
+			for (const key of Object.keys(controls)) controls[key].markAllAsUntouched();
+		});
+	}
+	markAllAsDirty() {
+		batch(() => {
+			this._dirty.set(true);
+			const controls = this.controls();
+			for (const key of Object.keys(controls)) controls[key].markAllAsDirty();
+		});
+	}
+	markAllAsPristine() {
+		batch(() => {
+			this._dirty.set(false);
+			const controls = this.controls();
+			for (const key of Object.keys(controls)) controls[key].markAllAsPristine();
+		});
+	}
+	disable() {
+		batch(() => {
+			this._ownDisabled.set(true);
+			const controls = this.controls();
+			for (const key of Object.keys(controls)) controls[key].disable();
+		});
+	}
+	enable() {
+		batch(() => {
+			this._ownDisabled.set(false);
+			const controls = this.controls();
+			for (const key of Object.keys(controls)) controls[key].enable();
+		});
+	}
+	async validate() {
+		const controls = this.controls();
+		await Promise.all(Object.keys(controls).map((key) => controls[key].validate()));
+		await this.runValidation();
+	}
+	destroy() {
+		if (this._destroyed) return;
+		this._destroyed = true;
+		this._childValueEffect.destroy();
+		const controls = this.controls();
+		for (const key of Object.keys(controls)) controls[key].destroy();
+		this.destroySignals();
+		this.controls.destroy();
+	}
+	computeDirty() {
+		if (this._dirty()) return true;
+		const controls = this.controls();
+		return Object.keys(controls).some((key) => controls[key].dirty());
+	}
+	computeTouched() {
+		if (this._touched()) return true;
+		const controls = this.controls();
+		return Object.keys(controls).some((key) => controls[key].touched());
+	}
+	computePending() {
+		if (this._pending()) return true;
+		const controls = this.controls();
+		return Object.keys(controls).some((key) => {
+			const control = controls[key];
+			return !control.disabled() && control.pending();
+		});
+	}
+	hasInvalidChild() {
+		const controls = this.controls();
+		return Object.keys(controls).some((key) => {
+			const control = controls[key];
+			return !control.disabled() && control.invalid();
+		});
+	}
+	static computeValue(controls, includeDisabled = false) {
+		const result = {};
+		for (const key of Object.keys(controls)) {
+			const control = controls[key];
+			if (!includeDisabled && control.disabled()) continue;
+			result[key] = includeDisabled ? control.getRawValue() : control.value();
+		}
+		return result;
+	}
+};
+var FormArray = class extends AbstractControl {
+	constructor(initialControls, options = {}) {
+		super(initialControls.map((c) => c.value()), options);
+		this.controls = signal([...initialControls]);
+		for (const control of initialControls) control.parent = this;
+		this.initializeAggregates();
+		this._childValueEffect = new SignalEffect(() => {
+			const controls = this.controls();
+			for (const control of controls) control.value();
+			this.value.set(controls.filter((c) => !c.disabled()).map((c) => c.value()));
+			if (this.shouldValidateOnChange()) this.runValidation();
+		});
+		this._childValueEffect.run();
+	}
+	get length() {
+		return this.controls().length;
+	}
+	at(index) {
+		return this.controls()[index];
+	}
+	push(control) {
+		control.parent = this;
+		this.controls.update((current) => [...current, control]);
+	}
+	insert(index, control) {
+		control.parent = this;
+		this.controls.update((current) => {
+			const next = [...current];
+			next.splice(index, 0, control);
+			return next;
+		});
+	}
+	removeAt(index) {
+		const control = this.controls()[index];
+		if (!control) return;
+		control.parent = null;
+		this.controls.update((current) => current.filter((_, i) => i !== index));
+		control.destroy();
+	}
+	clear() {
+		const controls = this.controls();
+		for (const control of controls) control.parent = null;
+		this.controls.set([]);
+		for (const control of controls) control.destroy();
+	}
+	setValue(value, options) {
+		batch(() => {
+			if (this._ownDisabled()) return;
+			const controls = this.controls();
+			if (value.length !== controls.length) throw new Error(`FormArray.setValue: expected ${controls.length} value(s) but received ${value.length}. Use patchValue() for partial updates.`);
+			value.forEach((v, i) => {
+				controls[i].setValue(v, options);
+			});
+			if (options?.markAsPristine) this._dirty.set(false);
+		});
+	}
+	getRawValue() {
+		return this.controls().map((c) => c.getRawValue());
+	}
+	patchValue(value, options) {
+		batch(() => {
+			if (this._ownDisabled()) return;
+			const controls = this.controls();
+			value.forEach((v, i) => {
+				if (v !== void 0) controls[i]?.setValue(v, options);
+			});
+			if (options?.markAsPristine) this._dirty.set(false);
+		});
+	}
+	reset(value) {
+		batch(() => {
+			this.controls().forEach((control, i) => {
+				control.reset(value?.[i]);
+			});
+		});
+	}
+	markAllAsTouched() {
+		batch(() => {
+			this.markAsTouched();
+			for (const control of this.controls()) control.markAllAsTouched();
+		});
+	}
+	markAllAsUntouched() {
+		batch(() => {
+			this._touched.set(false);
+			for (const control of this.controls()) control.markAllAsUntouched();
+		});
+	}
+	markAllAsDirty() {
+		batch(() => {
+			this._dirty.set(true);
+			for (const control of this.controls()) control.markAllAsDirty();
+		});
+	}
+	markAllAsPristine() {
+		batch(() => {
+			this._dirty.set(false);
+			for (const control of this.controls()) control.markAllAsPristine();
+		});
+	}
+	disable() {
+		batch(() => {
+			this._ownDisabled.set(true);
+			for (const control of this.controls()) control.disable();
+		});
+	}
+	enable() {
+		batch(() => {
+			this._ownDisabled.set(false);
+			for (const control of this.controls()) control.enable();
+		});
+	}
+	async validate() {
+		await Promise.all(this.controls().map((c) => c.validate()));
+		await this.runValidation();
+	}
+	destroy() {
+		if (this._destroyed) return;
+		this._destroyed = true;
+		this._childValueEffect.destroy();
+		for (const control of this.controls()) control.destroy();
+		this.destroySignals();
+		this.controls.destroy();
+	}
+	computeDirty() {
+		if (this._dirty()) return true;
+		return this.controls().some((c) => c.dirty());
+	}
+	computeTouched() {
+		if (this._touched()) return true;
+		return this.controls().some((c) => c.touched());
+	}
+	computePending() {
+		if (this._pending()) return true;
+		return this.controls().some((c) => !c.disabled() && c.pending());
+	}
+	hasInvalidChild() {
+		return this.controls().some((c) => !c.disabled() && c.invalid());
+	}
+};
+function createFormControl(initialValue, options) {
+	return new FormControl(initialValue, options);
+}
+function createFormGroup(controls, options) {
+	return new FormGroup(controls, options);
+}
+function createFormArray(controls, options) {
+	return new FormArray(controls, options);
+}
+registerDefaultMessages({
+	required: "This field is required",
+	minLength: (params) => `Minimum length is ${params.min} characters`,
+	maxLength: (params) => `Maximum length is ${params.max} characters`,
+	pattern: "Value does not match required pattern",
+	email: "Please enter a valid email address",
+	min: (params) => `Value must be at least ${params.min}`,
+	max: (params) => `Value must be at most ${params.max}`,
+	range: (params) => `Value must be between ${params.min} and ${params.max}`
+});
+var EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+function isEmpty(value) {
+	return value === null || value === void 0 || value === "" || Array.isArray(value) && value.length === 0;
+}
+const Validators = {
+	required(value) {
+		return isEmpty(value) ? { required: { code: "required" } } : null;
+	},
+	minLength(min) {
+		return (value) => {
+			if (!value || value.length === 0) return null;
+			return value.length < min ? { minLength: {
+				code: "minLength",
+				params: {
+					min,
+					actual: value.length
+				}
+			} } : null;
+		};
+	},
+	maxLength(max) {
+		return (value) => {
+			if (!value) return null;
+			return value.length > max ? { maxLength: {
+				code: "maxLength",
+				params: {
+					max,
+					actual: value.length
+				}
+			} } : null;
+		};
+	},
+	pattern(regex) {
+		return (value) => {
+			if (!value) return null;
+			return !regex.test(value) ? { pattern: {
+				code: "pattern",
+				params: { pattern: regex.toString() }
+			} } : null;
+		};
+	},
+	email(value) {
+		if (!value) return null;
+		return !EMAIL_REGEX.test(value) ? { email: { code: "email" } } : null;
+	},
+	min(minValue) {
+		return (value) => {
+			if (value === null || value === void 0) return null;
+			return value < minValue ? { min: {
+				code: "min",
+				params: {
+					min: minValue,
+					actual: value
+				}
+			} } : null;
+		};
+	},
+	max(maxValue) {
+		return (value) => {
+			if (value === null || value === void 0) return null;
+			return value > maxValue ? { max: {
+				code: "max",
+				params: {
+					max: maxValue,
+					actual: value
+				}
+			} } : null;
+		};
+	},
+	range(minValue, maxValue) {
+		return (value) => {
+			if (value === null || value === void 0) return null;
+			if (value < minValue || value > maxValue) return { range: {
+				code: "range",
+				params: {
+					min: minValue,
+					max: maxValue,
+					actual: value
+				}
+			} };
+			return null;
+		};
+	},
+	compose(...validators) {
+		return (value) => {
+			let errors = null;
+			for (const validator of validators) {
+				const result = validator(value);
+				if (result !== null) errors = {
+					...errors ?? {},
+					...result
+				};
+			}
+			return errors;
+		};
+	},
+	composeAsync(...validators) {
+		return async (value) => {
+			const results = await Promise.all(validators.map((v) => v(value)));
+			let errors = null;
+			for (const result of results) if (result !== null) errors = {
+				...errors ?? {},
+				...result
+			};
+			return errors;
+		};
+	}
+};
+function createValidator(code, validationFn, defaultMessage, options = {}) {
+	if (defaultMessage !== void 0 && options.global) setDefaultMessage(code, defaultMessage);
+	const validator = ((value) => {
+		if (validationFn(value)) return null;
+		return { [code]: { code } };
+	});
+	if (defaultMessage !== void 0) Object.defineProperty(validator, "messages", {
+		value: { [code]: defaultMessage },
+		enumerable: false
+	});
+	return validator;
+}
+function createAsyncValidator(code, validationFn, defaultMessage, options = {}) {
+	if (defaultMessage !== void 0 && options.global) setDefaultMessage(code, defaultMessage);
+	const validator = (async (value) => {
+		if (await validationFn(value)) return null;
+		return { [code]: { code } };
+	});
+	if (defaultMessage !== void 0) Object.defineProperty(validator, "messages", {
+		value: { [code]: defaultMessage },
+		enumerable: false
+	});
+	return validator;
+}
+var registry = [];
+function registerAdapter(predicate, adapter) {
+	registry.unshift({
+		predicate,
+		adapter
+	});
+}
+function getAdapter(element) {
+	for (const entry of registry) if (entry.predicate(element)) return entry.adapter;
+}
+const textAdapter = {
+	inputEvent: "input",
+	blurEvent: "focusout",
+	getValue(element) {
+		return element.value ?? "";
+	},
+	setValue(element, value) {
+		element.value = value !== null && value !== void 0 ? String(value) : "";
+	},
+	setDisabled(element, disabled) {
+		if (disabled) element.setAttribute("disabled", "");
+		else element.removeAttribute("disabled");
+	}
+};
+const checkboxAdapter = {
+	inputEvent: "change",
+	blurEvent: "focusout",
+	getValue(element) {
+		return element.checked;
+	},
+	setValue(element, value) {
+		element.checked = Boolean(value);
+	},
+	setDisabled(element, disabled) {
+		if (disabled) element.setAttribute("disabled", "");
+		else element.removeAttribute("disabled");
+	}
+};
+const radioAdapter = {
+	inputEvent: "change",
+	blurEvent: "focusout",
+	getValue(element) {
+		const input = element;
+		return input.checked ? input.value : "";
+	},
+	setValue(element, value) {
+		const input = element;
+		input.checked = input.value === value;
+	},
+	setDisabled(element, disabled) {
+		if (disabled) element.setAttribute("disabled", "");
+		else element.removeAttribute("disabled");
+	}
+};
+function registerNativeAdapters() {
+	registerAdapter((el) => el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.tagName === "SELECT", textAdapter);
+	registerAdapter((el) => el.tagName === "INPUT" && el.type === "radio", radioAdapter);
+	registerAdapter((el) => el.tagName === "INPUT" && el.type === "checkbox", checkboxAdapter);
+}
+registerNativeAdapters();
+var directiveRegistry = /* @__PURE__ */ new Map();
+var findAttributeDirective = (name) => {
+	if (directiveRegistry.has(name)) return directiveRegistry.get(name);
+	const lowerName = name.toLowerCase();
+	for (const [key, value] of directiveRegistry) if (key.toLowerCase() === lowerName) return value;
+};
+function registerAttributeDirective(name, directive$1) {
+	directiveRegistry.set(name, directive$1);
+}
+function getAttributeDirective(name) {
+	return findAttributeDirective(name);
+}
+function hasAttributeDirective(name) {
+	return findAttributeDirective(name) !== void 0;
+}
+function unregisterAttributeDirective(name) {
+	return directiveRegistry.delete(name);
+}
+function getRegisteredDirectives() {
+	return Array.from(directiveRegistry.keys());
+}
+function formControlDirective(element, value, _) {
+	if (!(value instanceof AbstractControl)) {
+		console.warn("formControl directive: value must be an AbstractControl");
+		return;
+	}
+	const control = value;
+	const adapter = getAdapter(element);
+	if (!adapter) {
+		console.warn(`formControl directive: no adapter registered for <${element.tagName.toLowerCase()}>`);
+		return;
+	}
+	const cleanupFns = [];
+	const syncElementValue = (val) => {
+		if (control.destroyed) return;
+		adapter.setValue(element, val);
+	};
+	const syncDisabled = (disabled) => {
+		if (control.destroyed) return;
+		adapter.setDisabled?.(element, disabled);
+	};
+	const syncClasses = () => {
+		if (control.destroyed) return;
+		element.classList.toggle("mf-valid", control.valid());
+		element.classList.toggle("mf-invalid", control.invalid());
+		element.classList.toggle("mf-dirty", control.dirty());
+		element.classList.toggle("mf-pristine", control.pristine());
+		element.classList.toggle("mf-touched", control.touched());
+		element.classList.toggle("mf-pending", control.pending());
+		element.classList.toggle("mf-disabled", control.disabled());
+	};
+	const syncError = () => {
+		if (control.destroyed) return;
+		if (!control.touched() || !control.errors()) {
+			element.removeAttribute("error");
+			return;
+		}
+		const message = control.getFirstErrorMessage();
+		if (message) element.setAttribute("error", message);
+		else element.removeAttribute("error");
+	};
+	const writeToModel = () => {
+		if (control.destroyed) return;
+		control.setValue(adapter.getValue(element));
+		control.markAsDirty();
+	};
+	const handleInput = (event) => {
+		const target = event.target;
+		if (target !== element && !element.contains(target)) return;
+		if (control.updateOn === "change") writeToModel();
+	};
+	const handleBlur = () => {
+		if (control.updateOn === "blur") writeToModel();
+		control.markAsTouched();
+	};
+	const handleSubmit = () => {
+		if (control.updateOn === "submit") {
+			writeToModel();
+			control.markAsTouched();
+			control.validate();
+		}
+	};
+	syncElementValue(control.value());
+	syncDisabled(control.disabled());
+	syncClasses();
+	syncError();
+	cleanupFns.push(control.value.subscribe((v) => syncElementValue(v)));
+	cleanupFns.push(control.disabled.subscribe((d) => syncDisabled(d)));
+	cleanupFns.push(control.state.subscribe(() => syncClasses()));
+	cleanupFns.push(control.state.subscribe(() => syncError()));
+	element.addEventListener(adapter.inputEvent, handleInput);
+	element.addEventListener(adapter.blurEvent, handleBlur);
+	const form = control.updateOn === "submit" ? element.closest("form") : null;
+	form?.addEventListener("submit", handleSubmit);
+	element.setAttribute("data-form-control", "");
+	return () => {
+		element.removeEventListener(adapter.inputEvent, handleInput);
+		element.removeEventListener(adapter.blurEvent, handleBlur);
+		form?.removeEventListener("submit", handleSubmit);
+		element.removeAttribute("data-form-control");
+		for (const fn of cleanupFns) fn();
+	};
+}
+registerAttributeDirective("formControl", formControlDirective);
 function provideHttp(httpClientConfig, interceptors) {
 	return (injector) => {
 		const httpClient = new HttpClient(httpClientConfig);
@@ -2613,19 +3137,41 @@ function resolveRedirectTarget(redirectTo, basePath) {
 	if (redirectTo.startsWith("/")) return redirectTo;
 	return basePath ? `/${basePath}/${redirectTo}` : `/${redirectTo}`;
 }
+var matcherCache = /* @__PURE__ */ new WeakMap();
+function getMatcher(route) {
+	let matcher = matcherCache.get(route);
+	if (!matcher) {
+		matcher = new RouteMatcher(route.path);
+		matcherCache.set(route, matcher);
+	}
+	return matcher;
+}
+function substituteRedirectParams(redirectTo, params) {
+	if (!redirectTo.includes(":") && !redirectTo.includes("*")) return redirectTo;
+	return redirectTo.replace(/[:*](\w+)/g, (token, name) => {
+		const value = params[name];
+		return value === void 0 ? token : encodeURIComponent(value);
+	});
+}
 var MAX_MATCH_DEPTH = 64;
 function matchRouteLevel(routes, remainingPath, basePath, accumulatedMatches, accumulatedParams, depth = 0) {
 	if (depth > MAX_MATCH_DEPTH) throw new Error(`Route tree nesting exceeds ${MAX_MATCH_DEPTH} levels — check for cyclic children definitions`);
 	let partialFallback = null;
 	for (const route of routes) {
-		const matcher = new RouteMatcher(route.path);
-		if (route.redirectTo && route.path === remainingPath) return {
-			matches: accumulatedMatches,
-			params: accumulatedParams,
-			isExactMatch: false,
-			redirectTo: resolveRedirectTarget(route.redirectTo, basePath)
-		};
+		const matcher = getMatcher(route);
 		const exactMatch = matcher.parse(remainingPath);
+		if (route.redirectTo && exactMatch !== null) {
+			const redirectParams = {
+				...accumulatedParams,
+				...exactMatch
+			};
+			return {
+				matches: accumulatedMatches,
+				params: accumulatedParams,
+				isExactMatch: false,
+				redirectTo: resolveRedirectTarget(substituteRedirectParams(route.redirectTo, redirectParams), basePath)
+			};
+		}
 		if (exactMatch !== null) {
 			const matchedPath = remainingPath;
 			const fullPath = basePath && matchedPath ? `${basePath}/${matchedPath}` : basePath || matchedPath;
@@ -2645,7 +3191,7 @@ function matchRouteLevel(routes, remainingPath, basePath, accumulatedMatches, ac
 					matches: accumulatedMatches,
 					params: accumulatedParams,
 					isExactMatch: false,
-					redirectTo: resolveRedirectTarget(emptyRedirect.redirectTo, fullPath)
+					redirectTo: resolveRedirectTarget(substituteRedirectParams(emptyRedirect.redirectTo, accumulatedParams), fullPath)
 				};
 				if (route.children.find((child) => child.path === "" && !child.redirectTo)) return matchRouteLevel(route.children, "", fullPath, accumulatedMatches, accumulatedParams, depth + 1);
 			}
@@ -2771,12 +3317,32 @@ function installHistoryEvents() {
 		window.dispatchEvent(navigationEvent);
 	};
 }
+function parseUrlParts(url) {
+	const hashIndex = url.indexOf("#");
+	const hash = hashIndex >= 0 ? url.slice(hashIndex) : "";
+	const withoutHash = hashIndex >= 0 ? url.slice(0, hashIndex) : url;
+	const queryIndex = withoutHash.indexOf("?");
+	const search = queryIndex >= 0 ? withoutHash.slice(queryIndex) : "";
+	return {
+		pathname: queryIndex >= 0 ? withoutHash.slice(0, queryIndex) : withoutHash,
+		search,
+		hash
+	};
+}
+function appendQueryParams(url, queryParams) {
+	const serialized = (queryParams instanceof URLSearchParams ? queryParams : new URLSearchParams(queryParams ?? {})).toString();
+	if (!serialized) return url;
+	const { pathname, search, hash } = parseUrlParts(url);
+	return `${pathname}${search ? `${search}&${serialized}` : `?${serialized}`}${hash}`;
+}
 function __decorateMetadata(k, v) {
 	if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 }
 var childrenLoads = /* @__PURE__ */ new WeakMap();
 var componentLoads = /* @__PURE__ */ new WeakMap();
 var MAX_LAZY_LOADS = 64;
+var MAX_REDIRECTS = 10;
+var HISTORY_INDEX_KEY = "__melodicHistoryIndex";
 function loadRouteChildren(route) {
 	let pending = childrenLoads.get(route);
 	if (!pending) {
@@ -2802,9 +3368,20 @@ var RouterService = class RouterService$1 {
 		this._currentPath = `${window.location.pathname}${window.location.search}`;
 		this._navigationId = 0;
 		this._pendingTarget = null;
+		this._historyIndex = 0;
+		this._ignorePopStates = 0;
+		this._scrollPositions = /* @__PURE__ */ new Map();
+		this._scrollRestoration = true;
+		this._previousScrollRestoration = null;
 		installHistoryEvents();
-		this._contextService = new RouteContextService();
+		this._contextService = Injector.has(RouteContextService) ? Injector.get(RouteContextService) : new RouteContextService();
 		this._committedRoute = signal(null);
+		this._params = signal({});
+		this._queryParams = signal(new URLSearchParams(window.location.search));
+		this._resolvedData = signal({});
+		this._events = signal(null);
+		this._historyIndex = this.readHistoryIndex(history.state) ?? 0;
+		this.enableScrollRestoration(true);
 		this._navigationListener = (event) => {
 			this._route = event.detail.state;
 		};
@@ -2817,9 +3394,36 @@ var RouterService = class RouterService$1 {
 	get committedRoute() {
 		return this._committedRoute;
 	}
+	get params() {
+		return this._params;
+	}
+	get queryParams() {
+		return this._queryParams;
+	}
+	get resolvedData() {
+		return this._resolvedData;
+	}
+	get events() {
+		return this._events;
+	}
 	destroy() {
 		window.removeEventListener("NavigationEvent", this._navigationListener);
 		window.removeEventListener("popstate", this._popStateListener);
+		if (this._previousScrollRestoration !== null && "scrollRestoration" in history) {
+			history.scrollRestoration = this._previousScrollRestoration;
+			this._previousScrollRestoration = null;
+		}
+	}
+	enableScrollRestoration(enabled) {
+		this._scrollRestoration = enabled;
+		if (!("scrollRestoration" in history)) return;
+		if (enabled) {
+			if (this._previousScrollRestoration === null) this._previousScrollRestoration = history.scrollRestoration;
+			history.scrollRestoration = "manual";
+		} else if (this._previousScrollRestoration !== null) {
+			history.scrollRestoration = this._previousScrollRestoration;
+			this._previousScrollRestoration = null;
+		}
 	}
 	setRoutes(routes) {
 		this._routes = routes;
@@ -2853,6 +3457,21 @@ var RouterService = class RouterService$1 {
 	}
 	matchPath(path) {
 		return matchRouteTree(this._routes, this.normalizePath(path));
+	}
+	emit(type, id, url, trigger, extra = {}) {
+		this._events.set({
+			type,
+			id,
+			url,
+			trigger,
+			...extra
+		});
+		emitDevtools(`nav:${type}`, () => ({
+			id,
+			url,
+			trigger,
+			...extra
+		}));
 	}
 	async resolveMatch(path, isCurrent) {
 		for (let loads = 0; loads <= MAX_LAZY_LOADS; loads++) {
@@ -2900,16 +3519,7 @@ var RouterService = class RouterService$1 {
 		};
 	}
 	parseUrl(url) {
-		const hashIndex = url.indexOf("#");
-		const hash = hashIndex >= 0 ? url.slice(hashIndex) : "";
-		const withoutHash = hashIndex >= 0 ? url.slice(0, hashIndex) : url;
-		const queryIndex = withoutHash.indexOf("?");
-		const search = queryIndex >= 0 ? withoutHash.slice(queryIndex) : "";
-		return {
-			pathname: queryIndex >= 0 ? withoutHash.slice(0, queryIndex) : withoutHash,
-			search,
-			hash
-		};
+		return parseUrlParts(url);
 	}
 	normalizePath(url) {
 		const { pathname } = this.parseUrl(url);
@@ -2927,21 +3537,38 @@ var RouterService = class RouterService$1 {
 	}
 	commit(result) {
 		this.setCurrentMatches(result);
+		this.publishRouteState(result);
 		this._committedRoute.set(result);
+	}
+	publishRouteState(result) {
+		this._params.set({ ...result.params });
+		this._queryParams.set(this.targetQueryParams());
+		this._resolvedData.set(this._contextService.getMergedResolvedData());
 	}
 	async initialNavigation() {
 		const navId = ++this._navigationId;
 		const currentUrl = `${window.location.pathname}${window.location.search}`;
+		this.emit("start", navId, currentUrl, "initial");
 		const resolved = await this.resolveMatch(window.location.pathname, () => this._navigationId === navId);
-		if (resolved.superseded || this._navigationId !== navId) return {
-			success: false,
-			error: "Navigation superseded"
-		};
+		if (resolved.superseded || this._navigationId !== navId) {
+			this.emit("superseded", navId, currentUrl, "initial");
+			return {
+				success: false,
+				error: "Navigation superseded"
+			};
+		}
 		const matchResult = resolved.result;
 		if (matchResult.redirectTo) {
-			if (this.normalizePath(window.location.pathname) !== this.normalizePath(matchResult.redirectTo)) return this.navigate(matchResult.redirectTo, { replace: true });
-		}
-		if (resolved.error) {
+			if (this.normalizePath(window.location.pathname) !== this.normalizePath(matchResult.redirectTo)) {
+				this.emit("redirect", navId, currentUrl, "initial", { redirectTo: matchResult.redirectTo });
+				return this.navigateInternal(matchResult.redirectTo, { replace: true }, {
+					chain: [currentUrl],
+					skipDeactivation: true
+				});
+			}
+			const message = `Route '${currentUrl}' redirects to itself`;
+			console.error(`[Melodic] ${message}`);
+			this.emit("error", navId, currentUrl, "initial", { error: message });
 			this.commit({
 				matches: [],
 				params: {},
@@ -2949,75 +3576,136 @@ var RouterService = class RouterService$1 {
 			});
 			return {
 				success: false,
+				error: message
+			};
+		}
+		if (resolved.error) {
+			this.commit({
+				matches: [],
+				params: {},
+				isExactMatch: false
+			});
+			this.emit("error", navId, currentUrl, "initial", { error: resolved.error });
+			return {
+				success: false,
 				error: resolved.error
 			};
 		}
 		if (matchResult.matches.length > 0) {
 			const guardResult = await this.runGuards(matchResult);
-			if (this._navigationId !== navId) return {
-				success: false,
-				error: "Navigation superseded"
-			};
+			if (this._navigationId !== navId) {
+				this.emit("superseded", navId, currentUrl, "initial");
+				return {
+					success: false,
+					error: "Navigation superseded"
+				};
+			}
 			if (guardResult !== true) {
-				if (typeof guardResult === "string") return this.navigate(guardResult, {
-					replace: true,
-					skipGuards: true
-				});
+				if (typeof guardResult === "string") {
+					this.emit("redirect", navId, currentUrl, "initial", { redirectTo: guardResult });
+					return this.navigateInternal(guardResult, { replace: true }, {
+						chain: [currentUrl],
+						skipDeactivation: true
+					});
+				}
+				this.emit("blocked", navId, currentUrl, "initial", { error: "Navigation blocked by guard" });
 				return {
 					success: false,
 					error: "Navigation blocked by guard"
 				};
 			}
 			const resolverResult = await this.runResolvers(matchResult, () => this._navigationId === navId);
-			if (this._navigationId !== navId) return {
-				success: false,
-				error: "Navigation superseded"
-			};
+			if (this._navigationId !== navId) {
+				this.emit("superseded", navId, currentUrl, "initial");
+				return {
+					success: false,
+					error: "Navigation superseded"
+				};
+			}
 			if (!resolverResult.success) {
 				this.commit({
 					matches: [],
 					params: {},
 					isExactMatch: false
 				});
+				const error = resolverResult.error ?? "Navigation blocked by resolver";
+				this.emit("error", navId, currentUrl, "initial", { error });
 				return {
 					success: false,
-					error: resolverResult.error ?? "Navigation blocked by resolver"
+					error
 				};
 			}
 		}
 		this._currentPath = currentUrl;
 		this.commit(matchResult);
+		this.emit("end", navId, currentUrl, "initial", { result: matchResult });
 		return {
 			success: true,
 			url: currentUrl
 		};
 	}
 	async navigate(path, options = {}) {
-		const { data, replace = false, queryParams, skipGuards = false, skipResolvers = false, scrollToTop = true } = options;
-		let fullPath = path;
-		if (queryParams && Object.keys(queryParams).length > 0) {
-			const params = new URLSearchParams(queryParams);
-			fullPath = `${path}${path.includes("?") ? "&" : "?"}${params.toString()}`;
-		}
+		return this.navigateInternal(path, options, null);
+	}
+	async navigateInternal(path, options, redirect) {
+		const { data, replace = false, queryParams, skipGuards = false, skipResolvers = false, scrollToTop = true, onSameUrlNavigation = "ignore" } = options;
+		const fullPath = appendQueryParams(path, queryParams);
+		const chain = redirect ? redirect.chain : [];
+		const skipDeactivation = skipGuards || (redirect?.skipDeactivation ?? false);
 		const navId = ++this._navigationId;
-		const { pathname, search } = this.parseUrl(fullPath);
+		const { pathname, search, hash } = this.parseUrl(fullPath);
 		this._pendingTarget = {
 			pathname,
 			queryParams: new URLSearchParams(search)
 		};
-		const superseded = () => ({
-			success: false,
-			error: "Navigation superseded"
+		this.emit("start", navId, fullPath, "imperative");
+		if (chain.length >= MAX_REDIRECTS) {
+			const error = `Redirect limit (${MAX_REDIRECTS}) exceeded: ${[...chain, fullPath].join(" → ")}`;
+			console.error(`[Melodic] ${error}`);
+			this._pendingTarget = null;
+			this.emit("error", navId, fullPath, "imperative", { error });
+			return {
+				success: false,
+				error
+			};
+		}
+		const superseded = () => {
+			this.emit("superseded", navId, fullPath, "imperative");
+			return {
+				success: false,
+				error: "Navigation superseded"
+			};
+		};
+		const redirectOptions = () => ({
+			replace,
+			scrollToTop,
+			skipResolvers
 		});
 		try {
-			if (!skipGuards && this._currentMatches.length > 0) {
+			const targetUrl = `${pathname}${search}`;
+			if (onSameUrlNavigation === "ignore" && targetUrl === this._currentPath && this._committedRoute() !== null) {
+				if (hash) {
+					this.pushOrReplace(replace, data, fullPath);
+					this.scrollToHash(hash.slice(1));
+				} else if (scrollToTop) window.scrollTo(0, 0);
+				this.emit("end", navId, fullPath, "imperative", { result: this._committedRoute() ?? void 0 });
+				return {
+					success: true,
+					url: fullPath
+				};
+			}
+			if (!skipDeactivation && this._currentMatches.length > 0) {
 				const deactivateResult = await this.runDeactivationGuards(fullPath);
 				if (this._navigationId !== navId) return superseded();
 				if (deactivateResult !== true) {
-					if (typeof deactivateResult === "string") return this.navigate(deactivateResult, {
-						...options,
-						skipGuards: true
-					});
+					if (typeof deactivateResult === "string") {
+						this.emit("redirect", navId, fullPath, "imperative", { redirectTo: deactivateResult });
+						return this.navigateInternal(deactivateResult, redirectOptions(), {
+							chain: [...chain, fullPath],
+							skipDeactivation: true
+						});
+					}
+					this.emit("blocked", navId, fullPath, "imperative", { error: "Navigation blocked by guard" });
 					return {
 						success: false,
 						error: "Navigation blocked by guard"
@@ -3027,19 +3715,35 @@ var RouterService = class RouterService$1 {
 			const resolved = await this.resolveMatch(path, () => this._navigationId === navId);
 			if (resolved.superseded || this._navigationId !== navId) return superseded();
 			const matchResult = resolved.result;
-			if (matchResult.redirectTo) return this.navigate(matchResult.redirectTo, options);
-			if (resolved.error) return {
-				success: false,
-				error: resolved.error
-			};
+			if (matchResult.redirectTo) {
+				this.emit("redirect", navId, fullPath, "imperative", { redirectTo: matchResult.redirectTo });
+				return this.navigateInternal(matchResult.redirectTo, {
+					...options,
+					queryParams: void 0
+				}, {
+					chain: [...chain, fullPath],
+					skipDeactivation: true
+				});
+			}
+			if (resolved.error) {
+				this.emit("error", navId, fullPath, "imperative", { error: resolved.error });
+				return {
+					success: false,
+					error: resolved.error
+				};
+			}
 			if (!skipGuards && matchResult.matches.length > 0) {
 				const guardResult = await this.runGuards(matchResult);
 				if (this._navigationId !== navId) return superseded();
 				if (guardResult !== true) {
-					if (typeof guardResult === "string") return this.navigate(guardResult, {
-						...options,
-						skipGuards: true
-					});
+					if (typeof guardResult === "string") {
+						this.emit("redirect", navId, fullPath, "imperative", { redirectTo: guardResult });
+						return this.navigateInternal(guardResult, redirectOptions(), {
+							chain: [...chain, fullPath],
+							skipDeactivation: true
+						});
+					}
+					this.emit("blocked", navId, fullPath, "imperative", { error: "Navigation blocked by guard" });
 					return {
 						success: false,
 						error: "Navigation blocked by guard"
@@ -3049,23 +3753,24 @@ var RouterService = class RouterService$1 {
 			if (!skipResolvers && matchResult.matches.length > 0) {
 				const resolverResult = await this.runResolvers(matchResult, () => this._navigationId === navId);
 				if (this._navigationId !== navId) return superseded();
-				if (!resolverResult.success) return {
-					success: false,
-					error: resolverResult.error ?? "Navigation blocked by resolver"
-				};
+				if (!resolverResult.success) {
+					const error = resolverResult.error ?? "Navigation blocked by resolver";
+					this.emit("error", navId, fullPath, "imperative", { error });
+					return {
+						success: false,
+						error
+					};
+				}
 			}
 			this.setCurrentMatches(matchResult);
-			if (replace) history.replaceState(data, "", fullPath);
-			else history.pushState(data, "", fullPath);
-			this._currentPath = fullPath;
+			this.rememberScrollPosition();
+			this.pushOrReplace(replace, data, fullPath);
+			this._currentPath = targetUrl;
+			this.publishRouteState(matchResult);
 			this._committedRoute.set(matchResult);
-			if (scrollToTop) {
-				const hash = fullPath.includes("#") ? fullPath.split("#")[1] : null;
-				if (hash) {
-					const element = document.getElementById(hash);
-					if (element) element.scrollIntoView();
-				} else window.scrollTo(0, 0);
-			}
+			if (hash) this.scrollToHash(hash.slice(1));
+			else if (scrollToTop) window.scrollTo(0, 0);
+			this.emit("end", navId, fullPath, "imperative", { result: matchResult });
 			return {
 				success: true,
 				url: fullPath
@@ -3131,7 +3836,7 @@ var RouterService = class RouterService$1 {
 			const result = fn.call(guard, context);
 			return result instanceof Promise ? await result : result;
 		} catch (error) {
-			console.error(`Guard error:`, error);
+			console.error(`[Melodic] ${method} guard for '${context.targetPath}' threw; treating as blocked:`, error);
 			return false;
 		}
 	}
@@ -3152,17 +3857,32 @@ var RouterService = class RouterService$1 {
 			const match = matchResult.matches[depth];
 			const resolvers = match.route.resolve;
 			if (!resolvers) continue;
-			const resolvedData = {};
 			const context = this.createResolverContext(match, matchResult);
-			for (const [key, resolver] of Object.entries(resolvers)) try {
-				resolvedData[key] = await this.executeResolver(resolver, context);
-			} catch (error) {
-				console.error(`Resolver '${key}' failed:`, error);
+			const entries = Object.entries(resolvers);
+			const settled = await Promise.all(entries.map(async ([key, resolver]) => {
+				try {
+					return {
+						key,
+						value: await this.executeResolver(resolver, context)
+					};
+				} catch (error) {
+					return {
+						key,
+						error
+					};
+				}
+			}));
+			const failure = settled.find((entry) => "error" in entry);
+			if (failure && "error" in failure) {
+				const error = failure.error;
+				console.error(`[Melodic] Resolver '${failure.key}' for '${match.fullPath}' failed:`, error);
 				return {
 					success: false,
-					error: `Resolver '${key}' failed: ${error instanceof Error ? error.message : String(error)}`
+					error: `Resolver '${failure.key}' failed: ${error instanceof Error ? error.message : String(error)}`
 				};
 			}
+			const resolvedData = {};
+			for (const entry of settled) resolvedData[entry.key] = entry.value;
 			collected.push({
 				depth,
 				data: resolvedData
@@ -3177,24 +3897,61 @@ var RouterService = class RouterService$1 {
 		return { success: true };
 	}
 	async handlePopState(event) {
-		const navId = ++this._navigationId;
-		const targetPath = `${window.location.pathname}${window.location.search}`;
-		const previousPath = this._currentPath;
-		const deactivateResult = await this.runDeactivationGuards(targetPath);
-		if (this._navigationId !== navId) return;
-		if (deactivateResult !== true) {
-			if (typeof deactivateResult === "string") await this.navigate(deactivateResult, {
-				replace: true,
-				skipGuards: true
-			});
-			else history.replaceState(event.state, "", previousPath);
+		if (this._ignorePopStates > 0) {
+			this._ignorePopStates--;
+			this._historyIndex = this.readHistoryIndex(event.state) ?? this._historyIndex;
 			return;
 		}
+		const targetPath = `${window.location.pathname}${window.location.search}`;
+		const previousPath = this._currentPath;
+		const previousIndex = this._historyIndex;
+		const targetIndex = this.readHistoryIndex(event.state);
+		this.rememberScrollPosition(previousIndex);
+		if (targetPath === previousPath && this._committedRoute() !== null) {
+			this._historyIndex = targetIndex ?? this._historyIndex;
+			if (window.location.hash) this.scrollToHash(window.location.hash.slice(1));
+			else this.restoreScrollPosition(this._historyIndex);
+			return;
+		}
+		const navId = ++this._navigationId;
+		this.emit("start", navId, targetPath, "popstate");
+		const revert = () => {
+			if (targetIndex !== null) {
+				this._ignorePopStates++;
+				history.go(previousIndex - targetIndex);
+			} else history.replaceState(event.state, "", previousPath);
+		};
+		const deactivateResult = await this.runDeactivationGuards(targetPath);
+		if (this._navigationId !== navId) {
+			this.emit("superseded", navId, targetPath, "popstate");
+			return;
+		}
+		if (deactivateResult !== true) {
+			if (typeof deactivateResult === "string") {
+				this.emit("redirect", navId, targetPath, "popstate", { redirectTo: deactivateResult });
+				await this.navigateInternal(deactivateResult, { replace: true }, {
+					chain: [targetPath],
+					skipDeactivation: true
+				});
+			} else {
+				this.emit("blocked", navId, targetPath, "popstate", { error: "Navigation blocked by guard" });
+				revert();
+			}
+			return;
+		}
+		this._historyIndex = targetIndex ?? this._historyIndex;
 		const resolved = await this.resolveMatch(window.location.pathname, () => this._navigationId === navId);
-		if (resolved.superseded || this._navigationId !== navId) return;
+		if (resolved.superseded || this._navigationId !== navId) {
+			this.emit("superseded", navId, targetPath, "popstate");
+			return;
+		}
 		const matchResult = resolved.result;
 		if (matchResult.redirectTo) {
-			await this.navigate(matchResult.redirectTo, { replace: true });
+			this.emit("redirect", navId, targetPath, "popstate", { redirectTo: matchResult.redirectTo });
+			await this.navigateInternal(matchResult.redirectTo, { replace: true }, {
+				chain: [targetPath],
+				skipDeactivation: true
+			});
 			return;
 		}
 		if (resolved.error) {
@@ -3204,21 +3961,34 @@ var RouterService = class RouterService$1 {
 				params: {},
 				isExactMatch: false
 			});
+			this.emit("error", navId, targetPath, "popstate", { error: resolved.error });
 			return;
 		}
 		if (matchResult.matches.length > 0) {
 			const guardResult = await this.runGuards(matchResult);
-			if (this._navigationId !== navId) return;
+			if (this._navigationId !== navId) {
+				this.emit("superseded", navId, targetPath, "popstate");
+				return;
+			}
 			if (guardResult !== true) {
-				if (typeof guardResult === "string") await this.navigate(guardResult, {
-					replace: true,
-					skipGuards: true
-				});
-				else history.replaceState(event.state, "", previousPath);
+				if (typeof guardResult === "string") {
+					this.emit("redirect", navId, targetPath, "popstate", { redirectTo: guardResult });
+					await this.navigateInternal(guardResult, { replace: true }, {
+						chain: [targetPath],
+						skipDeactivation: true
+					});
+				} else {
+					this.emit("blocked", navId, targetPath, "popstate", { error: "Navigation blocked by guard" });
+					this._historyIndex = previousIndex;
+					revert();
+				}
 				return;
 			}
 			const resolverResult = await this.runResolvers(matchResult, () => this._navigationId === navId);
-			if (this._navigationId !== navId) return;
+			if (this._navigationId !== navId) {
+				this.emit("superseded", navId, targetPath, "popstate");
+				return;
+			}
 			if (!resolverResult.success) {
 				this._currentPath = targetPath;
 				this.commit({
@@ -3226,13 +3996,75 @@ var RouterService = class RouterService$1 {
 					params: {},
 					isExactMatch: false
 				});
+				this.emit("error", navId, targetPath, "popstate", { error: resolverResult.error ?? "Navigation blocked by resolver" });
 				return;
 			}
 		}
 		this._currentPath = targetPath;
 		this.commit(matchResult);
+		if (window.location.hash) this.scrollToHash(window.location.hash.slice(1));
+		else this.restoreScrollPosition(this._historyIndex);
+		this.emit("end", navId, targetPath, "popstate", { result: matchResult });
 		const navigationEvent = new CustomEvent("NavigationEvent", { detail: routerStateEvent("push", event.state, "", window.location.pathname) });
 		window.dispatchEvent(navigationEvent);
+	}
+	pushOrReplace(replace, data, fullPath) {
+		const index = replace ? this._historyIndex : this._historyIndex + 1;
+		const state = this.stampHistoryIndex(data, index);
+		if (replace) history.replaceState(state, "", fullPath);
+		else {
+			history.pushState(state, "", fullPath);
+			for (const key of [...this._scrollPositions.keys()]) if (key >= index) this._scrollPositions.delete(key);
+		}
+		this._historyIndex = index;
+	}
+	stampHistoryIndex(data, index) {
+		if (data === null || data === void 0) return { [HISTORY_INDEX_KEY]: index };
+		if (typeof data === "object") return {
+			...data,
+			[HISTORY_INDEX_KEY]: index
+		};
+		return data;
+	}
+	readHistoryIndex(state) {
+		if (state && typeof state === "object") {
+			const value = state[HISTORY_INDEX_KEY];
+			if (typeof value === "number") return value;
+		}
+		return null;
+	}
+	rememberScrollPosition(index = this._historyIndex) {
+		if (!this._scrollRestoration) return;
+		this._scrollPositions.set(index, {
+			x: window.scrollX,
+			y: window.scrollY
+		});
+	}
+	restoreScrollPosition(index) {
+		if (!this._scrollRestoration) return;
+		const position = this._scrollPositions.get(index);
+		this.afterRender(() => window.scrollTo(position?.x ?? 0, position?.y ?? 0));
+	}
+	scrollToHash(id) {
+		if (!id) return;
+		this.afterRender(() => {
+			this.findDeep(document, id)?.scrollIntoView();
+		});
+	}
+	findDeep(root, id) {
+		const direct = typeof root.getElementById === "function" ? root.getElementById(id) : root.querySelector(`[id="${id.replace(/["\\]/g, "\\$&")}"]`);
+		if (direct) return direct;
+		for (const element of root.querySelectorAll("*")) if (element.shadowRoot) {
+			const found = this.findDeep(element.shadowRoot, id);
+			if (found) return found;
+		}
+		return null;
+	}
+	afterRender(fn) {
+		queueMicrotask(() => {
+			if (typeof requestAnimationFrame === "function") requestAnimationFrame(fn);
+			else fn();
+		});
 	}
 	async executeResolver(resolver, context) {
 		const result = resolver.resolve(context);
@@ -3371,10 +4203,11 @@ function findRouteByName(routes, name) {
 	}
 	return null;
 }
-function provideRouter(routes) {
+function provideRouter(routes, options = {}) {
 	return (injector) => {
 		installHistoryEvents();
 		const router = injector.get(RouterService);
+		if (options.scrollRestoration === false) router.enableScrollRestoration(false);
 		if (routes && routes.length > 0) router.setRoutes(routes);
 	};
 }
@@ -3428,21 +4261,60 @@ var ATTRIBUTE_MARKER_PREFIX = `__${MARKER}_`;
 var ATTRIBUTE_MARKER_REGEX = new RegExp(`${ATTRIBUTE_MARKER_PREFIX}(\\d+)__`, "g");
 var createAttributeMarker = (index) => `${ATTRIBUTE_MARKER_PREFIX}${index}__`;
 var templateCache = /* @__PURE__ */ new Map();
+function scanTagState(text, state) {
+	let { inTag, quote } = state;
+	for (let i = 0; i < text.length; i++) {
+		const char = text[i];
+		if (inTag) {
+			if (quote) {
+				if (char === quote) quote = null;
+				continue;
+			}
+			if (char === "\"" || char === "'") {
+				quote = char;
+				continue;
+			}
+			if (char === ">") inTag = false;
+			continue;
+		}
+		if (char !== "<") continue;
+		if (text.startsWith("<!--", i)) {
+			const end = text.indexOf("-->", i + 4);
+			if (end === -1) return {
+				inTag: false,
+				quote: null
+			};
+			i = end + 2;
+			continue;
+		}
+		if (text.startsWith("</", i)) {
+			const end = text.indexOf(">", i);
+			if (end === -1) return {
+				inTag: true,
+				quote: null
+			};
+			i = end;
+			continue;
+		}
+		if (/[a-zA-Z]/.test(text[i + 1] ?? "")) inTag = true;
+	}
+	return {
+		inTag,
+		quote
+	};
+}
 var warnedUnsafeProperties = /* @__PURE__ */ new Set();
 function warnUnsafePropertyBinding(name) {
 	if (warnedUnsafeProperties.has(name)) return;
-	if (typeof import.meta !== "undefined" && true) return;
+	if (!isDevMode()) return;
 	warnedUnsafeProperties.add(name);
-	console.warn(`[melodic] Property binding ".${name}" assigns raw HTML and is an XSS hazard if the value is not fully trusted. Prefer text interpolation, or unsafeHTML() with sanitized content.`);
-}
-function isDevMode() {
-	return !(typeof import.meta !== "undefined" && true);
+	console.warn(`[Melodic] Property binding ".${name}" assigns raw HTML and is an XSS hazard if the value is not fully trusted. Prefer text interpolation, or unsafeHTML() with sanitized content.`);
 }
 function warnUnkeyedArrayChurn(state, recreated, total) {
 	if (state.warnedChurn || recreated < 2 || total < 2) return;
 	if (!isDevMode()) return;
 	state.warnedChurn = true;
-	console.warn(`[melodic] An interpolated array rebuilt ${recreated} of ${total} items on one update. Unkeyed arrays are reused by index, so entries that change position lose their DOM nodes (and with them focus, scroll position, and in-flight clicks). Use repeat(items, keyFn, template) to track items by identity instead.`);
+	console.warn(`[Melodic] An interpolated array rebuilt ${recreated} of ${total} items on one update. Unkeyed arrays are reused by index, so entries that change position lose their DOM nodes (and with them focus, scroll position, and in-flight clicks). Use repeat(items, keyFn, template) to track items by identity instead.`);
 }
 var warnedPartiallyKeyedParts = /* @__PURE__ */ new WeakSet();
 function warnPartiallyKeyedArray(part, values) {
@@ -3451,7 +4323,7 @@ function warnPartiallyKeyedArray(part, values) {
 	for (const value of values) if (value && typeof value === "object" && value.__keyed === true) keyed++;
 	if (keyed === 0 || keyed === values.length) return;
 	warnedPartiallyKeyedParts.add(part);
-	console.warn(`[melodic] An interpolated array mixes keyed and unkeyed items (${keyed} of ${values.length} keyed). Keyed diffing requires every item to carry a key, so this array falls back to index-based reuse. Key every item, or none.`);
+	console.warn(`[Melodic] An interpolated array mixes keyed and unkeyed items (${keyed} of ${values.length} keyed). Keyed diffing requires every item to carry a key, so this array falls back to index-based reuse. Key every item, or none.`);
 }
 var ANY_MARKER_REGEX = /* @__PURE__ */ new RegExp(`${COMMENT_NODE_MARKER}|${ATTRIBUTE_MARKER_PREFIX}\\d+__|__(?:event|prop|action|bool)-\\d+__`);
 function describeSnippet(html$1, index) {
@@ -3461,13 +4333,13 @@ function describeSnippet(html$1, index) {
 	return `${start > 0 ? "…" : ""}${snippet}${end < html$1.length ? "…" : ""}`;
 }
 function warnUnsupportedBinding(position, html$1, index) {
-	console.warn(`[melodic] Template contains a binding in an unsupported position (${position}). The parser cannot track bindings here, so the value will not render or update. Offending template: ${describeSnippet(html$1, index)}`);
+	console.warn(`[Melodic] Template contains a binding in an unsupported position (${position}). The parser cannot track bindings here, so the value will not render or update. Offending template: ${describeSnippet(html$1, index)}`);
 }
 function warnUnsupportedBindingPositions(html$1) {
 	if (!isDevMode()) return false;
-	let warned$1 = false;
+	let warned$2 = false;
 	const report = (position, index) => {
-		warned$1 = true;
+		warned$2 = true;
 		warnUnsupportedBinding(position, html$1, index);
 	};
 	const rawTextRegex = /<(textarea|title)(?:\s[^>]*)?>([\s\S]*?)<\/\1\s*>/gi;
@@ -3488,7 +4360,7 @@ function warnUnsupportedBindingPositions(html$1) {
 		if (content.includes(MARKER) || /__(?:event|prop|action|bool)-\d+__/.test(content)) report("inside an HTML comment", open);
 		searchFrom = close === -1 ? html$1.length : close + 3;
 	}
-	return warned$1;
+	return warned$2;
 }
 function warnLeakedBindings(partPaths, expressionCount, html$1) {
 	if (!isDevMode()) return;
@@ -3499,7 +4371,7 @@ function warnLeakedBindings(partPaths, expressionCount, html$1) {
 	for (let index = 0; index < expressionCount; index++) if (!anchored.has(index)) lost.push(index);
 	if (lost.length === 0) return;
 	const markerIndex = html$1.indexOf(createAttributeMarker(lost[0]));
-	console.warn(`[melodic] Template part marker leaked: ${lost.length} binding${lost.length === 1 ? "" : "s"} (value index ${lost.join(", ")}) could not be anchored to the parsed template and will never render or update. The usual cause is an unbalanced quote in an attribute value, which swallows the markup that follows it. Offending template: ${describeSnippet(html$1, markerIndex === -1 ? 0 : markerIndex)}`);
+	console.warn(`[Melodic] Template part marker leaked: ${lost.length} binding${lost.length === 1 ? "" : "s"} (value index ${lost.join(", ")}) could not be anchored to the parsed template and will never render or update. The usual cause is an unbalanced quote in an attribute value, which swallows the markup that follows it. Offending template: ${describeSnippet(html$1, markerIndex === -1 ? 0 : markerIndex)}`);
 }
 function extractListenerOptions(value) {
 	const { capture, once, passive } = value;
@@ -3565,23 +4437,27 @@ var TemplateResult = class TemplateResult {
 		this.commit(target.__parts);
 	}
 	getTemplate(key) {
-		let cached = templateCache.get(key);
-		if (cached) {
+		let cached$1 = templateCache.get(key);
+		if (cached$1) {
 			templateCache.delete(key);
-			templateCache.set(key, cached);
-			return cached;
+			templateCache.set(key, cached$1);
+			return cached$1;
 		}
 		const parts = [];
 		let html$1 = this.strings[0];
 		const attrPreProcessor = this.getAttributePreProcessor(parts);
 		let activeAttributeName = null;
 		let activeAttributeQuote = null;
+		let tagState = scanTagState(html$1, {
+			inTag: false,
+			quote: null
+		});
 		for (let i = 1; i < this.strings.length; i++) {
-			const s = this.strings[i];
+			let s = this.strings[i];
 			const valueIndex = i - 1;
-			const match = /([@.:?]?[\w:-]+)\s*=\s*["']?$/.exec(html$1);
-			const doubleQuotedAttrMatch = /([@.:?]?[\w:-]+)\s*=\s*(")([^"]*)$/.exec(html$1);
-			const singleQuotedAttrMatch = /([@.:?]?[\w:-]+)\s*=\s*(')([^']*)$/.exec(html$1);
+			const match = tagState.inTag ? /([@.:?]?[\w:-]+)\s*=\s*["']?$/.exec(html$1) : null;
+			const doubleQuotedAttrMatch = tagState.inTag ? /([@.:?]?[\w:-]+)\s*=\s*(")([^"]*)$/.exec(html$1) : null;
+			const singleQuotedAttrMatch = tagState.inTag ? /([@.:?]?[\w:-]+)\s*=\s*(')([^']*)$/.exec(html$1) : null;
 			const quotedAttrMatch = doubleQuotedAttrMatch && singleQuotedAttrMatch ? doubleQuotedAttrMatch.index >= singleQuotedAttrMatch.index ? doubleQuotedAttrMatch : singleQuotedAttrMatch : doubleQuotedAttrMatch ?? singleQuotedAttrMatch;
 			let attrKey = "___";
 			if (activeAttributeName) html$1 += createAttributeMarker(valueIndex);
@@ -3603,10 +4479,15 @@ var TemplateResult = class TemplateResult {
 						activeAttributeName = match[1];
 						const quoteMatch = /(["'])$/.exec(match[0]);
 						activeAttributeQuote = quoteMatch ? quoteMatch[1] : null;
-					} else html$1 = attrPreProcessor[attrKey](valueIndex, html$1, match ? match[1] : void 0, match);
+					} else {
+						const consumedQuote = attrKey !== "___" && match ? /(["'])$/.exec(match[0])?.[1] ?? null : null;
+						html$1 = attrPreProcessor[attrKey](valueIndex, html$1, match ? match[1] : void 0, match);
+						if (consumedQuote && s.startsWith(consumedQuote)) s = s.slice(1);
+					}
 				}
 			}
 			html$1 += s;
+			tagState = scanTagState(s, tagState);
 			if (activeAttributeName) {
 				if (activeAttributeQuote) {
 					if (s.includes(activeAttributeQuote)) {
@@ -3729,7 +4610,7 @@ var TemplateResult = class TemplateResult {
 		};
 		walkTemplate(element.content, []);
 		if (!hasUnsupportedBinding) warnLeakedBindings(partPaths, this.strings.length - 1, html$1);
-		cached = {
+		cached$1 = {
 			element,
 			parts,
 			partPaths
@@ -3738,8 +4619,54 @@ var TemplateResult = class TemplateResult {
 			const oldestKey = templateCache.keys().next().value;
 			if (oldestKey) templateCache.delete(oldestKey);
 		}
-		templateCache.set(key, cached);
-		return cached;
+		templateCache.set(key, cached$1);
+		return cached$1;
+	}
+	commitCompositeAttribute(part, element) {
+		const name = part.name;
+		const strings = part.attributeStrings;
+		const indices = part.attributeIndices;
+		let composed = strings[0] ?? "";
+		const directiveSegments = [];
+		for (let i = 0; i < indices.length; i++) {
+			const segmentValue = this.values[indices[i]];
+			if (isDirective(segmentValue)) {
+				directiveSegments.push({
+					index: indices[i],
+					value: segmentValue
+				});
+				composed += strings[i + 1] ?? "";
+			} else composed += `${segmentValue ?? ""}${strings[i + 1] ?? ""}`;
+		}
+		if (part.segmentDirectiveStates) {
+			for (const [index, entry] of part.segmentDirectiveStates) if (!directiveSegments.some((segment) => segment.index === index)) {
+				disposeDirectiveState(entry.state);
+				part.segmentDirectiveStates.delete(index);
+			}
+		}
+		if (part.previousValue !== composed) {
+			if (composed === "" && directiveSegments.length === 0 && strings.every((segment) => segment === "")) element.removeAttribute(name);
+			else element.setAttribute(name, composed);
+			part.previousValue = composed;
+			if (part.segmentDirectiveStates) {
+				for (const entry of part.segmentDirectiveStates.values()) disposeDirectiveState(entry.state);
+				part.segmentDirectiveStates.clear();
+			}
+		}
+		if (directiveSegments.length === 0) return;
+		const states = part.segmentDirectiveStates ??= /* @__PURE__ */ new Map();
+		for (const segment of directiveSegments) {
+			const existing = states.get(segment.index);
+			if (existing && existing.type !== segment.value.type) {
+				disposeDirectiveState(existing.state);
+				states.delete(segment.index);
+			}
+			const state = segment.value.render(element, states.get(segment.index)?.state, name);
+			states.set(segment.index, {
+				state,
+				type: segment.value.type
+			});
+		}
 	}
 	getAttributePreProcessor(parts) {
 		return {
@@ -3893,7 +4820,7 @@ var TemplateResult = class TemplateResult {
 			part.renderedContainers = void 0;
 		}
 		if (part.arrayState) {
-			for (const item of part.arrayState.items.values()) disposeContainerParts(item.container);
+			for (const item of part.arrayState.items) disposeContainerParts(item.container);
 			part.arrayState = void 0;
 		}
 		if (part.positionalArrayState) {
@@ -3955,43 +4882,45 @@ var TemplateResult = class TemplateResult {
 		const keyedValues = this.getKeyedValues(values);
 		if (keyedValues) {
 			if (!part.arrayState) this.clearRenderedNodes(part);
-			const state = part.arrayState ?? {
-				items: /* @__PURE__ */ new Map(),
-				keys: []
-			};
-			const newItems = /* @__PURE__ */ new Map();
-			const newKeys = [];
+			const previousItems = part.arrayState?.items ?? [];
+			const available = /* @__PURE__ */ new Map();
+			for (const item of previousItems) {
+				const bucket = available.get(item.key);
+				if (bucket) bucket.push(item);
+				else available.set(item.key, [item]);
+			}
+			const seenKeys = /* @__PURE__ */ new Set();
+			const nextItems = [];
 			for (const item of keyedValues) {
-				const existing = state.items.get(item.key);
+				if (seenKeys.has(item.key)) devWarn("array-duplicate-key", `An interpolated keyed array contains a duplicate key (${String(item.key)}). Keys must be unique — entries sharing a key cannot be tracked apart across renders.`);
+				seenKeys.add(item.key);
+				const bucket = available.get(item.key);
+				const existing = bucket?.shift();
 				if (existing) {
+					if (bucket.length === 0) available.delete(item.key);
 					this.updateArrayItem(existing, item.value);
-					newItems.set(item.key, existing);
+					nextItems.push(existing);
 				} else {
 					const created = this.createArrayItem(item.value, parent, part.endMarker);
-					newItems.set(item.key, {
+					nextItems.push({
 						key: item.key,
 						...created
 					});
 				}
-				newKeys.push(item.key);
 			}
-			for (const [key, oldItem] of state.items.entries()) if (!newItems.has(key)) {
+			for (const bucket of available.values()) for (const oldItem of bucket) {
 				disposeContainerParts(oldItem.container);
 				removeRange(oldItem.start, oldItem.end);
 			}
 			let referenceNode = this.firstArrayNode(part);
-			for (const key of newKeys) {
-				const item = newItems.get(key);
+			for (const item of nextItems) {
 				if (item.start === referenceNode) {
 					referenceNode = item.end.nextSibling ?? part.endMarker;
 					continue;
 				}
 				moveRange(item.start, item.end, referenceNode);
 			}
-			part.arrayState = {
-				items: newItems,
-				keys: newKeys
-			};
+			part.arrayState = { items: nextItems };
 			return;
 		}
 		warnPartiallyKeyedArray(part, values);
@@ -4129,6 +5058,10 @@ var TemplateResult = class TemplateResult {
 				case "attribute":
 					if (part.node && part.name) {
 						const element = part.node;
+						if (isCompositeAttribute) {
+							this.commitCompositeAttribute(part, element);
+							continue;
+						}
 						if (!isDirective(value) && part.directiveState !== void 0) {
 							disposeDirectiveState(part.directiveState);
 							part.directiveState = void 0;
@@ -4139,21 +5072,8 @@ var TemplateResult = class TemplateResult {
 								disposeDirectiveState(part.directiveState);
 								part.directiveState = void 0;
 							}
-							part.directiveState = value.render(element, part.directiveState);
+							part.directiveState = value.render(element, part.directiveState, part.name);
 							part.directiveType = value.type;
-						} else if (isCompositeAttribute) {
-							const strings = part.attributeStrings;
-							const indices = part.attributeIndices;
-							let composed = strings[0] ?? "";
-							for (let i = 0; i < indices.length; i++) {
-								const segmentValue = this.values[indices[i]];
-								composed += `${segmentValue ?? ""}${strings[i + 1] ?? ""}`;
-							}
-							if (part.previousValue === composed) continue;
-							if (composed === "" && strings.every((segment) => segment === "")) element.removeAttribute(part.name);
-							else element.setAttribute(part.name, composed);
-							part.previousValue = composed;
-							continue;
 						} else if (typeof value === "boolean" && part.name.startsWith("aria-")) element.setAttribute(part.name, String(value));
 						else if (value === null || value === void 0 || value === false) element.removeAttribute(part.name);
 						else if (value === true) element.setAttribute(part.name, "");
@@ -4179,7 +5099,7 @@ var TemplateResult = class TemplateResult {
 								disposeDirectiveState(part.directiveState);
 								part.directiveState = void 0;
 							}
-							part.directiveState = value.render(part.node, part.directiveState);
+							part.directiveState = value.render(part.node, part.directiveState, part.name);
 							part.directiveType = value.type;
 						} else {
 							if (part.name === "innerHTML" || part.name === "outerHTML") warnUnsafePropertyBinding(part.name);
@@ -4225,6 +5145,7 @@ var RouterOutletComponent = class RouterOutletComponent$1 {
 		this._depth = 0;
 		this._context = null;
 		this._currentComponent = null;
+		this._currentSignature = null;
 		this._currentElement = null;
 		this._childOutlets = /* @__PURE__ */ new Map();
 		this._parentOutlet = null;
@@ -4266,6 +5187,7 @@ var RouterOutletComponent = class RouterOutletComponent$1 {
 	onPropertyChange(name, oldValue, newValue) {
 		if (name === "routes" && this._initialized) {
 			this._currentComponent = null;
+			this._currentSignature = null;
 			if (this._depth === 0) {
 				this._router.setRoutes(newValue ?? []);
 				this._router.initialNavigation();
@@ -4279,30 +5201,27 @@ var RouterOutletComponent = class RouterOutletComponent$1 {
 		return this._context;
 	}
 	findParentOutlet() {
-		let element = this.elementRef;
-		while (element) {
-			const root = element.getRootNode();
-			if (root instanceof ShadowRoot) {
-				element = root.host;
-				if (element.tagName.toLowerCase() !== "router-outlet") {
-					const parentOutlet = element.shadowRoot?.querySelector("router-outlet");
-					if (parentOutlet && parentOutlet !== this.elementRef) {
-						this._parentOutlet = parentOutlet.component;
-						this._depth = (this._parentOutlet?._depth ?? -1) + 1;
-						return;
-					}
-				}
-			} else {
-				const parentOutlet = element.closest?.("router-outlet");
-				if (parentOutlet && parentOutlet !== this.elementRef) {
-					this._parentOutlet = parentOutlet.component;
-					this._depth = (this._parentOutlet?._depth ?? -1) + 1;
-					return;
-				}
-				break;
+		let node = this.elementRef;
+		for (let hops = 0; hops < 64; hops++) {
+			const ancestor = node.parentElement?.closest?.("router-outlet");
+			if (ancestor && ancestor !== this.elementRef) {
+				this.adoptParentOutlet(ancestor);
+				return;
 			}
+			const root = node.getRootNode();
+			if (!(root instanceof ShadowRoot)) break;
+			const host = root.host;
+			if (host.tagName.toLowerCase() === "router-outlet" && host !== this.elementRef) {
+				this.adoptParentOutlet(host);
+				return;
+			}
+			node = host;
 		}
 		this._depth = 0;
+	}
+	adoptParentOutlet(element) {
+		this._parentOutlet = element.component ?? null;
+		this._depth = (this._parentOutlet?._depth ?? -1) + 1;
 	}
 	requestContextFromParent() {
 		const event = new CustomEvent(OUTLET_REGISTER_EVENT, {
@@ -4381,12 +5300,21 @@ var RouterOutletComponent = class RouterOutletComponent$1 {
 			await this.renderMatch(match);
 		} else await this.render404();
 	}
+	matchSignature(match) {
+		return `${match.fullPath}|${JSON.stringify(match.params)}`;
+	}
 	async renderMatch(match) {
 		const route = match.route;
+		const signature = this.matchSignature(match);
 		if (route.component === this._currentComponent) {
+			if (signature !== this._currentSignature) {
+				this._currentSignature = signature;
+				this.notifyRouteChange(match);
+			}
 			this.updateChildOutlets();
 			return;
 		}
+		this._currentSignature = signature;
 		const generation = ++this._renderGeneration;
 		if (route.loadComponent) {
 			try {
@@ -4399,14 +5327,33 @@ var RouterOutletComponent = class RouterOutletComponent$1 {
 			if (generation !== this._renderGeneration) return;
 		}
 		if (route.component) await this.renderComponent(route.component);
+		else {
+			this.clearCurrentElement();
+			this._currentComponent = null;
+			this.updateChildOutlets();
+		}
 	}
-	async renderComponent(componentTag) {
-		const shadowRoot = this.elementRef.shadowRoot;
-		if (!shadowRoot) return;
+	notifyRouteChange(match) {
+		const element = this._currentElement;
+		if (!element) return;
+		element.component?.onRouteChange?.({
+			params: { ...match.params },
+			queryParams: this._router.getQueryParams(),
+			resolvedData: this._router.getResolvedData(),
+			match
+		});
+		element.requestRender?.();
+	}
+	clearCurrentElement() {
 		if (this._currentElement) {
 			this._currentElement.remove();
 			this._currentElement = null;
 		}
+	}
+	async renderComponent(componentTag) {
+		const shadowRoot = this.elementRef.shadowRoot;
+		if (!shadowRoot) return;
+		this.clearCurrentElement();
 		this._currentComponent = componentTag;
 		const component = document.createElement(componentTag);
 		component.__parentOutlet = this;
@@ -4544,10 +5491,10 @@ var EffectsBase = class {
 	constructor() {
 		this._effects = [];
 	}
-	addEffect(actions, effect) {
+	addEffect(actions, effect$1) {
 		this._effects.push({
 			actions,
-			effect
+			effect: effect$1
 		});
 	}
 	getEffects() {
@@ -4566,10 +5513,10 @@ function getSelectorCacheKey(selectFn) {
 }
 function getComponentCachedSelect(consumer, fullKey, create) {
 	const cache = consumer.getSelectCache();
-	const cached = cache.get(fullKey);
-	if (cached) {
+	const cached$1 = cache.get(fullKey);
+	if (cached$1) {
 		consumer.touchSelectEntry?.(fullKey);
-		return cached;
+		return cached$1;
 	}
 	const sig = create();
 	cache.set(fullKey, sig);
@@ -4618,8 +5565,8 @@ var ComponentStateBaseService = class extends EffectsBase {
 		}));
 	}
 	executeEffects(action) {
-		this.getEffects().filter((effect) => effect.actions.some((a) => a().type === action.type)).forEach((effect) => {
-			effect.effect(action).then((newAction) => {
+		this.getEffects().filter((effect$1) => effect$1.actions.some((a) => a().type === action.type)).forEach((effect$1) => {
+			effect$1.effect(action).then((newAction) => {
 				if (newAction === void 0) return;
 				(Array.isArray(newAction) ? newAction : [newAction]).forEach((na) => this.dispatch(na));
 			}).catch((error) => {
@@ -4638,7 +5585,13 @@ var SignalStoreService = class SignalStoreService$1 {
 		return computed(() => selectFn(this._state[key]()));
 	}
 	logState() {
-		console.log(this.getCurrentState());
+		console.log(this.snapshot());
+	}
+	snapshot() {
+		return untracked(() => this.getCurrentState());
+	}
+	snapshotSlice(key) {
+		return untracked(() => this._state[key]());
 	}
 	dispatch(x, y) {
 		const key = typeof x === "string" ? x : void 0;
@@ -4648,15 +5601,26 @@ var SignalStoreService = class SignalStoreService$1 {
 			console.log(`Payload:`, action.payload);
 			console.log(`Current State:`, this.getCurrentState());
 		}
+		const before = devtoolsListening() ? this.snapshot() : void 0;
 		if (key) this.dispatchWithKey(key, action);
 		else this.dispatchWithoutKey(action);
+		emitDevtools("store:dispatch", () => ({
+			action: action.type,
+			payload: action.payload,
+			key,
+			before,
+			after: this.snapshot()
+		}));
 	}
 	dispatchWithKey(key, action) {
 		if (!this._reducerMap[key]) throw new Error(`Reducer not found for key: ${key}`);
-		const reducer = this._reducerMap[key].reducers.find((reducer$1) => reducer$1.action.type === action.type);
-		if (reducer !== void 0) {
-			const newState = reducer.reducer(this._state[key](), action);
-			this._state[key].set(newState);
+		const matching = this._reducerMap[key].reducers.filter((reducer) => reducer.action.type === action.type);
+		if (matching.length > 0) {
+			batch(() => {
+				let sliceState = this._state[key]();
+				for (const reducer of matching) sliceState = reducer.reducer(sliceState, action);
+				this._state[key].set(sliceState);
+			});
 			if (this._debug) console.log(`New State:`, this.getCurrentState());
 		}
 		const actionEffects = this.getEffectsForActionType(action.type).filter((entry) => entry.key === key).map((entry) => entry.effect);
@@ -4677,8 +5641,8 @@ var SignalStoreService = class SignalStoreService$1 {
 		this.runEffects(actionEffects, action);
 	}
 	runEffects(actionEffects, action) {
-		actionEffects.forEach((effect) => {
-			effect.effect(action).then((newAction) => {
+		actionEffects.forEach((effect$1) => {
+			effect$1.effect(action).then((newAction) => {
 				if (newAction === void 0) return;
 				(Array.isArray(newAction) ? newAction : [newAction]).forEach((na) => {
 					this.dispatch(na);
@@ -4714,16 +5678,16 @@ var SignalStoreService = class SignalStoreService$1 {
 				const effectClass = this._effectMap[key];
 				if (!effectClass) continue;
 				const effectService = Injector.get(effectClass);
-				for (const effect of effectService.getEffects()) for (const actionRef of effect.actions) {
+				for (const effect$1 of effectService.getEffects()) for (const actionRef of effect$1.actions) {
 					const type = actionRef().type;
 					let entries = index.get(type);
 					if (!entries) {
 						entries = [];
 						index.set(type, entries);
 					}
-					if (!entries.some((entry) => entry.key === key && entry.effect === effect)) entries.push({
+					if (!entries.some((entry) => entry.key === key && entry.effect === effect$1)) entries.push({
 						key,
-						effect
+						effect: effect$1
 					});
 				}
 			}
@@ -4773,14 +5737,12 @@ function repeat(items, keyFn, template) {
 			parent.replaceChild(startMarker, container);
 			parent.insertBefore(endMarker, startMarker.nextSibling);
 			const state = {
-				keyToIndex: /* @__PURE__ */ new Map(),
 				items: [],
 				startMarker,
 				endMarker,
 				__dispose: () => {
 					for (const item of state.items) disposeContainerParts(item.container);
 					state.items = [];
-					state.keyToIndex.clear();
 				}
 			};
 			updateList$1(items, keyFn, template, state);
@@ -4794,18 +5756,24 @@ function updateList$1(newItems, keyFn, template, state) {
 	const oldItems = state.items;
 	const newKeyToIndex = /* @__PURE__ */ new Map();
 	const newEntries = [];
+	const newKeys = new Array(newItems.length);
+	let duplicateKey;
+	let hasDuplicate = false;
 	for (let i = 0; i < newItems.length; i++) {
 		const key = keyFn(newItems[i], i);
+		newKeys[i] = key;
+		if (!hasDuplicate && newKeyToIndex.has(key)) {
+			hasDuplicate = true;
+			duplicateKey = key;
+		}
 		newKeyToIndex.set(key, i);
 	}
+	if (hasDuplicate) devWarn("repeat-duplicate-key", `repeat() received a duplicate key (${String(duplicateKey)}). Keys must be unique — with a repeated key one item shadows the other, leaving orphaned DOM behind on every update. Use a key that is unique per item (an id, not an index into a filtered list).`);
 	if (oldItems.length === newItems.length) {
 		let allKeysMatch = true;
-		for (let i = 0; i < newItems.length; i++) {
-			const key = keyFn(newItems[i], i);
-			if (i >= oldItems.length || oldItems[i].key !== key) {
-				allKeysMatch = false;
-				break;
-			}
+		for (let i = 0; i < newItems.length; i++) if (oldItems[i].key !== newKeys[i]) {
+			allKeysMatch = false;
+			break;
 		}
 		if (allKeysMatch) {
 			for (let i = 0; i < newItems.length; i++) renderDetachedItem(template(newItems[i], i), oldItems[i].container, oldItems[i].start, oldItems[i].end);
@@ -4814,16 +5782,22 @@ function updateList$1(newItems, keyFn, template, state) {
 	}
 	const oldItemsByKey = /* @__PURE__ */ new Map();
 	const oldIndexByKey = /* @__PURE__ */ new Map();
-	for (const oldItem of oldItems) {
-		oldItemsByKey.set(oldItem.key, oldItem);
-		oldIndexByKey.set(oldItem.key, oldIndexByKey.size);
+	for (let i = 0; i < oldItems.length; i++) {
+		const oldItem = oldItems[i];
+		const bucket = oldItemsByKey.get(oldItem.key);
+		if (bucket) bucket.push(oldItem);
+		else {
+			oldItemsByKey.set(oldItem.key, [oldItem]);
+			oldIndexByKey.set(oldItem.key, i);
+		}
 	}
 	for (let i = 0; i < newItems.length; i++) {
 		const item = newItems[i];
-		const key = keyFn(item, i);
-		if (oldItemsByKey.has(key)) {
-			const oldItem = oldItemsByKey.get(key);
-			oldItemsByKey.delete(key);
+		const key = newKeys[i];
+		const bucket = oldItemsByKey.get(key);
+		if (bucket && bucket.length > 0) {
+			const oldItem = bucket.shift();
+			if (bucket.length === 0) oldItemsByKey.delete(key);
 			renderDetachedItem(template(item, i), oldItem.container, oldItem.start, oldItem.end);
 			newEntries.push({
 				item: oldItem,
@@ -4839,9 +5813,8 @@ function updateList$1(newItems, keyFn, template, state) {
 			});
 		}
 	}
-	for (const oldItem of oldItemsByKey.values()) removeItemRange(oldItem);
+	for (const bucket of oldItemsByKey.values()) for (const oldItem of bucket) removeItemRange(oldItem);
 	if (newEntries.length === 0) {
-		state.keyToIndex = newKeyToIndex;
 		state.items = [];
 		return;
 	}
@@ -4854,7 +5827,6 @@ function updateList$1(newItems, keyFn, template, state) {
 		else if (!lisPositions.has(i)) moveItemRange(entry.item, nextSibling);
 		nextSibling = entry.item.start;
 	}
-	state.keyToIndex = newKeyToIndex;
 	state.items = newEntries.map((entry) => entry.item);
 }
 function createRepeatItem(item, index, key, template) {
@@ -5133,6 +6105,15 @@ function classMap(classes) {
 		}
 		return currentClasses;
 	}, "classMap");
+}
+function live(value) {
+	return directive((container, previousState, name) => {
+		const element = container;
+		const property = name ?? "value";
+		const current = element[property];
+		if (Object.is(current, value) || typeof current === "string" && String(value ?? "") === current) return;
+		element[property] = value;
+	}, "live");
 }
 function styleMap(styles) {
 	return directive((container, previousStyles) => {
@@ -5676,18 +6657,25 @@ const baseThemeCss = `:root {
 	/* Default to light color scheme */
 	color-scheme: light;
 }`;
-var currentTheme = "system";
+var currentTheme = null;
 var themeListeners = /* @__PURE__ */ new Set();
 var mediaQueryCleanup = null;
+function readDocumentTheme() {
+	if (typeof document === "undefined") return "system";
+	const attribute = document.documentElement.getAttribute("data-theme");
+	return attribute === "light" || attribute === "dark" ? attribute : "system";
+}
 function getTheme() {
+	currentTheme ??= readDocumentTheme();
 	return currentTheme;
 }
 function getResolvedTheme() {
-	if (currentTheme === "system") {
+	const theme = getTheme();
+	if (theme === "system") {
 		if (typeof window === "undefined" || !window.matchMedia) return "light";
 		return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
 	}
-	return currentTheme;
+	return theme;
 }
 function applyTheme(theme) {
 	if (mediaQueryCleanup) {
@@ -6372,6 +7360,50 @@ function createLiveRegion(options = {}) {
 	applyVisuallyHiddenStyles(region);
 	return region;
 }
+function supportsAriaElementReferences() {
+	return typeof Element !== "undefined" && "ariaDescribedByElements" in Element.prototype;
+}
+function setCrossRootDescription(target, describers) {
+	const reflected = target;
+	if ("ariaDescribedByElements" in reflected) {
+		reflected.ariaDescribedByElements = describers.length > 0 ? describers : null;
+		target.removeAttribute("aria-description");
+		return;
+	}
+	const text = describers.map((element) => element.textContent?.trim() ?? "").filter(Boolean).join(". ");
+	if (text) target.setAttribute("aria-description", text);
+	else target.removeAttribute("aria-description");
+}
+function setCrossRootLabel(target, labels) {
+	const reflected = target;
+	if ("ariaLabelledByElements" in reflected) {
+		reflected.ariaLabelledByElements = labels.length > 0 ? labels : null;
+		return;
+	}
+	const text = labels.map((element) => element.textContent?.trim() ?? "").filter(Boolean).join(" ");
+	if (text) target.setAttribute("aria-label", text);
+	else target.removeAttribute("aria-label");
+}
+function setCrossRootActiveDescendant(target, active) {
+	const reflected = target;
+	if ("ariaActiveDescendantElement" in reflected) {
+		reflected.ariaActiveDescendantElement = active;
+		return;
+	}
+	if (active?.id) target.setAttribute("aria-activedescendant", active.id);
+	else target.removeAttribute("aria-activedescendant");
+}
+function getFocusableControl(element) {
+	const root = element.shadowRoot;
+	if (root) {
+		const control = root.querySelector("button, [role=\"button\"], a[href], input, select, textarea, [tabindex]:not([tabindex=\"-1\"])");
+		if (control) return control;
+	}
+	return element;
+}
+function clearCrossRootDescription(target) {
+	setCrossRootDescription(target, []);
+}
 const resetStyles = `
 	*,
 	*::before,
@@ -6802,8 +7834,11 @@ var TooltipComponent = class TooltipComponent$1 {
 			this.dismiss();
 		};
 		this.syncTriggerAria = () => {
-			const trigger = ((this.elementRef.shadowRoot?.querySelector(".ml-tooltip__trigger slot"))?.assignedElements() ?? [])[0];
-			if (trigger && !trigger.hasAttribute("aria-describedby")) trigger.setAttribute("aria-describedby", this.tooltipID);
+			const root = this.elementRef.shadowRoot;
+			const trigger = ((root?.querySelector(".ml-tooltip__trigger slot"))?.assignedElements() ?? [])[0];
+			const content = root?.querySelector(".ml-tooltip__content");
+			if (!trigger || trigger.hasAttribute("aria-describedby")) return;
+			setCrossRootDescription(trigger, content ? [content] : []);
 		};
 	}
 	onCreate() {
@@ -6881,9 +7916,9 @@ function createState$1(element) {
 		show,
 		hide
 	};
-	const contentID = component?.tooltipID;
-	if (contentID && !element.hasAttribute("aria-describedby")) {
-		element.setAttribute("aria-describedby", contentID);
+	const content = tooltip.shadowRoot?.querySelector(".ml-tooltip__content");
+	if (content && !element.hasAttribute("aria-describedby")) {
+		setCrossRootDescription(element, [content]);
 		state.ownsDescribedBy = true;
 	}
 	return state;
@@ -6893,7 +7928,10 @@ function destroyState(element, state) {
 	element.removeEventListener("mouseleave", state.hide);
 	element.removeEventListener("focusin", state.show);
 	element.removeEventListener("focusout", state.hide);
-	if (state.ownsDescribedBy) element.removeAttribute("aria-describedby");
+	if (state.ownsDescribedBy) {
+		clearCrossRootDescription(element);
+		element.removeAttribute("aria-describedby");
+	}
 	state.tooltip.anchorEl = null;
 	state.tooltip.remove();
 	if (tooltipStates.get(element) === state) tooltipStates.delete(element);
@@ -7547,12 +8585,15 @@ var ButtonGroupComponent = class ButtonGroupComponent$1 {
 		this.elementRef.addEventListener("ml:item-click", this._handleItemClick);
 		this.syncItems();
 	}
+	onRender() {
+		this.syncItems();
+	}
 	onDestroy() {
 		this.elementRef.removeEventListener("ml:item-click", this._handleItemClick);
 	}
 	syncItems() {
 		this.elementRef.querySelectorAll("ml-button-group-item").forEach((item) => {
-			const itemValue = item.getAttribute("value") ?? "";
+			const itemValue = item.value ?? item.getAttribute("value") ?? "";
 			const isActive = this.multiple ? this.values.includes(itemValue) : itemValue === this.value;
 			item.toggleAttribute("active", isActive);
 			item.toggleAttribute("group-disabled", this.disabled);
@@ -7761,6 +8802,15 @@ function inputTemplate(c) {
 					?readonly=${c.readonly}
 					?required=${c.required}
 					autocomplete="${c.autocomplete}"
+					name="${c.name}"
+					maxlength=${c.maxlength ?? ""}
+					minlength=${c.minlength ?? ""}
+					min="${c.min}"
+					max="${c.max}"
+					step="${c.step}"
+					pattern="${c.pattern}"
+					inputmode="${c.inputmode}"
+					aria-label=${c.label ? "" : c.fieldLabel}
 					aria-invalid=${c.error ? "true" : "false"}
 					aria-describedby=${c.error ? "error" : c.hint ? "hint" : ""}
 					@input=${c.handleInput}
@@ -7983,6 +9033,14 @@ var InputComponent = class InputComponent$1 {
 		this.required = false;
 		this.autocomplete = "off";
 		this.focused = false;
+		this.name = "";
+		this.maxlength = null;
+		this.minlength = null;
+		this.min = "";
+		this.max = "";
+		this.step = "";
+		this.pattern = "";
+		this.inputmode = "";
 		this.handleInput = (event) => {
 			this.value = event.target.value;
 			this.elementRef.dispatchEvent(new CustomEvent("ml:input", {
@@ -8014,8 +9072,8 @@ var InputComponent = class InputComponent$1 {
 			}));
 		};
 	}
-	onInit() {
-		if (!this.label && this.placeholder) this.elementRef.setAttribute("aria-label", this.placeholder);
+	get fieldLabel() {
+		return this.label || this.elementRef?.getAttribute("aria-label") || this.placeholder || "";
 	}
 };
 InputComponent = __decorate([MelodicComponent({
@@ -8033,7 +9091,15 @@ InputComponent = __decorate([MelodicComponent({
 		"disabled",
 		"readonly",
 		"required",
-		"autocomplete"
+		"autocomplete",
+		"name",
+		"maxlength",
+		"minlength",
+		"min",
+		"max",
+		"step",
+		"pattern",
+		"inputmode"
 	]
 })], InputComponent);
 function textareaTemplate(c) {
@@ -8066,6 +9132,8 @@ function textareaTemplate(c) {
 				?readonly=${c.readonly}
 				?required=${c.required}
 				maxlength="${c.maxLength || ""}"
+				name="${c.name}"
+				aria-label=${c.label ? "" : c.fieldLabel}
 				aria-invalid=${c.error ? "true" : "false"}
 				aria-describedby=${c.error ? "error" : c.hint ? "hint" : ""}
 				@input=${c.handleInput}
@@ -8271,6 +9339,7 @@ var TextareaComponent = class TextareaComponent$1 {
 		this.required = false;
 		this.resize = false;
 		this.focused = false;
+		this.name = "";
 		this.handleInput = (event) => {
 			this.value = event.target.value;
 			this.elementRef.dispatchEvent(new CustomEvent("ml:input", {
@@ -8302,8 +9371,8 @@ var TextareaComponent = class TextareaComponent$1 {
 			}));
 		};
 	}
-	onInit() {
-		if (!this.label && this.placeholder) this.elementRef.setAttribute("aria-label", this.placeholder);
+	get fieldLabel() {
+		return this.label || this.elementRef?.getAttribute("aria-label") || this.placeholder || "";
 	}
 };
 TextareaComponent = __decorate([MelodicComponent({
@@ -8322,7 +9391,8 @@ TextareaComponent = __decorate([MelodicComponent({
 		"disabled",
 		"readonly",
 		"required",
-		"resize"
+		"resize",
+		"name"
 	]
 })], TextareaComponent);
 function checkboxTemplate(c) {
@@ -9141,6 +10211,26 @@ var RadioCardGroupComponent = class RadioCardGroupComponent$1 {
 		this.orientation = "vertical";
 		this.disabled = false;
 		this.required = false;
+		this._handleKeyDown = (event) => {
+			if (![
+				"ArrowDown",
+				"ArrowRight",
+				"ArrowUp",
+				"ArrowLeft"
+			].includes(event.key)) return;
+			const cards = [...this.elementRef.querySelectorAll("ml-radio-card")].filter((card) => !card.hasAttribute("disabled") && !card.hasAttribute("group-disabled"));
+			if (cards.length === 0) return;
+			const next = cards[(Math.max(0, cards.findIndex((card) => (card.getAttribute("value") ?? "") === this.value)) + (event.key === "ArrowDown" || event.key === "ArrowRight" ? 1 : -1) + cards.length) % cards.length];
+			event.preventDefault();
+			this.value = next.getAttribute("value") ?? "";
+			this.syncCards();
+			next.focus();
+			this.elementRef.dispatchEvent(new CustomEvent("ml:change", {
+				bubbles: true,
+				composed: true,
+				detail: { value: this.value }
+			}));
+		};
 		this.handleSlotChange = () => {
 			this.syncCards();
 		};
@@ -9157,6 +10247,7 @@ var RadioCardGroupComponent = class RadioCardGroupComponent$1 {
 	}
 	onCreate() {
 		this.elementRef.addEventListener("ml:card-select", this._handleCardSelect);
+		this.elementRef.addEventListener("keydown", this._handleKeyDown);
 		this.elementRef.shadowRoot?.querySelector("slot")?.addEventListener("slotchange", this.handleSlotChange);
 	}
 	onRender() {
@@ -9164,6 +10255,7 @@ var RadioCardGroupComponent = class RadioCardGroupComponent$1 {
 	}
 	onDestroy() {
 		this.elementRef.removeEventListener("ml:card-select", this._handleCardSelect);
+		this.elementRef.removeEventListener("keydown", this._handleKeyDown);
 	}
 	syncCards() {
 		const cards = this.elementRef.querySelectorAll("ml-radio-card");
@@ -9173,10 +10265,13 @@ var RadioCardGroupComponent = class RadioCardGroupComponent$1 {
 				break;
 			}
 		}
+		const enabled = [...cards].filter((card) => !card.hasAttribute("disabled"));
+		const tabStopCard = enabled.find((card) => (card.getAttribute("value") ?? "") === this.value) ?? enabled[0];
 		cards.forEach((card) => {
 			const isSelected = (card.getAttribute("value") ?? "") === this.value;
 			card.toggleAttribute("selected", isSelected);
 			card.toggleAttribute("group-disabled", this.disabled);
+			card.toggleAttribute("tab-stop", card === tabStopCard);
 		});
 	}
 };
@@ -9205,7 +10300,7 @@ function radioCardTemplate(c) {
 			role="radio"
 			aria-checked=${c.selected ? "true" : "false"}
 			aria-disabled=${c.isDisabled ? "true" : "false"}
-			tabindex=${c.isDisabled ? "-1" : "0"}
+			tabindex=${c.isDisabled || !c.tabStop ? "-1" : "0"}
 			@click=${c.handleClick}
 			@keydown=${(e) => {
 		if (e.key === " " || e.key === "Enter") {
@@ -9445,6 +10540,7 @@ var RadioCardComponent = class RadioCardComponent$1 {
 		this.selected = false;
 		this.disabled = false;
 		this.groupDisabled = false;
+		this.tabStop = false;
 		this.handleClick = () => {
 			if (this.isDisabled) return;
 			this.elementRef.dispatchEvent(new CustomEvent("ml:card-select", {
@@ -9470,7 +10566,8 @@ RadioCardComponent = __decorate([MelodicComponent({
 		"icon",
 		"selected",
 		"disabled",
-		"group-disabled"
+		"group-disabled",
+		"tab-stop"
 	]
 })], RadioCardComponent);
 function toggleTemplate(c) {
@@ -10501,6 +11598,7 @@ var SelectComponent = class SelectComponent$1 {
 				} else this.toggle();
 				break;
 			case "Escape":
+				if (!this.isOpen) return;
 				event.preventDefault();
 				this.close();
 				break;
@@ -10970,7 +12068,7 @@ function formFieldTemplate(c) {
 	})}
 		>
 			${when(!!c.label, () => html`
-					<label class="ml-form-field__label" for=${c.fieldId}>
+					<label class="ml-form-field__label" @click=${c.handleLabelClick}>
 						${c.label}
 						${when(c.required, () => html`<span class="ml-form-field__required">*</span>`)}
 					</label>
@@ -11218,6 +12316,10 @@ var FormFieldComponent = class FormFieldComponent$1 {
 		};
 		this._control = null;
 		this._controlResolved = false;
+		this.handleLabelClick = (event) => {
+			event.preventDefault();
+			this._control?.focus();
+		};
 	}
 	get fieldId() {
 		return this._fieldId;
@@ -11251,10 +12353,23 @@ var FormFieldComponent = class FormFieldComponent$1 {
 		const control = this._control;
 		if (!control) return;
 		if (!control.id) control.id = this.fieldId;
-		this.syncAttribute(control, "aria-describedby", this.describedBy || null);
+		this.syncDescription(control);
 		this.syncAttribute(control, "aria-invalid", this.error ? "true" : null);
 		this.syncAttribute(control, "aria-required", this.required ? "true" : null);
-		if (this.disabled && "disabled" in control) control.disabled = true;
+		if ("disabled" in control) control.disabled = this.disabled;
+		else this.syncAttribute(control, "aria-disabled", this.disabled ? "true" : null);
+	}
+	syncDescription(control) {
+		const root = this.elementRef.shadowRoot;
+		const describers = [this.error ? root?.getElementById(this.errorId) : null, this.hint ? root?.getElementById(this.hintId) : null].filter((element) => element !== null && element !== void 0);
+		const reflected = control;
+		if ("ariaDescribedByElements" in reflected) {
+			reflected.ariaDescribedByElements = describers.length > 0 ? describers : null;
+			this.syncAttribute(control, "aria-description", null);
+			return;
+		}
+		const description = describers.map((element) => element.textContent?.trim() ?? "").filter(Boolean).join(". ");
+		this.syncAttribute(control, "aria-description", description || null);
 	}
 	syncAttribute(el, name, value) {
 		if (value === null) el.removeAttribute(name);
@@ -11308,7 +12423,8 @@ function dayGrid(c) {
 		"ml-calendar__day--disabled": day.isDisabled
 	})}
 					?disabled=${day.isDisabled || !day.isCurrentMonth}
-					tabindex=${day.isCurrentMonth ? "0" : "-1"}
+					data-key=${day.iso}
+					tabindex=${day.iso === c.dayTabStop ? "0" : "-1"}
 					aria-selected=${day.isSelected ? "true" : "false"}
 					aria-label=${day.iso}
 					@click=${() => c.selectDay(day)}
@@ -11333,7 +12449,8 @@ function monthGrid(c) {
 		"ml-calendar__cell--disabled": m.isDisabled
 	})}
 					?disabled=${m.isDisabled}
-					tabindex="0"
+					data-key=${String(m.index)}
+					tabindex=${m.index === c.monthTabStop ? "0" : "-1"}
 					aria-selected=${m.isSelected ? "true" : "false"}
 					aria-label=${m.label}
 					@click=${() => c.selectViewMonth(m)}
@@ -11357,7 +12474,8 @@ function yearGrid(c) {
 		"ml-calendar__cell--disabled": y.isDisabled
 	})}
 					?disabled=${y.isDisabled}
-					tabindex=${y.isDisabled ? "-1" : "0"}
+					data-key=${String(y.year)}
+					tabindex=${y.year === c.yearTabStop ? "0" : "-1"}
 					aria-selected=${y.isSelected ? "true" : "false"}
 					aria-label=${String(y.year)}
 					@click=${() => c.selectViewYear(y)}
@@ -11942,6 +13060,7 @@ var CalendarComponent = class CalendarComponent$1 {
 				}));
 			}
 		};
+		this.rovingKey = "";
 		this.handleGridKeyDown = (event) => {
 			const key = event.key;
 			if (key !== "ArrowLeft" && key !== "ArrowRight" && key !== "ArrowUp" && key !== "ArrowDown" && key !== "Home" && key !== "End") return;
@@ -11949,7 +13068,7 @@ var CalendarComponent = class CalendarComponent$1 {
 			if (!target || target.tagName !== "BUTTON") return;
 			const grid = target.closest(".ml-calendar__grid, .ml-calendar__cell-grid");
 			if (!grid) return;
-			const cells = Array.from(grid.querySelectorAll("button:not([disabled])")).filter((el) => el.tabIndex !== -1);
+			const cells = Array.from(grid.querySelectorAll("button:not([disabled])"));
 			if (cells.length === 0) return;
 			const idx = cells.indexOf(target);
 			if (idx === -1) return;
@@ -11980,7 +13099,9 @@ var CalendarComponent = class CalendarComponent$1 {
 				return;
 			}
 			event.preventDefault();
-			cells[nextIdx].focus();
+			const next = cells[nextIdx];
+			this.rovingKey = next.dataset.key ?? "";
+			next.focus();
 		};
 	}
 	onInit() {
@@ -12117,6 +13238,26 @@ var CalendarComponent = class CalendarComponent$1 {
 	}
 	get canPageYearsForward() {
 		return this.yearPageStart + YEARS_PER_PAGE - 1 < this.resolvedMaxYear;
+	}
+	get dayTabStop() {
+		const candidates = this.days.filter((day) => day.isCurrentMonth && !day.isDisabled);
+		if (candidates.length === 0) return "";
+		if (this.rovingKey && candidates.some((day) => day.iso === this.rovingKey)) return this.rovingKey;
+		return (candidates.find((day) => day.isSelected) ?? candidates.find((day) => day.isToday) ?? candidates[0]).iso;
+	}
+	get monthTabStop() {
+		const candidates = this.months.filter((month) => !month.isDisabled);
+		if (candidates.length === 0) return -1;
+		const roving = Number.parseInt(this.rovingKey, 10);
+		if (!Number.isNaN(roving) && candidates.some((month) => month.index === roving)) return roving;
+		return (candidates.find((month) => month.isSelected) ?? candidates.find((month) => month.isCurrent) ?? candidates[0]).index;
+	}
+	get yearTabStop() {
+		const candidates = this.years.filter((year) => !year.isDisabled);
+		if (candidates.length === 0) return -1;
+		const roving = Number.parseInt(this.rovingKey, 10);
+		if (!Number.isNaN(roving) && candidates.some((year) => year.year === roving)) return roving;
+		return (candidates.find((year) => year.isSelected) ?? candidates.find((year) => year.isCurrent) ?? candidates[0]).year;
 	}
 	computeYearPageStart(year) {
 		const minY = this.resolvedMinYear;
@@ -13083,6 +14224,12 @@ var ToastComponent = class ToastComponent$1 {
 	}
 	onCreate() {
 		if (this.duration > 0) this._timer = setTimeout(() => this.dismiss(), this.duration);
+	}
+	onDestroy() {
+		if (this._timer) {
+			clearTimeout(this._timer);
+			this._timer = null;
+		}
 	}
 };
 ToastComponent = __decorate([MelodicComponent({
@@ -15792,7 +16939,10 @@ function tableTemplate(c) {
 		[`ml-table__th--${col.align ?? "left"}`]: true
 	})}
 									style=${col.width ? `width: ${col.width}` : ""}
+									tabindex=${col.sortable ? "0" : ""}
+									role=${col.sortable ? "columnheader button" : ""}
 									@click=${() => c.handleSort(col)}
+									@keydown=${(e) => c.handleHeaderKeyDown(col, e)}
 									aria-sort=${c.sortKey === col.key ? c.sortDirection === "asc" ? "ascending" : "descending" : "none"}
 								>
 									<span class="ml-table__th-content">
@@ -16205,6 +17355,11 @@ var TableComponent = class TableComponent$1 {
 		this.isRowSelected = (index) => {
 			return this._core.isRowSelected(index);
 		};
+		this.handleHeaderKeyDown = (column, event) => {
+			if (!column.sortable || event.key !== "Enter" && event.key !== " ") return;
+			event.preventDefault();
+			this.handleSort(column);
+		};
 		this.handleSort = (column) => {
 			this._core.handleSortClick(column);
 		};
@@ -16347,6 +17502,9 @@ function dataGridTemplate(c) {
 								@dragend=${c.handleDragEnd}
 								@drop=${() => c.handleDrop(col.key)}
 								@click=${() => c.handleSort(col)}
+								@keydown=${(e) => c.handleHeaderKeyDown(col, e)}
+								tabindex=${col.sortable || col.reorderable !== false ? "0" : ""}
+								role="columnheader"
 								aria-sort=${c.sortKey === col.key ? c.sortDirection === "asc" ? "ascending" : "descending" : "none"}
 							>
 								<span class="ml-data-grid__th-content">
@@ -17133,6 +18291,32 @@ var DataGridComponent = class DataGridComponent$1 {
 			}));
 			this.resizingKey = null;
 		};
+		this.handleHeaderKeyDown = (col, event) => {
+			if ((event.ctrlKey || event.metaKey) && (event.key === "ArrowLeft" || event.key === "ArrowRight")) {
+				if (col.reorderable === false) return;
+				event.preventDefault();
+				this.moveColumn(col.key, event.key === "ArrowLeft" ? -1 : 1);
+				return;
+			}
+			if (col.sortable && (event.key === "Enter" || event.key === " ")) {
+				event.preventDefault();
+				this.handleSort(col);
+			}
+		};
+		this.moveColumn = (key, delta) => {
+			const order = [...this.colOrder.length ? this.colOrder : this.columns.map((col) => col.key)];
+			const from = order.indexOf(key);
+			const to = from + delta;
+			if (from === -1 || to < 0 || to >= order.length) return;
+			order.splice(from, 1);
+			order.splice(to, 0, key);
+			this.colOrder = order;
+			this.elementRef.dispatchEvent(new CustomEvent("ml:column-reorder", {
+				bubbles: true,
+				composed: true,
+				detail: { order: this.colOrder }
+			}));
+		};
 		this.handleDragStart = (key, e) => {
 			this.draggingKey = key;
 			if (e.dataTransfer) e.dataTransfer.effectAllowed = "move";
@@ -17738,7 +18922,16 @@ function renderEventPill(c, event) {
 		"ml-cv__event-pill": true,
 		[`ml-cv__event-pill--${color}`]: true
 	})}
+			role="button"
+			tabindex="0"
+			aria-label=${event.title}
 			@click=${(e) => {
+		e.stopPropagation();
+		c.handleEventClick(event);
+	}}
+			@keydown=${(e) => {
+		if (e.key !== "Enter" && e.key !== " ") return;
+		e.preventDefault();
 		e.stopPropagation();
 		c.handleEventClick(event);
 	}}
@@ -17779,7 +18972,12 @@ function renderMonthView(c) {
 			"ml-cv__day-cell": true,
 			"ml-cv__day-cell--other-month": !day.isCurrentMonth
 		})}
+							role="gridcell"
+							tabindex=${day.iso === c.dayTabStop ? "0" : "-1"}
+							data-key=${day.iso}
+							aria-label=${day.iso}
 							@click=${() => c.handleDateClick(day.iso)}
+							@keydown=${(e) => c.handleDayKeyDown(day.iso, e)}
 						>
 							<div class=${classMap({
 			"ml-cv__day-number": true,
@@ -18885,8 +20083,8 @@ var CalendarViewComponent = class CalendarViewComponent$1 {
 		this.hideAddButton = false;
 		this.events = [];
 		this.isViewDropdownOpen = false;
-		this._miniCalYear = 0;
-		this._miniCalMonth = 0;
+		this.miniCalYear = 0;
+		this.miniCalMonth = 0;
 		this._hasScrolledToTime = false;
 		this._boundCloseDropdown = null;
 		this.navigatePrev = () => {
@@ -18928,6 +20126,28 @@ var CalendarViewComponent = class CalendarViewComponent$1 {
 				detail: { event }
 			}));
 		};
+		this.rovingDay = "";
+		this.handleDayKeyDown = (iso, event) => {
+			if (event.key === "Enter" || event.key === " ") {
+				event.preventDefault();
+				this.handleDateClick(iso);
+				return;
+			}
+			const delta = {
+				ArrowLeft: -1,
+				ArrowRight: 1,
+				ArrowUp: -7,
+				ArrowDown: 7
+			}[event.key];
+			if (delta === void 0) return;
+			const grid = this.monthGrid;
+			const index = grid.findIndex((day) => day.iso === iso);
+			const next = grid[index + delta];
+			if (index === -1 || !next) return;
+			event.preventDefault();
+			this.rovingDay = next.iso;
+			(this.elementRef.shadowRoot?.querySelector(`.ml-cv__day-cell[data-key="${next.iso}"]`))?.focus();
+		};
 		this.handleDateClick = (iso) => {
 			this.elementRef.dispatchEvent(new CustomEvent("ml:date-click", {
 				bubbles: true,
@@ -18954,16 +20174,16 @@ var CalendarViewComponent = class CalendarViewComponent$1 {
 			this.setView("day");
 		};
 		this.miniCalPrevMonth = () => {
-			if (this._miniCalMonth === 0) {
-				this._miniCalMonth = 11;
-				this._miniCalYear--;
-			} else this._miniCalMonth--;
+			if (this.miniCalMonth === 0) {
+				this.miniCalMonth = 11;
+				this.miniCalYear--;
+			} else this.miniCalMonth--;
 		};
 		this.miniCalNextMonth = () => {
-			if (this._miniCalMonth === 11) {
-				this._miniCalMonth = 0;
-				this._miniCalYear++;
-			} else this._miniCalMonth++;
+			if (this.miniCalMonth === 11) {
+				this.miniCalMonth = 0;
+				this.miniCalYear++;
+			} else this.miniCalMonth++;
 		};
 		this.handleMiniCalSelect = (iso) => {
 			this.setDate(parseDate(iso));
@@ -18985,8 +20205,8 @@ var CalendarViewComponent = class CalendarViewComponent$1 {
 			this.date = toIsoDate(now.getFullYear(), now.getMonth(), now.getDate());
 		}
 		const d = this._currentDate;
-		this._miniCalYear = d.getFullYear();
-		this._miniCalMonth = d.getMonth();
+		this.miniCalYear = d.getFullYear();
+		this.miniCalMonth = d.getMonth();
 		this._boundCloseDropdown = (e) => {
 			if (!this.isViewDropdownOpen) return;
 			const path = e.composedPath();
@@ -19064,21 +20284,27 @@ var CalendarViewComponent = class CalendarViewComponent$1 {
 		});
 	}
 	get miniCalendarTitle() {
-		return formatMonthYear(new Date(this._miniCalYear, this._miniCalMonth, 1));
+		return formatMonthYear(new Date(this.miniCalYear, this.miniCalMonth, 1));
 	}
 	get miniCalendarWeekdays() {
 		return getWeekdayHeaders(this.weekStartsOn).map((h) => h.short.charAt(0));
 	}
 	get miniCalendarGrid() {
-		return getMonthGrid(this._miniCalYear, this._miniCalMonth, this.weekStartsOn);
+		return getMonthGrid(this.miniCalYear, this.miniCalMonth, this.weekStartsOn);
 	}
 	get miniCalendarDots() {
-		return getMiniCalendarDots(this._miniCalYear, this._miniCalMonth, this.events);
+		return getMiniCalendarDots(this.miniCalYear, this.miniCalMonth, this.events);
+	}
+	get dayTabStop() {
+		const grid = this.monthGrid;
+		if (grid.length === 0) return "";
+		if (this.rovingDay && grid.some((day) => day.iso === this.rovingDay)) return this.rovingDay;
+		return (grid.find((day) => day.isToday) ?? grid.find((day) => day.isCurrentMonth) ?? grid[0]).iso;
 	}
 	setDate(d) {
 		this.date = toIsoDate(d.getFullYear(), d.getMonth(), d.getDate());
-		this._miniCalYear = d.getFullYear();
-		this._miniCalMonth = d.getMonth();
+		this.miniCalYear = d.getFullYear();
+		this.miniCalMonth = d.getMonth();
 		this.elementRef.dispatchEvent(new CustomEvent("ml:date-change", {
 			bubbles: true,
 			composed: true,
@@ -21062,6 +22288,25 @@ const tabsStyles = () => css`
 		cursor: not-allowed;
 	}
 `;
+function matchTabByRoute(entries, path) {
+	const normalized = normalize(path);
+	let best;
+	let bestLength = -1;
+	for (const entry of entries) {
+		if (!entry.href) continue;
+		const href = normalize(entry.href.split(/[?#]/)[0]);
+		if (href === normalized) return entry;
+		if (normalized.startsWith(`${href === "/" ? "" : href}/`) && href.length > bestLength) {
+			best = entry;
+			bestLength = href.length;
+		}
+	}
+	return best;
+}
+function normalize(path) {
+	const withSlash = path.startsWith("/") ? path : `/${path}`;
+	return withSlash.length > 1 ? withSlash.replace(/\/+$/, "") : withSlash;
+}
 var TabsComponent = class TabsComponent$1 {
 	constructor() {
 		this.value = "";
@@ -21136,6 +22381,7 @@ var TabsComponent = class TabsComponent$1 {
 		}
 	}
 	onRender() {
+		this.updateTabStates();
 		this.updatePanelVisibility();
 	}
 	onDestroy() {
@@ -21191,8 +22437,7 @@ var TabsComponent = class TabsComponent$1 {
 		(this._slottedTabs.find((tab) => tab.getAttribute("value") === value)?.shadowRoot?.querySelector(".ml-tab"))?.focus();
 	}
 	syncWithRoute() {
-		const path = window.location.pathname;
-		const matchingTab = this.getAllTabs().find((tab) => tab.href && path.startsWith(tab.href));
+		const matchingTab = matchTabByRoute(this.getAllTabs(), window.location.pathname);
 		if (matchingTab) {
 			this.value = matchingTab.value;
 			this.updateTabStates();
@@ -22974,6 +24219,11 @@ function renderConfigStep(c, step, index) {
 			aria-disabled=${step.disabled || false}
 			tabindex=${status === "current" ? "0" : "-1"}
 			@click=${() => c.handleStepClick(step.value, step.href)}
+			@keydown=${(e) => {
+		if (e.key !== "Enter" && e.key !== " ") return;
+		e.preventDefault();
+		c.handleStepClick(step.value, step.href);
+	}}
 		>
 			${when(isBar, () => renderBarStep$1(c, step))}
 			${when(!isBar && !isCompact, () => renderStandardStep$1(c, step, index, isFirst, isLast, status))}
@@ -23724,6 +24974,7 @@ var StepsComponent = class StepsComponent$1 {
 		}
 	}
 	onRender() {
+		this.updateSlottedStepStates();
 		this.updatePanelVisibility();
 	}
 	onDestroy() {
@@ -23770,9 +25021,9 @@ var StepsComponent = class StepsComponent$1 {
 	}
 	updateSlottedStepStates() {
 		const allSteps = this.getAllSteps();
+		const activeIndex = allSteps.findIndex((step) => step.value === this.active);
 		this._slottedSteps.forEach((step, index) => {
-			const value = step.getAttribute("value") || "";
-			const status = this.getStepStatus(value);
+			const status = index < activeIndex ? "completed" : index === activeIndex ? "current" : "upcoming";
 			step.setAttribute("status", status);
 			step.setAttribute("variant", this.variant);
 			step.setAttribute("connector", this.connector);
@@ -23804,8 +25055,7 @@ var StepsComponent = class StepsComponent$1 {
 		(this._slottedSteps.find((step) => step.getAttribute("value") === value)?.shadowRoot?.querySelector(".ml-step"))?.focus();
 	}
 	syncWithRoute() {
-		const path = window.location.pathname;
-		const matchingStep = this.getAllSteps().find((step) => step.href && path.startsWith(step.href));
+		const matchingStep = matchTabByRoute(this.getAllSteps(), window.location.pathname);
 		if (matchingStep) {
 			this.active = matchingStep.value;
 			this.updateSlottedStepStates();
@@ -23850,6 +25100,11 @@ function stepTemplate(c) {
 			aria-disabled=${c.disabled}
 			tabindex=${c.status === "current" ? "0" : "-1"}
 			@click=${c.handleClick}
+			@keydown=${(e) => {
+		if (e.key !== "Enter" && e.key !== " ") return;
+		e.preventDefault();
+		c.handleClick();
+	}}
 		>
 			${when(isBar, () => renderBarStep(c))}
 			${when(!isBar && !isCompact, () => renderStandardStep(c))}
@@ -24528,6 +25783,7 @@ StepComponent = __decorate([MelodicComponent({
 		"label",
 		"description",
 		"icon",
+		"href",
 		"disabled",
 		"status",
 		"variant",
@@ -25596,10 +26852,10 @@ var DropdownComponent = class DropdownComponent$1 {
 			}
 		};
 		this.syncTriggerAria = () => {
-			const trigger = this.getAssignedTrigger();
-			if (!trigger) return;
-			trigger.setAttribute("aria-haspopup", "menu");
-			trigger.setAttribute("aria-expanded", String(this.isOpen));
+			const control = this.getTriggerControl();
+			if (!control) return;
+			control.setAttribute("aria-haspopup", "menu");
+			control.setAttribute("aria-expanded", String(this.isOpen));
 		};
 	}
 	onCreate() {
@@ -25669,14 +26925,15 @@ var DropdownComponent = class DropdownComponent$1 {
 		if (index < 0) return;
 		for (let i = 0; i < items.length; i++) items[i].focused = i === index;
 		this._focusedIndex = index;
-		const itemID = items[index].id;
-		if (itemID) this.getAssignedTrigger()?.setAttribute("aria-activedescendant", itemID);
+		const control = this.getTriggerControl();
+		if (control) setCrossRootActiveDescendant(control, items[index]);
 	}
 	clearFocus() {
 		const items = this.getNavigableItems();
 		for (const item of items) item.focused = false;
 		this._focusedIndex = -1;
-		this.getAssignedTrigger()?.removeAttribute("aria-activedescendant");
+		const control = this.getTriggerControl();
+		if (control) setCrossRootActiveDescendant(control, null);
 	}
 	findFirstEnabled(items) {
 		return items.findIndex((item) => !item.disabled);
@@ -25686,10 +26943,14 @@ var DropdownComponent = class DropdownComponent$1 {
 		return -1;
 	}
 	returnFocusToTrigger() {
-		this.getAssignedTrigger()?.focus();
+		(this.getTriggerControl() ?? this.getAssignedTrigger())?.focus();
 	}
 	getAssignedTrigger() {
 		return ((this.elementRef.shadowRoot?.querySelector("slot[name=\"trigger\"]"))?.assignedElements() ?? [])[0] ?? null;
+	}
+	getTriggerControl() {
+		const trigger = this.getAssignedTrigger();
+		return trigger ? getFocusableControl(trigger) : null;
 	}
 	startPositioning() {
 		const triggerEl = this.getTriggerEl();
@@ -27782,6 +29043,6 @@ DashboardPageComponent = __decorate([MelodicComponent({
 		"layout"
 	]
 })], DashboardPageComponent);
-export { APP_CONFIG, AbortError, AbstractControl, ActivityFeedComponent, ActivityFeedItemComponent, AlertComponent, AppShellComponent, AvatarComponent, BadgeComponent, BadgeGroupComponent, Binding, BreadcrumbComponent, BreadcrumbItemComponent, ButtonComponent, ButtonGroupComponent, ButtonGroupItemComponent, CalendarComponent, CalendarViewComponent, CardComponent, CheckboxComponent, ComponentBase, ComponentStateBaseService, ContainerComponent, DashboardPageComponent, DatePickerComponent, DialogComponent, DialogRef, DialogService, Directive, DividerComponent, DrawerComponent, DropdownComponent, DropdownGroupComponent, DropdownItemComponent, DropdownSeparatorComponent, EffectsBase, FormArray, FormControl, FormFieldComponent, FormGroup, HeroSectionComponent, HttpBaseError, HttpClient, HttpError, IconComponent, Inject, Injectable, InjectionEngine, Injector, InputComponent, ListComponent, ListItemComponent, LoginPageComponent, MelodicComponent, NetworkError, PageHeaderComponent, PaginationComponent, PopoverComponent, ProgressComponent, ROUTE_CONTEXT_EVENT, RX_ACTION_PROVIDERS, RX_EFFECTS_PROVIDERS, RX_INIT_STATE, RX_STATE_DEBUG, RadioCardComponent, RadioCardGroupComponent, RadioComponent, RadioGroupComponent, RouteContextEvent, RouteContextService, RouteMatcher, RouterLinkComponent, RouterLinkCore, RouterOutletComponent, RouterService, SIGNAL_MARKER, SelectComponent, Service, SidebarComponent, SidebarGroupComponent, SidebarItemComponent, SignalEffect, SignalStoreService, SignupPageComponent, SliderComponent, SpinnerComponent, StackComponent, StepComponent, StepPanelComponent, StepsComponent, TabComponent, TabPanelComponent, TableComponent, TabsComponent, TagComponent, TemplateResult, TextareaComponent, ToastComponent, ToastContainerComponent, ToastService, ToggleComponent, TooltipComponent, Validators, VirtualScroller, activityFeedItemStyles, activityFeedItemTemplate, activityFeedStyles, activityFeedTemplate, allTokens, announce, appShellStyles, appShellTemplate, applyGlobalStyles, applyTheme, arrow, autoUpdate, baseThemeCss, batch, bootstrap, borderTokens, breadcrumbItemStyles, breadcrumbItemTemplate, breadcrumbStyles, breadcrumbTemplate, breakpointTokens, breakpoints, buildPathFromRoute, calendarViewStyles, calendarViewTemplate, checkboxAdapter, classMap, clickOutside, colorTokens, componentBaseStyles, computePosition, computed, containerStyles, containerTemplate, createAction, createAsyncValidator, createBrandTheme, createDeactivateGuard, createFocusTrap, createFormArray, createFormControl, createFormGroup, createGuard, createLiveRegion, createReducer, createResolver, createState, createTheme, createToken, createValidator, css, darkTheme, darkThemeCss, dashboardPageStyles, dashboardPageTemplate, defineConfig, defineLegacyAliases, describeToken, directive, disposeContainerParts, disposeDirectiveState, disposePart, disposeParts, drawerStyles, drawerTemplate, dropdownGroupStyles, dropdownGroupTemplate, dropdownItemStyles, dropdownItemTemplate, dropdownSeparatorStyles, dropdownSeparatorTemplate, dropdownStyles, dropdownTemplate, environment, findRouteByName, flip, focusFirst, focusLast, focusTrap, focusVisible, formControlDirective, formFieldStyles, formFieldTemplate, getActiveComponent, getActiveEffect, getAdapter, getAttributeDirective, getDeepActiveElement, getEnvironment, getFirstFocusable, getFocusableElements, getGlobalMessage, getLastFocusable, getRegisteredDirectives, getResolvedTheme, getTheme, getTokenKey, hasAttributeDirective, heroSectionStyles, heroSectionTemplate, html, injectTheme, installHistoryEvents, isDeepFocusWithin, isDirective, isFocusVisible, isSafeUrl, isSignal, lightTheme, lightThemeCss, listItemStyles, listItemTemplate, listStyles, listTemplate, loginPageStyles, loginPageTemplate, matchRouteTree, newID, offset, onAction, onThemeChange, pageHeaderStyles, pageHeaderTemplate, paginationStyles, paginationTemplate, portalDirective, primitiveColors, progressStyles, progressTemplate, props, provideConfig, provideHttp, provideRX, provideRouter, radioAdapter, registerAdapter, registerAttributeDirective, registerDefaultMessages, render, repeat, repeatRaw, resetStyles, resolveMessage, routerLinkDirective, selectStyles, selectTemplate, setActiveComponent, setActiveEffect, setDefaultMessage, shadowTokens, shift, sidebarGroupStyles, sidebarGroupTemplate, sidebarItemStyles, sidebarItemTemplate, sidebarStyles, sidebarTemplate, signal, signupPageStyles, signupPageTemplate, sliderStyles, sliderTemplate, spacingTokens, stepPanelStyles, stepPanelTemplate, stepStyles, stepTemplate, stepsStyles, stepsTemplate, styleMap, tabPanelStyles, tabPanelTemplate, tabStyles, tabTemplate, tableStyles, tableTemplate, tabsStyles, tabsTemplate, textAdapter, toastContainerStyles, toastContainerTemplate, toastStyles, toastTemplate, toggleTheme, tokensToCss, tooltipDirective, transitionTokens, typographyTokens, unregisterAttributeDirective, unsafeHTML, visuallyHiddenStyles, warnDeprecatedOnce, warnDeprecatedTitleOnce, watchSlotPresence, when };
+export { APP_CONFIG, AbortError, AbstractControl, ActivityFeedComponent, ActivityFeedItemComponent, AlertComponent, AppShellComponent, AvatarComponent, BadgeComponent, BadgeGroupComponent, Binding, BreadcrumbComponent, BreadcrumbItemComponent, ButtonComponent, ButtonGroupComponent, ButtonGroupItemComponent, CalendarComponent, CalendarViewComponent, CardComponent, CheckboxComponent, ComponentBase, ComponentStateBaseService, ContainerComponent, DashboardPageComponent, DatePickerComponent, DialogComponent, DialogRef, DialogService, Directive, DividerComponent, DrawerComponent, DropdownComponent, DropdownGroupComponent, DropdownItemComponent, DropdownSeparatorComponent, EffectsBase, FormArray, FormControl, FormFieldComponent, FormGroup, HeroSectionComponent, HttpBaseError, HttpClient, HttpError, IconComponent, Inject, Injectable, InjectionEngine, Injector, InputComponent, ListComponent, ListItemComponent, LoginPageComponent, MelodicComponent, NetworkError, PageHeaderComponent, PaginationComponent, PopoverComponent, ProgressComponent, ROUTE_CONTEXT_EVENT, RX_ACTION_PROVIDERS, RX_EFFECTS_PROVIDERS, RX_INIT_STATE, RX_STATE_DEBUG, RadioCardComponent, RadioCardGroupComponent, RadioComponent, RadioGroupComponent, RouteContextEvent, RouteContextService, RouteMatcher, RouterLinkComponent, RouterLinkCore, RouterOutletComponent, RouterService, SIGNAL_MARKER, SelectComponent, Service, SidebarComponent, SidebarGroupComponent, SidebarItemComponent, SignalEffect, SignalStoreService, SignupPageComponent, SliderComponent, SpinnerComponent, StackComponent, StepComponent, StepPanelComponent, StepsComponent, TabComponent, TabPanelComponent, TableComponent, TabsComponent, TagComponent, TemplateResult, TextareaComponent, ToastComponent, ToastContainerComponent, ToastService, ToggleComponent, TooltipComponent, Validators, VirtualScroller, activityFeedItemStyles, activityFeedItemTemplate, activityFeedStyles, activityFeedTemplate, allTokens, announce, appShellStyles, appShellTemplate, appendQueryParams, applyGlobalStyles, applyTheme, arrow, attributeNames, attributeTypes, autoUpdate, baseThemeCss, batch, bootstrap, borderTokens, breadcrumbItemStyles, breadcrumbItemTemplate, breadcrumbStyles, breadcrumbTemplate, breakpointTokens, breakpoints, buildPathFromRoute, calendarViewStyles, calendarViewTemplate, checkboxAdapter, classMap, clearCrossRootDescription, clickOutside, colorTokens, componentBaseStyles, computePosition, computed, containerStyles, containerTemplate, createAction, createAsyncValidator, createBrandTheme, createDeactivateGuard, createFocusTrap, createFormArray, createFormControl, createFormGroup, createGuard, createLiveRegion, createReducer, createResolver, createState, createTheme, createToken, createValidator, css, darkTheme, darkThemeCss, dashboardPageStyles, dashboardPageTemplate, defineConfig, defineLegacyAliases, describeToken, devWarn, directive, disposeContainerParts, disposeDirectiveState, disposePart, disposeParts, drawerStyles, drawerTemplate, dropdownGroupStyles, dropdownGroupTemplate, dropdownItemStyles, dropdownItemTemplate, dropdownSeparatorStyles, dropdownSeparatorTemplate, dropdownStyles, dropdownTemplate, effect, emit, environment, findRouteByName, flip, focusFirst, focusLast, focusTrap, focusVisible, formControlDirective, formFieldStyles, formFieldTemplate, getActiveComponent, getActiveEffect, getAdapter, getAttributeDirective, getComponentDefinition, getComponentDefinitions, getDeepActiveElement, getEnvironment, getFirstFocusable, getFocusableControl, getFocusableElements, getGlobalMessage, getLastFocusable, getRegisteredDirectives, getResolvedTheme, getTheme, getTokenKey, hasAttributeDirective, heroSectionStyles, heroSectionTemplate, html, inject, injectOptional, injectTheme, installConsoleApi, installHistoryEvents, isDeepFocusWithin, isDevMode, isDirective, isFocusVisible, isSafeUrl, isSignal, lightTheme, lightThemeCss, listItemStyles, listItemTemplate, listStyles, listTemplate, live, loginPageStyles, loginPageTemplate, matchRouteTree, newID, offset, onAction, onThemeChange, pageHeaderStyles, pageHeaderTemplate, paginationStyles, paginationTemplate, parseUrlParts, portalDirective, primitiveColors, progressStyles, progressTemplate, props, provideConfig, provideHttp, provideRX, provideRouter, radioAdapter, refreshGlobalStyles, registerAdapter, registerAttributeDirective, registerDefaultMessages, render, repeat, repeatRaw, resetDevWarnings, resetStyles, resolveMessage, routerLinkDirective, selectStyles, selectTemplate, setActiveComponent, setActiveEffect, setCrossRootActiveDescendant, setCrossRootDescription, setCrossRootLabel, setDefaultMessage, setDevMode, shadowTokens, shift, sidebarGroupStyles, sidebarGroupTemplate, sidebarItemStyles, sidebarItemTemplate, sidebarStyles, sidebarTemplate, signal, signupPageStyles, signupPageTemplate, sliderStyles, sliderTemplate, spacingTokens, stepPanelStyles, stepPanelTemplate, stepStyles, stepTemplate, stepsStyles, stepsTemplate, styleMap, supportsAriaElementReferences, tabPanelStyles, tabPanelTemplate, tabStyles, tabTemplate, tableStyles, tableTemplate, tabsStyles, tabsTemplate, textAdapter, toastContainerStyles, toastContainerTemplate, toastStyles, toastTemplate, toggleTheme, tokensToCss, tooltipDirective, transitionTokens, typographyTokens, unregisterAttributeDirective, unsafeHTML, untracked, visuallyHiddenStyles, warnDeprecatedOnce, warnDeprecatedTitleOnce, watchSlotPresence, when };
 
 //# sourceMappingURL=melodic-components.js.map

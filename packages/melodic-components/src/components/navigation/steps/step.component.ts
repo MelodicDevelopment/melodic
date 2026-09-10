@@ -20,7 +20,25 @@ import { defineLegacyAliases } from '../../../functions/index.js';
 	selector: 'ml-step',
 	template: stepTemplate,
 	styles: stepStyles,
-	attributes: ['value', 'label', 'description', 'icon', 'disabled', 'status', 'variant', 'connector', 'color', 'orientation', 'step-number', 'first', 'last', 'compact']
+	attributes: [
+		'value',
+		'label',
+		'description',
+		'icon',
+		// `href` drives routed steps and is documented as an attribute, but it
+		// was never observed — so `<ml-step href="/x">` never navigated.
+		'href',
+		'disabled',
+		'status',
+		'variant',
+		'connector',
+		'color',
+		'orientation',
+		'step-number',
+		'first',
+		'last',
+		'compact'
+	]
 })
 export class StepComponent implements IElementRef {
 	public elementRef!: HTMLElement;

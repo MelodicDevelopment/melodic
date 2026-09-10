@@ -3,6 +3,7 @@ import type { IElementRef, OnCreate, OnDestroy, OnRender } from '@melodicdev/cor
 import type { StepsVariant, StepsOrientation, StepsConnector, StepsColor, StepConfig, StepStatus } from './steps.types.js';
 import { stepsTemplate } from './steps.template.js';
 import { stepsStyles } from './steps.styles.js';
+import { matchTabByRoute } from '../functions/match-by-route.function.js';
 
 /**
  * ml-steps - Multi-step progress/wizard component
@@ -80,6 +81,11 @@ export class StepsComponent implements IElementRef, OnCreate, OnDestroy, OnRende
 	}
 
 	public onRender(): void {
+		// Slotted <ml-step> elements are in the LIGHT dom, so this component's
+		// own re-render never touches them. Without this, a programmatic
+		// `active` / `variant` / `color` / `connector` / `orientation` /
+		// `compact` change moved the panel but left every step header stale.
+		this.updateSlottedStepStates();
 		this.updatePanelVisibility();
 	}
 
@@ -251,9 +257,13 @@ export class StepsComponent implements IElementRef, OnCreate, OnDestroy, OnRende
 	/** Update attributes on slotted steps */
 	private updateSlottedStepStates(): void {
 		const allSteps = this.getAllSteps();
+		// Status is a function of position relative to the active step, so
+		// resolve the active index ONCE instead of scanning the list twice per
+		// step (which made the sync O(n²)).
+		const activeIndex = allSteps.findIndex((step) => step.value === this.active);
+
 		this._slottedSteps.forEach((step, index) => {
-			const value = step.getAttribute('value') || '';
-			const status = this.getStepStatus(value);
+			const status: StepStatus = index < activeIndex ? 'completed' : index === activeIndex ? 'current' : 'upcoming';
 			step.setAttribute('status', status);
 			step.setAttribute('variant', this.variant);
 			step.setAttribute('connector', this.connector);
@@ -304,8 +314,7 @@ export class StepsComponent implements IElementRef, OnCreate, OnDestroy, OnRende
 
 	/** Sync active step with current route */
 	private syncWithRoute(): void {
-		const path = window.location.pathname;
-		const matchingStep = this.getAllSteps().find((step) => step.href && path.startsWith(step.href));
+		const matchingStep = matchTabByRoute(this.getAllSteps(), window.location.pathname);
 		if (matchingStep) {
 			this.active = matchingStep.value;
 			this.updateSlottedStepStates();

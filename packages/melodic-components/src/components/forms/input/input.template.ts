@@ -35,6 +35,15 @@ export function inputTemplate(c: InputComponent) {
 					?readonly=${c.readonly}
 					?required=${c.required}
 					autocomplete="${c.autocomplete}"
+					name="${c.name}"
+					maxlength=${c.maxlength ?? ''}
+					minlength=${c.minlength ?? ''}
+					min="${c.min}"
+					max="${c.max}"
+					step="${c.step}"
+					pattern="${c.pattern}"
+					inputmode="${c.inputmode}"
+					aria-label=${c.label ? '' : c.fieldLabel}
 					aria-invalid=${c.error ? 'true' : 'false'}
 					aria-describedby=${c.error ? 'error' : c.hint ? 'hint' : ''}
 					@input=${c.handleInput}

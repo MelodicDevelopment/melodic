@@ -23,6 +23,11 @@ export function stepTemplate(c: StepComponent) {
 			aria-disabled=${c.disabled}
 			tabindex=${c.status === 'current' ? '0' : '-1'}
 			@click=${c.handleClick}
+			@keydown=${(e: KeyboardEvent) => {
+				if (e.key !== 'Enter' && e.key !== ' ') return;
+				e.preventDefault();
+				c.handleClick();
+			}}
 		>
 			${when(isBar, () => renderBarStep(c))}
 			${when(!isBar && !isCompact, () => renderStandardStep(c))}

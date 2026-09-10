@@ -72,6 +72,9 @@ export function dataGridTemplate(c: DataGridComponent) {
 								@dragend=${c.handleDragEnd}
 								@drop=${() => c.handleDrop(col.key)}
 								@click=${() => c.handleSort(col)}
+								@keydown=${(e: KeyboardEvent) => c.handleHeaderKeyDown(col, e)}
+								tabindex=${col.sortable || col.reorderable !== false ? '0' : ''}
+								role="columnheader"
 								aria-sort=${c.sortKey === col.key
 									? (c.sortDirection === 'asc' ? 'ascending' : 'descending')
 									: 'none'}

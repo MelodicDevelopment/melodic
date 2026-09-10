@@ -2,14 +2,31 @@ import type { ThemeMode } from '../../types/index.js';
 
 type ThemeChangeCallback = (theme: ThemeMode, resolvedTheme: 'light' | 'dark') => void;
 
-let currentTheme: ThemeMode = 'system';
+// `null` until the first read, which adopts whatever the document already
+// says. An inline anti-FOUC script setting data-theme="dark" before the module
+// loads is the normal case, and assuming 'system' made the first toggleTheme()
+// a no-op (it re-applied the theme that was already showing).
+let currentTheme: ThemeMode | null = null;
 const themeListeners: Set<ThemeChangeCallback> = new Set();
 let mediaQueryCleanup: (() => void) | null = null;
 
+function readDocumentTheme(): ThemeMode {
+	if (typeof document === 'undefined') {
+		return 'system';
+	}
+
+	const attribute = document.documentElement.getAttribute('data-theme');
+	return attribute === 'light' || attribute === 'dark' ? attribute : 'system';
+}
+
 /**
- * Get the currently applied theme mode
+ * Get the currently applied theme mode.
+ *
+ * Before `applyTheme()` has been called this reflects the document's own
+ * `data-theme`, so a theme applied by an inline script is respected.
  */
 export function getTheme(): ThemeMode {
+	currentTheme ??= readDocumentTheme();
 	return currentTheme;
 }
 
@@ -17,13 +34,15 @@ export function getTheme(): ThemeMode {
  * Get the resolved theme (light or dark) based on current mode
  */
 export function getResolvedTheme(): 'light' | 'dark' {
-	if (currentTheme === 'system') {
+	const theme = getTheme();
+
+	if (theme === 'system') {
 		if (typeof window === 'undefined' || !window.matchMedia) {
 			return 'light';
 		}
 		return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
 	}
-	return currentTheme;
+	return theme;
 }
 
 /**

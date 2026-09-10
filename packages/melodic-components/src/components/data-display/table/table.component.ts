@@ -194,6 +194,20 @@ export class TableComponent implements IElementRef, OnCreate, OnDestroy, OnRende
 
 	// ── Event handlers ────────────────────────────────────────────────────────────
 
+	/**
+	 * Sort headers were mouse-only: a `<th>` with a click handler is not
+	 * focusable and does not respond to Enter/Space, so a keyboard user could
+	 * not sort at all.
+	 */
+	public handleHeaderKeyDown = (column: TableColumn, event: KeyboardEvent): void => {
+		if (!column.sortable || (event.key !== 'Enter' && event.key !== ' ')) {
+			return;
+		}
+
+		event.preventDefault();
+		this.handleSort(column);
+	};
+
 	public handleSort = (column: TableColumn): void => {
 		this._core.handleSortClick(column);
 	};

@@ -100,9 +100,15 @@ export class CalendarViewComponent implements IElementRef, OnCreate, OnDestroy, 
 		return this.elementRef?.querySelector('[slot="header-actions"]') !== null;
 	}
 
-	/** Mini calendar state for day view sidebar */
-	private _miniCalYear = 0;
-	private _miniCalMonth = 0;
+	/**
+	 * Mini calendar state for the day-view sidebar.
+	 *
+	 * Public (not `_`-prefixed) on purpose: `_` fields are excluded from
+	 * reactivity, so the previous/next buttons changed the month and nothing
+	 * re-rendered — the mini calendar simply never moved.
+	 */
+	public miniCalYear = 0;
+	public miniCalMonth = 0;
 	private _hasScrolledToTime = false;
 
 	private _boundCloseDropdown: ((e: Event) => void) | null = null;
@@ -121,8 +127,8 @@ export class CalendarViewComponent implements IElementRef, OnCreate, OnDestroy, 
 		}
 		// Init mini cal to current date's month
 		const d = this._currentDate;
-		this._miniCalYear = d.getFullYear();
-		this._miniCalMonth = d.getMonth();
+		this.miniCalYear = d.getFullYear();
+		this.miniCalMonth = d.getMonth();
 
 		// Close dropdown on outside click
 		this._boundCloseDropdown = (e: Event) => {
@@ -238,7 +244,7 @@ export class CalendarViewComponent implements IElementRef, OnCreate, OnDestroy, 
 	/* ── Mini calendar getters (day view sidebar) ── */
 
 	public get miniCalendarTitle(): string {
-		return formatMonthYear(new Date(this._miniCalYear, this._miniCalMonth, 1));
+		return formatMonthYear(new Date(this.miniCalYear, this.miniCalMonth, 1));
 	}
 
 	public get miniCalendarWeekdays(): string[] {
@@ -246,11 +252,11 @@ export class CalendarViewComponent implements IElementRef, OnCreate, OnDestroy, 
 	}
 
 	public get miniCalendarGrid(): CalendarDayCell[] {
-		return getMiniGrid(this._miniCalYear, this._miniCalMonth, this.weekStartsOn);
+		return getMiniGrid(this.miniCalYear, this.miniCalMonth, this.weekStartsOn);
 	}
 
 	public get miniCalendarDots(): Set<string> {
-		return getMiniCalendarDots(this._miniCalYear, this._miniCalMonth, this.events);
+		return getMiniCalendarDots(this.miniCalYear, this.miniCalMonth, this.events);
 	}
 
 	/* ── Navigation handlers ── */
@@ -316,6 +322,52 @@ export class CalendarViewComponent implements IElementRef, OnCreate, OnDestroy, 
 		);
 	};
 
+	/**
+	 * Key of the single tabbable day cell. A month grid is one tab stop;
+	 * arrows move within it (the cells were previously not focusable at all).
+	 */
+	public rovingDay = '';
+
+	public get dayTabStop(): string {
+		const grid = this.monthGrid;
+		if (grid.length === 0) {
+			return '';
+		}
+
+		if (this.rovingDay && grid.some((day) => day.iso === this.rovingDay)) {
+			return this.rovingDay;
+		}
+
+		return (grid.find((day) => day.isToday) ?? grid.find((day) => day.isCurrentMonth) ?? grid[0]).iso;
+	}
+
+	public handleDayKeyDown = (iso: string, event: KeyboardEvent): void => {
+		if (event.key === 'Enter' || event.key === ' ') {
+			event.preventDefault();
+			this.handleDateClick(iso);
+			return;
+		}
+
+		const deltas: Record<string, number> = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -7, ArrowDown: 7 };
+		const delta = deltas[event.key];
+		if (delta === undefined) {
+			return;
+		}
+
+		const grid = this.monthGrid;
+		const index = grid.findIndex((day) => day.iso === iso);
+		const next = grid[index + delta];
+		if (index === -1 || !next) {
+			return;
+		}
+
+		event.preventDefault();
+		this.rovingDay = next.iso;
+
+		const cell = this.elementRef.shadowRoot?.querySelector<HTMLElement>(`.ml-cv__day-cell[data-key="${next.iso}"]`);
+		cell?.focus();
+	};
+
 	public handleDateClick = (iso: string): void => {
 		this.elementRef.dispatchEvent(
 			new CustomEvent('ml:date-click', {
@@ -355,20 +407,20 @@ export class CalendarViewComponent implements IElementRef, OnCreate, OnDestroy, 
 	/* ── Mini calendar handlers ── */
 
 	public miniCalPrevMonth = (): void => {
-		if (this._miniCalMonth === 0) {
-			this._miniCalMonth = 11;
-			this._miniCalYear--;
+		if (this.miniCalMonth === 0) {
+			this.miniCalMonth = 11;
+			this.miniCalYear--;
 		} else {
-			this._miniCalMonth--;
+			this.miniCalMonth--;
 		}
 	};
 
 	public miniCalNextMonth = (): void => {
-		if (this._miniCalMonth === 11) {
-			this._miniCalMonth = 0;
-			this._miniCalYear++;
+		if (this.miniCalMonth === 11) {
+			this.miniCalMonth = 0;
+			this.miniCalYear++;
 		} else {
-			this._miniCalMonth++;
+			this.miniCalMonth++;
 		}
 	};
 
@@ -380,8 +432,8 @@ export class CalendarViewComponent implements IElementRef, OnCreate, OnDestroy, 
 
 	private setDate(d: Date): void {
 		this.date = toIsoDate(d.getFullYear(), d.getMonth(), d.getDate());
-		this._miniCalYear = d.getFullYear();
-		this._miniCalMonth = d.getMonth();
+		this.miniCalYear = d.getFullYear();
+		this.miniCalMonth = d.getMonth();
 		this.elementRef.dispatchEvent(
 			new CustomEvent('ml:date-change', {
 				bubbles: true,

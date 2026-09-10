@@ -3,6 +3,7 @@ import type { AttributeDirectiveCleanupFunction } from '@melodicdev/core/templat
 // Registers the <ml-tooltip> custom element the directive instantiates.
 import '../components/overlays/tooltip/index.js';
 import type { TooltipComponent } from '../components/overlays/tooltip/tooltip.component.js';
+import { setCrossRootDescription, clearCrossRootDescription } from '../utils/accessibility/cross-root-aria.js';
 
 /**
  * Tooltip attribute directive - attaches an ml-tooltip to an element
@@ -105,11 +106,12 @@ function createState(element: Element): TooltipDirectiveState {
 
 	const state: TooltipDirectiveState = { tooltip, pendingRemoval: false, ownsDescribedBy: false, show, hide };
 
-	// Mirror ml-tooltip's slotted-trigger ARIA wiring: point the element's
-	// aria-describedby at the tooltip content unless it already has one.
-	const contentID = component?.tooltipID;
-	if (contentID && !element.hasAttribute('aria-describedby')) {
-		element.setAttribute('aria-describedby', contentID);
+	// Mirror ml-tooltip's slotted-trigger ARIA wiring. The content lives inside
+	// the tooltip's shadow root, so an IDREF would resolve to nothing —
+	// describe the element with the content ELEMENT instead.
+	const content = tooltip.shadowRoot?.querySelector('.ml-tooltip__content') as HTMLElement | null;
+	if (content && !element.hasAttribute('aria-describedby')) {
+		setCrossRootDescription(element, [content]);
 		state.ownsDescribedBy = true;
 	}
 
@@ -123,6 +125,7 @@ function destroyState(element: Element, state: TooltipDirectiveState): void {
 	element.removeEventListener('focusout', state.hide);
 
 	if (state.ownsDescribedBy) {
+		clearCrossRootDescription(element);
 		element.removeAttribute('aria-describedby');
 	}
 

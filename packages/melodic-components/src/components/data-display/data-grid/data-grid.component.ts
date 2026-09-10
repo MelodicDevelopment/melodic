@@ -407,6 +407,52 @@ export class DataGridComponent implements IElementRef, OnCreate, OnDestroy, OnRe
 		this.resizingKey = null;
 	};
 
+	/**
+	 * Keyboard equivalents for the header's mouse-only interactions.
+	 *
+	 * Enter/Space sorts; Ctrl/Cmd + Arrow moves the column. Drag-and-drop
+	 * reordering and click-to-sort were otherwise unreachable without a mouse.
+	 */
+	public handleHeaderKeyDown = (col: DataGridColumn, event: KeyboardEvent): void => {
+		if ((event.ctrlKey || event.metaKey) && (event.key === 'ArrowLeft' || event.key === 'ArrowRight')) {
+			if (col.reorderable === false) {
+				return;
+			}
+			event.preventDefault();
+			this.moveColumn(col.key, event.key === 'ArrowLeft' ? -1 : 1);
+			return;
+		}
+
+		if (col.sortable && (event.key === 'Enter' || event.key === ' ')) {
+			event.preventDefault();
+			this.handleSort(col);
+		}
+	};
+
+	/** Move a column `delta` positions and announce the new order. */
+	public moveColumn = (key: string, delta: number): void => {
+		const base = this.colOrder.length ? this.colOrder : this.columns.map((col) => col.key);
+		const order = [...base];
+		const from = order.indexOf(key);
+		const to = from + delta;
+
+		if (from === -1 || to < 0 || to >= order.length) {
+			return;
+		}
+
+		order.splice(from, 1);
+		order.splice(to, 0, key);
+		this.colOrder = order;
+
+		this.elementRef.dispatchEvent(
+			new CustomEvent('ml:column-reorder', {
+				bubbles: true,
+				composed: true,
+				detail: { order: this.colOrder }
+			})
+		);
+	};
+
 	public handleDragStart = (key: string, e: DragEvent): void => {
 		this.draggingKey = key;
 		if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move';

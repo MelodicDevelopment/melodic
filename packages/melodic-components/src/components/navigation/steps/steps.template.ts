@@ -73,6 +73,14 @@ function renderConfigStep(c: StepsComponent, step: StepConfig, index: number) {
 			aria-disabled=${step.disabled || false}
 			tabindex=${status === 'current' ? '0' : '-1'}
 			@click=${() => c.handleStepClick(step.value, step.href)}
+			@keydown=${(e: KeyboardEvent) => {
+				// A role="tab" div must activate on Enter/Space; arrows are
+				// handled by the tablist above. Without this the step was
+				// focusable and un-activatable by keyboard.
+				if (e.key !== 'Enter' && e.key !== ' ') return;
+				e.preventDefault();
+				c.handleStepClick(step.value, step.href);
+			}}
 		>
 			${when(isBar, () => renderBarStep(c, step))}
 			${when(!isBar && !isCompact, () => renderStandardStep(c, step, index, isFirst, isLast, status))}

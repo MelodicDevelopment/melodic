@@ -4,6 +4,7 @@ import type { ControlSize } from '../../../types/index.js';
 import type { TabsVariant, TabsOrientation, TabConfig } from './tabs.types.js';
 import { tabsTemplate } from './tabs.template.js';
 import { tabsStyles } from './tabs.styles.js';
+import { matchTabByRoute } from '../functions/match-by-route.function.js';
 
 /**
  * ml-tabs - Tabbed interface component with optional router integration
@@ -93,7 +94,11 @@ export class TabsComponent implements IElementRef, OnCreate, OnDestroy, OnRender
 	}
 
 	public onRender(): void {
-		// Ensure panels are correctly shown/hidden after each render
+		// Slotted <ml-tab> elements live in the LIGHT dom, so a re-render of
+		// this component's own template does not touch them. Syncing only the
+		// panels meant a programmatic `value` write moved the panel but left
+		// the tab itself looking unselected.
+		this.updateTabStates();
 		this.updatePanelVisibility();
 	}
 
@@ -266,8 +271,7 @@ export class TabsComponent implements IElementRef, OnCreate, OnDestroy, OnRender
 
 	/** Sync active tab with current route (for routed mode) */
 	private syncWithRoute(): void {
-		const path = window.location.pathname;
-		const matchingTab = this.getAllTabs().find((tab) => tab.href && path.startsWith(tab.href));
+		const matchingTab = matchTabByRoute(this.getAllTabs(), window.location.pathname);
 		if (matchingTab) {
 			this.value = matchingTab.value;
 			this.updateTabStates();

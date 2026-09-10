@@ -34,6 +34,8 @@ export function textareaTemplate(c: TextareaComponent) {
 				?readonly=${c.readonly}
 				?required=${c.required}
 				maxlength="${c.maxLength || ''}"
+				name="${c.name}"
+				aria-label=${c.label ? '' : c.fieldLabel}
 				aria-invalid=${c.error ? 'true' : 'false'}
 				aria-describedby=${c.error ? 'error' : c.hint ? 'hint' : ''}
 				@input=${c.handleInput}

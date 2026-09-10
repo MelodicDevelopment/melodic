@@ -1,5 +1,5 @@
 import { MelodicComponent } from '@melodicdev/core';
-import type { IElementRef, OnInit } from '@melodicdev/core';
+import type { IElementRef } from '@melodicdev/core';
 import { registerAdapter } from '@melodicdev/core/forms';
 import type { ControlSize } from '../../../types/index.js';
 import type { InputType } from './input.types.js';
@@ -37,9 +37,29 @@ registerAdapter<string>((el) => el.tagName === 'ML-INPUT', {
 	selector: 'ml-input',
 	template: inputTemplate,
 	styles: inputStyles,
-	attributes: ['type', 'value', 'placeholder', 'label', 'hint', 'error', 'size', 'disabled', 'readonly', 'required', 'autocomplete']
+	attributes: [
+		'type',
+		'value',
+		'placeholder',
+		'label',
+		'hint',
+		'error',
+		'size',
+		'disabled',
+		'readonly',
+		'required',
+		'autocomplete',
+		'name',
+		'maxlength',
+		'minlength',
+		'min',
+		'max',
+		'step',
+		'pattern',
+		'inputmode'
+	]
 })
-export class InputComponent implements IElementRef, OnInit {
+export class InputComponent implements IElementRef {
 	public elementRef!: HTMLElement;
 
 	/** Input type */
@@ -78,11 +98,39 @@ export class InputComponent implements IElementRef, OnInit {
 	/** Internal focus state */
 	public focused = false;
 
-	public onInit(): void {
-		// Set up aria-label if no label provided
-		if (!this.label && this.placeholder) {
-			this.elementRef.setAttribute('aria-label', this.placeholder);
-		}
+	/** Form field name, forwarded to the inner input. */
+	public name = '';
+
+	/** Maximum input length. */
+	public maxlength: number | null = null;
+
+	/** Minimum input length. */
+	public minlength: number | null = null;
+
+	/** Minimum value (number/date types). */
+	public min: string = '';
+
+	/** Maximum value (number/date types). */
+	public max: string = '';
+
+	/** Step (number/date types). */
+	public step: string = '';
+
+	/** Validation pattern. */
+	public pattern = '';
+
+	/** Virtual-keyboard hint. */
+	public inputmode = '';
+
+	/**
+	 * Accessible name for the inner control when there is no visible label.
+	 *
+	 * An `aria-label` set on the HOST names the custom element, not the
+	 * `<input>` inside its shadow root — which is the node a screen reader
+	 * actually reaches — so an unlabelled field announced nothing useful.
+	 */
+	public get fieldLabel(): string {
+		return this.label || this.elementRef?.getAttribute('aria-label') || this.placeholder || '';
 	}
 
 	public handleInput = (event: Event): void => {

@@ -6,6 +6,7 @@ import { OverlayPositioner, ToggleDismissGuard } from '../../../utils/overlay/in
 import { isDeepFocusWithin } from '../../../utils/accessibility/focus-trap.js';
 import { dropdownTemplate } from './dropdown.template.js';
 import { dropdownStyles } from './dropdown.styles.js';
+import { getFocusableControl, setCrossRootActiveDescendant } from '../../../utils/accessibility/cross-root-aria.js';
 
 type DropdownItemElement = HTMLElement & DropdownItemComponent;
 
@@ -283,11 +284,12 @@ export class DropdownComponent implements IElementRef, OnCreate, OnDestroy {
 		}
 		this._focusedIndex = index;
 
-		// The item host lives in the same tree as the trigger, so its id is a
-		// valid aria-activedescendant reference for screen readers.
-		const itemID = items[index].id;
-		if (itemID) {
-			this.getAssignedTrigger()?.setAttribute('aria-activedescendant', itemID);
+		// The focusable control may be inside the trigger's own shadow root
+		// (<ml-button> wraps a <button>), in which case an id reference to a
+		// light-DOM item cannot resolve — use the element reference.
+		const control = this.getTriggerControl();
+		if (control) {
+			setCrossRootActiveDescendant(control, items[index]);
 		}
 	}
 
@@ -297,7 +299,10 @@ export class DropdownComponent implements IElementRef, OnCreate, OnDestroy {
 			item.focused = false;
 		}
 		this._focusedIndex = -1;
-		this.getAssignedTrigger()?.removeAttribute('aria-activedescendant');
+		const control = this.getTriggerControl();
+		if (control) {
+			setCrossRootActiveDescendant(control, null);
+		}
 	}
 
 	private findFirstEnabled(items: DropdownItemElement[]): number {
@@ -312,7 +317,7 @@ export class DropdownComponent implements IElementRef, OnCreate, OnDestroy {
 	}
 
 	private returnFocusToTrigger(): void {
-		this.getAssignedTrigger()?.focus();
+		(this.getTriggerControl() ?? this.getAssignedTrigger())?.focus();
 	}
 
 	/** First element assigned to the trigger slot (light DOM). */
@@ -322,12 +327,23 @@ export class DropdownComponent implements IElementRef, OnCreate, OnDestroy {
 		return (assigned[0] as HTMLElement) ?? null;
 	}
 
+	/**
+	 * The element that actually receives focus for the slotted trigger. For
+	 * `<ml-button>` that is the `<button>` inside its shadow root; ARIA set on
+	 * the host is not announced, which made the documented example
+	 * inaccessible.
+	 */
+	private getTriggerControl(): HTMLElement | null {
+		const trigger = this.getAssignedTrigger();
+		return trigger ? getFocusableControl(trigger) : null;
+	}
+
 	/** Keep the slotted trigger's menu-button ARIA in sync with open state. */
 	private readonly syncTriggerAria = (): void => {
-		const trigger = this.getAssignedTrigger();
-		if (!trigger) return;
-		trigger.setAttribute('aria-haspopup', 'menu');
-		trigger.setAttribute('aria-expanded', String(this.isOpen));
+		const control = this.getTriggerControl();
+		if (!control) return;
+		control.setAttribute('aria-haspopup', 'menu');
+		control.setAttribute('aria-expanded', String(this.isOpen));
 	};
 
 	/** True when the (deep) focused element is inside this dropdown. */

@@ -1,5 +1,5 @@
 import { MelodicComponent } from '@melodicdev/core';
-import type { IElementRef, OnInit } from '@melodicdev/core';
+import type { IElementRef } from '@melodicdev/core';
 import { registerAdapter } from '@melodicdev/core/forms';
 import type { ControlSize } from '../../../types/index.js';
 import { textareaTemplate } from './textarea.template.js';
@@ -32,9 +32,9 @@ registerAdapter<string>((el) => el.tagName === 'ML-TEXTAREA', {
 	selector: 'ml-textarea',
 	template: textareaTemplate,
 	styles: textareaStyles,
-	attributes: ['value', 'placeholder', 'label', 'hint', 'error', 'size', 'rows', 'max-length', 'disabled', 'readonly', 'required', 'resize']
+	attributes: ['value', 'placeholder', 'label', 'hint', 'error', 'size', 'rows', 'max-length', 'disabled', 'readonly', 'required', 'resize', 'name']
 })
-export class TextareaComponent implements IElementRef, OnInit {
+export class TextareaComponent implements IElementRef {
 	public elementRef!: HTMLElement;
 
 	/** Current value */
@@ -76,10 +76,16 @@ export class TextareaComponent implements IElementRef, OnInit {
 	/** Internal focus state */
 	public focused = false;
 
-	public onInit(): void {
-		if (!this.label && this.placeholder) {
-			this.elementRef.setAttribute('aria-label', this.placeholder);
-		}
+	/** Form field name, forwarded to the inner textarea. */
+	public name = '';
+
+	/**
+	 * Accessible name for the inner control when there is no visible label.
+	 * An `aria-label` on the HOST names the custom element, not the
+	 * `<textarea>` inside its shadow root.
+	 */
+	public get fieldLabel(): string {
+		return this.label || this.elementRef?.getAttribute('aria-label') || this.placeholder || '';
 	}
 
 	public handleInput = (event: Event): void => {
