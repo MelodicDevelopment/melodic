@@ -94,29 +94,75 @@ price.set(15);
 console.log(total()); // 30
 ```
 
-## Signal Effects
+## Effects
 
-`SignalEffect` lets you run a side effect that re-executes when its dependencies change.
+`effect()` runs a function immediately and again whenever a signal it read changes.
 
 ```typescript
-import { signal, SignalEffect } from '@melodicdev/core';
+import { effect, signal } from '@melodicdev/core';
 
-const status = signal('idle');
+const unread = signal(0);
 
-const effect = new SignalEffect(() => {
-	console.log('Status:', status());
+const ref = effect(() => {
+	document.title = `${unread()} unread`;
 });
 
-effect.run();
-status.set('busy');
+unread.set(3); // title updates
 
-// Cleanup
-// effect.destroy();
+ref.destroy(); // stop
+```
+
+Returning a function registers a cleanup, run before each re-run and once on destroy:
+
+```typescript
+effect(() => {
+	const id = setInterval(poll, interval());
+	return () => clearInterval(id);
+});
+```
+
+Created inside a component — a field initializer, `onInit`, `onCreate` — the effect is
+destroyed with that component, so there is nothing to tear down by hand. Elsewhere the
+caller owns it.
+
+Options: `{ name }` labels it in error messages and DevTools; `{ manual: true }` skips the
+immediate first run.
+
+`SignalEffect` remains available as the lower-level primitive `effect()` is built on.
+
+### untracked()
+
+Read a signal without subscribing the surrounding effect, computed or component render:
+
+```typescript
+import { untracked } from '@melodicdev/core';
+
+effect(() => {
+	// re-runs when `query` changes, but not when `page` does
+	search(query(), untracked(() => page()));
+});
 ```
 
 ## Using Signals in Components
 
-Signals declared as component properties are automatically subscribed to by the component base class. When they update, the component re-renders.
+**Every signal read while the template runs re-renders the component** — a signal on an
+injected service, a signal inside an object or array, a computed from anywhere:
+
+```typescript
+@MelodicComponent({
+	selector: 'user-badge',
+	template: (self) => html`<span>${self.auth.user()?.name}</span>`
+})
+export class UserBadgeComponent {
+	@Service(AuthService) auth!: AuthService; // auth.user is a signal
+}
+```
+
+Signals held in component *fields* are additionally subscribed directly, which covers
+reads that happen outside the template.
+
+Lifecycle hooks (`onInit`, `onCreate`, `onRender`, …) are deliberately **not** tracked:
+reads there belong to your code, not to the render.
 
 ```typescript
 import { MelodicComponent, html, signal } from '@melodicdev/core';
@@ -150,3 +196,26 @@ c.destroy();
 c();          // throws
 c.destroy();  // idempotent, no error
 ```
+
+Pass `{ name }` to `signal()` or `computed()` to have that name appear in the error:
+
+```typescript
+const total = computed(() => items().length, { name: 'total' });
+// "Computed signal 'total' accessed after destruction. …"
+```
+
+## Creating derived state during a render
+
+`computed()` called while a component is rendering creates a **new** computed on every
+render, and each one lives until the component unmounts. Dev mode warns about it. Create
+derived state in a field initializer or `onInit`:
+
+```typescript
+export class CartComponent {
+	items = signal<Item[]>([]);
+	total = computed(() => this.items().reduce((sum, item) => sum + item.price, 0)); // ✅
+}
+```
+
+`store.select(key, fn, cacheKey)` is the exception — it is render-scoped by design and
+sweeps entries a render stops using.

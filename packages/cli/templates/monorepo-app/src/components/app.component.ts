@@ -1,6 +1,6 @@
 import { MelodicComponent } from '@melodicdev/core/components';
 import { html, css, repeat, when, classMap } from '@melodicdev/core/template';
-import { signal } from '@melodicdev/core/signals';
+import { computed, signal } from '@melodicdev/core/signals';
 
 interface Task {
 	id: number;
@@ -323,20 +323,19 @@ export class AppComponent {
 	filter = signal<'all' | 'active' | 'completed'>('all');
 	nextId = signal(4);
 
-	activeTasks = (): Task[] => {
-		return this.tasks().filter((task) => !task.completed);
-	};
+	// Derived state belongs in computed(): it is cached until a source
+	// actually changes, so reading it several times in one render costs one
+	// evaluation. A plain method re-filters the whole list on every read.
+	activeTasks = computed(() => this.tasks().filter((task) => !task.completed));
 
-	completedTasks = (): Task[] => {
-		return this.tasks().filter((task) => task.completed);
-	};
+	completedTasks = computed(() => this.tasks().filter((task) => task.completed));
 
-	filteredTasks = (): Task[] => {
+	filteredTasks = computed(() => {
 		const filterValue = this.filter();
 		if (filterValue === 'active') return this.activeTasks();
 		if (filterValue === 'completed') return this.completedTasks();
 		return this.tasks();
-	};
+	});
 
 	handleInput = (event: Event): void => {
 		const input = event.target as HTMLInputElement;

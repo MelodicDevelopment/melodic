@@ -19,3 +19,4 @@ export { registerAdapter, getAdapter, textAdapter, checkboxAdapter, radioAdapter
 
 // Directives (auto-registers when imported)
 export { formControlDirective } from './directives/form-control.directive';
+export { modelDirective } from './directives/model.directive';

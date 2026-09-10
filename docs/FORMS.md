@@ -49,7 +49,7 @@ Each control has an optional `parent` reference. Adding a control to a group/arr
 
 ### Semantics (standard, Angular-aligned)
 
-- **Disabled controls are excluded from `value()`.** Use `getRawValue()` to get the full value including disabled controls.
+- **Disabled controls are excluded from `value()` AND from validity.** A disabled control reports `invalid() === false` no matter what its errors say, and its parent group ignores it — a disabled `required` field cannot block submit on a field the user cannot reach. Use `getRawValue()` to get the full value including disabled controls.
 - **`setValue` is strict; `patchValue` is lenient.** On a `FormGroup`, `setValue` throws if the supplied object's keys don't exactly match the controls (use `patchValue` for partial updates). On a `FormArray`, `setValue` requires a matching length.
 - **Programmatic `setValue` does not mark the control dirty.** User input dirties via the `:formControl` directive; call `markAsDirty()` explicitly for programmatic dirtying. Pass `{ markAsPristine: true }` to keep it pristine when hydrating.
 - **`markAsTouched()` touches only that control; `markAllAsTouched()` cascades to children.** To show all errors on submit, call `form.markAllAsTouched()` (not `markAsTouched()`).
@@ -63,16 +63,21 @@ const username = createFormControl<string>('', {
 });
 
 username.value();             // ''
-username.setValue('melodic'); // updates value, runs validation if updateOn is 'change' (does not dirty)
+username.setValue('melodic'); // updates value AND validates (does not dirty)
 username.errors();            // ValidationErrors | null
-username.markAsTouched();     // also runs validation if updateOn is 'blur'
+username.markAsTouched();     // also re-validates when updateOn is 'blur'
 ```
 
-`updateOn` controls when validation runs:
+`updateOn` controls when the **view** writes to the model — that is, when the
+`:formControl` directive copies what the user typed into the control:
 
-- `'change'` (default) — on every `setValue`
-- `'blur'` — only on `markAsTouched`
-- `'submit'` — only when `validate()` is called explicitly
+- `'change'` (default) — on every input event
+- `'blur'` — when the field loses focus
+- `'submit'` — when the enclosing `<form>` is submitted
+
+A **programmatic** `setValue` always validates, whatever `updateOn` says: application code
+that sets a value gets a validated control back. On a `FormGroup` or `FormArray`,
+`updateOn` governs when the group's own validators run in response to a child change.
 
 ## FormGroup
 
@@ -154,7 +159,17 @@ const emailAvailable = createAsyncValidator<string>(
 );
 ```
 
-The third argument to `createValidator`/`createAsyncValidator` is the default message — it is registered globally so any control using the validator will pick it up automatically. Pass a function `(params) => string` for parameterized messages.
+The third argument to `createValidator`/`createAsyncValidator` is the validator's default
+message. It is attached **to that validator**, so two validators can use the same error
+code with different wording without one overwriting the other. Pass a function
+`(params) => string` for parameterized messages.
+
+To register the message globally as well — so every control producing that code picks it
+up, including ones using a different validator — pass `{ global: true }`:
+
+```typescript
+createValidator('slug', isSlug, 'Letters, numbers and dashes only', { global: true });
+```
 
 An async validator that **rejects** (a failed lookup, for example) does not leave the control valid: the control records an `asyncValidator` error whose `params.message` is the rejection message, clears `pending`, and logs the failure. A validator that settles after a newer validation run started, or after the control was destroyed, is ignored.
 
@@ -168,9 +183,12 @@ Messages live in three layers:
 
 1. **Per-control overrides** via `messages: { code: string | (params) => string }` in `ControlOptions`.
 2. **Parent chain** — message overrides on a parent group/array apply to its descendants.
-3. **Global registry** — defaults registered via `registerDefaultMessages` or implicitly by `createValidator`.
+3. **The validator that produced the error** — its own default message, if it declared one.
+4. **Global registry** — defaults registered via `registerDefaultMessages`, or by
+   `createValidator(..., { global: true })`.
 
-Resolution order: per-control → walk parent chain → global → fallback to the code string.
+Resolution order: per-control → walk parent chain → producing validator → global →
+fallback to the code string.
 
 ```typescript
 import { registerDefaultMessages } from '@melodicdev/core/forms';
@@ -272,3 +290,20 @@ Controls created inside a component scope (template render, `onCreate`, or a cla
 If you create a control **outside** any active component (e.g., in a shared service that outlives any one component), no auto-registration happens — the caller owns the lifetime and must call `.destroy()` explicitly when done.
 
 After destruction, accessing any of a control's signals (`form.value()`, `form.state()`, etc.) throws a clear error. Don't hold references to a destroyed control.
+
+## Two-way binding without a form
+
+`:formControl` gives you validation, touched/dirty state and grouping. When all you need is
+a value bound to a signal, use `:model`:
+
+```typescript
+export class SearchComponent {
+	query = signal('');
+
+	// html`<ml-input label="Search" :model=${this.query}></ml-input>`
+}
+```
+
+It reads and writes through the same adapter registry `:formControl` uses, so it works with
+every `ml-*` control and with plain `input`/`select`/`textarea` — including checkboxes and
+multi-selects, whose value is not `element.value`.

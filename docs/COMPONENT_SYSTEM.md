@@ -283,7 +283,7 @@ export class UserCard {
 
 Attribute values are strings; when an observed attribute changes, the string is coerced onto the matching (camelCase) property by the property's type, determined in this order:
 
-1. An explicit `static propertyTypes` declaration.
+1. A typed `attributes` map (preferred) or an explicit `static propertyTypes` declaration.
 2. The property's **initial value** type, captured when the component was constructed.
 3. The property's **current value** type.
 4. No type information at all: the canonical literals `"true"`/`"false"` become booleans (so an initially-undefined `open?: boolean` never receives the truthy string `"false"`); everything else passes through as the raw string.
@@ -293,14 +293,25 @@ Coercion rules per type — **boolean**: present with any value except the liter
 Steps 2–4 are heuristics, so optional or union-typed properties can coerce differently depending on the property's history. Declare the type explicitly when the initializer doesn't reveal it:
 
 ```typescript
+@MelodicComponent({
+    selector: 'my-dialog',
+    // Map form: names AND types in one place.
+    attributes: { open: 'boolean', offset: 'number', label: 'string' },
+    template: myDialogTemplate
+})
 export class MyDialog {
-    static propertyTypes = { open: 'boolean', offset: 'number', label: 'string' };
-
     open?: boolean;          // no initializer — declared boolean above
     offset?: number;
     label?: string;          // declared string: label="false" stays the string "false"
 }
 ```
+
+The list form (`attributes: ['open', 'offset']`) still works and infers types from the
+initial values. `static propertyTypes` also still works and wins on conflict.
+
+Dev mode warns about two attribute declarations that silently do nothing: a name
+containing an uppercase letter (HTML lowercases attribute names, so it can never fire),
+and a name whose property holds a method (the attribute string would replace it).
 
 ## Lifecycle Hooks
 
@@ -426,7 +437,9 @@ const consumer = getActiveComponent();
 consumer?.registerDisposable({ destroy: () => /* cleanup */ });
 ```
 
-Disposables registered this way are destroyed (in registration order) on `disconnectedCallback`, after the user's `onDestroy` runs. `select()` and `AbstractControl` use this hook internally; you only need to call `registerDisposable` for raw `SignalEffect`s or other custom resources you create yourself.
+Disposables registered this way are destroyed (in registration order) during the component's
+**deferred teardown** — a microtask after `disconnectedCallback`, which a reconnect within
+that window cancels — after the user's `onDestroy` runs. `select()` and `AbstractControl` use this hook internally; you only need to call `registerDisposable` for raw `SignalEffect`s or other custom resources you create yourself.
 
 ### `onAttributeChange()`
 
@@ -652,20 +665,16 @@ export class TodoItem {
     // Event handlers
     toggle = () => {
         this.completed = !this.completed;
-        this.dispatchEvent('toggle', { id: this.todoId, completed: this.completed });
+        emit(this.elementRef, 'toggle', { id: this.todoId, completed: this.completed });
     };
 
     remove = () => {
-        this.dispatchEvent('remove', { id: this.todoId });
+        emit(this.elementRef, 'remove', { id: this.todoId });
     };
 
-    // Helper method
-    private dispatchEvent(name: string, detail: unknown) {
-        this.elementRef.dispatchEvent(new CustomEvent(name, {
-            detail,
-            bubbles: true
-        }));
-    }
+    // `emit()` from @melodicdev/core supplies the defaults a component wants
+    // (bubbles AND composed — without `composed` the event stops at the shadow
+    // boundary and the consumer never sees it).
 
     // Lifecycle hooks
     onInit() {
@@ -798,3 +807,67 @@ styles: () => css`
 ```
 
 **Note:** `::slotted()` only selects top-level projected elements, not their descendants.
+
+## Emitting Events
+
+```typescript
+import { emit } from '@melodicdev/core';
+
+emit(this.elementRef, 'ml:change', { value });
+```
+
+The defaults are the ones a component almost always wants and are easy to get wrong by
+hand: `composed: true` (without it the event stops at the shadow boundary and the consumer
+never sees it) and `bubbles: true`. Pass `{ cancelable: true }` to allow
+`preventDefault()`; `emit()` then returns `false` when a listener cancelled it.
+
+## Re-rendering
+
+A component re-renders when:
+
+- a reactive property is assigned a different value,
+- an observed attribute changes,
+- **any signal read while the template ran** changes — a signal on an injected service, a
+  signal nested in an object or array, a computed from anywhere (see
+  [SIGNALS.md](./SIGNALS.md)),
+- a component field holding a `Signal` or `AbstractControl` emits.
+
+Lifecycle hooks are deliberately not tracked: reads in `onInit`, `onCreate`, `onRender` and
+friends belong to your code, not to the render.
+
+Call `element.requestRender()` when something the template reads changed outside the
+reactive graph.
+
+Renders are batched into a microtask, so a burst of writes produces one render. A component
+that renders 25 times in a single macrotask is treated as a **render loop**, stopped, and
+reported — the usual cause is a property written from `onRender`.
+
+## Property naming
+
+A public field whose name matches a native `HTMLElement` property (`hidden`, `title`, `id`,
+`slot`, `dir`, `tabIndex`, …) is **not** mirrored onto the element, and dev mode warns.
+The platform behaviour wins: `element.hidden` stays the real `hidden`. Rename the field
+(`isHidden`, `cardTitle`) to avoid the collision.
+
+## Testing components
+
+`@melodicdev/core/testing` has the pieces every component test needs:
+
+```typescript
+import { mount, flush, query, text, unmountAll } from '@melodicdev/core/testing';
+import './my-counter.component';
+
+afterEach(unmountAll);
+
+it('increments', async () => {
+	const el = await mount('my-counter', { count: 3 });
+	query<HTMLButtonElement>(el, 'button')!.click();
+	await flush();
+	expect(text(el)).toContain('4');
+});
+```
+
+`mount` assigns the properties before connecting the element (as a parent template's
+`.prop=` bindings would) and waits for the first render. `flush()` lets pending renders and
+deferred teardown run. Also exported: `queryAll`, `captureEvents`, and `unmountAll` for an
+`afterEach`.

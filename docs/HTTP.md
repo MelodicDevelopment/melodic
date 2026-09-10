@@ -165,3 +165,24 @@ await bootstrap({
 	]
 });
 ```
+
+## Error bodies that are not JSON
+
+A failing gateway routinely returns an HTML error page under
+`content-type: application/json`. That body is **not** treated as a transport failure: the
+response keeps its status and arrives as an `HttpError` with the raw text as `data`, so
+retry and auth interceptors keyed on `HttpError` (and on `error.response.status`) fire as
+they should.
+
+```typescript
+try {
+	await http.get('/api/thing');
+} catch (error) {
+	if (error instanceof HttpError && error.response?.status === 502) {
+		// error.response.data is the raw HTML
+	}
+}
+```
+
+An empty body under a JSON content-type (common on 201/204) parses to `null`. A successful
+response whose body does not parse logs a dev warning and returns the raw text.

@@ -238,3 +238,21 @@ melodic add config
 **Monorepo projects** (with `workspaces` in `package.json`) get a full `libs/config/` library with path aliases and tsconfig references wired automatically.
 
 New projects created with `melodic init` include config scaffolding out of the box. In a monorepo, `melodic add app` will automatically wire the new app to use `libs/config/` if it exists.
+
+## How the environment is resolved
+
+`getEnvironment()` picks the first of:
+
+1. `VITE_ENV` — when it is `dev`, `qa` or `prod`
+2. Vite's `MODE` — `development` → `dev`, `production` → `prod`, and any mode named after a
+   known environment (`--mode qa` → `'qa'`) is used directly
+3. `PROD` → `'prod'`
+4. `'dev'`
+
+Step 2 is why `vite build --mode qa` now resolves to `'qa'`; it previously fell through to
+`'prod'` and quietly used your production configuration.
+
+Without a bundler (CDN / import maps) none of these exist and the environment is `'dev'`.
+
+This is separate from `devMode`, which gates framework diagnostics — see
+[BOOTSTRAP.md](./BOOTSTRAP.md).

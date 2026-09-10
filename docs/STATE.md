@@ -76,21 +76,21 @@ Effects let you respond to actions with async work and optionally dispatch follo
 
 ```typescript
 import { Injectable } from '@melodicdev/core/injection';
-import type { ActionEffects } from '@melodicdev/core/state';
+import { EffectsBase } from '@melodicdev/core/state';
 
+// `EffectsBase` is the supported base class: `addEffect(actions, handler)` in the
+// constructor, or override `getEffects()`. (`ActionEffects` is the interface it
+// implements — you rarely need to name it.)
 @Injectable()
-class TodosEffects implements ActionEffects {
-	getEffects() {
-		return [
-			{
-				actions: [loadTodos],
-				effect: async () => {
-					const result = await fetch('/api/todos');
-					const todos = await result.json();
-					return addTodo({ text: todos[0].title });
-				}
-			}
-		];
+class TodosEffects extends EffectsBase {
+	constructor() {
+		super();
+
+		this.addEffect([loadTodos], async () => {
+			const result = await fetch('/api/todos');
+			const todos = await result.json();
+			return addTodo({ text: todos[0].title });
+		});
 	}
 }
 ```
@@ -188,3 +188,26 @@ Calling `select()` from a guard, service, or app boot path (anywhere with no act
 `ComponentStateBaseService.select(selectFn, cacheKey?)` follows the same contract; cache keys are scoped per service instance, so two services don't collide.
 
 Selector **fields** defined on a `ComponentStateBaseService` subclass — the common `count = this.select(s => s.count)` pattern — are owned by the service and live for the application's lifetime. Even though the service is constructed lazily (often while a component is the active consumer), DI clears the active component during construction, so these signals are not tied to — or destroyed with — whichever component first triggered the injection.
+
+## Reading state outside a component
+
+`select()` returns a **live** computed. Inside a component that is what you want — the
+component re-renders when the value changes, and the entry is destroyed with it. Outside
+one (a guard, a resolver, a service, a one-off check) nothing ever destroys it, so every
+call leaves another dependent attached to the state signal.
+
+Use a snapshot instead:
+
+```typescript
+const state = store.snapshot();              // whole state, untracked
+const cart = store.snapshotSlice('cart');    // one slice, untracked
+```
+
+If you do need a live signal outside a component, call `.destroy()` on it when you are
+done.
+
+## Dispatch semantics
+
+`dispatch(action)` and `dispatch(key, action)` both apply **every** reducer registered for
+that action type — the key form scopes it to one slice, in registration order, batched into
+a single update. A slice may register more than one reducer for the same action.

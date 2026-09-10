@@ -9,7 +9,7 @@
 		"strict": true,
 		"skipLibCheck": true,
 		"noEmit": true,
-		"types": ["node"]
+		"types": ["node", "vite/client"]
 	},
 	"include": ["apps", "libs", "vite-plugin-melodic-styles.ts"]
 }

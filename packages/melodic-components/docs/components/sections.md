@@ -59,7 +59,7 @@ On small screens the sidebar becomes a drawer. Use the `toggleMobileSidebar` hel
 | Property | Type | Default | Description |
 |----------|------|---------|-------------|
 | `sidebar-position` | `'left'` \| `'right'` | `'left'` | Which side the sidebar appears on |
-| `sidebar-collapsed` | `boolean` | `false` | Collapse sidebar to icon-only width |
+| `sidebar-collapsed` | `boolean` | `false` | Collapse the sidebar column to `--ml-app-shell-sidebar-collapsed-width` (64px by default) |
 | `header-fixed` | `boolean` | `false` | Make the header sticky while content scrolls |
 
 **Slots:**
@@ -271,3 +271,20 @@ import '@melodicdev/components/hero';
 | `actions` | CTA buttons |
 | `media` | Image, video, or component displayed alongside/below the text |
 | `social-proof` | Logos, testimonials, stats below the CTA |
+
+### Responsive behaviour
+
+Below `--ml-app-shell-mobile-breakpoint` (768px) the sidebar becomes a drawer with a menu
+button in the header. The breakpoint is read from that custom property by both the
+stylesheet and the component, so overriding it moves both together:
+
+```css
+ml-app-shell {
+	--ml-app-shell-mobile-breakpoint: 900px;
+	--ml-app-shell-sidebar-collapsed-width: 72px;
+}
+```
+
+The drawer closes on Escape and on a backdrop click, the menu button carries
+`aria-expanded`/`aria-controls`, and focus moves into the drawer when it opens and back to
+the menu button when it closes.

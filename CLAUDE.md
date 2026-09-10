@@ -64,6 +64,8 @@ import { ... } from '@melodicdev/core/routing';   // Router
 import { ... } from '@melodicdev/core/signals';   // Signals
 import { ... } from '@melodicdev/core/state';     // State management
 import { ... } from '@melodicdev/core/template';  // Template utilities
+import { ... } from '@melodicdev/core/testing';   // mount/flush/query for tests
+import { ... } from '@melodicdev/core/devtools';  // dev-mode switch + in-page hook
 ```
 
 ### Component System (`src/components/`)
@@ -75,7 +77,7 @@ Components use the `@MelodicComponent` decorator and extend `HTMLElement` via `C
   selector: 'my-component',
   template: myTemplate,
   styles: myStyles,
-  attributes: ['my-attr']   // observed HTML attributes
+  attributes: ['my-attr']   // or { open: 'boolean', offset: 'number' }
 })
 export class MyComponent {
   count = 0;
@@ -91,13 +93,23 @@ export class MyComponent {
 
 **Lifecycle Hooks:**
 - `onInit()` - Before DOM attachment, after property observation
-- `onCreate()` - After `connectedCallback()` (element in DOM)
+- `onCreate()` - Once, the first time the element enters the DOM
+- `onConnect()` - Every connect, including the first
 - `onRender()` - After each render
-- `onDestroy()` - On `disconnectedCallback()` (element removed)
+- `onDisconnect()` - Every disconnect
+- `onDestroy()` - Permanent removal (deferred teardown; a reconnect cancels it)
 - `onAttributeChange(name, oldVal, newVal)` - Observed attribute changes
 - `onPropertyChange(name, oldVal, newVal)` - Before property changes
+- `onRouteChange(change)` - Routed component whose params changed while mounted
+
+Hooks are **not** signal-tracked: reads there belong to your code, not the render.
 
 **Important:** Properties prefixed with `_` are excluded from reactivity. Use `_` for private fields that should not trigger re-renders.
+
+**Render tracking:** the template runs inside a signal effect, so **any** signal read while
+rendering re-renders the component — a signal on an injected service, one nested in an
+object or array, a computed from anywhere. A field named like a native `HTMLElement`
+property (`hidden`, `title`, `id`, …) is not mirrored onto the element and warns in dev.
 
 ### Configuration (`src/config/`)
 
@@ -130,7 +142,7 @@ await bootstrap({
 Fine-grained reactive primitives:
 
 ```typescript
-import { signal, computed, SignalEffect } from '@melodicdev/core/signals';
+import { signal, computed, effect, untracked } from '@melodicdev/core/signals';
 
 const count = signal(0);
 const doubled = computed(() => count() * 2); // lazy + read-only: .set()/.update() throw
@@ -154,14 +166,20 @@ import { RouterService, RouterOutlet, RouterLink, provideRouter } from '@melodic
 // The full match→guards→resolvers→commit pipeline runs in RouterService (incl. popstate);
 // outlets render the committed route.
 
-const routes = [
-  { path: '', component: HomeComponent },
-  { path: 'users/:id', component: UserComponent, guards: [authGuard] },
-  { path: '**', component: NotFoundComponent }
+// `component` is the custom element TAG NAME, and activation guards go in
+// `canActivate` (`canDeactivate` for leave guards).
+const routes: IRoute[] = [
+  { path: '', component: 'home-page' },
+  { path: 'users/:id', component: 'user-detail', canActivate: [authGuard] },
+  { path: '**', component: 'not-found-page' }
 ];
 
 // Navigation
 router.navigate('/users/123', { scrollToTop: true });
+
+// Reactive route state (signals): params, queryParams, resolvedData, events.
+// Reading router.params() in a template re-renders on /users/1 → /users/2,
+// where the component stays mounted and onCreate does not run again.
 ```
 
 ### Forms System (`src/forms/`)
@@ -181,7 +199,11 @@ form.valid();    // boolean (Signal)
 form.errors();   // group-level validation errors (Signal)
 ```
 
-Bind controls to elements with `:formControl`. Validator messages auto-populate the `error` attribute on form components when touched + invalid:
+Bind controls to elements with `:formControl`, or bind a bare signal two-way with
+`:model=${this.query}`. Disabled controls are excluded from validity as well as from
+`value()`. `updateOn` governs when the VIEW writes to the model; a programmatic `setValue`
+always validates. Validator messages auto-populate the `error` attribute on form components
+when touched + invalid:
 
 ```typescript
 html`<ml-input label="Email" :formControl=${form.get('email')}></ml-input>`;
@@ -267,6 +289,7 @@ const template = (name: string) => html`
 - `classMap({ class: boolean })` - Dynamic CSS classes
 - `styleMap({ prop: value })` - Dynamic inline styles
 - `unsafeHTML(htmlString)` - Raw HTML rendering
+- `live(value)` - Property binding compared against the DOM's current value (user-editable fields)
 
 ---
 
@@ -468,6 +491,7 @@ melodic generate resolver <name>
 ## Documentation Files
 
 Core framework docs in `/docs/`:
+- `API_SURFACE.md` - Every export, grouped application / extension / internal
 - `CONFIG.md` - Configuration and environment management
 - `COMPONENT_SYSTEM.md` - Component creation and lifecycle
 - `TEMPLATE_SYSTEM.md` - Template syntax and directives
@@ -478,6 +502,7 @@ Core framework docs in `/docs/`:
 - `INJECTION.md` - Dependency injection
 - `BOOTSTRAP.md` - App initialization
 - `STATE.md` - State management
+- `TESTING.md` - `@melodicdev/core/testing`, mounting and flushing components
 - `CODING_PRACTICES.md` - Code standards and ESLint
 
 Component library docs in `packages/melodic-components/docs/`:

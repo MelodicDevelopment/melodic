@@ -146,9 +146,17 @@ Global styles: if you add a `<style>` or `<link>` tag with the `melodic-styles` 
 
 Lifecycle hooks available on the component instance:
 
-- `onInit`, `onCreate`, `onRender`, `onDestroy`
+- `onInit` — before DOM attachment, after property observation
+- `onCreate` — once, the first time the element enters the DOM
+- `onConnect` / `onDisconnect` — every connect and disconnect
+- `onRender` — after each render
+- `onDestroy` — permanent removal (deferred; a reconnect cancels it)
 - `onPropertyChange(name, oldVal, newVal)`
 - `onAttributeChange(name, oldVal, newVal)`
+
+A component re-renders when a reactive property or observed attribute changes, and when
+**any signal read while its template ran** changes — including a signal on an injected
+service. Lifecycle hooks are deliberately not tracked.
 
 ### Templates and Bindings
 
@@ -295,6 +303,8 @@ await bootstrap({
 - [HTTP Client](./docs/HTTP.md)
 - [Dependency Injection](./docs/INJECTION.md)
 - [Forms](./docs/FORMS.md)
+- [Testing](./docs/TESTING.md)
+- [API Surface](./docs/API_SURFACE.md)
 
 ## Publishing
 

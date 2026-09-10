@@ -233,7 +233,7 @@ const navGroups: SidebarNavGroup[] = [
 | `value` | `string` | `''` | Unique identifier |
 | `label` | `string` | `''` | Display label |
 | `icon` | `string` | `''` | Phosphor icon |
-| `icon-format` | `'regular'` \| `'fill'` \| `'bold'` \| `'duotone'` | `'regular'` | Phosphor icon weight/format |
+| `icon-format` | `'regular'` \| `'thin'` \| `'light'` \| `'bold'` \| `'fill'` | `'regular'` | Phosphor icon weight/format |
 | `href` | `string` | `''` | Navigation URL |
 | `badge` | `string` | `''` | Badge text (counts, labels) |
 | `badge-color` | `'default'` \| `'primary'` \| `'success'` \| `'warning'` \| `'error'` | `'default'` | Badge color |
@@ -333,10 +333,10 @@ const stepConfigs: StepConfig[] = [
 | Property | Type | Default | Description |
 |----------|------|---------|-------------|
 | `active` | `string` | `''` | Value of the active step |
-| `variant` | `'numbered'` \| `'circles'` \| `'bullets'` \| `'simple'` | `'numbered'` | Visual style |
+| `variant` | `'numbered'` \| `'circles'` \| `'icons'` \| `'bar'` | `'numbered'` | Visual style |
 | `orientation` | `'horizontal'` \| `'vertical'` | `'horizontal'` | Layout direction |
-| `connector` | `'solid'` \| `'dashed'` \| `'dotted'` | `'solid'` | Connector line style |
-| `color` | `'primary'` \| `'success'` \| `'warning'` \| `'error'` | `'primary'` | Accent color |
+| `connector` | `'solid'` \| `'dotted'` | `'solid'` | Connector line style |
+| `color` | `'primary'` \| `'success'` | `'primary'` | Accent color |
 | `compact` | `boolean` | `false` | Dots-only compact mode with "Step X of Y" label |
 | `routed` | `boolean` | `false` | Sync with URL pathname |
 | `steps` | `StepConfig[]` | `[]` | Config array (alternative to slotted ml-step) |

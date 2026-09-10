@@ -120,3 +120,50 @@ console.log(flags);
 
 app.destroy();
 ```
+
+## `devMode`
+
+`devMode` is the framework-wide development switch: template diagnostics, dev warnings and
+the DevTools hook all consult it.
+
+Left unset it follows the build — `import.meta.env.DEV` under a bundler, a localhost check
+without one — which is almost always what you want. Pass it explicitly only to override
+that:
+
+```typescript
+await bootstrap({ devMode: false }); // silence diagnostics on a localhost demo
+```
+
+Setting `devMode: true` in a production build ships every dev diagnostic to your users.
+
+The prebuilt `bundle/melodic-core.js` is now built with dev mode ON and
+`bundle/melodic-core.min.js` with it OFF, so a CDN consumer can choose.
+
+## Ordering
+
+1. `onBefore()`
+2. providers run, in order
+3. the root component is created and mounted
+4. `IMelodicApp` is bound (and `app.http` populated when `provideHttp` registered a client)
+5. `onReady()`
+
+`IMelodicApp` is bound **before** `onReady` so startup work in that hook can resolve it. If
+any step throws, everything acquired so far is rolled back: window error handlers removed,
+the root element unmounted, and the `IMelodicApp` binding released.
+
+## The `melodic` console API
+
+In dev mode, `bootstrap()` installs `window.melodic`:
+
+| Call | Answers |
+|---|---|
+| `melodic.components()` | every registered selector |
+| `melodic.instances('my-card')` | mounted instances, searching shadow roots |
+| `melodic.inspect($0)` | an element's selector, reactive props, signal fields, render state |
+| `melodic.bindings()` | injector contents (token, type, singleton, resolved) |
+| `melodic.trace()` | log every framework event until the returned function is called |
+| `melodic.on(type, fn)` | subscribe to one event type |
+
+Events cover component define/create/connect/render/disconnect/destroy, signal
+create/set/destroy, computed recompute, effect runs, flush start/end, navigation, store
+dispatches. Nothing is recorded until something subscribes.

@@ -83,14 +83,37 @@ import '@melodicdev/components/progress';
 | `max` | `number` | `100` | Maximum value |
 | `variant` | `'primary'` \| `'success'` \| `'warning'` \| `'error'` | `'primary'` | Color variant |
 | `size` | `'sm'` \| `'md'` \| `'lg'` | `'md'` | Bar height |
-| `label` | `string` | `''` | Optional text label above the bar |
+| `label` | `string` | `''` | Optional text label |
 | `showValue` | `boolean` | `false` | Display percentage text |
+| `shape` | `'linear'` \| `'circle'` \| `'half-circle'` | `'linear'` | Bar, ring, or gauge |
+| `labelPosition` | `'top'` \| `'right'` \| `'bottom'` \| `'floating-top'` \| `'floating-bottom'` \| `'none'` | `'top'` | Where the label sits relative to the track |
+
+```html
+<ml-progress value="40" shape="circle" show-value></ml-progress>
+<ml-progress value="60" shape="half-circle" show-value></ml-progress>
+<ml-progress value="80" label="Upload" show-value label-position="right"></ml-progress>
+```
 
 ---
 
 ## ml-toast (via ToastService)
 
 Toasts are displayed through the injectable `ToastService`. You do not place any HTML in your template — the service manages its own container.
+
+Every `show`/`info`/`success`/`warning`/`error` call returns a handle, so a toast can be
+dismissed before its timer fires:
+
+```ts
+const saving = this._toastService.info('Saving…', undefined);
+await save();
+saving.dismiss();
+```
+
+`dismissAll()` clears everything on screen, and `setMaxVisible(n)` caps how many are shown
+at once (default 5, `0` for unlimited) — the oldest is dropped when the cap is exceeded.
+
+The container is an `aria-live="polite"` region. Only `error` toasts use `role="alert"`
+(assertive), so a success message does not interrupt what the user is reading.
 
 ```ts
 import '@melodicdev/components/toast';

@@ -36,6 +36,7 @@ export {
 	createFormGroup,
 	createValidator,
 	formControlDirective,
+	modelDirective,
 	getAdapter,
 	getGlobalMessage,
 	radioAdapter,

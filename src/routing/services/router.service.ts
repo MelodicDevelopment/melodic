@@ -12,6 +12,7 @@ import type { IGuardContext } from '../interfaces/iguard-context.interface';
 import type { INavigationOptions } from '../interfaces/inavigation-options.interface';
 import type { INavigationResult } from '../interfaces/inavigation-result.interface';
 import type { INavigationEvent, NavigationEventType } from '../interfaces/inavigation-event.interface';
+import type { RouteParams } from '../types/route-params.type';
 import type { IRoute } from '../interfaces/iroute.interface';
 import type { IRouteMatch } from '../interfaces/iroute-match.interface';
 import type { IRouteMatchResult } from '../interfaces/iroute-match-result.interface';
@@ -233,8 +234,15 @@ export class RouterService {
 		return this._route;
 	}
 
-	public getParams(): Record<string, string> {
-		return this._contextService.getCurrentParams();
+	/**
+	 * Params of the committed route.
+	 *
+	 * Pass the route's path as a type argument to have the names checked:
+	 * `router.getParams<'users/:id'>().id`. Without it the return type stays
+	 * the untyped `Record<string, string>`.
+	 */
+	public getParams<Path extends string = string>(): RouteParams<Path> {
+		return this._contextService.getCurrentParams() as RouteParams<Path>;
 	}
 
 	public getParam(name: string): string | undefined {

@@ -1,6 +1,7 @@
 // Types - Route configuration and matching
 export type { RouterStateEvent } from './types/router-state-event.type';
 export type { IRoute } from './interfaces/iroute.interface';
+export type { RouteParams } from './types/route-params.type';
 export type { IResolvedRoute } from './interfaces/iresolved-route.interface';
 export type { IRouteMatch } from './interfaces/iroute-match.interface';
 export type { IRouteMatchResult } from './interfaces/iroute-match-result.interface';

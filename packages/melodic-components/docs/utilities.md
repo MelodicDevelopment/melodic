@@ -394,3 +394,56 @@ const styles = () => css`
   }
 `;
 ```
+
+## Cross-root ARIA
+
+`aria-describedby`, `aria-labelledby` and `aria-activedescendant` are IDREFs, and an IDREF
+only resolves **within the same tree**. A component whose description lives in its shadow
+root cannot point a light-DOM trigger at it: the attribute is set, resolves to nothing, and
+the content is never announced.
+
+```typescript
+import {
+	setCrossRootDescription,
+	setCrossRootLabel,
+	setCrossRootActiveDescendant,
+	clearCrossRootDescription,
+	getFocusableControl,
+	supportsAriaElementReferences
+} from '@melodicdev/components/utils';
+
+// Describe a light-DOM trigger with an element inside this shadow root.
+setCrossRootDescription(trigger, [contentElement]);
+
+// Clear it again.
+clearCrossRootDescription(trigger);
+```
+
+These use the ARIA element-reference properties (`ariaDescribedByElements` and friends),
+which do cross the boundary, and fall back to copying the text onto the element
+(`aria-description` / `aria-label`) where those are unsupported.
+
+`getFocusableControl(element)` returns the node that actually takes focus for a possibly
+composite control — the `<button>` inside an `<ml-button>`, for instance. ARIA state must
+sit there, not on the wrapper host.
+
+## Watching light-DOM slots
+
+`watchSlotPresence` listens on shadow `<slot>` elements, which only works when those slots
+are always rendered. A component that renders a slot conditionally
+(`${when(hasSearch, …)}`) has a chicken-and-egg problem: the slot that would fire
+`slotchange` exists only once the flag is already true.
+
+```typescript
+import { watchLightSlots, hasLightSlot } from '@melodicdev/components/utils';
+
+public onCreate(): void {
+	this._cleanup = watchLightSlots(this.elementRef, () => {
+		this.hasSearch = hasLightSlot(this.elementRef, 'search');
+	});
+}
+
+public onDestroy(): void {
+	this._cleanup?.();
+}
+```

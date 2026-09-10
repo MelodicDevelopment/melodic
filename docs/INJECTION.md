@@ -109,3 +109,43 @@ Injector.bind(Logger, Logger, { singleton: true });
 Injector.bindValue('ENV', 'production');
 Injector.bindFactory('UUID', () => crypto.randomUUID());
 ```
+
+## `inject()`
+
+`@Service(Token) field!: T` is lazy but untyped — `@Service(HttpClient) http!: Logger`
+compiles. `inject()` derives the type from the token:
+
+```typescript
+import { inject, injectOptional } from '@melodicdev/core';
+
+const http = inject(HttpClient);          // HttpClient
+const analytics = injectOptional(ANALYTICS); // Analytics | undefined
+const logger = injectOptional(LOGGER, consoleLogger); // with a fallback
+```
+
+`inject()` resolves eagerly, so call it where the binding already exists: a field
+initializer inside a component (bootstrap has run by then), `onInit`, or a service
+constructor. `@Service` remains the lazy option.
+
+## Testing with fakes
+
+`@Service` fields are writable. Assigning one replaces the dependency **for that instance
+only**, without touching the global injector:
+
+```typescript
+const component = await mount('user-badge');
+component.component.auth = fakeAuth;
+```
+
+## Re-binding
+
+Binding a token whose singleton has already been resolved leaves every existing holder on
+the old instance while new consumers get the new one. Dev mode warns about it; call
+`Injector.unbind(token)` first if the replacement is intentional.
+
+## Inspecting the container
+
+`Injector.entries()` returns every registered binding as `[tokenKey, binding]`, and
+`Injector.has(token)` / `Injector.getBinding(token)` answer questions about one. These are
+for diagnostics and DevTools (`melodic.bindings()` in the console), not for mutating the
+container.

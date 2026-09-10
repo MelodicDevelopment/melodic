@@ -608,3 +608,49 @@ html`
 ```
 
 Note the `` `${maxHeight}px` `` above — that unit is load-bearing. `styleMap` emits values as-is and never infers units, so a bare number on a length property (`{ maxHeight: 400 }`) produces invalid CSS that the browser drops silently. This differs from React's style object, which appends `px` for you. Bare numbers remain correct for unitless properties such as `opacity` and `zIndex`.
+
+## `live()`
+
+Property bindings skip the write when the bound value is unchanged. That is right for
+everything except a control the user can edit: after typing in
+`<input .value=${text}>`, resetting `text` to the value it already had writes nothing, and
+the typed text stays on screen. `live()` compares against the element's **current**
+property instead:
+
+```typescript
+import { live } from '@melodicdev/core';
+
+html`<input .value=${live(this.text)} @input=${this.onInput} />`;
+```
+
+Use it for `value`, `checked`, `selected` and similar user-mutable properties; a plain
+binding remains cheaper everywhere else.
+
+## Directives inside composite attributes
+
+A directive may sit alongside static text in one attribute. The static segments are written
+first, then the directives run against the element, so an additive directive such as
+`classMap` layers on top:
+
+```typescript
+html`<div class="card ${classMap({ active: isActive })}">…</div>`;
+// class="card active"
+```
+
+Each directive segment keeps its own state, so several may share one attribute.
+
+## Bindings the parser cannot see
+
+The parser tracks whether the cursor is inside an open tag, so text that merely looks like
+an attribute is treated as text:
+
+```typescript
+html`<p>Total=${total}</p>`;   // renders the value
+```
+
+These positions still cannot carry a binding, and dev mode reports each one with the
+offending snippet:
+
+- inside a raw-text element (`<textarea>`, `<title>`)
+- in tag-name position (`` html`<${tag}>` ``)
+- inside an HTML comment
