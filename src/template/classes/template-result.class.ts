@@ -6,6 +6,7 @@ import type { RenderedContainer } from '../interfaces/irendered-container.interf
 import { isDirective } from '../directives/functions/is-directive.function';
 import { disposeParts, disposeContainerParts, disposeDirectiveState } from '../functions/dispose.functions';
 import { renderDetachedItem } from '../functions/render-detached.function';
+import { clearBetween, moveRange, removeRange } from '../functions/marker-range.functions';
 
 // Unique marker for identifying dynamic positions
 const MARKER = `m${Math.random().toString(36).slice(2, 9)}`;
@@ -773,8 +774,17 @@ export class TemplateResult {
 	}
 
 	/**
-	 * Clears previously rendered nodes between markers, recursively disposing
-	 * the nested part trees (directive/action cleanups) they own.
+	 * Clears the content a node part rendered between its markers, recursively
+	 * disposing the nested part trees (directive/action cleanups) it owns.
+	 *
+	 * Disposal runs exactly once per container here; the DOM is then cleared as
+	 * ONE live range walk from `startMarker` to `endMarker` (keeping `part.node`,
+	 * the original text node the part renders plain values into). A snapshot of
+	 * "the nodes this part inserted" cannot be trusted for that: a nested node
+	 * part inside the rendered content swaps its own nodes whenever its template
+	 * structure changes, and those replacements were never in the parent's list —
+	 * so a snapshot-based teardown stranded them between the markers and the
+	 * next render put a second copy beside the orphan.
 	 */
 	private clearRenderedNodes(part: ITemplatePart): void {
 		// Dispose nested part trees BEFORE dropping the references, so cleanups
@@ -805,12 +815,9 @@ export class TemplateResult {
 			part.positionalArrayState = undefined;
 		}
 
-		if (part.renderedNodes && part.renderedNodes.length > 0) {
-			for (const node of part.renderedNodes) {
-				node.parentNode?.removeChild(node);
-			}
+		if (part.startMarker && part.endMarker) {
+			clearBetween(part.startMarker, part.endMarker, part.node);
 		}
-		part.renderedNodes = [];
 	}
 
 	/**
@@ -886,16 +893,14 @@ export class TemplateResult {
 		}
 
 		// First render or template structure changed — clearRenderedNodes
-		// recursively disposes the old nested part tree before removal.
+		// recursively disposes the old nested part tree and clears the live
+		// range between the markers before the new content goes in.
 		this.clearRenderedNodes(part);
 		part.node!.textContent = '';
 
 		const container = document.createDocumentFragment();
 		template.renderInto(container);
 		part.nestedContainer = container;
-
-		const nodes = Array.from(container.childNodes);
-		part.renderedNodes = nodes;
 
 		const parent = part.endMarker!.parentNode!;
 		parent.insertBefore(container, part.endMarker!);
@@ -910,8 +915,6 @@ export class TemplateResult {
 
 		// Hide the original text node
 		part.node!.textContent = '';
-
-		part.renderedNodes = [node];
 
 		const parent = part.endMarker!.parentNode!;
 		parent.insertBefore(node, part.endMarker!);
@@ -930,10 +933,10 @@ export class TemplateResult {
 		const keyedValues = this.getKeyedValues(values);
 
 		if (keyedValues) {
-			// The part rendered an unkeyed array last time: its items are indexed
-			// by position and cannot be adopted by key, so dispose and remove them
-			// before the keyed path takes over.
-			if (part.positionalArrayState) {
+			// Entering keyed mode: whatever the part rendered before (an unkeyed
+			// array, a nested template, a bare node) cannot be adopted by key, so
+			// dispose and remove it before the keyed path takes over.
+			if (!part.arrayState) {
 				this.clearRenderedNodes(part);
 			}
 
@@ -948,47 +951,41 @@ export class TemplateResult {
 			for (const item of keyedValues) {
 				const existing = state.items.get(item.key);
 				if (existing) {
-					this.updateArrayItem(existing, item.value, parent, part.endMarker!);
+					this.updateArrayItem(existing, item.value);
 					newItems.set(item.key, existing);
 				} else {
 					const created = this.createArrayItem(item.value, parent, part.endMarker!);
-					newItems.set(item.key, {
-						key: item.key,
-						value: item.value,
-						container: created.container,
-						nodes: created.nodes
-					});
+					newItems.set(item.key, { key: item.key, ...created });
 				}
 				newKeys.push(item.key);
 			}
 
 			for (const [key, oldItem] of state.items.entries()) {
 				if (!newItems.has(key)) {
-					// Dispose the removed item's part tree before removing its nodes.
+					// Dispose the removed item's part tree, then remove its live
+					// range (markers included) — not a snapshot of its nodes.
 					disposeContainerParts(oldItem.container);
-					for (const node of oldItem.nodes) {
-						node.parentNode?.removeChild(node);
-					}
+					removeRange(oldItem.start, oldItem.end);
 				}
 			}
 
-			let referenceNode = part.startMarker!.nextSibling;
+			// Walk the items in their new order, moving each one's marker range in
+			// front of the first node not yet placed. Items already in position
+			// are skipped over without touching the DOM.
+			let referenceNode: Node = this.firstArrayNode(part);
 			for (const key of newKeys) {
 				const item = newItems.get(key)!;
-				for (const node of item.nodes) {
-					if (node === referenceNode) {
-						referenceNode = referenceNode?.nextSibling ?? null;
-						continue;
-					}
-					parent.insertBefore(node, referenceNode ?? part.endMarker!);
+				if (item.start === referenceNode) {
+					referenceNode = item.end.nextSibling ?? part.endMarker!;
+					continue;
 				}
+				moveRange(item.start, item.end, referenceNode);
 			}
 
 			part.arrayState = {
 				items: newItems,
 				keys: newKeys
 			};
-			part.renderedNodes = newKeys.flatMap((key) => newItems.get(key)!.nodes);
 			return;
 		}
 
@@ -1034,34 +1031,27 @@ export class TemplateResult {
 			const existing = items[index];
 
 			if (existing) {
-				// The anchor matters only when the item has to be rebuilt: the
-				// replacement nodes must land at this index, not at the end of
-				// the list. The next surviving item's first live node is that
-				// position; with no such node the list ends here.
-				const anchor = this.findPositionalAnchor(items, index + 1, endMarker);
-				if (this.updateArrayItem(existing, value, parent, anchor)) {
+				// A rebuilt item lands between its own markers, so it stays at
+				// this index without needing an insertion anchor.
+				if (this.updateArrayItem(existing, value)) {
 					recreated++;
 				}
 			} else {
 				// The array grew — new items append before the end marker.
-				const created = this.createArrayItem(value, parent, endMarker);
-				items[index] = { value, container: created.container, nodes: created.nodes };
+				items[index] = this.createArrayItem(value, parent, endMarker);
 			}
 		}
 
 		// The array shrank — dispose the tail's part trees (so cleanups nested
-		// anywhere inside them run) before dropping its nodes.
+		// anywhere inside them run) before dropping their live ranges.
 		if (items.length > values.length) {
 			for (const removed of items.splice(values.length)) {
 				disposeContainerParts(removed.container);
-				for (const node of removed.nodes) {
-					node.parentNode?.removeChild(node);
-				}
+				removeRange(removed.start, removed.end);
 			}
 		}
 
 		part.positionalArrayState = state;
-		part.renderedNodes = items.flatMap((item) => item.nodes);
 
 		if (isUpdate) {
 			warnUnkeyedArrayChurn(state, recreated, values.length);
@@ -1069,20 +1059,16 @@ export class TemplateResult {
 	}
 
 	/**
-	 * First live node at or after `from` in a positional item list — the
-	 * insertion anchor that keeps a rebuilt item at its own index. Items can
-	 * legitimately contribute zero nodes (a null/undefined value), so this
-	 * scans forward rather than reading `items[from]` directly.
+	 * The first node of an array part's item area: the sibling after the part's
+	 * (emptied) text node, which sits directly after the start marker. Falls
+	 * back to the node after the start marker if the text node is not there.
 	 */
-	private findPositionalAnchor(items: IArrayItem[], from: number, endMarker: Comment): Node {
-		for (let index = from; index < items.length; index++) {
-			for (const node of items[index].nodes) {
-				if (node.parentNode) {
-					return node;
-				}
-			}
+	private firstArrayNode(part: ITemplatePart): Node {
+		const textNode = part.node;
+		if (textNode && textNode.parentNode === part.startMarker!.parentNode && textNode.nextSibling) {
+			return textNode.nextSibling;
 		}
-		return endMarker;
+		return part.startMarker!.nextSibling ?? part.endMarker!;
 	}
 
 	private getKeyedValues(values: unknown[]): Array<{ key: unknown; value: unknown }> | null {
@@ -1103,8 +1089,26 @@ export class TemplateResult {
 		return keyedValues;
 	}
 
-	private createArrayItem(value: unknown, parent: Node, endMarker: Comment): { container: DocumentFragment; nodes: Node[] } {
+	/**
+	 * Renders one array item into a fresh container and inserts it, wrapped in
+	 * its own marker pair, before `endMarker`. Every later removal, move or
+	 * rebuild of the item walks the live range between those markers — the
+	 * same pattern `repeat()` uses — so nodes a nested part swaps in later are
+	 * never stranded.
+	 */
+	private createArrayItem(value: unknown, parent: Node, endMarker: Comment): IArrayItem {
 		const container = document.createDocumentFragment();
+		this.renderArrayItemValue(value, container);
+
+		const start = document.createComment('item-start');
+		const end = document.createComment('item-end');
+		parent.insertBefore(start, endMarker);
+		parent.insertBefore(container, endMarker);
+		parent.insertBefore(end, endMarker);
+		return { value, container, start, end };
+	}
+
+	private renderArrayItemValue(value: unknown, container: DocumentFragment): void {
 		if (value instanceof TemplateResult) {
 			value.renderInto(container);
 		} else if (value instanceof Node) {
@@ -1112,23 +1116,17 @@ export class TemplateResult {
 		} else if (value !== null && value !== undefined) {
 			container.appendChild(document.createTextNode(String(value)));
 		}
-
-		const nodes = Array.from(container.childNodes);
-		parent.insertBefore(container, endMarker);
-		return { container, nodes };
 	}
 
 	/**
-	 * Updates one array item in place where possible.
-	 *
-	 * `anchor` is where replacement nodes are inserted when the item has to be
-	 * rebuilt — the end marker for keyed arrays (which reorder afterwards), the
-	 * next surviving item's first node for positional ones.
+	 * Updates one array item in place where possible. A rebuilt item replaces
+	 * whatever currently lies between its own markers, so it keeps its position
+	 * in both the keyed and positional paths.
 	 *
 	 * @returns true when the item's live nodes were replaced (its DOM identity
 	 * did not survive), false when the existing nodes were updated in place.
 	 */
-	private updateArrayItem(item: IArrayItem, value: unknown, parent: Node, anchor: Node): boolean {
+	private updateArrayItem(item: IArrayItem, value: unknown): boolean {
 		// A container only carries a part tree when a TemplateResult was rendered
 		// into it. Without one there is nothing to update in place — the item
 		// currently holds a bare Node or a text node — so a template value has to
@@ -1137,14 +1135,12 @@ export class TemplateResult {
 		const hasPartTree = (item.container as RenderedContainer<DocumentFragment>).__parts !== undefined;
 
 		if (value instanceof TemplateResult && hasPartTree) {
-			// renderDetachedItem keeps the live nodes when the structure is
-			// unchanged and swaps in the rebuilt nodes when it is — and never
-			// wipes item.nodes with the (empty) fragment's child list. It returns
-			// the SAME array it was handed when nothing was swapped.
-			const previousNodes = item.nodes;
-			item.nodes = renderDetachedItem(value, item.container, item.nodes, anchor);
+			// renderDetachedItem updates the live nodes in place when the
+			// structure is unchanged, and otherwise replaces the item's whole
+			// marker range with the rebuilt nodes.
+			const replaced = renderDetachedItem(value, item.container, item.start, item.end);
 			item.value = value;
-			return item.nodes !== previousNodes;
+			return replaced;
 		}
 
 		if (!(value instanceof TemplateResult) && value === item.value) {
@@ -1153,39 +1149,30 @@ export class TemplateResult {
 
 		// Primitive → primitive at the same position: retarget the existing text
 		// node instead of replacing it, so its identity survives too.
+		const only = item.start.nextSibling;
 		if (
 			!(value instanceof TemplateResult) &&
 			!(value instanceof Node) &&
 			value !== null &&
 			value !== undefined &&
 			!hasPartTree &&
-			item.nodes.length === 1 &&
-			item.nodes[0].nodeType === Node.TEXT_NODE
+			only !== null &&
+			only.nextSibling === item.end &&
+			only.nodeType === Node.TEXT_NODE
 		) {
-			item.nodes[0].nodeValue = String(value);
+			only.nodeValue = String(value);
 			item.value = value;
 			return false;
 		}
 
 		// The item's content type changed (e.g. was a template, now a plain
-		// value) — dispose the old part tree before discarding it.
+		// value) — dispose the old part tree, then replace the item's live range.
 		disposeContainerParts(item.container);
-
-		for (const node of item.nodes) {
-			node.parentNode?.removeChild(node);
-		}
+		clearBetween(item.start, item.end);
 
 		item.container = document.createDocumentFragment();
-		if (value instanceof TemplateResult) {
-			value.renderInto(item.container);
-		} else if (value instanceof Node) {
-			item.container.appendChild(value);
-		} else if (value !== null && value !== undefined) {
-			item.container.appendChild(document.createTextNode(String(value)));
-		}
-
-		item.nodes = Array.from(item.container.childNodes);
-		parent.insertBefore(item.container, anchor);
+		this.renderArrayItemValue(value, item.container);
+		item.end.parentNode?.insertBefore(item.container, item.end);
 		item.value = value;
 		return true;
 	}
@@ -1310,6 +1297,15 @@ export class TemplateResult {
 				case 'attribute':
 					if (part.node && part.name) {
 						const element = part.node as Element;
+
+						// Leaving a directive for a plain value: run its cleanup now,
+						// not whenever another directive happens to replace it.
+						if (!isDirective(value) && part.directiveState !== undefined) {
+							disposeDirectiveState(part.directiveState);
+							part.directiveState = undefined;
+							part.directiveType = undefined;
+						}
+
 						// Handle directives
 						if (isDirective(value)) {
 							if (part.directiveState !== undefined && part.directiveType !== value.type) {
@@ -1375,6 +1371,12 @@ export class TemplateResult {
 
 				case 'property':
 					if (part.node && part.name) {
+						if (!isDirective(value) && part.directiveState !== undefined) {
+							disposeDirectiveState(part.directiveState);
+							part.directiveState = undefined;
+							part.directiveType = undefined;
+						}
+
 						// Handle directives
 						if (isDirective(value)) {
 							if (part.directiveState !== undefined && part.directiveType !== value.type) {

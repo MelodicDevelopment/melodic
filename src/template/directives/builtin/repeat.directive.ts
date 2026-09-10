@@ -19,8 +19,13 @@ interface RepeatState {
 
 interface RepeatItem {
 	key: unknown;
-	value: any;
 	container: DocumentFragment;
+	/**
+	 * The nodes rendered when the item was CREATED — used only to insert a new
+	 * item between its markers, then cleared so a later structure change
+	 * inside the item does not keep the detached original subtree alive.
+	 * Never a live list: every removal/move walks `start`..`end`.
+	 */
 	nodes: Node[];
 	start: Comment;
 	end: Comment;
@@ -110,7 +115,7 @@ function updateList<T>(
 			// Items are in same order with same keys - just update templates in place
 			for (let i = 0; i < newItems.length; i++) {
 				const templateResult = template(newItems[i], i);
-				oldItems[i].nodes = renderDetachedItem(templateResult, oldItems[i].container, oldItems[i].nodes, oldItems[i].end);
+				renderDetachedItem(templateResult, oldItems[i].container, oldItems[i].start, oldItems[i].end);
 			}
 			return;
 		}
@@ -136,7 +141,7 @@ function updateList<T>(
 
 			// Re-render with new data
 			const templateResult = template(item, i);
-			oldItem.nodes = renderDetachedItem(templateResult, oldItem.container, oldItem.nodes, oldItem.end);
+			renderDetachedItem(templateResult, oldItem.container, oldItem.start, oldItem.end);
 
 			newEntries.push({
 				item: oldItem,
@@ -166,7 +171,9 @@ function updateList<T>(
 	}
 
 	const lisPositions = getLisPositions(newEntries);
-	const parent = state.startMarker.parentElement!;
+	// parentNode, not parentElement: on first commit the markers may still sit
+	// in the template's DocumentFragment (e.g. repeat() at the root of a template).
+	const parent = state.startMarker.parentNode!;
 	let nextSibling: Node = state.endMarker;
 
 	for (let i = newEntries.length - 1; i >= 0; i--) {
@@ -197,7 +204,6 @@ function createRepeatItem<T>(item: T, index: number, key: unknown, template: (it
 
 	return {
 		key,
-		value: item,
 		container,
 		nodes,
 		start: document.createComment('repeat-item-start'),
@@ -213,6 +219,7 @@ function insertItemRange(item: RepeatItem, parent: Node, referenceNode: Node): v
 	}
 	fragment.appendChild(item.end);
 	parent.insertBefore(fragment, referenceNode);
+	item.nodes = [];
 }
 
 function moveItemRange(item: RepeatItem, referenceNode: Node): void {

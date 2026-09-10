@@ -11,13 +11,25 @@ function resolveRedirectTarget(redirectTo: string, basePath: string): string {
 	return basePath ? `/${basePath}/${redirectTo}` : `/${redirectTo}`;
 }
 
+/**
+ * Upper bound on nesting depth. Route trees are finite, but a misconfigured
+ * tree that shares a children array with an ancestor would otherwise recurse
+ * forever through default (empty-path) children.
+ */
+const MAX_MATCH_DEPTH = 64;
+
 export function matchRouteLevel(
 	routes: IRoute[],
 	remainingPath: string,
 	basePath: string,
 	accumulatedMatches: IRouteMatch[],
-	accumulatedParams: Record<string, string>
+	accumulatedParams: Record<string, string>,
+	depth: number = 0
 ): IRouteMatchResult {
+	if (depth > MAX_MATCH_DEPTH) {
+		throw new Error(`Route tree nesting exceeds ${MAX_MATCH_DEPTH} levels — check for cyclic children definitions`);
+	}
+
 	// First partial (prefix-matched parent whose children 404'd) result, kept
 	// as a fallback so nested outlets can still render the parent + a 404 view
 	// when no later sibling produces an exact match.
@@ -39,7 +51,8 @@ export function matchRouteLevel(
 
 		if (exactMatch !== null) {
 			const matchedPath = remainingPath;
-			const fullPath = basePath ? `${basePath}/${matchedPath}` : matchedPath;
+			// A default (empty-path) child adds no segment to the full path.
+			const fullPath = basePath && matchedPath ? `${basePath}/${matchedPath}` : basePath || matchedPath;
 			const match: IRouteMatch = {
 				route,
 				params: exactMatch,
@@ -61,6 +74,16 @@ export function matchRouteLevel(
 						isExactMatch: false,
 						redirectTo: resolveRedirectTarget(emptyRedirect.redirectTo, fullPath)
 					};
+				}
+
+				// Descend into a default (empty-path) child so its guards,
+				// resolvers and component are part of the committed chain.
+				// Nested outlets render `matches[depth]`, so a default child
+				// that is left out of the chain would never render — and,
+				// worse, its guards would never run.
+				const emptyChild = route.children.find(child => child.path === '' && !child.redirectTo);
+				if (emptyChild) {
+					return matchRouteLevel(route.children, '', fullPath, accumulatedMatches, accumulatedParams, depth + 1);
 				}
 			}
 
@@ -96,7 +119,7 @@ export function matchRouteLevel(
 					Object.assign(accumulatedParams, prefixResult.params);
 					accumulatedMatches.push(match);
 
-					const childResult = matchRouteLevel(route.children, prefixResult.remainingPath, fullPath, accumulatedMatches, accumulatedParams);
+					const childResult = matchRouteLevel(route.children, prefixResult.remainingPath, fullPath, accumulatedMatches, accumulatedParams, depth + 1);
 
 					if (childResult.isExactMatch || childResult.redirectTo) {
 						return childResult;

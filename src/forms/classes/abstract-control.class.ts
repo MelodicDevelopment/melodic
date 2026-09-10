@@ -236,7 +236,9 @@ export abstract class AbstractControl<T = unknown> {
 
 			try {
 				const results = await Promise.all(this._asyncValidators.map((v) => v(value)));
-				if (id !== this._asyncValidationId) {
+				// Superseded by a newer run, or the control was destroyed while
+				// we were waiting: its signals are gone, so write nothing.
+				if (id !== this._asyncValidationId || this._destroyed) {
 					return;
 				}
 
@@ -245,14 +247,26 @@ export abstract class AbstractControl<T = unknown> {
 						errors = { ...(errors ?? {}), ...result };
 					}
 				}
+			} catch (error) {
+				if (id !== this._asyncValidationId || this._destroyed) {
+					return;
+				}
+				// A rejecting validator is a validator failure, not a valid
+				// control: surface it as an error rather than an unhandled
+				// rejection from the `void runValidation()` call sites.
+				console.error('Async validator failed:', error);
+				errors = {
+					...(errors ?? {}),
+					asyncValidator: { code: 'asyncValidator', params: { message: error instanceof Error ? error.message : String(error) } }
+				};
 			} finally {
-				if (id === this._asyncValidationId) {
+				if (id === this._asyncValidationId && !this._destroyed) {
 					this._pending.set(false);
 				}
 			}
 		}
 
-		if (id === this._asyncValidationId) {
+		if (id === this._asyncValidationId && !this._destroyed) {
 			this.errors.set(errors);
 		}
 	}

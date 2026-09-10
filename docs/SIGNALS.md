@@ -67,7 +67,16 @@ batch(() => {
 batch(() => batch(() => first.set('Alan'))); // nested batches flush with the outermost
 ```
 
-`batch()` returns whatever its callback returns. Reads inside a batch still see the latest values immediately; only *notifications* to subscribers are deferred.
+`batch()` returns whatever its callback returns. Reads inside a batch still see the latest values immediately — including computed reads, which recompute from the already-written sources — only *notifications* and effect runs are deferred.
+
+### Scheduling guarantees
+
+Every write is two-phase. First the written signal **invalidates** its dependents synchronously: computeds are marked dirty and effects are queued. Only once that marking is complete does anything **execute** — immediately for a write outside a batch, at the end of the outermost batch otherwise. Consequences you can rely on:
+
+- **No glitches.** An effect that reads two computeds derived from the same source never observes one updated and the other stale, whether or not the write happened inside a batch.
+- **Failures are isolated.** If a subscriber or effect throws, every other queued subscriber and effect still runs; the error (or an `AggregateError` when several threw) is rethrown to the writer afterwards.
+- **Loops are bounded.** An effect that keeps writing a signal it reads is stopped after 100 re-runs in one flush with a "Circular dependency" error, inside a batch or not.
+- **Destroy wins.** An effect destroyed while queued does not run.
 
 ## Computed Signals
 

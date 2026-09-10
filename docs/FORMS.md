@@ -156,6 +156,12 @@ const emailAvailable = createAsyncValidator<string>(
 
 The third argument to `createValidator`/`createAsyncValidator` is the default message — it is registered globally so any control using the validator will pick it up automatically. Pass a function `(params) => string` for parameterized messages.
 
+An async validator that **rejects** (a failed lookup, for example) does not leave the control valid: the control records an `asyncValidator` error whose `params.message` is the rejection message, clears `pending`, and logs the failure. A validator that settles after a newer validation run started, or after the control was destroyed, is ignored.
+
+### Bulk writes
+
+`setValue`, `patchValue`, `reset`, `enable`, `disable` and the `markAllAs*` methods on `FormGroup` and `FormArray` are batched: the group's `value`, `errors` and `state` signals emit **once** for the whole write, and group-level validation runs once against the final aggregate value — not once per child control.
+
 ## Messages
 
 Messages live in three layers:

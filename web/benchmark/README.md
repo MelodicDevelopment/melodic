@@ -76,16 +76,30 @@ Click **"Clear Results"** to reset all test results.
 
 ## Comparing with Other Frameworks
 
-Based on standardized benchmarks, Melodic performance is:
+This suite measures Melodic against **its own targets** in a single browser. It
+does not run React, Vue, Lit or Solid, so it cannot rank Melodic against them —
+and no such ranking is claimed here. The `framework-comparison.js` page loads the
+other frameworks from a CDN for a side-by-side run; treat those numbers as a
+rough sanity check, not a benchmark result: they mix dev and production builds,
+run one sample per test, and measure scripting time only (no layout/paint,
+no interaction latency, no retained heap).
 
-| Framework | Relative Speed | Bundle Size |
-|-----------|---------------|-------------|
-| **Melodic** | Baseline | 2.87 kB ✓ |
-| Preact | Similar | 4 kB |
-| Lit | Similar | 6-7 kB |
-| Solid | Slightly faster | 7 kB |
-| Vue 3 | Slower | 34 kB |
-| React | Slower | 40 kB |
+Published bundle sizes (minified + gzipped, entry point only) are the one
+comparison that is stable enough to list:
+
+| Framework | Bundle Size |
+|-----------|-------------|
+| **Melodic core** | see `npm run benchmark:update` |
+| Preact | ~4 kB |
+| Lit | ~6-7 kB |
+| Solid | ~7 kB |
+| Vue 3 | ~34 kB |
+| React + ReactDOM | ~40 kB |
+
+A fair cross-framework comparison needs equivalent production builds, the same
+DOM output, repeated samples reported as distributions, and separate numbers for
+creation, sparse/full updates, append, remove, swap, reorder and mount/unmount.
+That harness does not exist in this repository yet.
 
 ## Performance Tips
 

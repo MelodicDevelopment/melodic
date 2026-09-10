@@ -5,13 +5,17 @@ export type TemplatePartType = 'node' | 'attribute' | 'boolean-attribute' | 'pro
  *
  * `container` is a persistent DocumentFragment the item's TemplateResult was
  * rendered into; it retains the item's part tree (`__parts`/`__templateKey`)
- * after `nodes` move into the live DOM, which is what allows the item to be
+ * after its nodes move into the live DOM, which is what allows the item to be
  * updated in place on a later render instead of being rebuilt.
+ *
+ * The item's live nodes are whatever sits between `start` and `end` — no
+ * snapshot is kept, because nested parts inside the item swap nodes freely.
  */
 export interface IArrayItem {
 	value: unknown;
 	container: DocumentFragment;
-	nodes: Node[];
+	start: Comment;
+	end: Comment;
 }
 
 /** A keyed item rendered by plain-array interpolation (values produced by key helpers). */
@@ -50,8 +54,11 @@ export interface ITemplatePart {
 	 * across directives.
 	 */
 	directiveType?: string | symbol;
-	// For node parts that render nested templates/nodes, track the rendered nodes
-	renderedNodes?: Node[];
+	/**
+	 * Markers bounding everything a node part rendered (nested template, Node,
+	 * array). The content is whatever lies between them; teardown clears that
+	 * live range rather than a snapshot of inserted nodes.
+	 */
 	startMarker?: Comment;
 	endMarker?: Comment;
 	// For action directives, store cleanup function and static value

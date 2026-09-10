@@ -1,4 +1,4 @@
-import { signal, SignalEffect } from '../../signals';
+import { batch, signal, SignalEffect } from '../../signals';
 import type { Signal } from '../../signals';
 import type { ControlOptions, SetValueOptions } from '../types/control.types';
 import { AbstractControl } from './abstract-control.class';
@@ -71,31 +71,34 @@ export class FormGroup<T = Record<string, unknown>> extends AbstractControl<Form
 	}
 
 	public setValue(value: FormGroupValue<T>, options?: SetValueOptions): void {
-		if (this._ownDisabled()) return;
-		const controls = this.controls();
-		const controlKeys = Object.keys(controls);
-		const valueKeys = Object.keys(value as Record<string, unknown>);
+		// One aggregate value/validation pass for the whole write, not one per child.
+		batch(() => {
+			if (this._ownDisabled()) return;
+			const controls = this.controls();
+			const controlKeys = Object.keys(controls);
+			const valueKeys = Object.keys(value as Record<string, unknown>);
 
-		// Strict: setValue replaces the whole group. Reject unknown/missing keys
-		// so a wrong-shaped value can't silently leave stale data (use patchValue
-		// for partial updates).
-		for (const key of valueKeys) {
-			if (!(key in controls)) {
-				throw new Error(`FormGroup.setValue: unknown control name '${key}'. Use patchValue() for partial updates.`);
+			// Strict: setValue replaces the whole group. Reject unknown/missing keys
+			// so a wrong-shaped value can't silently leave stale data (use patchValue
+			// for partial updates).
+			for (const key of valueKeys) {
+				if (!(key in controls)) {
+					throw new Error(`FormGroup.setValue: unknown control name '${key}'. Use patchValue() for partial updates.`);
+				}
 			}
-		}
-		for (const key of controlKeys) {
-			if (!(key in (value as Record<string, unknown>))) {
-				throw new Error(`FormGroup.setValue: missing value for control name '${key}'. Use patchValue() for partial updates.`);
+			for (const key of controlKeys) {
+				if (!(key in (value as Record<string, unknown>))) {
+					throw new Error(`FormGroup.setValue: missing value for control name '${key}'. Use patchValue() for partial updates.`);
+				}
 			}
-		}
 
-		for (const key of controlKeys) {
-			controls[key as keyof T].setValue(value[key as keyof T], options);
-		}
-		if (options?.markAsPristine) {
-			this._dirty.set(false);
-		}
+			for (const key of controlKeys) {
+				controls[key as keyof T].setValue(value[key as keyof T], options);
+			}
+			if (options?.markAsPristine) {
+				this._dirty.set(false);
+			}
+		});
 	}
 
 	/** Value including disabled controls (which `value()` omits). */
@@ -104,72 +107,96 @@ export class FormGroup<T = Record<string, unknown>> extends AbstractControl<Form
 	}
 
 	public patchValue(value: Partial<FormGroupValue<T>>, options?: SetValueOptions): void {
-		if (this._ownDisabled()) return;
-		const controls = this.controls();
-		for (const key of Object.keys(value)) {
-			if (value[key as keyof T] !== undefined) {
-				controls[key as keyof T]?.setValue(value[key as keyof T] as T[keyof T], options);
+		// One aggregate value/validation pass for the whole write, not one per child.
+		batch(() => {
+			if (this._ownDisabled()) return;
+			const controls = this.controls();
+			for (const key of Object.keys(value)) {
+				if (value[key as keyof T] !== undefined) {
+					controls[key as keyof T]?.setValue(value[key as keyof T] as T[keyof T], options);
+				}
 			}
-		}
-		if (options?.markAsPristine) {
-			this._dirty.set(false);
-		}
+			if (options?.markAsPristine) {
+				this._dirty.set(false);
+			}
+		});
 	}
 
 	public reset(value?: Partial<FormGroupValue<T>>): void {
-		const controls = this.controls();
-		for (const key of Object.keys(controls)) {
-			const resetValue = value?.[key as keyof T];
-			controls[key as keyof T].reset(resetValue as T[keyof T]);
-		}
+		// One aggregate value/validation pass for the whole write, not one per child.
+		batch(() => {
+			const controls = this.controls();
+			for (const key of Object.keys(controls)) {
+				const resetValue = value?.[key as keyof T];
+				controls[key as keyof T].reset(resetValue as T[keyof T]);
+			}
+		});
 	}
 
 	public markAllAsTouched(): void {
-		this._touched.set(true);
-		const controls = this.controls();
-		for (const key of Object.keys(controls)) {
-			controls[key as keyof T].markAllAsTouched();
-		}
+		// One aggregate value/validation pass for the whole write, not one per child.
+		batch(() => {
+			this._touched.set(true);
+			const controls = this.controls();
+			for (const key of Object.keys(controls)) {
+				controls[key as keyof T].markAllAsTouched();
+			}
+		});
 	}
 
 	public markAllAsUntouched(): void {
-		this._touched.set(false);
-		const controls = this.controls();
-		for (const key of Object.keys(controls)) {
-			controls[key as keyof T].markAllAsUntouched();
-		}
+		// One aggregate value/validation pass for the whole write, not one per child.
+		batch(() => {
+			this._touched.set(false);
+			const controls = this.controls();
+			for (const key of Object.keys(controls)) {
+				controls[key as keyof T].markAllAsUntouched();
+			}
+		});
 	}
 
 	public markAllAsDirty(): void {
-		this._dirty.set(true);
-		const controls = this.controls();
-		for (const key of Object.keys(controls)) {
-			controls[key as keyof T].markAllAsDirty();
-		}
+		// One aggregate value/validation pass for the whole write, not one per child.
+		batch(() => {
+			this._dirty.set(true);
+			const controls = this.controls();
+			for (const key of Object.keys(controls)) {
+				controls[key as keyof T].markAllAsDirty();
+			}
+		});
 	}
 
 	public markAllAsPristine(): void {
-		this._dirty.set(false);
-		const controls = this.controls();
-		for (const key of Object.keys(controls)) {
-			controls[key as keyof T].markAllAsPristine();
-		}
+		// One aggregate value/validation pass for the whole write, not one per child.
+		batch(() => {
+			this._dirty.set(false);
+			const controls = this.controls();
+			for (const key of Object.keys(controls)) {
+				controls[key as keyof T].markAllAsPristine();
+			}
+		});
 	}
 
 	public disable(): void {
-		this._ownDisabled.set(true);
-		const controls = this.controls();
-		for (const key of Object.keys(controls)) {
-			controls[key as keyof T].disable();
-		}
+		// One aggregate value/validation pass for the whole write, not one per child.
+		batch(() => {
+			this._ownDisabled.set(true);
+			const controls = this.controls();
+			for (const key of Object.keys(controls)) {
+				controls[key as keyof T].disable();
+			}
+		});
 	}
 
 	public enable(): void {
-		this._ownDisabled.set(false);
-		const controls = this.controls();
-		for (const key of Object.keys(controls)) {
-			controls[key as keyof T].enable();
-		}
+		// One aggregate value/validation pass for the whole write, not one per child.
+		batch(() => {
+			this._ownDisabled.set(false);
+			const controls = this.controls();
+			for (const key of Object.keys(controls)) {
+				controls[key as keyof T].enable();
+			}
+		});
 	}
 
 	public async validate(): Promise<void> {

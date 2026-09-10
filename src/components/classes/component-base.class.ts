@@ -85,10 +85,20 @@ export abstract class ComponentBase extends HTMLElement {
 		applyGlobalStyles(this._root);
 		this._style = this.renderStyles();
 
-		this.observe();
+		// Property observation and onInit run inside this component's ownership
+		// scope so resources created there (computeds, forms, selects) are
+		// disposed with the component — not left alive, and not registered with
+		// whichever parent component happened to be constructing us.
+		const prevActive = getActiveComponent();
+		setActiveComponent(this);
+		try {
+			this.observe();
 
-		if (this._component.onInit) {
-			this._component.onInit();
+			if (this._component.onInit) {
+				this._component.onInit();
+			}
+		} finally {
+			setActiveComponent(prevActive);
 		}
 	}
 
@@ -164,19 +174,23 @@ export abstract class ComponentBase extends HTMLElement {
 			entry.unsubscribers = [];
 		}
 
-		this._component.onDisconnect?.();
-
-		// Defer destruction of owned resources (forms/signals/directives) to a
-		// microtask. A transient move (remove + re-add) reconnects first and
-		// cancels this, so re-parenting preserves component state.
-		if (!this._teardownScheduled && !this._destroyed) {
-			this._teardownScheduled = true;
-			queueMicrotask(() => {
-				this._teardownScheduled = false;
-				if (!this.isConnected && !this._destroyed) {
-					this.teardown();
-				}
-			});
+		try {
+			this._component.onDisconnect?.();
+		} finally {
+			// Defer destruction of owned resources (forms/signals/directives) to a
+			// microtask. A transient move (remove + re-add) reconnects first and
+			// cancels this, so re-parenting preserves component state. Scheduled
+			// even when the user hook throws, so a faulty hook cannot leak the
+			// component's resources.
+			if (!this._teardownScheduled && !this._destroyed) {
+				this._teardownScheduled = true;
+				queueMicrotask(() => {
+					this._teardownScheduled = false;
+					if (!this.isConnected && !this._destroyed) {
+						this.teardown();
+					}
+				});
+			}
 		}
 	}
 
@@ -249,20 +263,24 @@ export abstract class ComponentBase extends HTMLElement {
 			disposeParts(parts);
 		}
 
-		// User's onDestroy runs first so user code can still reference signals before they're destroyed.
-		if (this._component.onDestroy !== undefined) {
-			this._component.onDestroy();
-		}
-
-		for (const d of this._disposables) {
-			try {
-				d.destroy();
-			} catch (error) {
-				console.error('Disposable cleanup failed:', error);
+		// User's onDestroy runs first so user code can still reference signals
+		// before they're destroyed. Framework cleanup runs in `finally`: a
+		// throwing hook must not leave subscriptions and signals alive.
+		try {
+			if (this._component.onDestroy !== undefined) {
+				this._component.onDestroy();
 			}
+		} finally {
+			for (const d of this._disposables) {
+				try {
+					d.destroy();
+				} catch (error) {
+					console.error('Disposable cleanup failed:', error);
+				}
+			}
+			this._disposables.clear();
+			this._selectCache.clear();
 		}
-		this._disposables.clear();
-		this._selectCache.clear();
 	}
 
 	/**

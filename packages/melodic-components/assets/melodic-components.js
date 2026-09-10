@@ -172,6 +172,8 @@ var InjectionEngine = class {
 			throw new Error(`Circular dependency detected: ${chain}`);
 		}
 		this._constructionStack.add(key);
+		const prevActive = getActiveComponent();
+		setActiveComponent(null);
 		try {
 			let instance;
 			if (binding.type === "factory") instance = binding.factory();
@@ -179,6 +181,7 @@ var InjectionEngine = class {
 			if (binding.isSingleton) binding.setInstance(instance);
 			return instance;
 		} finally {
+			setActiveComponent(prevActive);
 			this._constructionStack.delete(key);
 		}
 	}
@@ -194,13 +197,7 @@ var InjectionEngine = class {
 		if (Array.isArray(paramTokens) && paramTokens.length > 0) dependencies = resolveInjectedParams(cls, resolveDependency);
 		else if (binding.dependencies.length > 0) dependencies = binding.dependencies.map(resolveDependency);
 		if (binding.args.length > 0) dependencies = dependencies.concat(binding.args);
-		const prevActive = getActiveComponent();
-		setActiveComponent(null);
-		try {
-			return Reflect.construct(cls, dependencies);
-		} finally {
-			setActiveComponent(prevActive);
-		}
+		return Reflect.construct(cls, dependencies);
 	}
 };
 const Injector = new InjectionEngine();
@@ -243,47 +240,66 @@ async function bootstrap(config = {}) {
 			handler: rejectionHandler
 		});
 	}
-	if (config.onBefore) {
-		if (devMode) console.log("[Melodic] Running onBefore hook...");
-		await config.onBefore();
-	}
-	if (config.providers) {
-		for (const provider of config.providers) provider(Injector);
-		if (devMode) console.log("[Melodic] Custom providers registered");
-	}
 	let rootElement;
-	if (config.rootComponent && config.target) {
-		const targetEl = typeof config.target === "string" ? document.querySelector(config.target) : config.target;
-		if (!targetEl) throw new Error(`[Melodic] Target element not found: ${config.target}`);
-		if (!customElements.get(config.rootComponent)) throw new Error(`[Melodic] Component <${config.rootComponent}> is not registered. Make sure to import the component file before calling bootstrap().`);
-		rootElement = document.createElement(config.rootComponent);
-		targetEl.appendChild(rootElement);
-		if (devMode) console.log("[Melodic] Mounted root component", {
-			component: config.rootComponent,
-			target: config.target
-		});
-	}
-	const app = {
-		isDevMode: devMode,
-		rootElement,
-		get(token) {
-			return Injector.get(token);
-		},
-		destroy() {
-			for (const { type, handler } of errorHandlers) window.removeEventListener(type, handler);
-			if (rootElement?.parentNode) rootElement.parentNode.removeChild(rootElement);
-			if (devMode) console.log("[Melodic] Application destroyed");
-		}
+	let destroyed = false;
+	const removeErrorHandlers = () => {
+		for (const { type, handler } of errorHandlers) window.removeEventListener(type, handler);
+		errorHandlers.length = 0;
 	};
-	if (config.onReady) config.onReady();
-	if (devMode) console.log("[Melodic] Bootstrap complete");
-	Injector.bindValue("IMelodicApp", app);
-	return app;
+	const rollback = () => {
+		removeErrorHandlers();
+		if (rootElement?.parentNode) rootElement.parentNode.removeChild(rootElement);
+	};
+	try {
+		if (config.onBefore) {
+			if (devMode) console.log("[Melodic] Running onBefore hook...");
+			await config.onBefore();
+		}
+		if (config.providers) {
+			for (const provider of config.providers) provider(Injector);
+			if (devMode) console.log("[Melodic] Custom providers registered");
+		}
+		if (config.rootComponent && config.target) {
+			const targetEl = typeof config.target === "string" ? document.querySelector(config.target) : config.target;
+			if (!targetEl) throw new Error(`[Melodic] Target element not found: ${config.target}`);
+			if (!customElements.get(config.rootComponent)) throw new Error(`[Melodic] Component <${config.rootComponent}> is not registered. Make sure to import the component file before calling bootstrap().`);
+			rootElement = document.createElement(config.rootComponent);
+			targetEl.appendChild(rootElement);
+			if (devMode) console.log("[Melodic] Mounted root component", {
+				component: config.rootComponent,
+				target: config.target
+			});
+		}
+		const app = {
+			isDevMode: devMode,
+			rootElement,
+			get(token) {
+				return Injector.get(token);
+			},
+			destroy() {
+				if (destroyed) return;
+				destroyed = true;
+				removeErrorHandlers();
+				if (rootElement?.parentNode) rootElement.parentNode.removeChild(rootElement);
+				if (Injector.getBinding("IMelodicApp")?.getInstance() === app) Injector.unbind("IMelodicApp");
+				app.rootElement = void 0;
+				if (devMode) console.log("[Melodic] Application destroyed");
+			}
+		};
+		if (config.onReady) config.onReady();
+		if (devMode) console.log("[Melodic] Bootstrap complete");
+		Injector.bindValue("IMelodicApp", app);
+		return app;
+	} catch (error) {
+		rollback();
+		throw error;
+	}
 }
 function render(result, container) {
 	result.renderInto(container);
 }
 const SIGNAL_MARKER = Symbol("melodic.signal");
+const DEPENDENTS = Symbol("melodic.signal.dependents");
 const isSignal = (value) => {
 	return typeof value === "function" && SIGNAL_MARKER in value;
 };
@@ -425,13 +441,12 @@ const setActiveEffect = (effect) => {
 	activeEffect = effect;
 };
 const getActiveEffect = () => activeEffect;
+var MAX_FLUSH_RUNS = 100;
 var batchDepth = 0;
 var flushing = false;
 var pendingNotifications = /* @__PURE__ */ new Set();
 var pendingEffects = /* @__PURE__ */ new Set();
-function isBatching() {
-	return batchDepth > 0;
-}
+var flushRuns = /* @__PURE__ */ new Map();
 function isCoalescingEffects() {
 	return batchDepth > 0 || flushing;
 }
@@ -441,24 +456,58 @@ function scheduleNotify(notify) {
 function scheduleEffect(effect) {
 	pendingEffects.add(effect);
 }
+function unscheduleEffect(effect) {
+	pendingEffects.delete(effect);
+}
+function flush() {
+	if (batchDepth > 0 || flushing) return;
+	flushBatch();
+}
+function circularError() {
+	return /* @__PURE__ */ new Error(`Circular dependency detected in effect: exceeded ${MAX_FLUSH_RUNS} synchronous re-runs. An effect is repeatedly writing to a signal it also reads.`);
+}
+function rethrow(errors) {
+	if (errors.length === 1) throw errors[0];
+	if (errors.length > 1) throw new AggregateError(errors, `${errors.length} signal subscribers threw during flush`);
+}
 function flushBatch() {
 	flushing = true;
+	const errors = [];
 	try {
 		while (pendingNotifications.size > 0 || pendingEffects.size > 0) {
 			if (pendingNotifications.size > 0) {
 				const notifications = [...pendingNotifications];
 				pendingNotifications.clear();
-				for (const notify of notifications) notify();
+				for (const notify of notifications) try {
+					notify();
+				} catch (error) {
+					errors.push(error);
+				}
 			}
 			if (pendingEffects.size > 0) {
 				const effects = [...pendingEffects];
 				pendingEffects.clear();
-				for (const effect of effects) effect.runNow();
+				for (const effect of effects) {
+					const runs = (flushRuns.get(effect) ?? 0) + 1;
+					if (runs > MAX_FLUSH_RUNS) {
+						pendingNotifications.clear();
+						pendingEffects.clear();
+						throw errors.length > 0 ? new AggregateError([circularError(), ...errors], "Circular dependency detected in effect") : circularError();
+					}
+					flushRuns.set(effect, runs);
+					try {
+						effect.runNow();
+					} catch (error) {
+						errors.push(error);
+					}
+				}
 			}
 		}
 	} finally {
 		flushing = false;
+		flushRuns.clear();
 	}
+	rethrow(errors);
 }
 function batch(fn) {
 	batchDepth++;
@@ -471,12 +520,15 @@ function batch(fn) {
 }
 var MAX_EFFECT_ITERATIONS = 100;
 var SignalEffect = class {
-	constructor(execute) {
+	constructor(execute, options) {
 		this.execute = execute;
 		this._dependencies = /* @__PURE__ */ new Set();
 		this._isRunning = false;
 		this._needsRerun = false;
+		this._destroyed = false;
+		this._onInvalidate = options?.onInvalidate;
 		this.run = () => {
+			if (this._destroyed) return;
 			if (isCoalescingEffects()) {
 				scheduleEffect(this);
 				return;
@@ -484,7 +536,19 @@ var SignalEffect = class {
 			this.runNow();
 		};
 	}
+	get destroyed() {
+		return this._destroyed;
+	}
+	invalidate() {
+		if (this._destroyed) return;
+		if (this._onInvalidate) {
+			this._onInvalidate();
+			return;
+		}
+		scheduleEffect(this);
+	}
 	runNow() {
+		if (this._destroyed) return;
 		if (this._isRunning) {
 			this._needsRerun = true;
 			return;
@@ -498,10 +562,7 @@ var SignalEffect = class {
 					throw new Error(`Circular dependency detected in effect: exceeded ${MAX_EFFECT_ITERATIONS} synchronous re-runs. An effect is repeatedly writing to a signal it also reads.`);
 				}
 				this._needsRerun = false;
-				this._dependencies.forEach((signal$1) => {
-					signal$1.unsubscribe(this.run);
-				});
-				this._dependencies.clear();
+				this.clearDependencies();
 				const prevEffect = getActiveEffect();
 				setActiveEffect(this);
 				try {
@@ -509,48 +570,62 @@ var SignalEffect = class {
 				} finally {
 					setActiveEffect(prevEffect);
 				}
-			} while (this._needsRerun);
+			} while (this._needsRerun && !this._destroyed);
 		} finally {
 			this._isRunning = false;
 		}
 	}
-	addDependency(signal$1) {
-		this._dependencies.add(signal$1);
+	addDependency(producer) {
+		this._dependencies.add(producer);
 	}
-	destroy() {
-		this._dependencies.forEach((signal$1) => {
-			signal$1.unsubscribe(this.run);
+	clearDependencies() {
+		this._dependencies.forEach((producer) => {
+			producer[DEPENDENTS].delete(this);
 		});
 		this._dependencies.clear();
 	}
+	destroy() {
+		this._destroyed = true;
+		this._needsRerun = false;
+		this.clearDependencies();
+		unscheduleEffect(this);
+	}
 };
 var DESTROYED_MESSAGE$1 = "Signal accessed after destruction. Holding a signal beyond its owning component (e.g. cached on a long-lived service) is a bug — the signal is destroyed when its component disconnects.";
+function notifyAll(subscribers, value) {
+	const errors = [];
+	for (const subscriber of subscribers) try {
+		subscriber(value);
+	} catch (error) {
+		errors.push(error);
+	}
+	if (errors.length === 1) throw errors[0];
+	if (errors.length > 1) throw new AggregateError(errors, `${errors.length} signal subscribers threw`);
+}
 function signal(initialValue) {
 	let value = initialValue;
 	let destroyed = false;
 	const subscribers = /* @__PURE__ */ new Set();
+	const dependents = /* @__PURE__ */ new Set();
 	const notify = () => {
-		if (isBatching()) {
-			scheduleNotify(notify);
-			return;
-		}
-		[...subscribers].forEach((subscriber) => subscriber(value));
+		notifyAll([...subscribers], value);
 	};
 	const read = (() => {
 		if (destroyed) throw new Error(DESTROYED_MESSAGE$1);
 		const activeEffect$1 = getActiveEffect();
 		if (activeEffect$1) {
 			activeEffect$1.addDependency(read);
-			subscribers.add(activeEffect$1.run);
+			dependents.add(activeEffect$1);
 		}
 		return value;
 	});
 	read.set = (newValue) => {
 		if (destroyed) throw new Error(DESTROYED_MESSAGE$1);
-		if (!Object.is(value, newValue)) {
-			value = newValue;
-			notify();
-		}
+		if (Object.is(value, newValue)) return;
+		value = newValue;
+		if (subscribers.size > 0) scheduleNotify(notify);
+		for (const dependent of [...dependents]) dependent.invalidate();
+		flush();
 	};
 	read.update = (updater) => {
 		if (destroyed) throw new Error(DESTROYED_MESSAGE$1);
@@ -568,9 +643,15 @@ function signal(initialValue) {
 		if (destroyed) return;
 		destroyed = true;
 		subscribers.clear();
+		dependents.clear();
 	};
 	Object.defineProperty(read, SIGNAL_MARKER, {
 		value: true,
+		enumerable: false,
+		configurable: false
+	});
+	Object.defineProperty(read, DEPENDENTS, {
+		value: dependents,
 		enumerable: false,
 		configurable: false
 	});
@@ -583,9 +664,9 @@ function computed(computation) {
 	let dirty = true;
 	let destroyed = false;
 	const subscribers = /* @__PURE__ */ new Set();
-	const version = signal(0);
+	const dependents = /* @__PURE__ */ new Set();
 	const recompute = () => {
-		tracker.destroy();
+		tracker.clearDependencies();
 		const prevEffect = getActiveEffect();
 		setActiveEffect(tracker);
 		try {
@@ -597,17 +678,22 @@ function computed(computation) {
 	};
 	const tracker = new SignalEffect(() => {
 		if (destroyed) return;
-		dirty = true;
 		const previous = value;
-		version.update((v) => (v ?? 0) + 1);
-		if (subscribers.size > 0) {
-			if (dirty) recompute();
-			if (!Object.is(previous, value)) [...subscribers].forEach((subscriber) => subscriber(value));
-		}
-	});
+		if (dirty) recompute();
+		if (!Object.is(previous, value)) notifyAll([...subscribers], value);
+	}, { onInvalidate: () => {
+		if (destroyed || dirty) return;
+		dirty = true;
+		for (const dependent of [...dependents]) dependent.invalidate();
+		if (subscribers.size > 0) scheduleEffect(tracker);
+	} });
 	const read = (() => {
 		if (destroyed) throw new Error(DESTROYED_MESSAGE);
-		version();
+		const activeEffect$1 = getActiveEffect();
+		if (activeEffect$1) {
+			activeEffect$1.addDependency(read);
+			dependents.add(activeEffect$1);
+		}
 		if (dirty) recompute();
 		return value;
 	});
@@ -630,11 +716,16 @@ function computed(computation) {
 		if (destroyed) return;
 		destroyed = true;
 		tracker.destroy();
-		version.destroy();
+		dependents.clear();
 		subscribers.clear();
 	};
 	Object.defineProperty(read, SIGNAL_MARKER, {
 		value: true,
+		enumerable: false,
+		configurable: false
+	});
+	Object.defineProperty(read, DEPENDENTS, {
+		value: dependents,
 		enumerable: false,
 		configurable: false
 	});
@@ -804,16 +895,26 @@ var AbstractControl = class {
 			this._pending.set(true);
 			try {
 				const results = await Promise.all(this._asyncValidators.map((v) => v(value)));
-				if (id !== this._asyncValidationId) return;
+				if (id !== this._asyncValidationId || this._destroyed) return;
 				for (const result of results) if (result !== null) errors = {
 					...errors ?? {},
 					...result
 				};
+			} catch (error) {
+				if (id !== this._asyncValidationId || this._destroyed) return;
+				console.error("Async validator failed:", error);
+				errors = {
+					...errors ?? {},
+					asyncValidator: {
+						code: "asyncValidator",
+						params: { message: error instanceof Error ? error.message : String(error) }
+					}
+				};
 			} finally {
-				if (id === this._asyncValidationId) this._pending.set(false);
+				if (id === this._asyncValidationId && !this._destroyed) this._pending.set(false);
 			}
 		}
-		if (id === this._asyncValidationId) this.errors.set(errors);
+		if (id === this._asyncValidationId && !this._destroyed) this.errors.set(errors);
 	}
 	computeDirty() {
 		return this._dirty();
@@ -877,8 +978,14 @@ var ComponentBase = class extends HTMLElement {
 		this._root = this.attachShadow({ mode: "open" });
 		applyGlobalStyles(this._root);
 		this._style = this.renderStyles();
-		this.observe();
-		if (this._component.onInit) this._component.onInit();
+		const prevActive = getActiveComponent();
+		setActiveComponent(this);
+		try {
+			this.observe();
+			if (this._component.onInit) this._component.onInit();
+		} finally {
+			setActiveComponent(prevActive);
+		}
 	}
 	get component() {
 		return this._component;
@@ -918,13 +1025,16 @@ var ComponentBase = class extends HTMLElement {
 			for (const unsubscribe of entry.unsubscribers) unsubscribe();
 			entry.unsubscribers = [];
 		}
-		this._component.onDisconnect?.();
-		if (!this._teardownScheduled && !this._destroyed) {
-			this._teardownScheduled = true;
-			queueMicrotask(() => {
-				this._teardownScheduled = false;
-				if (!this.isConnected && !this._destroyed) this.teardown();
-			});
+		try {
+			this._component.onDisconnect?.();
+		} finally {
+			if (!this._teardownScheduled && !this._destroyed) {
+				this._teardownScheduled = true;
+				queueMicrotask(() => {
+					this._teardownScheduled = false;
+					if (!this.isConnected && !this._destroyed) this.teardown();
+				});
+			}
 		}
 	}
 	attributeChangedCallback(attribute, oldVal, newVal) {
@@ -953,14 +1063,17 @@ var ComponentBase = class extends HTMLElement {
 		this._destroyed = true;
 		const parts = this._root.__parts;
 		if (parts) disposeParts(parts);
-		if (this._component.onDestroy !== void 0) this._component.onDestroy();
-		for (const d of this._disposables) try {
-			d.destroy();
-		} catch (error) {
-			console.error("Disposable cleanup failed:", error);
+		try {
+			if (this._component.onDestroy !== void 0) this._component.onDestroy();
+		} finally {
+			for (const d of this._disposables) try {
+				d.destroy();
+			} catch (error) {
+				console.error("Disposable cleanup failed:", error);
+			}
+			this._disposables.clear();
+			this._selectCache.clear();
 		}
-		this._disposables.clear();
-		this._selectCache.clear();
 	}
 	renderStyles() {
 		if (!this._meta.styles) return null;
@@ -1300,60 +1413,78 @@ var FormGroup = class FormGroup extends AbstractControl {
 		control.destroy();
 	}
 	setValue(value, options) {
-		if (this._ownDisabled()) return;
-		const controls = this.controls();
-		const controlKeys = Object.keys(controls);
-		const valueKeys = Object.keys(value);
-		for (const key of valueKeys) if (!(key in controls)) throw new Error(`FormGroup.setValue: unknown control name '${key}'. Use patchValue() for partial updates.`);
-		for (const key of controlKeys) if (!(key in value)) throw new Error(`FormGroup.setValue: missing value for control name '${key}'. Use patchValue() for partial updates.`);
-		for (const key of controlKeys) controls[key].setValue(value[key], options);
-		if (options?.markAsPristine) this._dirty.set(false);
+		batch(() => {
+			if (this._ownDisabled()) return;
+			const controls = this.controls();
+			const controlKeys = Object.keys(controls);
+			const valueKeys = Object.keys(value);
+			for (const key of valueKeys) if (!(key in controls)) throw new Error(`FormGroup.setValue: unknown control name '${key}'. Use patchValue() for partial updates.`);
+			for (const key of controlKeys) if (!(key in value)) throw new Error(`FormGroup.setValue: missing value for control name '${key}'. Use patchValue() for partial updates.`);
+			for (const key of controlKeys) controls[key].setValue(value[key], options);
+			if (options?.markAsPristine) this._dirty.set(false);
+		});
 	}
 	getRawValue() {
 		return FormGroup.computeValue(this.controls(), true);
 	}
 	patchValue(value, options) {
-		if (this._ownDisabled()) return;
-		const controls = this.controls();
-		for (const key of Object.keys(value)) if (value[key] !== void 0) controls[key]?.setValue(value[key], options);
-		if (options?.markAsPristine) this._dirty.set(false);
+		batch(() => {
+			if (this._ownDisabled()) return;
+			const controls = this.controls();
+			for (const key of Object.keys(value)) if (value[key] !== void 0) controls[key]?.setValue(value[key], options);
+			if (options?.markAsPristine) this._dirty.set(false);
+		});
 	}
 	reset(value) {
-		const controls = this.controls();
-		for (const key of Object.keys(controls)) {
-			const resetValue = value?.[key];
-			controls[key].reset(resetValue);
-		}
+		batch(() => {
+			const controls = this.controls();
+			for (const key of Object.keys(controls)) {
+				const resetValue = value?.[key];
+				controls[key].reset(resetValue);
+			}
+		});
 	}
 	markAllAsTouched() {
-		this._touched.set(true);
-		const controls = this.controls();
-		for (const key of Object.keys(controls)) controls[key].markAllAsTouched();
+		batch(() => {
+			this._touched.set(true);
+			const controls = this.controls();
+			for (const key of Object.keys(controls)) controls[key].markAllAsTouched();
+		});
 	}
 	markAllAsUntouched() {
-		this._touched.set(false);
-		const controls = this.controls();
-		for (const key of Object.keys(controls)) controls[key].markAllAsUntouched();
+		batch(() => {
+			this._touched.set(false);
+			const controls = this.controls();
+			for (const key of Object.keys(controls)) controls[key].markAllAsUntouched();
+		});
 	}
 	markAllAsDirty() {
-		this._dirty.set(true);
-		const controls = this.controls();
-		for (const key of Object.keys(controls)) controls[key].markAllAsDirty();
+		batch(() => {
+			this._dirty.set(true);
+			const controls = this.controls();
+			for (const key of Object.keys(controls)) controls[key].markAllAsDirty();
+		});
 	}
 	markAllAsPristine() {
-		this._dirty.set(false);
-		const controls = this.controls();
-		for (const key of Object.keys(controls)) controls[key].markAllAsPristine();
+		batch(() => {
+			this._dirty.set(false);
+			const controls = this.controls();
+			for (const key of Object.keys(controls)) controls[key].markAllAsPristine();
+		});
 	}
 	disable() {
-		this._ownDisabled.set(true);
-		const controls = this.controls();
-		for (const key of Object.keys(controls)) controls[key].disable();
+		batch(() => {
+			this._ownDisabled.set(true);
+			const controls = this.controls();
+			for (const key of Object.keys(controls)) controls[key].disable();
+		});
 	}
 	enable() {
-		this._ownDisabled.set(false);
-		const controls = this.controls();
-		for (const key of Object.keys(controls)) controls[key].enable();
+		batch(() => {
+			this._ownDisabled.set(false);
+			const controls = this.controls();
+			for (const key of Object.keys(controls)) controls[key].enable();
+		});
 	}
 	async validate() {
 		const controls = this.controls();
@@ -1444,53 +1575,71 @@ var FormArray = class extends AbstractControl {
 		for (const control of controls) control.destroy();
 	}
 	setValue(value, options) {
-		if (this._ownDisabled()) return;
-		const controls = this.controls();
-		if (value.length !== controls.length) throw new Error(`FormArray.setValue: expected ${controls.length} value(s) but received ${value.length}. Use patchValue() for partial updates.`);
-		value.forEach((v, i) => {
-			controls[i].setValue(v, options);
+		batch(() => {
+			if (this._ownDisabled()) return;
+			const controls = this.controls();
+			if (value.length !== controls.length) throw new Error(`FormArray.setValue: expected ${controls.length} value(s) but received ${value.length}. Use patchValue() for partial updates.`);
+			value.forEach((v, i) => {
+				controls[i].setValue(v, options);
+			});
+			if (options?.markAsPristine) this._dirty.set(false);
 		});
-		if (options?.markAsPristine) this._dirty.set(false);
 	}
 	getRawValue() {
 		return this.controls().map((c) => c.getRawValue());
 	}
 	patchValue(value, options) {
-		if (this._ownDisabled()) return;
-		const controls = this.controls();
-		value.forEach((v, i) => {
-			if (v !== void 0) controls[i]?.setValue(v, options);
+		batch(() => {
+			if (this._ownDisabled()) return;
+			const controls = this.controls();
+			value.forEach((v, i) => {
+				if (v !== void 0) controls[i]?.setValue(v, options);
+			});
+			if (options?.markAsPristine) this._dirty.set(false);
 		});
-		if (options?.markAsPristine) this._dirty.set(false);
 	}
 	reset(value) {
-		this.controls().forEach((control, i) => {
-			control.reset(value?.[i]);
+		batch(() => {
+			this.controls().forEach((control, i) => {
+				control.reset(value?.[i]);
+			});
 		});
 	}
 	markAllAsTouched() {
-		this._touched.set(true);
-		for (const control of this.controls()) control.markAllAsTouched();
+		batch(() => {
+			this._touched.set(true);
+			for (const control of this.controls()) control.markAllAsTouched();
+		});
 	}
 	markAllAsUntouched() {
-		this._touched.set(false);
-		for (const control of this.controls()) control.markAllAsUntouched();
+		batch(() => {
+			this._touched.set(false);
+			for (const control of this.controls()) control.markAllAsUntouched();
+		});
 	}
 	markAllAsDirty() {
-		this._dirty.set(true);
-		for (const control of this.controls()) control.markAllAsDirty();
+		batch(() => {
+			this._dirty.set(true);
+			for (const control of this.controls()) control.markAllAsDirty();
+		});
 	}
 	markAllAsPristine() {
-		this._dirty.set(false);
-		for (const control of this.controls()) control.markAllAsPristine();
+		batch(() => {
+			this._dirty.set(false);
+			for (const control of this.controls()) control.markAllAsPristine();
+		});
 	}
 	disable() {
-		this._ownDisabled.set(true);
-		for (const control of this.controls()) control.disable();
+		batch(() => {
+			this._ownDisabled.set(true);
+			for (const control of this.controls()) control.disable();
+		});
 	}
 	enable() {
-		this._ownDisabled.set(false);
-		for (const control of this.controls()) control.enable();
+		batch(() => {
+			this._ownDisabled.set(false);
+			for (const control of this.controls()) control.enable();
+		});
 	}
 	async validate() {
 		await Promise.all(this.controls().map((c) => c.validate()));
@@ -1847,10 +1996,20 @@ var RequestManager = class {
 		this._pendingRequests = /* @__PURE__ */ new Map();
 		this._opaqueCounter = 0;
 	}
-	generateRequestKey(method, url, body) {
-		let key = `${method}:${url}`;
-		if (body) key += `:${this.hashBody(body)}`;
-		return key;
+	generateRequestKey(identity) {
+		const headers = Object.entries(identity.headers ?? {}).map(([name, value]) => [name.toLowerCase(), value]).sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0);
+		return JSON.stringify([
+			identity.method.toUpperCase(),
+			identity.url,
+			identity.params ? this.serializeParams(identity.params) : "",
+			headers,
+			identity.credentials ?? "",
+			identity.mode ?? "",
+			identity.body === void 0 || identity.body === null ? "" : this.serializeBody(identity.body)
+		]);
+	}
+	serializeParams(params) {
+		return JSON.stringify(Object.entries(params).filter(([, value]) => value !== null && value !== void 0).sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0));
 	}
 	joinPendingRequest(key, signal$1) {
 		const pending = this._pendingRequests.get(key);
@@ -1862,7 +2021,8 @@ var RequestManager = class {
 		const pending = {
 			promise,
 			abortController,
-			remainingParticipants: 0
+			remainingParticipants: 0,
+			cleanups: []
 		};
 		this._pendingRequests.set(key, pending);
 		this.registerParticipant(pending, signal$1);
@@ -1873,12 +2033,13 @@ var RequestManager = class {
 		const pending = this._pendingRequests.get(key);
 		if (pending) {
 			pending.abortController.abort(reason);
-			this._pendingRequests.delete(key);
+			this.releasePendingRequest(key, pending);
 		}
 	}
 	cancelAllRequests(reason) {
-		this._pendingRequests.forEach((pending) => {
+		this._pendingRequests.forEach((pending, key) => {
 			pending.abortController.abort(reason);
+			this.releasePendingRequest(key, pending);
 		});
 		this._pendingRequests.clear();
 	}
@@ -1890,28 +2051,29 @@ var RequestManager = class {
 			if (pending.remainingParticipants === 0) pending.abortController.abort(signal$1.reason);
 		};
 		if (signal$1.aborted) leave();
-		else signal$1.addEventListener("abort", leave, { once: true });
+		else {
+			signal$1.addEventListener("abort", leave, { once: true });
+			pending.cleanups.push(() => signal$1.removeEventListener("abort", leave));
+		}
 	}
 	removePendingRequest(key) {
-		this._pendingRequests.delete(key);
+		const pending = this._pendingRequests.get(key);
+		if (pending) this.releasePendingRequest(key, pending);
 	}
-	hashBody(body) {
+	releasePendingRequest(key, pending) {
+		this._pendingRequests.delete(key);
+		const cleanups = pending.cleanups;
+		pending.cleanups = [];
+		for (const cleanup of cleanups) cleanup();
+	}
+	serializeBody(body) {
 		if (body instanceof FormData || body instanceof Blob || body instanceof ArrayBuffer || body instanceof ReadableStream) return `opaque:${++this._opaqueCounter}`;
 		let str;
 		if (typeof body === "string") str = body;
 		else if (body instanceof URLSearchParams) str = body.toString();
 		else if (typeof body === "object" && body !== null) str = JSON.stringify(body);
 		else str = String(body);
-		return this.hashCode(str).toString();
-	}
-	hashCode(str) {
-		let hash = 0;
-		for (let i = 0; i < str.length; i++) {
-			const char = str.charCodeAt(i);
-			hash = (hash << 5) - hash + char;
-			hash = hash & hash;
-		}
-		return hash;
+		return str;
 	}
 };
 var MAX_RETRIES = 3;
@@ -2038,7 +2200,15 @@ var HttpClient = class {
 		}
 	}
 	async executeDeduplicatedRequest(config, callerSignal) {
-		const requestKey = this._requestManager.generateRequestKey(config.method, config.url, config.body);
+		const requestKey = this._requestManager.generateRequestKey({
+			method: config.method,
+			url: config.url,
+			params: config.params,
+			headers: config.headers,
+			credentials: config.credentials,
+			mode: config.mode,
+			body: config.body
+		});
 		let shared = this._requestManager.joinPendingRequest(requestKey, callerSignal);
 		if (!shared) {
 			const sharedController = new AbortController();
@@ -2443,7 +2613,9 @@ function resolveRedirectTarget(redirectTo, basePath) {
 	if (redirectTo.startsWith("/")) return redirectTo;
 	return basePath ? `/${basePath}/${redirectTo}` : `/${redirectTo}`;
 }
-function matchRouteLevel(routes, remainingPath, basePath, accumulatedMatches, accumulatedParams) {
+var MAX_MATCH_DEPTH = 64;
+function matchRouteLevel(routes, remainingPath, basePath, accumulatedMatches, accumulatedParams, depth = 0) {
+	if (depth > MAX_MATCH_DEPTH) throw new Error(`Route tree nesting exceeds ${MAX_MATCH_DEPTH} levels — check for cyclic children definitions`);
 	let partialFallback = null;
 	for (const route of routes) {
 		const matcher = new RouteMatcher(route.path);
@@ -2456,7 +2628,7 @@ function matchRouteLevel(routes, remainingPath, basePath, accumulatedMatches, ac
 		const exactMatch = matcher.parse(remainingPath);
 		if (exactMatch !== null) {
 			const matchedPath = remainingPath;
-			const fullPath = basePath ? `${basePath}/${matchedPath}` : matchedPath;
+			const fullPath = basePath && matchedPath ? `${basePath}/${matchedPath}` : basePath || matchedPath;
 			const match = {
 				route,
 				params: exactMatch,
@@ -2475,6 +2647,7 @@ function matchRouteLevel(routes, remainingPath, basePath, accumulatedMatches, ac
 					isExactMatch: false,
 					redirectTo: resolveRedirectTarget(emptyRedirect.redirectTo, fullPath)
 				};
+				if (route.children.find((child) => child.path === "" && !child.redirectTo)) return matchRouteLevel(route.children, "", fullPath, accumulatedMatches, accumulatedParams, depth + 1);
 			}
 			return {
 				matches: accumulatedMatches,
@@ -2499,7 +2672,7 @@ function matchRouteLevel(routes, remainingPath, basePath, accumulatedMatches, ac
 					const paramsSnapshot = { ...accumulatedParams };
 					Object.assign(accumulatedParams, prefixResult.params);
 					accumulatedMatches.push(match);
-					const childResult = matchRouteLevel(route.children, prefixResult.remainingPath, fullPath, accumulatedMatches, accumulatedParams);
+					const childResult = matchRouteLevel(route.children, prefixResult.remainingPath, fullPath, accumulatedMatches, accumulatedParams, depth + 1);
 					if (childResult.isExactMatch || childResult.redirectTo) return childResult;
 					if (!partialFallback) partialFallback = {
 						matches: [...childResult.matches],
@@ -2601,6 +2774,27 @@ function installHistoryEvents() {
 function __decorateMetadata(k, v) {
 	if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 }
+var childrenLoads = /* @__PURE__ */ new WeakMap();
+var componentLoads = /* @__PURE__ */ new WeakMap();
+var MAX_LAZY_LOADS = 64;
+function loadRouteChildren(route) {
+	let pending = childrenLoads.get(route);
+	if (!pending) {
+		pending = Promise.resolve().then(() => route.loadChildren());
+		pending.catch(() => childrenLoads.delete(route));
+		childrenLoads.set(route, pending);
+	}
+	return pending;
+}
+function loadRouteComponent(route) {
+	let pending = componentLoads.get(route);
+	if (!pending) {
+		pending = Promise.resolve().then(() => route.loadComponent());
+		pending.catch(() => componentLoads.delete(route));
+		componentLoads.set(route, pending);
+	}
+	return pending;
+}
 var RouterService = class RouterService$1 {
 	constructor() {
 		this._routes = [];
@@ -2660,6 +2854,51 @@ var RouterService = class RouterService$1 {
 	matchPath(path) {
 		return matchRouteTree(this._routes, this.normalizePath(path));
 	}
+	async resolveMatch(path, isCurrent) {
+		for (let loads = 0; loads <= MAX_LAZY_LOADS; loads++) {
+			const result = this.matchPath(path);
+			if (result.redirectTo) return { result };
+			const last = result.matches[result.matches.length - 1];
+			if (last && last.route.loadChildren && !last.route.children) {
+				try {
+					const module = await loadRouteChildren(last.route);
+					last.route.children = module.routes;
+				} catch (error) {
+					console.error("Failed to load child routes:", error);
+					return {
+						result,
+						error: `Failed to load child routes: ${error instanceof Error ? error.message : String(error)}`
+					};
+				}
+				if (!isCurrent()) return {
+					result,
+					superseded: true
+				};
+				continue;
+			}
+			const pendingComponents = result.matches.filter((match) => match.route.loadComponent).map((match) => loadRouteComponent(match.route));
+			if (pendingComponents.length > 0) {
+				try {
+					await Promise.all(pendingComponents);
+				} catch (error) {
+					console.error("Failed to load component:", error);
+					return {
+						result,
+						error: `Failed to load component: ${error instanceof Error ? error.message : String(error)}`
+					};
+				}
+				if (!isCurrent()) return {
+					result,
+					superseded: true
+				};
+			}
+			return { result };
+		}
+		return {
+			result: this.matchPath(path),
+			error: `Route '${path}' exceeded ${MAX_LAZY_LOADS} lazy child loads`
+		};
+	}
 	parseUrl(url) {
 		const hashIndex = url.indexOf("#");
 		const hash = hashIndex >= 0 ? url.slice(hashIndex) : "";
@@ -2693,9 +2932,25 @@ var RouterService = class RouterService$1 {
 	async initialNavigation() {
 		const navId = ++this._navigationId;
 		const currentUrl = `${window.location.pathname}${window.location.search}`;
-		const matchResult = this.matchPath(window.location.pathname);
+		const resolved = await this.resolveMatch(window.location.pathname, () => this._navigationId === navId);
+		if (resolved.superseded || this._navigationId !== navId) return {
+			success: false,
+			error: "Navigation superseded"
+		};
+		const matchResult = resolved.result;
 		if (matchResult.redirectTo) {
 			if (this.normalizePath(window.location.pathname) !== this.normalizePath(matchResult.redirectTo)) return this.navigate(matchResult.redirectTo, { replace: true });
+		}
+		if (resolved.error) {
+			this.commit({
+				matches: [],
+				params: {},
+				isExactMatch: false
+			});
+			return {
+				success: false,
+				error: resolved.error
+			};
 		}
 		if (matchResult.matches.length > 0) {
 			const guardResult = await this.runGuards(matchResult);
@@ -2769,8 +3024,14 @@ var RouterService = class RouterService$1 {
 					};
 				}
 			}
-			const matchResult = this.matchPath(path);
+			const resolved = await this.resolveMatch(path, () => this._navigationId === navId);
+			if (resolved.superseded || this._navigationId !== navId) return superseded();
+			const matchResult = resolved.result;
 			if (matchResult.redirectTo) return this.navigate(matchResult.redirectTo, options);
+			if (resolved.error) return {
+				success: false,
+				error: resolved.error
+			};
 			if (!skipGuards && matchResult.matches.length > 0) {
 				const guardResult = await this.runGuards(matchResult);
 				if (this._navigationId !== navId) return superseded();
@@ -2929,9 +3190,20 @@ var RouterService = class RouterService$1 {
 			else history.replaceState(event.state, "", previousPath);
 			return;
 		}
-		const matchResult = this.matchPath(window.location.pathname);
+		const resolved = await this.resolveMatch(window.location.pathname, () => this._navigationId === navId);
+		if (resolved.superseded || this._navigationId !== navId) return;
+		const matchResult = resolved.result;
 		if (matchResult.redirectTo) {
 			await this.navigate(matchResult.redirectTo, { replace: true });
+			return;
+		}
+		if (resolved.error) {
+			this._currentPath = targetPath;
+			this.commit({
+				matches: [],
+				params: {},
+				isExactMatch: false
+			});
 			return;
 		}
 		if (matchResult.matches.length > 0) {
@@ -3109,24 +3381,46 @@ function provideRouter(routes) {
 function isDirective(value) {
 	return typeof value === "object" && value !== null && value.__directive === true && typeof value.render === "function";
 }
-function renderDetachedItem(template, container, liveNodes, fallbackAnchor) {
+function clearBetween(start, end, keep) {
+	const parent = start.parentNode;
+	if (!parent) return;
+	let node = start.nextSibling;
+	while (node && node !== end) {
+		const next = node.nextSibling;
+		if (node !== keep) parent.removeChild(node);
+		node = next;
+	}
+}
+function removeRange(start, end) {
+	let node = start;
+	while (node) {
+		const next = node.nextSibling;
+		node.parentNode?.removeChild(node);
+		if (node === end) break;
+		node = next;
+	}
+}
+function moveRange(start, end, referenceNode) {
+	const parent = referenceNode.parentNode;
+	if (!parent) return;
+	const fragment = document.createDocumentFragment();
+	let node = start;
+	while (node) {
+		const next = node.nextSibling;
+		fragment.appendChild(node);
+		if (node === end) break;
+		node = next;
+	}
+	parent.insertBefore(fragment, referenceNode);
+}
+function renderDetachedItem(template, container, start, end) {
 	const target = container;
 	const structureChanged = target.__parts !== void 0 && target.__templateKey !== template.templateKey;
 	template.renderInto(container);
-	if (!structureChanged) return liveNodes;
-	const newNodes = Array.from(container.childNodes);
-	let anchor = null;
-	for (const node of liveNodes) if (node.parentNode) {
-		anchor = node;
-		break;
-	}
-	if (!anchor && fallbackAnchor?.parentNode) anchor = fallbackAnchor;
-	if (anchor?.parentNode) {
-		const parent = anchor.parentNode;
-		for (const node of newNodes) parent.insertBefore(node, anchor);
-	}
-	for (const node of liveNodes) node.parentNode?.removeChild(node);
-	return newNodes;
+	if (!structureChanged) return false;
+	clearBetween(start, end);
+	end.parentNode?.insertBefore(container, end);
+	return true;
 }
 var MARKER = `m${Math.random().toString(36).slice(2, 9)}`;
 var COMMENT_NODE_MARKER = `<!--${MARKER}-->`;
@@ -3606,8 +3900,7 @@ var TemplateResult = class TemplateResult {
 			for (const item of part.positionalArrayState.items) disposeContainerParts(item.container);
 			part.positionalArrayState = void 0;
 		}
-		if (part.renderedNodes && part.renderedNodes.length > 0) for (const node of part.renderedNodes) node.parentNode?.removeChild(node);
-		part.renderedNodes = [];
+		if (part.startMarker && part.endMarker) clearBetween(part.startMarker, part.endMarker, part.node);
 	}
 	clearDirectiveDOM(part) {
 		const state = part.directiveState;
@@ -3647,14 +3940,12 @@ var TemplateResult = class TemplateResult {
 		const container = document.createDocumentFragment();
 		template.renderInto(container);
 		part.nestedContainer = container;
-		part.renderedNodes = Array.from(container.childNodes);
 		part.endMarker.parentNode.insertBefore(container, part.endMarker);
 	}
 	renderNode(part, node) {
 		this.ensureMarkers(part);
 		this.clearRenderedNodes(part);
 		part.node.textContent = "";
-		part.renderedNodes = [node];
 		part.endMarker.parentNode.insertBefore(node, part.endMarker);
 	}
 	renderArray(part, values) {
@@ -3663,7 +3954,7 @@ var TemplateResult = class TemplateResult {
 		const parent = part.endMarker.parentNode;
 		const keyedValues = this.getKeyedValues(values);
 		if (keyedValues) {
-			if (part.positionalArrayState) this.clearRenderedNodes(part);
+			if (!part.arrayState) this.clearRenderedNodes(part);
 			const state = part.arrayState ?? {
 				items: /* @__PURE__ */ new Map(),
 				keys: []
@@ -3673,39 +3964,34 @@ var TemplateResult = class TemplateResult {
 			for (const item of keyedValues) {
 				const existing = state.items.get(item.key);
 				if (existing) {
-					this.updateArrayItem(existing, item.value, parent, part.endMarker);
+					this.updateArrayItem(existing, item.value);
 					newItems.set(item.key, existing);
 				} else {
 					const created = this.createArrayItem(item.value, parent, part.endMarker);
 					newItems.set(item.key, {
 						key: item.key,
-						value: item.value,
-						container: created.container,
-						nodes: created.nodes
+						...created
 					});
 				}
 				newKeys.push(item.key);
 			}
 			for (const [key, oldItem] of state.items.entries()) if (!newItems.has(key)) {
 				disposeContainerParts(oldItem.container);
-				for (const node of oldItem.nodes) node.parentNode?.removeChild(node);
+				removeRange(oldItem.start, oldItem.end);
 			}
-			let referenceNode = part.startMarker.nextSibling;
+			let referenceNode = this.firstArrayNode(part);
 			for (const key of newKeys) {
 				const item = newItems.get(key);
-				for (const node of item.nodes) {
-					if (node === referenceNode) {
-						referenceNode = referenceNode?.nextSibling ?? null;
-						continue;
-					}
-					parent.insertBefore(node, referenceNode ?? part.endMarker);
+				if (item.start === referenceNode) {
+					referenceNode = item.end.nextSibling ?? part.endMarker;
+					continue;
 				}
+				moveRange(item.start, item.end, referenceNode);
 			}
 			part.arrayState = {
 				items: newItems,
 				keys: newKeys
 			};
-			part.renderedNodes = newKeys.flatMap((key) => newItems.get(key).nodes);
 			return;
 		}
 		warnPartiallyKeyedArray(part, values);
@@ -3722,28 +4008,20 @@ var TemplateResult = class TemplateResult {
 			const value = values[index];
 			const existing = items[index];
 			if (existing) {
-				const anchor = this.findPositionalAnchor(items, index + 1, endMarker);
-				if (this.updateArrayItem(existing, value, parent, anchor)) recreated++;
-			} else {
-				const created = this.createArrayItem(value, parent, endMarker);
-				items[index] = {
-					value,
-					container: created.container,
-					nodes: created.nodes
-				};
-			}
+				if (this.updateArrayItem(existing, value)) recreated++;
+			} else items[index] = this.createArrayItem(value, parent, endMarker);
 		}
 		if (items.length > values.length) for (const removed of items.splice(values.length)) {
 			disposeContainerParts(removed.container);
-			for (const node of removed.nodes) node.parentNode?.removeChild(node);
+			removeRange(removed.start, removed.end);
 		}
 		part.positionalArrayState = state;
-		part.renderedNodes = items.flatMap((item) => item.nodes);
 		if (isUpdate) warnUnkeyedArrayChurn(state, recreated, values.length);
 	}
-	findPositionalAnchor(items, from, endMarker) {
-		for (let index = from; index < items.length; index++) for (const node of items[index].nodes) if (node.parentNode) return node;
-		return endMarker;
+	firstArrayNode(part) {
+		const textNode = part.node;
+		if (textNode && textNode.parentNode === part.startMarker.parentNode && textNode.nextSibling) return textNode.nextSibling;
+		return part.startMarker.nextSibling ?? part.endMarker;
 	}
 	getKeyedValues(values) {
 		if (values.length === 0) return null;
@@ -3759,38 +4037,43 @@ var TemplateResult = class TemplateResult {
 	}
 	createArrayItem(value, parent, endMarker) {
 		const container = document.createDocumentFragment();
+		this.renderArrayItemValue(value, container);
+		const start = document.createComment("item-start");
+		const end = document.createComment("item-end");
+		parent.insertBefore(start, endMarker);
+		parent.insertBefore(container, endMarker);
+		parent.insertBefore(end, endMarker);
+		return {
+			value,
+			container,
+			start,
+			end
+		};
+	}
+	renderArrayItemValue(value, container) {
 		if (value instanceof TemplateResult) value.renderInto(container);
 		else if (value instanceof Node) container.appendChild(value);
 		else if (value !== null && value !== void 0) container.appendChild(document.createTextNode(String(value)));
-		const nodes = Array.from(container.childNodes);
-		parent.insertBefore(container, endMarker);
-		return {
-			container,
-			nodes
-		};
 	}
-	updateArrayItem(item, value, parent, anchor) {
+	updateArrayItem(item, value) {
 		const hasPartTree = item.container.__parts !== void 0;
 		if (value instanceof TemplateResult && hasPartTree) {
-			const previousNodes = item.nodes;
-			item.nodes = renderDetachedItem(value, item.container, item.nodes, anchor);
+			const replaced = renderDetachedItem(value, item.container, item.start, item.end);
 			item.value = value;
-			return item.nodes !== previousNodes;
+			return replaced;
 		}
 		if (!(value instanceof TemplateResult) && value === item.value) return false;
-		if (!(value instanceof TemplateResult) && !(value instanceof Node) && value !== null && value !== void 0 && !hasPartTree && item.nodes.length === 1 && item.nodes[0].nodeType === Node.TEXT_NODE) {
-			item.nodes[0].nodeValue = String(value);
+		const only = item.start.nextSibling;
+		if (!(value instanceof TemplateResult) && !(value instanceof Node) && value !== null && value !== void 0 && !hasPartTree && only !== null && only.nextSibling === item.end && only.nodeType === Node.TEXT_NODE) {
+			only.nodeValue = String(value);
 			item.value = value;
 			return false;
 		}
 		disposeContainerParts(item.container);
-		for (const node of item.nodes) node.parentNode?.removeChild(node);
+		clearBetween(item.start, item.end);
 		item.container = document.createDocumentFragment();
-		if (value instanceof TemplateResult) value.renderInto(item.container);
-		else if (value instanceof Node) item.container.appendChild(value);
-		else if (value !== null && value !== void 0) item.container.appendChild(document.createTextNode(String(value)));
-		item.nodes = Array.from(item.container.childNodes);
-		parent.insertBefore(item.container, anchor);
+		this.renderArrayItemValue(value, item.container);
+		item.end.parentNode?.insertBefore(item.container, item.end);
 		item.value = value;
 		return true;
 	}
@@ -3846,6 +4129,11 @@ var TemplateResult = class TemplateResult {
 				case "attribute":
 					if (part.node && part.name) {
 						const element = part.node;
+						if (!isDirective(value) && part.directiveState !== void 0) {
+							disposeDirectiveState(part.directiveState);
+							part.directiveState = void 0;
+							part.directiveType = void 0;
+						}
 						if (isDirective(value)) {
 							if (part.directiveState !== void 0 && part.directiveType !== value.type) {
 								disposeDirectiveState(part.directiveState);
@@ -3880,16 +4168,23 @@ var TemplateResult = class TemplateResult {
 					}
 					break;
 				case "property":
-					if (part.node && part.name) if (isDirective(value)) {
-						if (part.directiveState !== void 0 && part.directiveType !== value.type) {
+					if (part.node && part.name) {
+						if (!isDirective(value) && part.directiveState !== void 0) {
 							disposeDirectiveState(part.directiveState);
 							part.directiveState = void 0;
+							part.directiveType = void 0;
 						}
-						part.directiveState = value.render(part.node, part.directiveState);
-						part.directiveType = value.type;
-					} else {
-						if (part.name === "innerHTML" || part.name === "outerHTML") warnUnsafePropertyBinding(part.name);
-						part.node[part.name] = value;
+						if (isDirective(value)) {
+							if (part.directiveState !== void 0 && part.directiveType !== value.type) {
+								disposeDirectiveState(part.directiveState);
+								part.directiveState = void 0;
+							}
+							part.directiveState = value.render(part.node, part.directiveState);
+							part.directiveType = value.type;
+						} else {
+							if (part.name === "innerHTML" || part.name === "outerHTML") warnUnsafePropertyBinding(part.name);
+							part.node[part.name] = value;
+						}
 					}
 					break;
 				case "event":
@@ -3935,6 +4230,7 @@ var RouterOutletComponent = class RouterOutletComponent$1 {
 		this._parentOutlet = null;
 		this._initialized = false;
 		this._routeSubscriptionCleanup = null;
+		this._renderGeneration = 0;
 		this.routes = [];
 		this.name = "primary";
 	}
@@ -3962,15 +4258,16 @@ var RouterOutletComponent = class RouterOutletComponent$1 {
 		});
 	}
 	onDestroy() {
+		this._renderGeneration++;
 		this._routeSubscriptionCleanup?.();
 		this._routeSubscriptionCleanup = null;
 		if (this._parentOutlet) this._parentOutlet.unregisterChildOutlet(this.name);
 	}
-	onPropertyChange(name) {
+	onPropertyChange(name, oldValue, newValue) {
 		if (name === "routes" && this._initialized) {
 			this._currentComponent = null;
 			if (this._depth === 0) {
-				this._router.setRoutes(this.routes);
+				this._router.setRoutes(newValue ?? []);
 				this._router.initialNavigation();
 			}
 		}
@@ -4044,7 +4341,8 @@ var RouterOutletComponent = class RouterOutletComponent$1 {
 			params: { ...this._context.params },
 			remainingPath: match.remainingPath,
 			basePath: match.fullPath,
-			parent: this._context
+			parent: this._context,
+			matches: this._context.matches
 		};
 	}
 	async renderCommitted(result) {
@@ -4061,21 +4359,16 @@ var RouterOutletComponent = class RouterOutletComponent$1 {
 				params: match.params,
 				remainingPath: match.remainingPath,
 				basePath: "",
-				parent: void 0
+				parent: void 0,
+				matches: result.matches
 			};
-			await this.renderMatch(match, result);
+			await this.renderMatch(match);
 		} else await this.render404();
 	}
 	async renderFromContext() {
 		if (!this._context || this.routes.length === 0) return;
-		const remainingPath = this._context.remainingPath;
-		const matchResult = matchRouteTree(this.routes, remainingPath, this._context.basePath);
-		if (matchResult.redirectTo) {
-			if (window.location.pathname !== matchResult.redirectTo) this._router.navigate(matchResult.redirectTo, { replace: true });
-			return;
-		}
-		if (matchResult.matches.length > 0) {
-			const match = matchResult.matches[0];
+		const match = this._context.matches?.[this._depth];
+		if (match) {
 			this._context = {
 				...this._context,
 				currentMatch: match,
@@ -4085,30 +4378,25 @@ var RouterOutletComponent = class RouterOutletComponent$1 {
 					...match.params
 				}
 			};
-			await this.renderMatch(match, matchResult);
+			await this.renderMatch(match);
 		} else await this.render404();
 	}
-	async renderMatch(match, _) {
+	async renderMatch(match) {
 		const route = match.route;
 		if (route.component === this._currentComponent) {
 			this.updateChildOutlets();
 			return;
 		}
-		if (route.loadChildren && !match.children) try {
-			const module = await route.loadChildren();
-			match.children = module.routes;
-			route.children = module.routes;
-		} catch (error) {
-			console.error("Failed to load child routes:", error);
-			await this.render404();
-			return;
-		}
-		if (route.loadComponent) try {
-			await route.loadComponent();
-		} catch (error) {
-			console.error("Failed to load component:", error);
-			await this.render404();
-			return;
+		const generation = ++this._renderGeneration;
+		if (route.loadComponent) {
+			try {
+				await route.loadComponent();
+			} catch (error) {
+				console.error("Failed to load component:", error);
+				if (generation === this._renderGeneration) await this.render404();
+				return;
+			}
+			if (generation !== this._renderGeneration) return;
 		}
 		if (route.component) await this.renderComponent(route.component);
 	}
@@ -4132,6 +4420,7 @@ var RouterOutletComponent = class RouterOutletComponent$1 {
 		for (const [, childOutlet] of this._childOutlets) childOutlet.receiveContext(childContext);
 	}
 	async render404() {
+		this._renderGeneration++;
 		const notFoundRoute = this.routes.find((r) => r.path === "404" || r.path === "**");
 		if (notFoundRoute?.component) await this.renderComponent(notFoundRoute.component);
 		else if (this._depth === 0 && window.location.pathname !== "/404") this._router.navigate("/404", { replace: true });
@@ -4519,10 +4808,7 @@ function updateList$1(newItems, keyFn, template, state) {
 			}
 		}
 		if (allKeysMatch) {
-			for (let i = 0; i < newItems.length; i++) {
-				const templateResult = template(newItems[i], i);
-				oldItems[i].nodes = renderDetachedItem(templateResult, oldItems[i].container, oldItems[i].nodes, oldItems[i].end);
-			}
+			for (let i = 0; i < newItems.length; i++) renderDetachedItem(template(newItems[i], i), oldItems[i].container, oldItems[i].start, oldItems[i].end);
 			return;
 		}
 	}
@@ -4538,7 +4824,7 @@ function updateList$1(newItems, keyFn, template, state) {
 		if (oldItemsByKey.has(key)) {
 			const oldItem = oldItemsByKey.get(key);
 			oldItemsByKey.delete(key);
-			oldItem.nodes = renderDetachedItem(template(item, i), oldItem.container, oldItem.nodes, oldItem.end);
+			renderDetachedItem(template(item, i), oldItem.container, oldItem.start, oldItem.end);
 			newEntries.push({
 				item: oldItem,
 				oldIndex: oldIndexByKey.get(key) ?? -1,
@@ -4560,7 +4846,7 @@ function updateList$1(newItems, keyFn, template, state) {
 		return;
 	}
 	const lisPositions = getLisPositions(newEntries);
-	const parent = state.startMarker.parentElement;
+	const parent = state.startMarker.parentNode;
 	let nextSibling = state.endMarker;
 	for (let i = newEntries.length - 1; i >= 0; i--) {
 		const entry = newEntries[i];
@@ -4576,7 +4862,6 @@ function createRepeatItem(item, index, key, template) {
 	const container = document.createDocumentFragment();
 	return {
 		key,
-		value: item,
 		container,
 		nodes: templateResult.renderOnce(container),
 		start: document.createComment("repeat-item-start"),
@@ -4589,6 +4874,7 @@ function insertItemRange(item, parent, referenceNode) {
 	for (const node of item.nodes) fragment.appendChild(node);
 	fragment.appendChild(item.end);
 	parent.insertBefore(fragment, referenceNode);
+	item.nodes = [];
 }
 function moveItemRange(item, referenceNode) {
 	const parent = referenceNode.parentNode;
@@ -4656,7 +4942,7 @@ function longestIncreasingSubsequence(sequence) {
 	}
 	return result;
 }
-function repeatRaw(items, keyFn, factory) {
+function repeatRaw(items, keyFn, factory, update) {
 	return directive((container, previousState) => {
 		if (!previousState) {
 			const parent = container.parentNode;
@@ -4684,15 +4970,24 @@ function repeatRaw(items, keyFn, factory) {
 			parent.insertBefore(fragment, endMarker);
 			return state;
 		}
-		updateList(items, keyFn, factory, previousState);
+		updateList(items, keyFn, factory, update, previousState);
 		return previousState;
 	}, "repeatRaw");
 }
-function updateList(newItems, keyFn, factory, state) {
+function updateList(newItems, keyFn, factory, update, state) {
 	const oldItems = state.keyToItem;
 	const newKeyToItem = /* @__PURE__ */ new Map();
-	const parent = state.startMarker.parentElement;
+	const parent = state.startMarker.parentNode;
 	const endMarker = state.endMarker;
+	const reuse = (existing, item, index) => {
+		if (update) {
+			update(existing.element, item, index);
+			return existing.element;
+		}
+		const next = factory(item, index);
+		if (next !== existing.element) existing.element.replaceWith(next);
+		return next;
+	};
 	if (oldItems.size === newItems.length) {
 		let allMatch = true;
 		let i = 0;
@@ -4705,18 +5000,10 @@ function updateList(newItems, keyFn, factory, state) {
 		}
 		if (allMatch) {
 			i = 0;
-			for (const [key, { element }] of oldItems) {
-				const item = newItems[i];
-				const newElement = factory(item, i);
-				if (element !== newElement) {
-					element.replaceWith(newElement);
-					newKeyToItem.set(key, {
-						key,
-						element: newElement
-					});
-				} else newKeyToItem.set(key, {
+			for (const [key, existing] of oldItems) {
+				newKeyToItem.set(key, {
 					key,
-					element
+					element: reuse(existing, newItems[i], i)
 				});
 				i++;
 			}
@@ -4732,17 +5019,12 @@ function updateList(newItems, keyFn, factory, state) {
 		usedKeys.add(key);
 		const existing = oldItems.get(key);
 		if (existing) {
-			const newElement = factory(item, i);
-			if (existing.element !== newElement) {
-				newKeyToItem.set(key, {
-					key,
-					element: newElement
-				});
-				fragment.appendChild(newElement);
-			} else {
-				newKeyToItem.set(key, existing);
-				fragment.appendChild(existing.element);
-			}
+			const element = reuse(existing, item, i);
+			newKeyToItem.set(key, {
+				key,
+				element
+			});
+			fragment.appendChild(element);
 		} else {
 			const element = factory(item, i);
 			newKeyToItem.set(key, {
@@ -4772,7 +5054,6 @@ function when(condition, template, falseTemplate) {
 				container: null,
 				startMarker,
 				endMarker,
-				nodes: [],
 				__dispose: () => {
 					if (state.container) {
 						disposeContainerParts(state.container);
@@ -4802,7 +5083,10 @@ function when(condition, template, falseTemplate) {
 				renderContent(previousState, false);
 			}
 		} else if (condition && previousState.condition) updateContent(previousState, template(), true);
-		else if (!condition && !previousState.condition && falseTemplate) updateContent(previousState, falseTemplate(), false);
+		else if (!condition && !previousState.condition) {
+			if (falseTemplate) updateContent(previousState, falseTemplate(), false);
+			else if (previousState.container) removeContent(previousState);
+		}
 		previousState.condition = condition;
 		return previousState;
 	}, "when");
@@ -4815,8 +5099,7 @@ function renderContent(state, useTrueTemplate) {
 	const container = document.createDocumentFragment();
 	templateToRender.renderInto(container);
 	state.container = container;
-	state.nodes = Array.from(container.childNodes);
-	for (const node of state.nodes) parent.insertBefore(node, state.endMarker);
+	parent.insertBefore(container, state.endMarker);
 }
 function updateContent(state, newTemplate, useTrueTemplate) {
 	const container = state.container;
@@ -4832,9 +5115,10 @@ function updateContent(state, newTemplate, useTrueTemplate) {
 }
 function removeContent(state) {
 	if (state.container) disposeContainerParts(state.container);
-	for (const node of state.nodes) node.parentNode?.removeChild(node);
-	state.nodes = [];
+	clearBetween(state.startMarker, state.endMarker);
 	state.container = null;
+	state.template = null;
+	state.falseTemplate = null;
 }
 function classMap(classes) {
 	return directive((container, previousClasses) => {

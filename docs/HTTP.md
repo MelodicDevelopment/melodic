@@ -67,7 +67,7 @@ Supported config options include:
 - `headers`: request headers
 - `params`: query params (merged into the URL)
 - `body`: request body for `post`, `put`, `patch`
-- `deduplicate`: when `true`, identical inflight requests are shared
+- `deduplicate`: when `true` (the default for `GET`), identical inflight requests share one fetch and one interceptor pass. Two requests are identical only when their method, URL, query `params`, `headers` (case-insensitive names, any order), `credentials`, `mode` and body all match — a request carrying a different `Authorization` header is never merged with another
 - `onProgress`: receive progress updates (if the browser provides them)
 - `abortController`: supply your own `AbortController`
 - `credentials` / `mode`: forwarded to `fetch`

@@ -171,7 +171,15 @@ export class HttpClient {
 	 * has aborted, while each aborting caller's own promise rejects immediately.
 	 */
 	private async executeDeduplicatedRequest<T>(config: IRequestConfig, callerSignal?: AbortSignal): Promise<IHttpResponse<T>> {
-		const requestKey = this._requestManager.generateRequestKey(config.method!, config.url!, config.body);
+		const requestKey = this._requestManager.generateRequestKey({
+			method: config.method!,
+			url: config.url!,
+			params: config.params,
+			headers: config.headers,
+			credentials: config.credentials,
+			mode: config.mode,
+			body: config.body
+		});
 
 		let shared = this._requestManager.joinPendingRequest<T>(requestKey, callerSignal);
 

@@ -10,4 +10,9 @@ export interface IRouteContext {
 	remainingPath: string;
 	basePath: string;
 	parent?: IRouteContext;
+	/**
+	 * The full committed match chain. Outlets render `matches[depth]`;
+	 * nested outlets never re-match the URL themselves.
+	 */
+	matches?: IRouteMatch[];
 }

@@ -15,7 +15,9 @@ describe('batch rendering comparison', () => {
 	it('compares current approach vs theoretical minimum', () => {
 		const items = generateItems(TEST_COUNT);
 
-		// Simulate React's approach - pure JS objects then single DOM build
+		// A vdom-style approach: build plain objects, then a single DOM pass.
+		// This is NOT React — no reconciliation, no fiber, no scheduling — so
+		// the number below is a lower bound for that style, not a React timing.
 		const reactStart = performance.now();
 		const vdomNodes = [];
 		for (let i = 0; i < TEST_COUNT; i++) {
@@ -62,11 +64,11 @@ describe('batch rendering comparison', () => {
 		const melodicEnd = performance.now();
 
 		console.log('\n=== APPROACH COMPARISON (1000 items) ===');
-		console.log(`React-style (vdom + build):   ${(reactEnd - reactStart).toFixed(2)}ms`);
+		console.log(`vdom-style objects + build:   ${(reactEnd - reactStart).toFixed(2)}ms`);
 		console.log(`Direct createElement:         ${(directEnd - directStart).toFixed(2)}ms`);
 		console.log(`Melodic repeat (compiled):    ${(melodicEnd - melodicStart).toFixed(2)}ms`);
 		console.log(`\nMelodic vs Direct: ${((melodicEnd - melodicStart) / (directEnd - directStart)).toFixed(2)}x`);
-		console.log(`Melodic vs React:  ${((melodicEnd - melodicStart) / (reactEnd - reactStart)).toFixed(2)}x`);
+		console.log(`Melodic vs vdom-style: ${((melodicEnd - melodicStart) / (reactEnd - reactStart)).toFixed(2)}x`);
 
 		// Verify DOM is correct
 		expect(container.querySelectorAll('li').length).toBe(TEST_COUNT);

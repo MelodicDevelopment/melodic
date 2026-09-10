@@ -1,55 +1,35 @@
 import type { TemplateResult } from '../classes/template-result.class';
 import type { RenderedContainer } from '../interfaces/irendered-container.interface';
+import { clearBetween } from './marker-range.functions';
 
 /**
  * Re-render a template into a detached item container whose child nodes were
- * moved into the live DOM (the repeat-item / keyed-array pattern: parts stay
- * on the fragment, nodes live between markers).
+ * moved into the live DOM between `start` and `end` (the repeat-item /
+ * array-item pattern: parts stay on the fragment, nodes live between markers).
  *
  * Same template structure → in-place commit; the live nodes update through
- * the stored parts and are returned unchanged.
+ * the stored parts and nothing moves.
  *
  * Different structure → renderInto() disposes the old part tree and rebuilds
  * the new structure inside the DETACHED fragment, so the rebuilt nodes must be
- * swapped into the live DOM here: they are inserted before the first live
- * node (falling back to `fallbackAnchor`, e.g. the item's end marker) and the
- * stale live nodes are removed.
+ * swapped into the live DOM here: everything currently between the markers is
+ * removed (the live range, not a snapshot — nested parts may have swapped
+ * nodes since the item was created) and the fragment is inserted before `end`.
  *
- * @returns the item's current live node list.
+ * @returns true when the item's live nodes were replaced (its DOM identity did
+ * not survive), false when the existing nodes were updated in place.
  */
-export function renderDetachedItem(template: TemplateResult, container: DocumentFragment, liveNodes: Node[], fallbackAnchor?: Node): Node[] {
+export function renderDetachedItem(template: TemplateResult, container: DocumentFragment, start: Node, end: Node): boolean {
 	const target = container as RenderedContainer<DocumentFragment>;
 	const structureChanged = target.__parts !== undefined && target.__templateKey !== template.templateKey;
 
 	template.renderInto(container);
 
 	if (!structureChanged) {
-		return liveNodes;
+		return false;
 	}
 
-	const newNodes = Array.from(container.childNodes);
-
-	let anchor: Node | null = null;
-	for (const node of liveNodes) {
-		if (node.parentNode) {
-			anchor = node;
-			break;
-		}
-	}
-	if (!anchor && fallbackAnchor?.parentNode) {
-		anchor = fallbackAnchor;
-	}
-
-	if (anchor?.parentNode) {
-		const parent = anchor.parentNode;
-		for (const node of newNodes) {
-			parent.insertBefore(node, anchor);
-		}
-	}
-
-	for (const node of liveNodes) {
-		node.parentNode?.removeChild(node);
-	}
-
-	return newNodes;
+	clearBetween(start, end);
+	end.parentNode?.insertBefore(container, end);
+	return true;
 }

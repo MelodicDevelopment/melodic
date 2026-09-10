@@ -1,4 +1,4 @@
-import { signal, SignalEffect } from '../../signals';
+import { batch, signal, SignalEffect } from '../../signals';
 import type { Signal } from '../../signals';
 import type { ControlOptions, SetValueOptions } from '../types/control.types';
 import { AbstractControl } from './abstract-control.class';
@@ -81,22 +81,25 @@ export class FormArray<T = unknown> extends AbstractControl<T[]> {
 	}
 
 	public setValue(value: T[], options?: SetValueOptions): void {
-		if (this._ownDisabled()) return;
-		const controls = this.controls();
+		// One aggregate value/validation pass for the whole write, not one per child.
+		batch(() => {
+			if (this._ownDisabled()) return;
+			const controls = this.controls();
 
-		// Strict: setValue replaces the whole array, so lengths must match.
-		if (value.length !== controls.length) {
-			throw new Error(
-				`FormArray.setValue: expected ${controls.length} value(s) but received ${value.length}. Use patchValue() for partial updates.`
-			);
-		}
+			// Strict: setValue replaces the whole array, so lengths must match.
+			if (value.length !== controls.length) {
+				throw new Error(
+					`FormArray.setValue: expected ${controls.length} value(s) but received ${value.length}. Use patchValue() for partial updates.`
+				);
+			}
 
-		value.forEach((v, i) => {
-			controls[i].setValue(v, options);
+			value.forEach((v, i) => {
+				controls[i].setValue(v, options);
+			});
+			if (options?.markAsPristine) {
+				this._dirty.set(false);
+			}
 		});
-		if (options?.markAsPristine) {
-			this._dirty.set(false);
-		}
 	}
 
 	/** Value including disabled controls (which `value()` omits). */
@@ -105,65 +108,89 @@ export class FormArray<T = unknown> extends AbstractControl<T[]> {
 	}
 
 	public patchValue(value: T[], options?: SetValueOptions): void {
-		if (this._ownDisabled()) return;
-		const controls = this.controls();
-		value.forEach((v, i) => {
-			if (v !== undefined) {
-				controls[i]?.setValue(v, options);
+		// One aggregate value/validation pass for the whole write, not one per child.
+		batch(() => {
+			if (this._ownDisabled()) return;
+			const controls = this.controls();
+			value.forEach((v, i) => {
+				if (v !== undefined) {
+					controls[i]?.setValue(v, options);
+				}
+			});
+			if (options?.markAsPristine) {
+				this._dirty.set(false);
 			}
 		});
-		if (options?.markAsPristine) {
-			this._dirty.set(false);
-		}
 	}
 
 	public reset(value?: T[]): void {
-		const controls = this.controls();
-		controls.forEach((control, i) => {
-			control.reset(value?.[i]);
+		// One aggregate value/validation pass for the whole write, not one per child.
+		batch(() => {
+			const controls = this.controls();
+			controls.forEach((control, i) => {
+				control.reset(value?.[i]);
+			});
 		});
 	}
 
 	public markAllAsTouched(): void {
-		this._touched.set(true);
-		for (const control of this.controls()) {
-			control.markAllAsTouched();
-		}
+		// One aggregate value/validation pass for the whole write, not one per child.
+		batch(() => {
+			this._touched.set(true);
+			for (const control of this.controls()) {
+				control.markAllAsTouched();
+			}
+		});
 	}
 
 	public markAllAsUntouched(): void {
-		this._touched.set(false);
-		for (const control of this.controls()) {
-			control.markAllAsUntouched();
-		}
+		// One aggregate value/validation pass for the whole write, not one per child.
+		batch(() => {
+			this._touched.set(false);
+			for (const control of this.controls()) {
+				control.markAllAsUntouched();
+			}
+		});
 	}
 
 	public markAllAsDirty(): void {
-		this._dirty.set(true);
-		for (const control of this.controls()) {
-			control.markAllAsDirty();
-		}
+		// One aggregate value/validation pass for the whole write, not one per child.
+		batch(() => {
+			this._dirty.set(true);
+			for (const control of this.controls()) {
+				control.markAllAsDirty();
+			}
+		});
 	}
 
 	public markAllAsPristine(): void {
-		this._dirty.set(false);
-		for (const control of this.controls()) {
-			control.markAllAsPristine();
-		}
+		// One aggregate value/validation pass for the whole write, not one per child.
+		batch(() => {
+			this._dirty.set(false);
+			for (const control of this.controls()) {
+				control.markAllAsPristine();
+			}
+		});
 	}
 
 	public disable(): void {
-		this._ownDisabled.set(true);
-		for (const control of this.controls()) {
-			control.disable();
-		}
+		// One aggregate value/validation pass for the whole write, not one per child.
+		batch(() => {
+			this._ownDisabled.set(true);
+			for (const control of this.controls()) {
+				control.disable();
+			}
+		});
 	}
 
 	public enable(): void {
-		this._ownDisabled.set(false);
-		for (const control of this.controls()) {
-			control.enable();
-		}
+		// One aggregate value/validation pass for the whole write, not one per child.
+		batch(() => {
+			this._ownDisabled.set(false);
+			for (const control of this.controls()) {
+				control.enable();
+			}
+		});
 	}
 
 	public async validate(): Promise<void> {

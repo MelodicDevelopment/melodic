@@ -12,20 +12,61 @@ interface IPendingRequest<T = any> {
 	 * keeps the underlying request alive forever.
 	 */
 	remainingParticipants: number;
+	/**
+	 * Detaches every participant's abort listener. Run on settlement and on
+	 * cancellation so a long-lived caller signal does not retain the settled
+	 * promise (and its response) through a stale listener.
+	 */
+	cleanups: Array<() => void>;
+}
+
+/** Everything about a request that can change what the server answers. */
+export interface IRequestIdentity {
+	method: string;
+	url: string;
+	params?: Record<string, unknown>;
+	headers?: Record<string, string>;
+	credentials?: RequestCredentials;
+	mode?: RequestMode;
+	body?: HttpRequestBody;
 }
 
 export class RequestManager {
 	private _pendingRequests = new Map<string, IPendingRequest>();
 	private _opaqueCounter = 0;
 
-	public generateRequestKey(method: string, url: string, body?: HttpRequestBody): string {
-		let key = `${method}:${url}`;
+	/**
+	 * Identity used to decide whether two in-flight requests may share one
+	 * fetch. Anything that can alter the response participates: method, URL,
+	 * query params, headers (case-insensitive names, order-independent),
+	 * credentials, mode and body. Two GETs to `/me` with different
+	 * `Authorization` headers therefore never share a response.
+	 *
+	 * The key is the full serialized identity, not a hash, so equal keys mean
+	 * equal requests.
+	 */
+	public generateRequestKey(identity: IRequestIdentity): string {
+		const headers = Object.entries(identity.headers ?? {})
+			.map(([name, value]) => [name.toLowerCase(), value] as const)
+			.sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
 
-		if (body) {
-			key += `:${this.hashBody(body)}`;
-		}
+		return JSON.stringify([
+			identity.method.toUpperCase(),
+			identity.url,
+			identity.params ? this.serializeParams(identity.params) : '',
+			headers,
+			identity.credentials ?? '',
+			identity.mode ?? '',
+			identity.body === undefined || identity.body === null ? '' : this.serializeBody(identity.body)
+		]);
+	}
 
-		return key;
+	private serializeParams(params: Record<string, unknown>): string {
+		return JSON.stringify(
+			Object.entries(params)
+				.filter(([, value]) => value !== null && value !== undefined)
+				.sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+		);
 	}
 
 	/**
@@ -60,7 +101,8 @@ export class RequestManager {
 		const pending: IPendingRequest<T> = {
 			promise,
 			abortController,
-			remainingParticipants: 0
+			remainingParticipants: 0,
+			cleanups: []
 		};
 
 		this._pendingRequests.set(key, pending);
@@ -82,13 +124,14 @@ export class RequestManager {
 
 		if (pending) {
 			pending.abortController.abort(reason);
-			this._pendingRequests.delete(key);
+			this.releasePendingRequest(key, pending);
 		}
 	}
 
 	public cancelAllRequests(reason?: string): void {
-		this._pendingRequests.forEach((pending) => {
+		this._pendingRequests.forEach((pending, key) => {
 			pending.abortController.abort(reason);
+			this.releasePendingRequest(key, pending);
 		});
 
 		this._pendingRequests.clear();
@@ -113,14 +156,28 @@ export class RequestManager {
 			leave();
 		} else {
 			signal.addEventListener('abort', leave, { once: true });
+			pending.cleanups.push(() => signal.removeEventListener('abort', leave));
 		}
 	}
 
 	private removePendingRequest(key: string): void {
-		this._pendingRequests.delete(key);
+		const pending = this._pendingRequests.get(key);
+		if (pending) {
+			this.releasePendingRequest(key, pending);
+		}
 	}
 
-	private hashBody(body: HttpRequestBody): string {
+	/** Forget a request and detach every participant listener it registered. */
+	private releasePendingRequest(key: string, pending: IPendingRequest): void {
+		this._pendingRequests.delete(key);
+		const cleanups = pending.cleanups;
+		pending.cleanups = [];
+		for (const cleanup of cleanups) {
+			cleanup();
+		}
+	}
+
+	private serializeBody(body: HttpRequestBody): string {
 		// Opaque bodies (FormData/Blob/ArrayBuffer/ReadableStream) can't be cheaply
 		// compared, and merging two distinct uploads to the same URL would be a
 		// correctness bug. Give each a unique key so they are never deduplicated.
@@ -144,16 +201,6 @@ export class RequestManager {
 			str = String(body);
 		}
 
-		return this.hashCode(str).toString();
-	}
-
-	private hashCode(str: string): number {
-		let hash = 0;
-		for (let i = 0; i < str.length; i++) {
-			const char = str.charCodeAt(i);
-			hash = (hash << 5) - hash + char;
-			hash = hash & hash;
-		}
-		return hash;
+		return str;
 	}
 }

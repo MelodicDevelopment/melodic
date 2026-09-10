@@ -424,6 +424,25 @@ Index-based reuse has no notion of item identity, so reach for `repeat()` when a
 
 In dev builds, an array that actually churns — several items rebuilt in a single update — logs a one-time console advisory pointing at `repeat()`. A plain `.map()` that reuses cleanly is never warned about. Mixing keyed and unkeyed items in one array also warns: keyed diffing requires *every* item to carry a key, so a single unkeyed entry silently demotes the whole array to index-based reuse.
 
+### repeatRaw()
+
+`repeatRaw(items, keyFn, factory, update?)` bypasses the template system and builds each row with raw DOM APIs. Pass the optional `update(element, item, index)` callback to keep row identity across renders — `factory` then runs only for keys that are new, and existing rows are updated in place (focus, scroll position and animations survive). Without `update`, `factory` runs for every row on every render, and the element it returns replaces the previous one for that key.
+
+```typescript
+repeatRaw(
+	rows,
+	(row) => row.id,
+	(row) => {
+		const li = document.createElement('li');
+		li.textContent = row.label;
+		return li;
+	},
+	(li, row) => {
+		li.textContent = row.label;
+	}
+)
+```
+
 ### Behaviour change in 3.1.0
 
 Before 3.1.0 an unkeyed array disposed and recreated every one of its nodes on each render. Two consequences of the fix are worth checking in existing apps:

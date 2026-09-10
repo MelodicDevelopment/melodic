@@ -25,14 +25,24 @@ interface RepeatRawState {
  *     return li;
  *   })
  *
+ * With an `update` callback, elements for keys seen before are updated in
+ * place and keep their DOM identity (focus, scroll position, animations);
+ * `factory` then only runs for new keys:
+ *   repeatRaw(items, item => item.id, createRow, (el, item) => { el.textContent = item.text; })
+ *
+ * Without `update`, `factory` runs for every item on every render and the
+ * element it returns replaces the previous one for that key.
+ *
  * @param items - Array of items to render
  * @param keyFn - Function to extract unique key from each item
- * @param factory - Factory function that creates a DOM element for each item
+ * @param factory - Creates a DOM element for an item
+ * @param update - Optional: updates an existing element for an item in place
  */
 export function repeatRaw<T>(
 	items: T[],
 	keyFn: (item: T, index: number) => unknown,
-	factory: (item: T, index: number) => Element
+	factory: (item: T, index: number) => Element,
+	update?: (element: Element, item: T, index: number) => void
 ): IDirectiveResult {
 	return directive((container: Node, previousState?: RepeatRawState): RepeatRawState => {
 		// First render - setup markers
@@ -69,7 +79,7 @@ export function repeatRaw<T>(
 		}
 
 		// Update existing list
-		updateList(items, keyFn, factory, previousState);
+		updateList(items, keyFn, factory, update, previousState);
 		return previousState;
 	}, 'repeatRaw');
 }
@@ -78,12 +88,29 @@ function updateList<T>(
 	newItems: T[],
 	keyFn: (item: T, index: number) => unknown,
 	factory: (item: T, index: number) => Element,
+	update: ((element: Element, item: T, index: number) => void) | undefined,
 	state: RepeatRawState
 ): void {
 	const oldItems = state.keyToItem;
 	const newKeyToItem = new Map<unknown, { key: unknown; element: Element }>();
-	const parent = state.startMarker.parentElement!;
+	const parent = state.startMarker.parentNode!;
 	const endMarker = state.endMarker;
+
+	/** Reuse (update in place) or rebuild the element for a key seen before. */
+	const reuse = (existing: { key: unknown; element: Element }, item: T, index: number): Element => {
+		if (update) {
+			update(existing.element, item, index);
+			return existing.element;
+		}
+
+		const next = factory(item, index);
+		if (next !== existing.element) {
+			// The factory built a replacement: the old element must not linger
+			// in the DOM (or in the map) alongside it.
+			existing.element.replaceWith(next);
+		}
+		return next;
+	};
 
 	// Quick path: same length, same keys in order - just update in place
 	if (oldItems.size === newItems.length) {
@@ -98,18 +125,9 @@ function updateList<T>(
 		}
 
 		if (allMatch) {
-			// Update elements in place
 			i = 0;
-			for (const [key, { element }] of oldItems) {
-				const item = newItems[i];
-				// Re-create element with new data (factory handles updates)
-				const newElement = factory(item, i);
-				if (element !== newElement) {
-					element.replaceWith(newElement);
-					newKeyToItem.set(key, { key, element: newElement });
-				} else {
-					newKeyToItem.set(key, { key, element });
-				}
+			for (const [key, existing] of oldItems) {
+				newKeyToItem.set(key, { key, element: reuse(existing, newItems[i], i) });
 				i++;
 			}
 			state.keyToItem = newKeyToItem;
@@ -128,16 +146,9 @@ function updateList<T>(
 
 		const existing = oldItems.get(key);
 		if (existing) {
-			// Update existing element
-			const newElement = factory(item, i);
-			if (existing.element !== newElement) {
-				// Factory returned a new element, use it
-				newKeyToItem.set(key, { key, element: newElement });
-				fragment.appendChild(newElement);
-			} else {
-				newKeyToItem.set(key, existing);
-				fragment.appendChild(existing.element);
-			}
+			const element = reuse(existing, item, i);
+			newKeyToItem.set(key, { key, element });
+			fragment.appendChild(element);
 		} else {
 			// Create new element
 			const element = factory(item, i);

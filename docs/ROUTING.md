@@ -61,7 +61,23 @@ Route properties:
 <router-outlet .routes=${routes}></router-outlet>
 ```
 
-For nested routing, include additional outlets inside routed components.
+For nested routing, include additional outlets inside routed components. Each outlet renders the route at its own depth of the **committed match chain**; outlets never match the URL themselves.
+
+## Lazy Loading
+
+`loadChildren` and `loadComponent` are resolved by the router **inside the navigation pipeline**, before guards and resolvers run and before anything is committed:
+
+```typescript
+{
+	path: 'admin',
+	component: 'admin-layout',
+	loadChildren: () => import('./admin/admin.routes').then((m) => ({ routes: m.routes }))
+}
+```
+
+The pipeline matches as far as it can, loads the lazy configuration it hit, re-matches to extend the chain into the loaded routes, and repeats until the chain is complete. Every guard and resolver on the full chain — lazily loaded children and default (`path: ''`) children included — then runs before the outlets render. A failed load fails the navigation (`{ success: false, error }`); on initial load or back/forward it renders the 404 view instead. Each `loadChildren`/`loadComponent` function is invoked once and its promise shared, so concurrent navigations never double-load a chunk.
+
+Note that loading happens before the parent's own `canActivate` guards run, so a chunk may be downloaded for a route the user is then denied. Chunks are public assets; enforce authorization on the server.
 
 ## Router Links
 

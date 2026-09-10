@@ -4,7 +4,6 @@ import { RouterService } from '../../services/router.service';
 import type { IRoute } from '../../interfaces/iroute.interface';
 import type { IRouteContext } from '../../interfaces/iroute-context.interface';
 import { html } from '../../../template/functions/html.function';
-import { matchRouteTree } from '../../functions/match-route-tree.function';
 import type { IRouteMatch } from '../../interfaces/iroute-match.interface';
 import type { IRouteMatchResult } from '../../interfaces/iroute-match-result.interface';
 
@@ -44,6 +43,11 @@ export class RouterOutletComponent {
 	private _parentOutlet: RouterOutletComponent | null = null;
 	private _initialized = false;
 	private _routeSubscriptionCleanup: (() => void) | null = null;
+	// Bumped on every render request and on destroy. Async render work checks
+	// it after each await so a slower, older render (e.g. a lazy component
+	// still loading) can never overwrite a newer one or write into a
+	// destroyed outlet.
+	private _renderGeneration = 0;
 
 	public routes: IRoute[] = [];
 	public name: string = 'primary';
@@ -94,6 +98,7 @@ export class RouterOutletComponent {
 	}
 
 	public onDestroy(): void {
+		this._renderGeneration++;
 		this._routeSubscriptionCleanup?.();
 		this._routeSubscriptionCleanup = null;
 
@@ -102,13 +107,16 @@ export class RouterOutletComponent {
 		}
 	}
 
-	public onPropertyChange(name: string): void {
+	public onPropertyChange(name: string, oldValue: unknown, newValue: unknown): void {
+		void oldValue;
 		if (name === 'routes' && this._initialized) {
 			this._currentComponent = null;
 
-			// Routes changed - update router if root and re-run the pipeline
+			// Routes changed - update router if root and re-run the pipeline.
+			// The hook fires BEFORE the backing field updates, so use the
+			// incoming value rather than `this.routes`.
 			if (this._depth === 0) {
-				this._router.setRoutes(this.routes);
+				this._router.setRoutes((newValue as IRoute[] | undefined) ?? []);
 				void this._router.initialNavigation();
 			}
 		}
@@ -210,7 +218,8 @@ export class RouterOutletComponent {
 			params: { ...this._context.params },
 			remainingPath: match.remainingPath,
 			basePath: match.fullPath,
-			parent: this._context
+			parent: this._context,
+			matches: this._context.matches
 		};
 	}
 
@@ -240,35 +249,30 @@ export class RouterOutletComponent {
 				params: match.params,
 				remainingPath: match.remainingPath,
 				basePath: '',
-				parent: undefined
+				parent: undefined,
+				matches: result.matches
 			};
 
-			await this.renderMatch(match, result);
+			await this.renderMatch(match);
 		} else {
 			await this.render404();
 		}
 	}
 
+	/**
+	 * Nested outlets render the committed chain's match at their own depth.
+	 * The chain was matched, lazily loaded, guarded and resolved by the
+	 * service in one piece, so an outlet never re-matches on its own — doing
+	 * so would let a route that is not part of the guarded chain render.
+	 */
 	private async renderFromContext(): Promise<void> {
 		if (!this._context || this.routes.length === 0) {
 			return;
 		}
 
-		const remainingPath = this._context.remainingPath;
+		const match = this._context.matches?.[this._depth];
 
-		const matchResult = matchRouteTree(this.routes, remainingPath, this._context.basePath);
-
-		if (matchResult.redirectTo) {
-			if (window.location.pathname !== matchResult.redirectTo) {
-				this._router.navigate(matchResult.redirectTo, { replace: true });
-			}
-
-			return;
-		}
-
-		if (matchResult.matches.length > 0) {
-			const match = matchResult.matches[0];
-
+		if (match) {
 			this._context = {
 				...this._context,
 				currentMatch: match,
@@ -276,13 +280,13 @@ export class RouterOutletComponent {
 				params: { ...this._context.params, ...match.params }
 			};
 
-			await this.renderMatch(match, matchResult);
+			await this.renderMatch(match);
 		} else {
 			await this.render404();
 		}
 	}
 
-	private async renderMatch(match: IRouteMatch, _: IRouteMatchResult): Promise<void> {
+	private async renderMatch(match: IRouteMatch): Promise<void> {
 		const route = match.route;
 
 		if (route.component === this._currentComponent) {
@@ -290,24 +294,23 @@ export class RouterOutletComponent {
 			return;
 		}
 
-		if (route.loadChildren && !match.children) {
-			try {
-				const module = await route.loadChildren();
-				match.children = module.routes;
-				route.children = module.routes;
-			} catch (error) {
-				console.error('Failed to load child routes:', error);
-				await this.render404();
-				return;
-			}
-		}
+		const generation = ++this._renderGeneration;
 
+		// The pipeline already awaited lazy loads before committing; this is a
+		// cheap no-op for the pipeline path and a safety net for callers
+		// driving the outlet manually.
 		if (route.loadComponent) {
 			try {
 				await route.loadComponent();
 			} catch (error) {
 				console.error('Failed to load component:', error);
-				await this.render404();
+				if (generation === this._renderGeneration) {
+					await this.render404();
+				}
+				return;
+			}
+
+			if (generation !== this._renderGeneration) {
 				return;
 			}
 		}
@@ -354,6 +357,7 @@ export class RouterOutletComponent {
 	}
 
 	private async render404(): Promise<void> {
+		this._renderGeneration++;
 		const notFoundRoute = this.routes.find((r) => r.path === '404' || r.path === '**');
 
 		if (notFoundRoute?.component) {

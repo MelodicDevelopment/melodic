@@ -17,6 +17,43 @@ import { matchRouteTree } from '../functions/match-route-tree.function';
 import { buildPathFromRoute } from '../functions/build-path-from-route.function';
 import { installHistoryEvents, routerStateEvent } from '../functions/install-history-events.function';
 
+/**
+ * In-flight / completed lazy loads, keyed by route so concurrent navigations
+ * (and re-navigations after a failure that was later fixed) share one load.
+ */
+const childrenLoads = new WeakMap<IRoute, Promise<{ routes: IRoute[] }>>();
+const componentLoads = new WeakMap<IRoute, Promise<unknown>>();
+
+/** Upper bound on successive lazy-children loads for one navigation. */
+const MAX_LAZY_LOADS = 64;
+
+function loadRouteChildren(route: IRoute): Promise<{ routes: IRoute[] }> {
+	let pending = childrenLoads.get(route);
+	if (!pending) {
+		pending = Promise.resolve().then(() => route.loadChildren!());
+		pending.catch(() => childrenLoads.delete(route));
+		childrenLoads.set(route, pending);
+	}
+	return pending;
+}
+
+function loadRouteComponent(route: IRoute): Promise<unknown> {
+	let pending = componentLoads.get(route);
+	if (!pending) {
+		pending = Promise.resolve().then(() => route.loadComponent!());
+		pending.catch(() => componentLoads.delete(route));
+		componentLoads.set(route, pending);
+	}
+	return pending;
+}
+
+interface IResolvedMatch {
+	result: IRouteMatchResult;
+	/** Set when a lazy load failed; the navigation must not commit `result`. */
+	error?: string;
+	superseded?: boolean;
+}
+
 @Injectable()
 export class RouterService {
 	private _route: IRouterEventState | undefined;
@@ -115,6 +152,69 @@ export class RouterService {
 		return matchRouteTree(this._routes, this.normalizePath(path));
 	}
 
+	/**
+	 * Match a path AND load whatever lazy configuration the matched chain
+	 * needs (`loadChildren` on a matched parent, `loadComponent` on any
+	 * matched route), re-matching after each children load so the chain
+	 * continues into the newly loaded routes.
+	 *
+	 * Loading here — inside the navigation pipeline, before guards and
+	 * resolvers — is what makes lazy child guards enforceable: outlets only
+	 * ever render a chain the service has fully matched and guarded.
+	 */
+	private async resolveMatch(path: string, isCurrent: () => boolean): Promise<IResolvedMatch> {
+		for (let loads = 0; loads <= MAX_LAZY_LOADS; loads++) {
+			const result = this.matchPath(path);
+
+			if (result.redirectTo) {
+				return { result };
+			}
+
+			const last = result.matches[result.matches.length - 1];
+
+			if (last && last.route.loadChildren && !last.route.children) {
+				try {
+					const module = await loadRouteChildren(last.route);
+					last.route.children = module.routes;
+				} catch (error) {
+					console.error('Failed to load child routes:', error);
+					return {
+						result,
+						error: `Failed to load child routes: ${error instanceof Error ? error.message : String(error)}`
+					};
+				}
+
+				if (!isCurrent()) {
+					return { result, superseded: true };
+				}
+
+				continue;
+			}
+
+			const pendingComponents = result.matches.filter((match) => match.route.loadComponent).map((match) => loadRouteComponent(match.route));
+
+			if (pendingComponents.length > 0) {
+				try {
+					await Promise.all(pendingComponents);
+				} catch (error) {
+					console.error('Failed to load component:', error);
+					return {
+						result,
+						error: `Failed to load component: ${error instanceof Error ? error.message : String(error)}`
+					};
+				}
+
+				if (!isCurrent()) {
+					return { result, superseded: true };
+				}
+			}
+
+			return { result };
+		}
+
+		return { result: this.matchPath(path), error: `Route '${path}' exceeded ${MAX_LAZY_LOADS} lazy child loads` };
+	}
+
 	/** Split a URL into its pathname / search / hash parts. */
 	private parseUrl(url: string): { pathname: string; search: string; hash: string } {
 		const hashIndex = url.indexOf('#');
@@ -161,12 +261,22 @@ export class RouterService {
 	public async initialNavigation(): Promise<INavigationResult> {
 		const navId = ++this._navigationId;
 		const currentUrl = `${window.location.pathname}${window.location.search}`;
-		const matchResult = this.matchPath(window.location.pathname);
+		const resolved = await this.resolveMatch(window.location.pathname, () => this._navigationId === navId);
+		if (resolved.superseded || this._navigationId !== navId) {
+			return { success: false, error: 'Navigation superseded' };
+		}
+		const matchResult = resolved.result;
 
 		if (matchResult.redirectTo) {
 			if (this.normalizePath(window.location.pathname) !== this.normalizePath(matchResult.redirectTo)) {
 				return this.navigate(matchResult.redirectTo, { replace: true });
 			}
+		}
+
+		if (resolved.error) {
+			// Lazy load failed: render the 404 view rather than a blank page.
+			this.commit({ matches: [], params: {}, isExactMatch: false });
+			return { success: false, error: resolved.error };
 		}
 
 		if (matchResult.matches.length > 0) {
@@ -231,7 +341,11 @@ export class RouterService {
 				}
 			}
 
-			const matchResult = this.matchPath(path);
+			const resolved = await this.resolveMatch(path, () => this._navigationId === navId);
+			if (resolved.superseded || this._navigationId !== navId) {
+				return superseded();
+			}
+			const matchResult = resolved.result;
 
 			if (matchResult.redirectTo) {
 				// Honor the caller's original push/replace intent. Forcing
@@ -241,6 +355,10 @@ export class RouterService {
 				// redirect target lands on whichever entry was current — i.e. the
 				// page the user just came from — instead of becoming a new entry.
 				return this.navigate(matchResult.redirectTo, options);
+			}
+
+			if (resolved.error) {
+				return { success: false, error: resolved.error };
 			}
 
 			if (!skipGuards && matchResult.matches.length > 0) {
@@ -485,10 +603,20 @@ export class RouterService {
 			return;
 		}
 
-		const matchResult = this.matchPath(window.location.pathname);
+		const resolved = await this.resolveMatch(window.location.pathname, () => this._navigationId === navId);
+		if (resolved.superseded || this._navigationId !== navId) {
+			return;
+		}
+		const matchResult = resolved.result;
 
 		if (matchResult.redirectTo) {
 			await this.navigate(matchResult.redirectTo, { replace: true });
+			return;
+		}
+
+		if (resolved.error) {
+			this._currentPath = targetPath;
+			this.commit({ matches: [], params: {}, isExactMatch: false });
 			return;
 		}
 

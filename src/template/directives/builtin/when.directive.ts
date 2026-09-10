@@ -8,6 +8,7 @@
 import type { TemplateResult } from '../../classes/template-result.class';
 import type { RenderedContainer } from '../../interfaces/irendered-container.interface';
 import { disposeContainerParts } from '../../functions/dispose.functions';
+import { clearBetween } from '../../functions/marker-range.functions';
 import { directive } from '../functions/directive.function';
 import { type IDirectiveResult } from '../interfaces/idirective-result.interface';
 
@@ -18,7 +19,6 @@ interface WhenState {
 	container: DocumentFragment | null;
 	startMarker: Comment;
 	endMarker: Comment;
-	nodes: Node[];
 	/** Disposal contract (see IDirectiveState) — releases the rendered branch's part tree. */
 	__dispose: () => void;
 }
@@ -60,7 +60,6 @@ export function when(
 				container: null,
 				startMarker,
 				endMarker,
-				nodes: [],
 				__dispose: () => {
 					if (state.container) {
 						disposeContainerParts(state.container);
@@ -105,9 +104,14 @@ export function when(
 		else if (condition && previousState.condition) {
 			updateContent(previousState, template(), true);
 		}
-		// Condition still false - update false template if provided
-		else if (!condition && !previousState.condition && falseTemplate) {
-			updateContent(previousState, falseTemplate(), false);
+		// Condition still false - update the false template, or remove a
+		// previously rendered fallback that is no longer provided
+		else if (!condition && !previousState.condition) {
+			if (falseTemplate) {
+				updateContent(previousState, falseTemplate(), false);
+			} else if (previousState.container) {
+				removeContent(previousState);
+			}
 		}
 
 		previousState.condition = condition;
@@ -128,11 +132,9 @@ function renderContent(state: WhenState, useTrueTemplate: boolean): void {
 	templateToRender.renderInto(container);
 	state.container = container;
 
-	// Insert nodes between markers
-	state.nodes = Array.from(container.childNodes);
-	for (const node of state.nodes) {
-		parent.insertBefore(node, state.endMarker);
-	}
+	// Insert the rendered nodes between the markers. The container keeps the
+	// part tree (__parts/__templateKey) for in-place updates.
+	parent.insertBefore(container, state.endMarker);
 }
 
 /**
@@ -173,9 +175,11 @@ function removeContent(state: WhenState): void {
 		disposeContainerParts(state.container);
 	}
 
-	for (const node of state.nodes) {
-		node.parentNode?.removeChild(node);
-	}
-	state.nodes = [];
+	// Remove the LIVE range between the markers rather than a snapshot of the
+	// nodes inserted at render time: a nested part inside the branch may have
+	// swapped its own nodes since, and those must not outlive the branch.
+	clearBetween(state.startMarker, state.endMarker);
 	state.container = null;
+	state.template = null;
+	state.falseTemplate = null;
 }

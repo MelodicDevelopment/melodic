@@ -2,6 +2,7 @@ import { describe, it, expect, afterEach, vi } from 'vitest';
 import { HttpClient } from '../../src/http';
 import { HttpError, NetworkError } from '../../src/http/classes/http-error.class';
 import type { IHttpResponse } from '../../src/http';
+import { RequestManager } from '../../src/http/classes/request-manager.class';
 
 
 describe('http client', () => {
@@ -587,5 +588,78 @@ describe('http client', () => {
 		const [firstResponse, secondResponse] = await Promise.all([first, second]);
 		expect(firstResponse.data).toEqual({ ok: true });
 		expect(secondResponse.data).toEqual({ ok: true });
+	});
+});
+
+describe('HttpClient deduplication identity (review regressions)', () => {
+	afterEach(() => {
+		vi.unstubAllGlobals();
+	});
+
+	it('does not merge concurrent requests that differ only by headers', async () => {
+		const fetchMock = vi.fn(
+			async (url: unknown, init: RequestInit) =>
+				new Response(JSON.stringify({ ...(init.headers as Record<string, string>), url: String(url) }), { status: 200, headers: { 'content-type': 'application/json' } })
+		);
+		vi.stubGlobal('fetch', fetchMock);
+
+		const client = new HttpClient();
+		const [a, b] = await Promise.all([
+			client.get<Record<string, string>>('/me', { headers: { Authorization: 'A' } }),
+			client.get<Record<string, string>>('/me', { headers: { Authorization: 'B' } })
+		]);
+
+		expect(fetchMock).toHaveBeenCalledTimes(2);
+		expect(a.data.Authorization).toBe('A');
+		expect(b.data.Authorization).toBe('B');
+	});
+
+	it('does not merge concurrent requests that differ by query params, credentials or mode', async () => {
+		const fetchMock = vi.fn(async () => new Response('{}', { status: 200, headers: { 'content-type': 'application/json' } }));
+		vi.stubGlobal('fetch', fetchMock);
+
+		const client = new HttpClient();
+		await Promise.all([
+			client.get('/items', { params: { page: 1 } }),
+			client.get('/items', { params: { page: 2 } }),
+			client.get('/items', { params: { page: 2 }, credentials: 'include' }),
+			client.get('/items', { params: { page: 2 }, credentials: 'include', mode: 'cors' })
+		]);
+
+		expect(fetchMock).toHaveBeenCalledTimes(4);
+	});
+
+	it('still merges requests whose headers differ only in name casing or order', async () => {
+		let resolveFetch!: (value: Response) => void;
+		const fetchMock = vi.fn().mockReturnValue(new Promise<Response>((resolve) => (resolveFetch = resolve)));
+		vi.stubGlobal('fetch', fetchMock);
+
+		const client = new HttpClient();
+		const first = client.get('/data', { headers: { 'X-One': '1', 'x-two': '2' } });
+		const second = client.get('/data', { headers: { 'X-Two': '2', 'x-one': '1' } });
+		await Promise.resolve();
+		expect(fetchMock).toHaveBeenCalledOnce();
+
+		resolveFetch(new Response('{}', { status: 200, headers: { 'content-type': 'application/json' } }));
+		await Promise.all([first, second]);
+	});
+
+	it('removes participant abort listeners once a shared request settles', async () => {
+		const manager = new RequestManager();
+		const caller = new AbortController();
+		const add = vi.spyOn(caller.signal, 'addEventListener');
+		const remove = vi.spyOn(caller.signal, 'removeEventListener');
+
+		await manager.addPendingRequest(
+			'key',
+			Promise.resolve({ data: null, status: 200, statusText: 'OK', headers: new Headers(), config: {} }),
+			new AbortController(),
+			caller.signal
+		);
+		// Settlement callbacks run on a later microtask than the promise itself.
+		await Promise.resolve();
+
+		expect(add).toHaveBeenCalledTimes(1);
+		expect(remove).toHaveBeenCalledWith('abort', add.mock.calls[0][1]);
 	});
 });

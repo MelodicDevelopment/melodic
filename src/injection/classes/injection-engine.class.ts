@@ -131,6 +131,16 @@ export class InjectionEngine {
 
 		this._constructionStack.add(key);
 
+		// Bindings are resolved lazily — often while a component is the active
+		// consumer (the one whose injection triggered this resolution). Clearing
+		// the active component for the duration of construction ensures any
+		// signals a service or factory creates (e.g. ComponentStateBaseService
+		// selectors, a factory returning a computed) are owned by the binding,
+		// not destroyed when that transient component unmounts. Applies to
+		// class and factory bindings alike.
+		const prevActive = getActiveComponent();
+		setActiveComponent(null);
+
 		try {
 			let instance: T;
 
@@ -146,6 +156,7 @@ export class InjectionEngine {
 
 			return instance;
 		} finally {
+			setActiveComponent(prevActive);
 			this._constructionStack.delete(key);
 		}
 	}
@@ -178,19 +189,8 @@ export class InjectionEngine {
 			dependencies = dependencies.concat(binding.args);
 		}
 
-		// Services are singletons but are constructed lazily — often while a
-		// component is the active consumer (the one whose injection triggered
-		// this resolution). Clearing the active component for the duration of
-		// construction ensures any signals a service creates in its field
-		// initializers (e.g. ComponentStateBaseService selectors) are owned by
-		// the service, not destroyed when that transient component unmounts.
-		const prevActive = getActiveComponent();
-		setActiveComponent(null);
-		try {
-			return Reflect.construct(cls, dependencies);
-		} finally {
-			setActiveComponent(prevActive);
-		}
+		// The active component is already cleared by resolve().
+		return Reflect.construct(cls, dependencies);
 	}
 }
 

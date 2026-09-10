@@ -149,12 +149,21 @@ const runAddRemove = async () => {
 	render(renderList(items), container);
 	await new Promise((resolve) => setTimeout(resolve, 0));
 
-	items = items.concat(generateItems(200).map((item) => ({ ...item, id: item.id + 1000 })));
-	items = items.slice(0, 1000);
+	// Drop the first 200 rows and append 200 new ones, so the timed render
+	// really removes 200 keyed rows and creates 200 (the previous version
+	// appended then sliced back to the original 1,000 keys — a no-op diff).
+	const removed = items.slice(0, 200);
+	items = items.slice(200).concat(generateItems(200).map((item) => ({ ...item, id: item.id + 1000 })));
 
 	const start = performance.now();
 	render(renderList(items), container);
 	const duration = performance.now() - start;
+
+	const rows = container.querySelectorAll('li');
+	const firstRemoved = removed[0];
+	if (rows.length !== 1000 || (firstRemoved && container.textContent?.includes(`${firstRemoved.text}:`))) {
+		console.error('[benchmark] add/remove produced an unexpected DOM', { rows: rows.length });
+	}
 
 	setResult('add-remove', {
 		label: 'Add / remove (200)',

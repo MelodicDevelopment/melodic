@@ -1,7 +1,8 @@
-import { signal } from '../functions/signal.function';
 import { SignalEffect } from '../classes/signal-effect.class';
 import { getActiveEffect, setActiveEffect } from './active-effect.functions';
-import { SIGNAL_MARKER } from '../types/signal.type';
+import { scheduleEffect, unscheduleEffect } from './batch.function';
+import { notifyAll } from './signal.function';
+import { DEPENDENTS, SIGNAL_MARKER, type IDependent } from '../types/signal.type';
 import type { Subscriber } from '../types/subscriber.type';
 import type { Unsubscriber } from '../types/unsubscriber.type';
 import { getActiveComponent } from '../../components/functions/active-component.functions';
@@ -33,9 +34,11 @@ export type ReadonlySignal<T> = {
  *
  * The computation does NOT run at creation time, nor when a source changes —
  * it runs on the next read after a source changed (dirty-flag semantics).
- * Dependent effects (templates, `SignalEffect`s, other computeds) are still
- * notified when a source changes; their re-run reads the computed, which
- * triggers the recompute.
+ * When a source changes the computed is marked dirty synchronously and the
+ * invalidation is propagated to its dependents (effects, other computeds)
+ * before any of them execute, so a consumer reading several computeds always
+ * sees a consistent set of values, and a read made inside a `batch()` after a
+ * write reflects that write.
  *
  * Note: because invalidation is propagated without recomputing, dependents are
  * woken even if the recomputed value turns out to be equal to the previous
@@ -47,17 +50,12 @@ export function computed<T>(computation: () => T): ReadonlySignal<T> {
 	let dirty = true;
 	let destroyed = false;
 	const subscribers = new Set<Subscriber<T>>();
-
-	// Internal invalidation channel. Effects that read this computed are
-	// registered as dependents of `version`; bumping it wakes them so they
-	// re-read (and thereby recompute) the value.
-	const version = signal(0);
+	const dependents = new Set<IDependent>();
 
 	/** Re-evaluate the computation, tracking its source reads on `tracker`. */
 	const recompute = (): void => {
-		// Drop stale source subscriptions before re-tracking (mirrors
-		// SignalEffect.runNow's dependency reset).
-		tracker.destroy();
+		// Drop stale source subscriptions before re-tracking.
+		tracker.clearDependencies();
 
 		const prevEffect = getActiveEffect();
 		setActiveEffect(tracker);
@@ -69,30 +67,55 @@ export function computed<T>(computation: () => T): ReadonlySignal<T> {
 		}
 	};
 
-	// Runs when any tracked source changes: mark stale and propagate. The
-	// computation itself is deliberately NOT re-run here (laziness) unless a
-	// direct subscriber needs the fresh value.
-	const tracker = new SignalEffect(() => {
-		if (destroyed) {
-			return;
-		}
-
-		dirty = true;
-		const previous = value;
-
-		// Wake dependent effects; their re-run reads us and recomputes.
-		version.update((v) => (v ?? 0) + 1);
-
-		// Direct subscribers receive values, so they need an eager recompute.
-		if (subscribers.size > 0) {
-			if (dirty) {
-				recompute();
+	// `tracker` reads the sources on our behalf. It is never executed by the
+	// scheduler: a source change goes through `onInvalidate` (mark dirty,
+	// propagate) and nothing else. Keeping the tracker out of the run queue
+	// matters — `SignalEffect.runNow()` clears dependencies before executing,
+	// so scheduling it would drop every source subscription whenever the
+	// computed had already been brought up to date by a read.
+	const tracker = new SignalEffect(() => {}, {
+		onInvalidate: () => {
+			// Already dirty ⇒ dependents were invalidated when we became dirty
+			// and nobody has read us since, so there is nothing new to propagate.
+			if (destroyed || dirty) {
+				return;
 			}
-			if (!Object.is(previous, value)) {
-				[...subscribers].forEach((subscriber) => subscriber(value));
+
+			dirty = true;
+
+			for (const dependent of [...dependents]) {
+				dependent.invalidate();
+			}
+
+			if (subscribers.size > 0) {
+				scheduleEffect(notifier);
 			}
 		}
 	});
+
+	// The value most recently pushed to direct subscribers. Compared against
+	// the current value at notification time (not against a snapshot taken
+	// when the notifier runs) so a recompute triggered by a read between
+	// invalidation and flush still produces exactly one notification.
+	let lastNotified: T;
+
+	// Pushes a fresh value to direct subscribers. Separate from `tracker` so
+	// running it never disturbs source tracking; `recompute()` is the only
+	// place dependencies are reset.
+	const notifier = {
+		runNow: (): void => {
+			if (destroyed) {
+				return;
+			}
+			if (dirty) {
+				recompute();
+			}
+			if (!Object.is(lastNotified, value)) {
+				lastNotified = value;
+				notifyAll([...subscribers], value);
+			}
+		}
+	};
 
 	const read = (() => {
 		if (destroyed) {
@@ -101,14 +124,18 @@ export function computed<T>(computation: () => T): ReadonlySignal<T> {
 
 		// Register the active effect (if any) as a dependent before computing,
 		// so it is woken on future invalidations.
-		version();
+		const activeEffect = getActiveEffect();
+		if (activeEffect) {
+			activeEffect.addDependency(read);
+			dependents.add(activeEffect);
+		}
 
 		if (dirty) {
 			recompute();
 		}
 
 		return value;
-	}) as ReadonlySignal<T>;
+	}) as ReadonlySignal<T> & { [DEPENDENTS]: Set<IDependent> };
 
 	read.set = () => {
 		throw new Error(READ_ONLY_MESSAGE);
@@ -129,6 +156,13 @@ export function computed<T>(computation: () => T): ReadonlySignal<T> {
 			recompute();
 		}
 
+		// The first subscriber establishes the notification baseline. Later
+		// subscribers must not move it: an earlier subscriber may still be
+		// owed a queued notification for the current value.
+		if (subscribers.size === 0) {
+			lastNotified = value;
+		}
+
 		subscribers.add(subscriber);
 		return () => subscribers.delete(subscriber);
 	};
@@ -143,12 +177,19 @@ export function computed<T>(computation: () => T): ReadonlySignal<T> {
 		}
 		destroyed = true;
 		tracker.destroy();
-		version.destroy();
+		unscheduleEffect(notifier);
+		dependents.clear();
 		subscribers.clear();
 	};
 
 	Object.defineProperty(read, SIGNAL_MARKER, {
 		value: true,
+		enumerable: false,
+		configurable: false
+	});
+
+	Object.defineProperty(read, DEPENDENTS, {
+		value: dependents,
 		enumerable: false,
 		configurable: false
 	});
