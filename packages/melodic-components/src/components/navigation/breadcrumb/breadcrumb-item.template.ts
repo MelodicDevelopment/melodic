@@ -1,5 +1,6 @@
 import { html, classMap, when } from '@melodicdev/core';
 import type { BreadcrumbItemComponent } from './breadcrumb-item.component.js';
+import { routeAnchorClick } from '../functions/route-link.function.js';
 
 export function breadcrumbItemTemplate(c: BreadcrumbItemComponent) {
 	const separatorIcon = c.separator === 'slash' ? 'slash-forward' : 'caret-right';
@@ -17,7 +18,7 @@ export function breadcrumbItemTemplate(c: BreadcrumbItemComponent) {
 			${when(
 				!!c.href && !c.current,
 				() => html`
-					<a class="ml-breadcrumb-item__link" href=${c.href}>
+					<a class="ml-breadcrumb-item__link" href=${c.href} @click=${(event: MouseEvent) => routeAnchorClick(event, c.href)}>
 						${when(!!c.icon, () => html`<ml-icon icon=${c.icon} size="sm"></ml-icon>`)}
 						<slot></slot>
 					</a>

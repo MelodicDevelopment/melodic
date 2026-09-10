@@ -2,6 +2,11 @@ import { css } from '@melodicdev/core';
 
 export const paginationStyles = () => css`
 	:host {
+		/* ── Pagination: focus ── */
+		--ml-pagination-focus-width: 2px;
+		--ml-pagination-focus-color: var(--ml-color-primary);
+		--ml-pagination-focus-offset: 2px;
+
 		/* Layout */
 		--ml-pagination-gap: var(--ml-space-3);
 		--ml-pagination-pages-gap: var(--ml-space-1);
@@ -78,6 +83,11 @@ export const paginationStyles = () => css`
 	.ml-pagination__btn:hover:not(:disabled) {
 		background-color: var(--ml-pagination-btn-hover-bg);
 		color: var(--ml-pagination-btn-hover-color);
+	}
+
+	.ml-pagination__btn:focus-visible {
+		outline: var(--ml-pagination-focus-width) solid var(--ml-pagination-focus-color);
+		outline-offset: var(--ml-pagination-focus-offset);
 	}
 
 	.ml-pagination__btn--nav {

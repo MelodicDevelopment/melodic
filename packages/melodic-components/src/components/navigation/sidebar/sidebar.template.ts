@@ -2,6 +2,7 @@ import { html, classMap, repeat, when } from '@melodicdev/core';
 import type { TemplateResult } from '@melodicdev/core';
 import type { SidebarComponent } from './sidebar.component.js';
 import type { SidebarNavGroup, SidebarNavItem } from './sidebar.types.js';
+import { routeAnchorClick } from '../functions/route-link.function.js';
 
 export function sidebarTemplate(c: SidebarComponent) {
 	const hasNavConfig = c.navigation.length > 0;
@@ -150,7 +151,10 @@ function renderNavItem(c: SidebarComponent, item: SidebarNavItem, level: number)
 						href=${item.href}
 						?target=${item.external ? '_blank' : null}
 						?rel=${item.external ? 'noopener noreferrer' : null}
-						@click=${handleClick}
+						@click=${(event: MouseEvent) => {
+							routeAnchorClick(event, item.href ?? '', { external: item.external });
+							handleClick(event);
+						}}
 					>
 						${content}
 					</a>

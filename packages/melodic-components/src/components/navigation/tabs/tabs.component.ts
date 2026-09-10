@@ -75,6 +75,31 @@ export class TabsComponent implements IElementRef, OnCreate, OnDestroy, OnRender
 	/** Navigation event listener for routed mode */
 	private readonly _handleNavigation = this.onNavigation.bind(this);
 
+	/**
+	 * Whether the NavigationEvent listener is currently attached.
+	 *
+	 * `routed` used to be read once, in onCreate, to decide whether to listen.
+	 * Toggling it afterwards left the listener either missing (routed turned
+	 * on) or leaked (turned off).
+	 */
+	private _routedListenerAttached = false;
+
+	/** Attach or detach the routed-mode listener to match `routed`. */
+	private syncRoutedListener(): void {
+		if (this.routed === this._routedListenerAttached) {
+			return;
+		}
+
+		if (this.routed) {
+			window.addEventListener('NavigationEvent', this._handleNavigation);
+			this._routedListenerAttached = true;
+			this.syncWithRoute();
+		} else {
+			window.removeEventListener('NavigationEvent', this._handleNavigation);
+			this._routedListenerAttached = false;
+		}
+	}
+
 	/** Listener for ml:tab-click from slotted ml-tab elements */
 	private readonly _handleTabClick = (event: Event): void => {
 		// ml:tab-click is internal tab→tabs coordination; consumers get ml:change.
@@ -87,13 +112,11 @@ export class TabsComponent implements IElementRef, OnCreate, OnDestroy, OnRender
 	public onCreate(): void {
 		this.elementRef.addEventListener('ml:tab-click', this._handleTabClick);
 
-		if (this.routed) {
-			window.addEventListener('NavigationEvent', this._handleNavigation);
-			this.syncWithRoute();
-		}
+		this.syncRoutedListener();
 	}
 
 	public onRender(): void {
+		this.syncRoutedListener();
 		// Slotted <ml-tab> elements live in the LIGHT dom, so a re-render of
 		// this component's own template does not touch them. Syncing only the
 		// panels meant a programmatic `value` write moved the panel but left
@@ -105,8 +128,9 @@ export class TabsComponent implements IElementRef, OnCreate, OnDestroy, OnRender
 	public onDestroy(): void {
 		this.elementRef.removeEventListener('ml:tab-click', this._handleTabClick);
 
-		if (this.routed) {
+		if (this._routedListenerAttached) {
 			window.removeEventListener('NavigationEvent', this._handleNavigation);
+			this._routedListenerAttached = false;
 		}
 	}
 
@@ -240,7 +264,10 @@ export class TabsComponent implements IElementRef, OnCreate, OnDestroy, OnRender
 		panels.forEach((panel) => {
 			const value = panel.getAttribute('value');
 			const isActive = value === this.value;
-			(panel as HTMLElement).style.display = isActive ? '' : 'none';
+		// `hidden`, not an inline `display` — an inline style beats every
+			// stylesheet rule, so a consumer could not style a panel (an entry
+			// animation, a different display mode) at all.
+			(panel as HTMLElement).hidden = !isActive;
 
 			// Name the panel after its tab. ARIA id references cannot cross
 			// shadow-root boundaries (the tab's role="tab" element and the

@@ -7515,6 +7515,22 @@ function clickOutside(element, callback) {
 		document.removeEventListener("click", handleClick, true);
 	};
 }
+function watchLightSlots(host, onChange) {
+	const observer = new MutationObserver((mutations) => {
+		if (mutations.some((mutation) => mutation.type === "childList" ? mutation.target === host : mutation.target.parentNode === host)) onChange();
+	});
+	observer.observe(host, {
+		childList: true,
+		subtree: true,
+		attributes: true,
+		attributeFilter: ["slot"]
+	});
+	onChange();
+	return () => observer.disconnect();
+}
+function hasLightSlot(host, slotName) {
+	return host.querySelector(`:scope > [slot="${slotName}"]`) !== null;
+}
 var VirtualScroller = class {
 	constructor() {
 		this._viewport = null;
@@ -8058,17 +8074,7 @@ const spinnerStyles = () => css`
 		}
 	}
 
-	.visually-hidden {
-		position: absolute;
-		width: 1px;
-		height: 1px;
-		padding: 0;
-		margin: -1px;
-		overflow: hidden;
-		clip: rect(0, 0, 0, 0);
-		white-space: nowrap;
-		border: 0;
-	}
+	${visuallyHiddenStyles}
 `;
 var SpinnerComponent = class SpinnerComponent$1 {
 	constructor() {
@@ -9410,6 +9416,8 @@ function checkboxTemplate(c) {
 			<input
 				type="checkbox"
 				class="ml-checkbox__input"
+				name="${c.name}"
+				value="${c.value}"
 				.checked=${c.checked}
 				.indeterminate=${c.indeterminate}
 				?disabled=${c.disabled}
@@ -9619,6 +9627,8 @@ var CheckboxComponent = class CheckboxComponent$1 {
 		this.error = "";
 		this.size = "md";
 		this.checked = false;
+		this.name = "";
+		this.value = "on";
 		this.indeterminate = false;
 		this.disabled = false;
 		this.handleChange = (event) => {
@@ -9647,7 +9657,9 @@ CheckboxComponent = __decorate([MelodicComponent({
 		"size",
 		"checked",
 		"indeterminate",
-		"disabled"
+		"disabled",
+		"name",
+		"value"
 	]
 })], CheckboxComponent);
 function radioTemplate(c) {
@@ -10867,7 +10879,7 @@ function selectTemplate(c) {
 					popover="auto"
 					aria-multiselectable=${c.multiple || false}
 				>
-					${c.filteredOptions.length ? repeat(c.filteredOptions, (option) => `${option.value}-${c.multiple ? c.values.includes(option.value) : c.value === option.value}`, (option, index) => renderOption(c, option, index)) : html`<div class="ml-select__empty">No results found</div>`}
+					${c.filteredOptions.length ? repeat(c.filteredOptions, (option) => option.value, (option, index) => renderOption(c, option, index)) : html`<div class="ml-select__empty">No results found</div>`}
 				</div>
 			</div>
 
@@ -11590,7 +11602,7 @@ var SelectComponent = class SelectComponent$1 {
 		switch (event.key) {
 			case "Enter":
 			case " ":
-				if (isSearchInput) return;
+				if (isSearchInput && (event.key === " " || !this.isOpen || this.focusedIndex < 0)) return;
 				event.preventDefault();
 				if (this.isOpen && this.focusedIndex >= 0) {
 					const option = this.getActiveOptions()[this.focusedIndex];
@@ -12901,7 +12913,7 @@ const calendarStyles = () => css`
 		box-shadow: var(--ml-calendar-focus-shadow);
 	}
 `;
-var MONTH_NAMES$1 = [
+var MONTH_NAMES = [
 	"January",
 	"February",
 	"March",
@@ -13114,6 +13126,15 @@ var CalendarComponent = class CalendarComponent$1 {
 			this.yearPageStart = this.computeYearPageStart(this.viewYear);
 		}
 	}
+	onPropertyChange(name, _, newValue) {
+		if (name !== "value" || !newValue) return;
+		const parts = String(newValue).split("-");
+		if (parts.length !== 3) return;
+		this.viewYear = Number.parseInt(parts[0], 10);
+		this.viewMonth = Number.parseInt(parts[1], 10) - 1;
+		this.yearPageStart = this.computeYearPageStart(this.viewYear);
+		this.rovingKey = String(newValue);
+	}
 	navigateToValue() {
 		if (!this.value) return;
 		const parts = this.value.split("-");
@@ -13123,7 +13144,7 @@ var CalendarComponent = class CalendarComponent$1 {
 		}
 	}
 	get monthLabel() {
-		return MONTH_NAMES$1[this.viewMonth];
+		return MONTH_NAMES[this.viewMonth];
 	}
 	get yearLabel() {
 		return String(this.viewYear);
@@ -13596,12 +13617,24 @@ registerAdapter((el) => el.tagName === "ML-DATE-PICKER", {
 		el.disabled = disabled;
 	}
 });
-function formatDisplayDate(iso) {
+function formatDisplayDate(iso, locale) {
 	const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso ?? "");
 	if (!match) return iso ?? "";
-	return `${match[2]}/${match[3]}/${match[1]}`;
+	const date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+	return new Intl.DateTimeFormat(locale || void 0, {
+		year: "numeric",
+		month: "2-digit",
+		day: "2-digit"
+	}).format(date);
 }
-function parseDateInput(text) {
+function localeDateOrder(locale) {
+	return new Intl.DateTimeFormat(locale || void 0, {
+		year: "numeric",
+		month: "2-digit",
+		day: "2-digit"
+	}).formatToParts(new Date(2001, 1, 3)).filter((part) => part.type === "year" || part.type === "month" || part.type === "day").map((part) => part.type);
+}
+function parseDateInput(text, locale) {
 	const trimmed = text.trim();
 	let year;
 	let month;
@@ -13612,11 +13645,21 @@ function parseDateInput(text) {
 		month = Number(match[2]);
 		day = Number(match[3]);
 	} else {
-		match = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(trimmed);
+		match = /^(\d{1,4})[/.-](\d{1,2})[/.-](\d{1,4})$/.exec(trimmed);
 		if (!match) return null;
-		month = Number(match[1]);
-		day = Number(match[2]);
-		year = Number(match[3]);
+		const order = localeDateOrder(locale);
+		const values = {
+			year: 0,
+			month: 0,
+			day: 0
+		};
+		order.forEach((part, index) => {
+			values[part] = Number(match[index + 1]);
+		});
+		year = values.year;
+		month = values.month;
+		day = values.day;
+		if (year < 100) year += year < 50 ? 2e3 : 1900;
 	}
 	if (month < 1 || month > 12) return null;
 	const daysInMonth = new Date(year, month, 0).getDate();
@@ -13633,6 +13676,7 @@ var DatePickerComponent = class DatePickerComponent$1 {
 		this.size = "md";
 		this.disabled = false;
 		this.required = false;
+		this.locale = "";
 		this.min = "";
 		this.max = "";
 		this.minYear = "";
@@ -13656,10 +13700,10 @@ var DatePickerComponent = class DatePickerComponent$1 {
 				input.value = "";
 				return;
 			}
-			const iso = parseDateInput(text);
+			const iso = parseDateInput(text, this.locale);
 			if (iso && this.isWithinRange(iso)) {
 				this.commitValue(iso);
-				input.value = formatDisplayDate(iso);
+				input.value = formatDisplayDate(iso, this.locale);
 			} else input.value = this.displayValue;
 		};
 		this.handleInputClick = () => {
@@ -13694,7 +13738,7 @@ var DatePickerComponent = class DatePickerComponent$1 {
 		};
 	}
 	get displayValue() {
-		return formatDisplayDate(this.value);
+		return formatDisplayDate(this.value, this.locale);
 	}
 	onCreate() {
 		const popoverEl = this.getPopoverEl();
@@ -13761,7 +13805,8 @@ DatePickerComponent = __decorate([MelodicComponent({
 		"min",
 		"max",
 		"min-year",
-		"max-year"
+		"max-year",
+		"locale"
 	]
 })], DatePickerComponent);
 function alertTemplate(c) {
@@ -13819,6 +13864,31 @@ const alertStyles = () => css`
 		/* Transition */
 		--ml-alert-transition-duration: var(--ml-duration-150);
 		--ml-alert-transition-easing: var(--ml-ease-in-out);
+
+		/* ── Alert: variants ──
+		   Declared here so every property the rules reference has a value on
+		   :host. Without these declarations the variant rules resolved against
+		   nothing when the theme did not define them, and the alert rendered
+		   transparent. */
+		--ml-alert-info-bg: var(--ml-color-info-subtle, var(--ml-color-surface-secondary));
+		--ml-alert-info-border: var(--ml-color-info-border, var(--ml-color-border));
+		--ml-alert-info-text: var(--ml-color-info-text, var(--ml-color-text));
+		--ml-alert-info-icon: var(--ml-color-info, var(--ml-color-text-secondary));
+
+		--ml-alert-success-bg: var(--ml-color-success-subtle, var(--ml-color-surface-secondary));
+		--ml-alert-success-border: var(--ml-color-success-border, var(--ml-color-border));
+		--ml-alert-success-text: var(--ml-color-success-text, var(--ml-color-text));
+		--ml-alert-success-icon: var(--ml-color-success, var(--ml-color-text-secondary));
+
+		--ml-alert-warning-bg: var(--ml-color-warning-subtle, var(--ml-color-surface-secondary));
+		--ml-alert-warning-border: var(--ml-color-warning-border, var(--ml-color-border));
+		--ml-alert-warning-text: var(--ml-color-warning-text, var(--ml-color-text));
+		--ml-alert-warning-icon: var(--ml-color-warning, var(--ml-color-text-secondary));
+
+		--ml-alert-error-bg: var(--ml-color-error-subtle, var(--ml-color-surface-secondary));
+		--ml-alert-error-border: var(--ml-color-error-border, var(--ml-color-border));
+		--ml-alert-error-text: var(--ml-color-error-text, var(--ml-color-text));
+		--ml-alert-error-icon: var(--ml-color-error, var(--ml-color-text-secondary));
 	}
 
 	:host([hidden]) {
@@ -13975,6 +14045,12 @@ var ToastService = class ToastService$1 {
 	constructor() {
 		this._containerEl = null;
 		this._position = "top-right";
+		this._active = [];
+		this._maxVisible = 5;
+	}
+	setMaxVisible(max) {
+		this._maxVisible = Math.max(0, max);
+		this.enforceMaxVisible();
 	}
 	setPosition(position) {
 		this._position = position;
@@ -13988,35 +14064,58 @@ var ToastService = class ToastService$1 {
 		if (config.message) toast.setAttribute("message", config.message);
 		if (config.duration !== void 0) toast.setAttribute("duration", String(config.duration));
 		if (config.dismissible === false) toast.setAttribute("dismissible", "false");
+		toast.setAttribute("role", config.variant === "error" ? "alert" : "status");
 		container.appendChild(toast);
+		this._active.push(toast);
+		toast.addEventListener("ml:dismiss", () => this.forget(toast), { once: true });
+		this.enforceMaxVisible();
+		return {
+			element: toast,
+			dismiss: () => {
+				this.forget(toast);
+				toast.remove();
+			}
+		};
 	}
 	info(title, message) {
-		this.show({
+		return this.show({
 			variant: "info",
 			title,
 			message
 		});
 	}
 	success(title, message) {
-		this.show({
+		return this.show({
 			variant: "success",
 			title,
 			message
 		});
 	}
 	warning(title, message) {
-		this.show({
+		return this.show({
 			variant: "warning",
 			title,
 			message
 		});
 	}
 	error(title, message) {
-		this.show({
+		return this.show({
 			variant: "error",
 			title,
 			message
 		});
+	}
+	dismissAll() {
+		for (const toast of [...this._active]) toast.remove();
+		this._active.length = 0;
+	}
+	forget(toast) {
+		const index = this._active.indexOf(toast);
+		if (index !== -1) this._active.splice(index, 1);
+	}
+	enforceMaxVisible() {
+		if (this._maxVisible === 0) return;
+		while (this._active.length > this._maxVisible) this._active.shift()?.remove();
 	}
 	ensureContainer() {
 		if (this._containerEl && document.body.contains(this._containerEl)) return this._containerEl;
@@ -14034,7 +14133,7 @@ function toastTemplate(c) {
 		"ml-toast": true,
 		[`ml-toast--${c.variant}`]: true
 	})}
-			role="alert"
+			role=${c.variant === "error" ? "alert" : "status"}
 		>
 			<div class="ml-toast__icon">
 				${c.renderIcon()}
@@ -14252,6 +14351,10 @@ function toastContainerTemplate(c) {
 		"ml-toast-container": true,
 		[`ml-toast-container--${c.position}`]: true
 	})}
+			role="region"
+			aria-label="Notifications"
+			aria-live="polite"
+			aria-relevant="additions"
 		>
 			<slot></slot>
 		</div>
@@ -14481,6 +14584,11 @@ function progressTemplate(c) {
 }
 const progressStyles = () => css`
 	:host {
+		/* ── Progress: track heights ── */
+		--ml-progress-sm-height: 4px;
+		--ml-progress-md-height: 8px;
+		--ml-progress-lg-height: 12px;
+
 		display: block;
 
 		/* ---- Linear ---- */
@@ -14584,15 +14692,15 @@ const progressStyles = () => css`
 	}
 
 	.ml-progress--sm .ml-progress__track {
-		height: 4px;
+		height: var(--ml-progress-sm-height);
 	}
 
 	.ml-progress--md .ml-progress__track {
-		height: 8px;
+		height: var(--ml-progress-md-height);
 	}
 
 	.ml-progress--lg .ml-progress__track {
-		height: 12px;
+		height: var(--ml-progress-lg-height);
 	}
 
 	.ml-progress__fill {
@@ -15202,11 +15310,25 @@ function stackTemplate(c) {
 }
 const stackStyles = () => css`
 	:host {
+		/* ── Stack: layout ──
+		   Set from the component's properties; override any of them from a
+		   parent rule to change the layout without touching the markup. */
+		--ml-stack-direction: row;
+		--ml-stack-gap: var(--ml-space-4);
+		--ml-stack-align: stretch;
+		--ml-stack-justify: flex-start;
+		--ml-stack-wrap: nowrap;
+
 		display: block;
 	}
 
 	.ml-stack {
 		display: flex;
+		flex-direction: var(--ml-stack-direction);
+		gap: var(--ml-stack-gap);
+		align-items: var(--ml-stack-align);
+		justify-content: var(--ml-stack-justify);
+		flex-wrap: var(--ml-stack-wrap);
 	}
 `;
 var StackComponent = class StackComponent$1 {
@@ -15234,11 +15356,11 @@ var StackComponent = class StackComponent$1 {
 			evenly: "space-evenly"
 		};
 		return {
-			"flex-direction": this.direction === "vertical" ? "column" : "row",
-			gap: `var(--ml-space-${this.gap})`,
-			"align-items": alignMap[this.align],
-			"justify-content": justifyMap[this.justify],
-			"flex-wrap": this.wrap ? "wrap" : "nowrap"
+			"--ml-stack-direction": this.direction === "vertical" ? "column" : "row",
+			"--ml-stack-gap": `var(--ml-space-${this.gap})`,
+			"--ml-stack-align": alignMap[this.align],
+			"--ml-stack-justify": justifyMap[this.justify],
+			"--ml-stack-wrap": this.wrap ? "wrap" : "nowrap"
 		};
 	}
 };
@@ -15263,12 +15385,22 @@ function containerTemplate(c) {
 }
 const containerStyles = () => css`
 	:host {
+		/* ── Container: layout ── */
+		--ml-container-max-width: 1024px;
+		--ml-container-padding-x: var(--ml-space-4);
+		--ml-container-margin-x: auto;
+
 		display: block;
 		width: 100%;
 	}
 
 	.ml-container {
 		width: 100%;
+		max-width: var(--ml-container-max-width);
+		padding-left: var(--ml-container-padding-x);
+		padding-right: var(--ml-container-padding-x);
+		margin-left: var(--ml-container-margin-x);
+		margin-right: var(--ml-container-margin-x);
 	}
 `;
 var ContainerComponent = class ContainerComponent$1 {
@@ -15286,11 +15418,9 @@ var ContainerComponent = class ContainerComponent$1 {
 			full: "100%"
 		};
 		return {
-			"max-width": maxWidthMap[this.size],
-			"padding-left": `var(--ml-space-${this.padding})`,
-			"padding-right": `var(--ml-space-${this.padding})`,
-			"margin-left": this.centered ? "auto" : "0",
-			"margin-right": this.centered ? "auto" : "0"
+			"--ml-container-max-width": maxWidthMap[this.size],
+			"--ml-container-padding-x": `var(--ml-space-${this.padding})`,
+			"--ml-container-margin-x": this.centered ? "auto" : "0"
 		};
 	}
 };
@@ -16892,6 +17022,16 @@ var TableCore = class {
 		return Math.max(0, (this._options.displayRows().length - this._host.endIndex) * this._host.rowHeight);
 	}
 };
+function memoOn() {
+	let lastDeps = null;
+	let lastValue;
+	return (deps, compute) => {
+		if (lastDeps !== null && lastDeps.length === deps.length && lastDeps.every((dep, i) => Object.is(dep, deps[i]))) return lastValue;
+		lastDeps = deps;
+		lastValue = compute();
+		return lastValue;
+	};
+}
 function tableTemplate(c) {
 	return html`
 		<div class=${classMap({
@@ -17352,6 +17492,7 @@ var TableComponent = class TableComponent$1 {
 			viewportSelector: ".ml-table__wrapper",
 			displayRows: () => this.sortedRows
 		});
+		this._sortedRowsMemo = memoOn();
 		this.isRowSelected = (index) => {
 			return this._core.isRowSelected(index);
 		};
@@ -17396,8 +17537,12 @@ var TableComponent = class TableComponent$1 {
 		this._core.detach();
 	}
 	get sortedRows() {
-		if (this.manualSort) return this.rows;
-		return this._core.sortRows(this.rows);
+		return this._sortedRowsMemo([
+			this.rows,
+			this.manualSort,
+			this.sortKey,
+			this.sortDirection
+		], () => this.manualSort ? this.rows : this._core.sortRows(this.rows));
 	}
 	get visibleRows() {
 		return this._core.visibleRows;
@@ -18231,6 +18376,10 @@ var DataGridComponent = class DataGridComponent$1 {
 		});
 		this._resizeStartX = 0;
 		this._resizeStartWidth = 0;
+		this._headerHeight = 0;
+		this._filteredRowsMemo = memoOn();
+		this._sortedRowsMemo = memoOn();
+		this._pagedRowsMemo = memoOn();
 		this.isRowSelected = (index) => this._core.isRowSelected(index);
 		this.handleSort = (col) => {
 			this._core.handleSortClick(col, () => {
@@ -18274,13 +18423,21 @@ var DataGridComponent = class DataGridComponent$1 {
 			if (this.resizingKey !== key) return;
 			const delta = e.clientX - this._resizeStartX;
 			const minW = this.columns.find((c) => c.key === key)?.minWidth ?? 80;
-			this.colWidths = {
-				...this.colWidths,
-				[key]: Math.max(minW, this._resizeStartWidth + delta)
-			};
+			const width = Math.max(minW, this._resizeStartWidth + delta);
+			this._pendingResizeWidth = width;
+			this.elementRef.style.setProperty(`--ml-grid-col-${key}`, `${width}px`);
 		};
+		this._pendingResizeWidth = null;
 		this.handleResizeEnd = () => {
 			if (!this.resizingKey) return;
+			if (this._pendingResizeWidth !== null) {
+				this.colWidths = {
+					...this.colWidths,
+					[this.resizingKey]: this._pendingResizeWidth
+				};
+				this.elementRef.style.removeProperty(`--ml-grid-col-${this.resizingKey}`);
+				this._pendingResizeWidth = null;
+			}
 			this.elementRef.dispatchEvent(new CustomEvent("ml:column-resize", {
 				bubbles: true,
 				composed: true,
@@ -18382,15 +18539,18 @@ var DataGridComponent = class DataGridComponent$1 {
 		this._core.attachScroller();
 	}
 	onRender() {
-		const shadow = this.elementRef.shadowRoot;
-		if (shadow) {
-			const headerRow = shadow.querySelector(".ml-data-grid__header-row");
-			if (headerRow) {
-				const h = headerRow.getBoundingClientRect().height;
-				if (h > 0) this.elementRef.style.setProperty("--ml-grid-header-h", `${h}px`);
-			}
-		}
+		this.syncHeaderHeight();
 		this._core.syncRenderWindow();
+	}
+	syncHeaderHeight() {
+		if (this.resizingKey) return;
+		const headerRow = this.elementRef.shadowRoot?.querySelector(".ml-data-grid__header-row");
+		if (!headerRow) return;
+		const height = headerRow.getBoundingClientRect().height;
+		if (height > 0 && height !== this._headerHeight) {
+			this._headerHeight = height;
+			this.elementRef.style.setProperty("--ml-grid-header-h", `${height}px`);
+		}
 	}
 	onDestroy() {
 		this._core.detach();
@@ -18401,20 +18561,41 @@ var DataGridComponent = class DataGridComponent$1 {
 		for (const col of cols) newWidths[col.key] = this.colWidths[col.key] ?? col.width ?? 150;
 		this.colWidths = newWidths;
 	}
+	get _filterKey() {
+		return JSON.stringify(this.filters);
+	}
 	get filteredRows() {
-		if (this.serverSide) return this.rows;
-		const entries = Object.entries(this.filters).filter(([, v]) => v !== "");
-		if (!entries.length) return this.rows;
-		return this.rows.filter((row) => entries.every(([key, val]) => String(row[key] ?? "").toLowerCase().includes(val.toLowerCase())));
+		return this._filteredRowsMemo([
+			this.rows,
+			this.serverSide,
+			this._filterKey
+		], () => {
+			if (this.serverSide) return this.rows;
+			const entries = Object.entries(this.filters).filter(([, v]) => v !== "");
+			if (!entries.length) return this.rows;
+			return this.rows.filter((row) => entries.every(([key, val]) => String(row[key] ?? "").toLowerCase().includes(val.toLowerCase())));
+		});
 	}
 	get sortedRows() {
-		if (this.serverSide) return this.filteredRows;
-		return this._core.sortRows(this.filteredRows);
+		const filtered = this.filteredRows;
+		return this._sortedRowsMemo([
+			filtered,
+			this.serverSide,
+			this.sortKey,
+			this.sortDirection
+		], () => this.serverSide ? filtered : this._core.sortRows(filtered));
 	}
 	get pagedRows() {
 		if (this.serverSide) return this.rows;
-		const start = (this.currentPage - 1) * this.pageSize;
-		return this.sortedRows.slice(start, start + this.pageSize);
+		const sorted = this.sortedRows;
+		return this._pagedRowsMemo([
+			sorted,
+			this.currentPage,
+			this.pageSize
+		], () => {
+			const start = (this.currentPage - 1) * this.pageSize;
+			return sorted.slice(start, start + this.pageSize);
+		});
 	}
 	get processedRows() {
 		return this.pagedRows;
@@ -18442,7 +18623,7 @@ var DataGridComponent = class DataGridComponent$1 {
 		return this.orderedColumns.reduce((sum, col) => sum + (this.columnWidths[col.key] ?? 150), 0) + (this.selectable ? 44 : 0);
 	}
 	get gridTemplateColumns() {
-		const cols = this.orderedColumns.map((col) => `${this.columnWidths[col.key] ?? 150}px`).join(" ");
+		const cols = this.orderedColumns.map((col) => `var(--ml-grid-col-${col.key}, ${this.columnWidths[col.key] ?? 150}px)`).join(" ");
 		return this.selectable ? `44px ${cols}` : cols;
 	}
 	getPinnedLeftOffset(key) {
@@ -18501,52 +18682,39 @@ DataGridComponent = __decorate([MelodicComponent({
 		"show-filter-row"
 	]
 })], DataGridComponent);
-var MONTH_NAMES = [
-	"January",
-	"February",
-	"March",
-	"April",
-	"May",
-	"June",
-	"July",
-	"August",
-	"September",
-	"October",
-	"November",
-	"December"
-];
-var MONTH_ABBREVS = [
-	"Jan",
-	"Feb",
-	"Mar",
-	"Apr",
-	"May",
-	"Jun",
-	"Jul",
-	"Aug",
-	"Sep",
-	"Oct",
-	"Nov",
-	"Dec"
-];
-var DAY_NAMES = [
-	"Sunday",
-	"Monday",
-	"Tuesday",
-	"Wednesday",
-	"Thursday",
-	"Friday",
-	"Saturday"
-];
-var DAY_ABBREVS = [
-	"Sun",
-	"Mon",
-	"Tue",
-	"Wed",
-	"Thu",
-	"Fri",
-	"Sat"
-];
+var activeLocale;
+function setCalendarLocale(locale) {
+	activeLocale = locale || void 0;
+}
+function resolvedLocale() {
+	if (activeLocale) return activeLocale;
+	if (typeof document !== "undefined") {
+		const lang = document.documentElement.lang?.trim();
+		if (lang) return lang;
+	}
+}
+var nameCache = /* @__PURE__ */ new Map();
+function names(kind, width) {
+	const key = `${resolvedLocale() ?? "default"}:${kind}:${width}`;
+	const cached$1 = nameCache.get(key);
+	if (cached$1) return cached$1;
+	const formatter = new Intl.DateTimeFormat(resolvedLocale(), kind === "month" ? { month: width } : { weekday: width });
+	const values = kind === "month" ? Array.from({ length: 12 }, (_, i) => formatter.format(new Date(2021, i, 1))) : Array.from({ length: 7 }, (_, i) => formatter.format(new Date(2021, 0, 3 + i)));
+	nameCache.set(key, values);
+	return values;
+}
+function monthNames() {
+	return names("month", "long");
+}
+function monthAbbrevs() {
+	return names("month", "short");
+}
+function dayNames() {
+	return names("weekday", "long");
+}
+function dayAbbrevs() {
+	return names("weekday", "short");
+}
 function toIsoDate(year, month, day) {
 	return `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
 }
@@ -18597,11 +18765,11 @@ function formatTime(iso) {
 	return m === 0 ? `${hour} ${ampm}` : `${hour}:${String(m).padStart(2, "0")} ${ampm}`;
 }
 function formatMonthYear(date) {
-	return `${MONTH_NAMES[date.getMonth()]} ${date.getFullYear()}`;
+	return `${monthNames()[date.getMonth()]} ${date.getFullYear()}`;
 }
 function formatDateRange(start, end) {
-	const sMonth = MONTH_ABBREVS[start.getMonth()];
-	const eMonth = MONTH_ABBREVS[end.getMonth()];
+	const sMonth = monthAbbrevs()[start.getMonth()];
+	const eMonth = monthAbbrevs()[end.getMonth()];
 	if (start.getMonth() === end.getMonth() && start.getFullYear() === end.getFullYear()) return `${sMonth} ${start.getDate()} – ${end.getDate()}, ${start.getFullYear()}`;
 	if (start.getFullYear() === end.getFullYear()) return `${sMonth} ${start.getDate()} – ${eMonth} ${end.getDate()}, ${start.getFullYear()}`;
 	return `${sMonth} ${start.getDate()}, ${start.getFullYear()} – ${eMonth} ${end.getDate()}, ${end.getFullYear()}`;
@@ -18666,8 +18834,8 @@ function getWeekdayHeaders(weekStartsOn = 0) {
 	return Array.from({ length: 7 }, (_, i) => {
 		const idx = (weekStartsOn + i) % 7;
 		return {
-			short: DAY_ABBREVS[idx],
-			full: DAY_NAMES[idx]
+			short: dayAbbrevs()[idx],
+			full: dayNames()[idx]
 		};
 	});
 }
@@ -18675,10 +18843,10 @@ function getEventsForDate(events, iso) {
 	return events.filter((e) => toLocalIsoDate(parseEventDate(e.start)) === iso);
 }
 function getMonthAbbrev(date) {
-	return MONTH_ABBREVS[date.getMonth()];
+	return monthAbbrevs()[date.getMonth()];
 }
 function getDayName(date) {
-	return DAY_NAMES[date.getDay()];
+	return dayNames()[date.getDay()];
 }
 function minutesToGridRow(minutes) {
 	return Math.floor(minutes / 30) + 1;
@@ -18781,7 +18949,7 @@ function getWeekColumns(date, weekStartsOn, events) {
 		const dayEvents = getEventsForDate(events, iso).filter((e) => !e.allDay);
 		return {
 			date: iso,
-			dayLabel: DAY_ABBREVS[d.getDay()],
+			dayLabel: dayAbbrevs()[d.getDay()],
 			dayNumber: d.getDate(),
 			isToday: isToday(d),
 			events: layoutOverlappingEvents(dayEvents)
@@ -18793,7 +18961,7 @@ function getDayColumn(date, events) {
 	const dayEvents = getEventsForDate(events, iso).filter((e) => !e.allDay);
 	return {
 		date: iso,
-		dayLabel: DAY_ABBREVS[date.getDay()],
+		dayLabel: dayAbbrevs()[date.getDay()],
 		dayNumber: date.getDate(),
 		isToday: isToday(date),
 		events: layoutOverlappingEvents(dayEvents)
@@ -20074,6 +20242,7 @@ var CalendarViewComponent = class CalendarViewComponent$1 {
 	constructor() {
 		this.view = "month";
 		this.date = "";
+		this.locale = "";
 		this.weekStartsOn = 0;
 		this.maxVisibleEvents = 3;
 		this.addButtonText = "Add event";
@@ -20200,6 +20369,7 @@ var CalendarViewComponent = class CalendarViewComponent$1 {
 		return /* @__PURE__ */ new Date();
 	}
 	onCreate() {
+		setCalendarLocale(this.locale);
 		if (!this.date) {
 			const now = /* @__PURE__ */ new Date();
 			this.date = toIsoDate(now.getFullYear(), now.getMonth(), now.getDate());
@@ -20221,6 +20391,7 @@ var CalendarViewComponent = class CalendarViewComponent$1 {
 		if (this._boundCloseDropdown) document.removeEventListener("click", this._boundCloseDropdown, true);
 	}
 	onRender() {
+		setCalendarLocale(this.locale);
 		if ((this.view === "week" || this.view === "day") && !this._hasScrolledToTime) {
 			const shadow = this.elementRef.shadowRoot;
 			if (!shadow) return;
@@ -20277,7 +20448,7 @@ var CalendarViewComponent = class CalendarViewComponent$1 {
 		return getEventsForDate(this.events, this.currentIsoDate);
 	}
 	get dayViewDateLabel() {
-		return this._currentDate.toLocaleDateString("en-US", {
+		return this._currentDate.toLocaleDateString(this.locale || void 0, {
 			weekday: "long",
 			month: "long",
 			day: "numeric"
@@ -20325,7 +20496,8 @@ CalendarViewComponent = __decorate([MelodicComponent({
 		"hide-nav",
 		"hide-today-button",
 		"hide-view-selector",
-		"hide-add-button"
+		"hide-add-button",
+		"locale"
 	]
 })], CalendarViewComponent);
 const PHOSPHOR_ICON_MAP = {
@@ -21861,7 +22033,10 @@ const PHOSPHOR_ICON_MAP = {
 	"youtube-logo": ""
 };
 const iconTemplate = (c) => {
-	return html`<i class="${c.format === "regular" ? "ph" : `ph-${c.format}`}" aria-hidden="true">${PHOSPHOR_ICON_MAP[c.icon] ?? ""}</i>`;
+	const className = c.format === "regular" ? "ph" : `ph-${c.format}`;
+	const codepoint = PHOSPHOR_ICON_MAP[c.icon] ?? "";
+	if (c.icon && !codepoint) devWarn(`unknown-icon:${c.icon}`, `<ml-icon icon="${c.icon}"> is not a known Phosphor icon name, so nothing is rendered. Check the name against https://phosphoricons.com (kebab-case, e.g. "caret-double-left").`);
+	return html`<i class="${className}" aria-hidden="true">${codepoint}</i>`;
 };
 const iconStyles = () => css`
 	:host {
@@ -22317,6 +22492,7 @@ var TabsComponent = class TabsComponent$1 {
 		this.tabs = [];
 		this._slottedTabs = [];
 		this._handleNavigation = this.onNavigation.bind(this);
+		this._routedListenerAttached = false;
 		this._handleTabClick = (event) => {
 			event.stopPropagation();
 			const { value, href } = event.detail;
@@ -22373,20 +22549,32 @@ var TabsComponent = class TabsComponent$1 {
 			}
 		};
 	}
-	onCreate() {
-		this.elementRef.addEventListener("ml:tab-click", this._handleTabClick);
+	syncRoutedListener() {
+		if (this.routed === this._routedListenerAttached) return;
 		if (this.routed) {
 			window.addEventListener("NavigationEvent", this._handleNavigation);
+			this._routedListenerAttached = true;
 			this.syncWithRoute();
+		} else {
+			window.removeEventListener("NavigationEvent", this._handleNavigation);
+			this._routedListenerAttached = false;
 		}
 	}
+	onCreate() {
+		this.elementRef.addEventListener("ml:tab-click", this._handleTabClick);
+		this.syncRoutedListener();
+	}
 	onRender() {
+		this.syncRoutedListener();
 		this.updateTabStates();
 		this.updatePanelVisibility();
 	}
 	onDestroy() {
 		this.elementRef.removeEventListener("ml:tab-click", this._handleTabClick);
-		if (this.routed) window.removeEventListener("NavigationEvent", this._handleNavigation);
+		if (this._routedListenerAttached) {
+			window.removeEventListener("NavigationEvent", this._handleNavigation);
+			this._routedListenerAttached = false;
+		}
 	}
 	activateTab(tabValue) {
 		this.value = tabValue;
@@ -22422,8 +22610,7 @@ var TabsComponent = class TabsComponent$1 {
 		const tabs = this.getAllTabs();
 		this.elementRef.querySelectorAll("ml-tab-panel").forEach((panel) => {
 			const value = panel.getAttribute("value");
-			const isActive = value === this.value;
-			panel.style.display = isActive ? "" : "none";
+			panel.hidden = !(value === this.value);
 			const label = tabs.find((t) => t.value === value)?.label;
 			if (label) panel.panelLabel = label;
 		});
@@ -22593,6 +22780,11 @@ function tabPanelTemplate(c) {
 }
 const tabPanelStyles = () => css`
 	:host {
+		/* ── Tab panel: focus ── */
+		--ml-tab-panel-focus-width: 2px;
+		--ml-tab-panel-focus-color: var(--ml-color-primary);
+		--ml-tab-panel-focus-offset: 2px;
+
 		display: block;
 	}
 
@@ -22605,8 +22797,8 @@ const tabPanelStyles = () => css`
 	}
 
 	.ml-tab-panel:focus-visible {
-		outline: 2px solid var(--ml-color-primary);
-		outline-offset: 2px;
+		outline: var(--ml-tab-panel-focus-width) solid var(--ml-tab-panel-focus-color);
+		outline-offset: var(--ml-tab-panel-focus-offset);
 	}
 `;
 var TabPanelComponent = class TabPanelComponent$1 {
@@ -22659,6 +22851,15 @@ BreadcrumbComponent = __decorate([MelodicComponent({
 	styles: breadcrumbStyles,
 	attributes: ["separator"]
 })], BreadcrumbComponent);
+function routeAnchorClick(event, href, options = {}) {
+	if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return false;
+	if (!href || options.external || options.target && options.target !== "_self") return false;
+	if (/^[a-z][a-z0-9+.-]*:/i.test(href) && !href.startsWith(window.location.origin)) return false;
+	if (!Injector.has(RouterService)) return false;
+	event.preventDefault();
+	Injector.get(RouterService).navigate(href);
+	return true;
+}
 function breadcrumbItemTemplate(c) {
 	const separatorIcon = c.separator === "slash" ? "slash-forward" : "caret-right";
 	return html`
@@ -22672,7 +22873,7 @@ function breadcrumbItemTemplate(c) {
 				<ml-icon icon=${separatorIcon} size="sm"></ml-icon>
 			</span>
 			${when(!!c.href && !c.current, () => html`
-					<a class="ml-breadcrumb-item__link" href=${c.href}>
+					<a class="ml-breadcrumb-item__link" href=${c.href} @click=${(event) => routeAnchorClick(event, c.href)}>
 						${when(!!c.icon, () => html`<ml-icon icon=${c.icon} size="sm"></ml-icon>`)}
 						<slot></slot>
 					</a>
@@ -22790,10 +22991,10 @@ function paginationTemplate(c) {
 								class=${classMap({
 			"ml-pagination__btn": true,
 			"ml-pagination__btn--page": true,
-			"ml-pagination__btn--active": p.value === Number(c.page)
+			"ml-pagination__btn--active": p.value === c.currentPage
 		})}
 								aria-label=${`Page ${p.value}`}
-								aria-current=${p.value === Number(c.page) ? "page" : false}
+								aria-current=${p.value === c.currentPage ? "page" : false}
 								@click=${() => c.goToPage(p.value)}
 							>
 								${p.value}
@@ -22820,6 +23021,11 @@ function paginationTemplate(c) {
 }
 const paginationStyles = () => css`
 	:host {
+		/* ── Pagination: focus ── */
+		--ml-pagination-focus-width: 2px;
+		--ml-pagination-focus-color: var(--ml-color-primary);
+		--ml-pagination-focus-offset: 2px;
+
 		/* Layout */
 		--ml-pagination-gap: var(--ml-space-3);
 		--ml-pagination-pages-gap: var(--ml-space-1);
@@ -22896,6 +23102,11 @@ const paginationStyles = () => css`
 	.ml-pagination__btn:hover:not(:disabled) {
 		background-color: var(--ml-pagination-btn-hover-bg);
 		color: var(--ml-pagination-btn-hover-color);
+	}
+
+	.ml-pagination__btn:focus-visible {
+		outline: var(--ml-pagination-focus-width) solid var(--ml-pagination-focus-color);
+		outline-offset: var(--ml-pagination-focus-offset);
 	}
 
 	.ml-pagination__btn--nav {
@@ -23001,11 +23212,14 @@ var PaginationComponent = class PaginationComponent$1 {
 			}
 		];
 	}
+	get currentPage() {
+		return Math.min(Math.max(1, Number(this.page) || 1), Math.max(1, this.totalPages));
+	}
 	get hasPrevious() {
-		return this.page > 1;
+		return this.currentPage > 1;
 	}
 	get hasNext() {
-		return this.page < this.totalPages;
+		return this.currentPage < this.totalPages;
 	}
 };
 PaginationComponent = __decorate([MelodicComponent({
@@ -23139,7 +23353,10 @@ function renderNavItem(c, item, level) {
 						href=${item.href}
 						?target=${item.external ? "_blank" : null}
 						?rel=${item.external ? "noopener noreferrer" : null}
-						@click=${handleClick}
+						@click=${(event) => {
+		routeAnchorClick(event, item.href ?? "", { external: item.external });
+		handleClick(event);
+	}}
 					>
 						${content}
 					</a>
@@ -23580,6 +23797,10 @@ var SidebarComponent = class SidebarComponent$1 {
 		this._handleItemClick = this.onItemClick.bind(this);
 		this._handleMouseEnter = this.onMouseEnter.bind(this);
 		this._handleMouseLeave = this.onMouseLeave.bind(this);
+		this.hasSearch = false;
+		this.hasFeature = false;
+		this.hasUser = false;
+		this._slotWatcherCleanup = null;
 		this.handleDefaultSlotChange = () => {
 			this.updateItemStates();
 		};
@@ -23621,17 +23842,13 @@ var SidebarComponent = class SidebarComponent$1 {
 		};
 		this.expandedItems = /* @__PURE__ */ new Set();
 	}
-	get hasSearch() {
-		return this.elementRef?.querySelector("[slot=\"search\"]") !== null;
-	}
-	get hasFeature() {
-		return this.elementRef?.querySelector("[slot=\"feature\"]") !== null;
-	}
-	get hasUser() {
-		return this.elementRef?.querySelector("[slot=\"user\"]") !== null;
-	}
 	onCreate() {
 		if (this.variant === "slim") this.collapsed = true;
+		this._slotWatcherCleanup = watchLightSlots(this.elementRef, () => {
+			this.hasSearch = hasLightSlot(this.elementRef, "search");
+			this.hasFeature = hasLightSlot(this.elementRef, "feature");
+			this.hasUser = hasLightSlot(this.elementRef, "user");
+		});
 		this.elementRef.addEventListener("ml:sidebar-item-click", this._handleItemClick);
 		if (this.variant === "slim") {
 			this.elementRef.addEventListener("mouseenter", this._handleMouseEnter);
@@ -23642,6 +23859,8 @@ var SidebarComponent = class SidebarComponent$1 {
 		this.updateItemStates();
 	}
 	onDestroy() {
+		this._slotWatcherCleanup?.();
+		this._slotWatcherCleanup = null;
 		this.elementRef.removeEventListener("ml:sidebar-item-click", this._handleItemClick);
 		this.elementRef.removeEventListener("mouseenter", this._handleMouseEnter);
 		this.elementRef.removeEventListener("mouseleave", this._handleMouseLeave);
@@ -23841,7 +24060,10 @@ function sidebarItemTemplate(c) {
 						href=${c.href}
 						?target=${c.external ? "_blank" : null}
 						?rel=${c.external ? "noopener noreferrer" : null}
-						@click=${c.handleClick}
+						@click=${(event) => {
+		routeAnchorClick(event, c.href, { external: c.external });
+		c.handleClick(event);
+	}}
 					>
 						${content}
 					</a>
@@ -24899,6 +25121,7 @@ var StepsComponent = class StepsComponent$1 {
 		this.steps = [];
 		this._slottedSteps = [];
 		this._handleNavigation = this.onNavigation.bind(this);
+		this._routedListenerAttached = false;
 		this.handleStepSlotChange = (event) => {
 			this._slottedSteps = event.target.assignedElements({ flatten: true });
 			if (!this.active && this._slottedSteps.length > 0) {
@@ -24966,20 +25189,32 @@ var StepsComponent = class StepsComponent$1 {
 			}
 		};
 	}
-	onCreate() {
-		this.elementRef.addEventListener("ml:step-click", this.handleSlottedStepClick);
+	syncRoutedListener() {
+		if (this.routed === this._routedListenerAttached) return;
 		if (this.routed) {
 			window.addEventListener("NavigationEvent", this._handleNavigation);
+			this._routedListenerAttached = true;
 			this.syncWithRoute();
+		} else {
+			window.removeEventListener("NavigationEvent", this._handleNavigation);
+			this._routedListenerAttached = false;
 		}
 	}
+	onCreate() {
+		this.elementRef.addEventListener("ml:step-click", this.handleSlottedStepClick);
+		this.syncRoutedListener();
+	}
 	onRender() {
+		this.syncRoutedListener();
 		this.updateSlottedStepStates();
 		this.updatePanelVisibility();
 	}
 	onDestroy() {
 		this.elementRef.removeEventListener("ml:step-click", this.handleSlottedStepClick);
-		if (this.routed) window.removeEventListener("NavigationEvent", this._handleNavigation);
+		if (this._routedListenerAttached) {
+			window.removeEventListener("NavigationEvent", this._handleNavigation);
+			this._routedListenerAttached = false;
+		}
 	}
 	activateStep(stepValue) {
 		this.active = stepValue;
@@ -25040,8 +25275,7 @@ var StepsComponent = class StepsComponent$1 {
 		const steps = this.getAllSteps();
 		this.elementRef.querySelectorAll("ml-step-panel").forEach((panel) => {
 			const value = panel.getAttribute("value");
-			const isActive = value === this.active;
-			panel.style.display = isActive ? "" : "none";
+			panel.hidden = !(value === this.active);
 			const label = steps.find((s) => s.value === value)?.label;
 			if (label) panel.panelLabel = label;
 		});
@@ -26068,6 +26302,8 @@ var DialogRef = class {
 		this._dialogEl = _dialogEl;
 		this._afterOpenedCallbacks = [];
 		this._afterClosedCallbacks = [];
+		this._openedListeners = /* @__PURE__ */ new Set();
+		this._closedListeners = /* @__PURE__ */ new Set();
 		this._disableClose = false;
 		this._closeNotified = false;
 		this._popoversDismissed = false;
@@ -26103,7 +26339,10 @@ var DialogRef = class {
 		this._popoversDismissed = false;
 		this._pendingResult = void 0;
 		this._dialogEl.showModal();
-		this._afterOpenedCallbacks.forEach((callback) => callback());
+		const opened = this._afterOpenedCallbacks;
+		this._afterOpenedCallbacks = [];
+		opened.forEach((callback) => callback());
+		this._openedListeners.forEach((callback) => callback());
 		this._dialogEl.dispatchEvent(new CustomEvent("ml:open", {
 			bubbles: true,
 			composed: true
@@ -26118,9 +26357,23 @@ var DialogRef = class {
 	}
 	afterOpened(callback) {
 		this._afterOpenedCallbacks.push(callback);
+		return () => {
+			this._afterOpenedCallbacks = this._afterOpenedCallbacks.filter((entry) => entry !== callback);
+		};
 	}
 	afterClosed(callback) {
 		this._afterClosedCallbacks.push(callback);
+		return () => {
+			this._afterClosedCallbacks = this._afterClosedCallbacks.filter((entry) => entry !== callback);
+		};
+	}
+	onOpened(callback) {
+		this._openedListeners.add(callback);
+		return () => this._openedListeners.delete(callback);
+	}
+	onClosed(callback) {
+		this._closedListeners.add(callback);
+		return () => this._closedListeners.delete(callback);
 	}
 	onCancel(event) {
 		if (this._disableClose) event.preventDefault();
@@ -26138,7 +26391,10 @@ var DialogRef = class {
 		this._popoversDismissed = false;
 		const result = this._pendingResult;
 		this._pendingResult = void 0;
-		this._afterClosedCallbacks.forEach((callback) => callback(result));
+		const closed = this._afterClosedCallbacks;
+		this._afterClosedCallbacks = [];
+		closed.forEach((callback) => callback(result));
+		this._closedListeners.forEach((callback) => callback(result));
 		this._dialogEl.dispatchEvent(new CustomEvent("ml:close", {
 			bubbles: true,
 			composed: true,
@@ -27309,6 +27565,12 @@ var PopoverComponent = class PopoverComponent$1 {
 		}));
 		this._focusTrap = null;
 		this._dismissGuard = new ToggleDismissGuard();
+		this.handleKeyDown = (event) => {
+			if (event.key !== "Escape" || !this.isOpen || !this.manual) return;
+			event.preventDefault();
+			event.stopPropagation();
+			this.close();
+		};
 		this.toggle = () => {
 			if (this._dismissGuard.shouldSkipToggle()) return;
 			const popoverEl = this.getPopoverEl();
@@ -27338,14 +27600,20 @@ var PopoverComponent = class PopoverComponent$1 {
 	}
 	onCreate() {
 		const popoverEl = this.getPopoverEl();
-		if (popoverEl) popoverEl.addEventListener("toggle", this.handleToggle);
+		if (popoverEl) {
+			popoverEl.addEventListener("toggle", this.handleToggle);
+			popoverEl.addEventListener("keydown", this.handleKeyDown);
+		}
 	}
 	onDestroy() {
 		this._positioner.stop();
 		this._focusTrap?.deactivate({ returnFocus: false });
 		this._focusTrap = null;
 		const popoverEl = this.getPopoverEl();
-		if (popoverEl) popoverEl.removeEventListener("toggle", this.handleToggle);
+		if (popoverEl) {
+			popoverEl.removeEventListener("toggle", this.handleToggle);
+			popoverEl.removeEventListener("keydown", this.handleKeyDown);
+		}
 	}
 	open() {
 		const popoverEl = this.getPopoverEl();
@@ -27401,6 +27669,7 @@ function appShellTemplate(c) {
 		"ml-app-shell--header-fixed": headerFixed,
 		"ml-app-shell--mobile-open": mobileOpen
 	})}
+			@keydown=${c.handleKeyDown}
 		>
 			${when(isMobile, () => html`
 				<div
@@ -27413,10 +27682,12 @@ function appShellTemplate(c) {
 			`)}
 
 			<aside
+				id="app-shell-sidebar"
 				class=${classMap({
 		"ml-app-shell__sidebar": true,
 		"ml-app-shell__sidebar--mobile-open": mobileOpen
 	})}
+				aria-hidden=${isMobile && !mobileOpen ? "true" : "false"}
 			>
 				<slot name="sidebar"></slot>
 			</aside>
@@ -27428,6 +27699,8 @@ function appShellTemplate(c) {
 							class="ml-app-shell__menu-btn"
 							type="button"
 							aria-label="Toggle navigation"
+							aria-expanded=${mobileOpen ? "true" : "false"}
+							aria-controls="app-shell-sidebar"
 							@click=${c.toggleMobileSidebar}
 						>
 							<svg width="20" height="20" viewBox="0 0 20 20" fill="none">
@@ -27459,6 +27732,10 @@ const appShellStyles = () => css`
 
 		/* Mobile sidebar */
 		--ml-app-shell-sidebar-width: var(--ml-sidebar-width, 280px);
+		--ml-app-shell-sidebar-collapsed-width: var(--ml-sidebar-collapsed-width, 64px);
+		/* Viewport width below which the sidebar becomes a drawer. Kept in one
+		   place so the CSS media query and the component's matchMedia agree. */
+		--ml-app-shell-mobile-breakpoint: 768px;
 		--ml-app-shell-sidebar-bg: var(--ml-color-surface);
 		--ml-app-shell-sidebar-transition: var(--ml-duration-200);
 
@@ -27491,6 +27768,17 @@ const appShellStyles = () => css`
 		grid-template-rows: 1fr;
 		height: 100%;
 		overflow: hidden;
+	}
+
+	/*
+	 * Collapsed sidebar: narrow the sidebar column to an icon rail. This
+	 * modifier class was rendered but had no rules at all, so the documented
+	 * icon-only collapse did nothing.
+	 */
+	.ml-app-shell--sidebar-collapsed .ml-app-shell__sidebar {
+		width: var(--ml-app-shell-sidebar-collapsed-width);
+		min-width: var(--ml-app-shell-sidebar-collapsed-width);
+		transition: width var(--ml-app-shell-sidebar-transition) var(--ml-ease-in-out);
 	}
 
 	/* Sidebar on the right */
@@ -27675,18 +27963,39 @@ var AppShellComponent = class AppShellComponent$1 {
 		this._handleMediaChange = this.onMediaChange.bind(this);
 		this.toggleMobileSidebar = () => {
 			this.mobileOpen = !this.mobileOpen;
+			if (this.mobileOpen) queueMicrotask(() => {
+				const sidebar = this.elementRef.shadowRoot?.querySelector(".ml-app-shell__sidebar");
+				focusFirst(sidebar ?? this.elementRef);
+			});
+			else this.focusMenuButton();
 		};
 		this.closeMobileSidebar = () => {
+			if (!this.mobileOpen) return;
 			this.mobileOpen = false;
+			this.focusMenuButton();
+		};
+		this.handleKeyDown = (event) => {
+			if (event.key === "Escape" && this.mobileOpen) {
+				event.preventDefault();
+				this.closeMobileSidebar();
+			}
 		};
 	}
+	get mobileBreakpoint() {
+		return getComputedStyle(this.elementRef).getPropertyValue("--ml-app-shell-mobile-breakpoint").trim() || "768px";
+	}
 	onCreate() {
-		this._mediaQuery = window.matchMedia("(min-width: 768px)");
+		this._mediaQuery = window.matchMedia(`(min-width: ${this.mobileBreakpoint})`);
 		this._mediaQuery.addEventListener("change", this._handleMediaChange);
 		this.mobile = !this._mediaQuery.matches;
 	}
 	onDestroy() {
 		this._mediaQuery?.removeEventListener("change", this._handleMediaChange);
+	}
+	focusMenuButton() {
+		queueMicrotask(() => {
+			(this.elementRef.shadowRoot?.querySelector(".ml-app-shell__menu-btn"))?.focus();
+		});
 	}
 	onMediaChange(event) {
 		this.mobile = !event.matches;
@@ -29043,6 +29352,6 @@ DashboardPageComponent = __decorate([MelodicComponent({
 		"layout"
 	]
 })], DashboardPageComponent);
-export { APP_CONFIG, AbortError, AbstractControl, ActivityFeedComponent, ActivityFeedItemComponent, AlertComponent, AppShellComponent, AvatarComponent, BadgeComponent, BadgeGroupComponent, Binding, BreadcrumbComponent, BreadcrumbItemComponent, ButtonComponent, ButtonGroupComponent, ButtonGroupItemComponent, CalendarComponent, CalendarViewComponent, CardComponent, CheckboxComponent, ComponentBase, ComponentStateBaseService, ContainerComponent, DashboardPageComponent, DatePickerComponent, DialogComponent, DialogRef, DialogService, Directive, DividerComponent, DrawerComponent, DropdownComponent, DropdownGroupComponent, DropdownItemComponent, DropdownSeparatorComponent, EffectsBase, FormArray, FormControl, FormFieldComponent, FormGroup, HeroSectionComponent, HttpBaseError, HttpClient, HttpError, IconComponent, Inject, Injectable, InjectionEngine, Injector, InputComponent, ListComponent, ListItemComponent, LoginPageComponent, MelodicComponent, NetworkError, PageHeaderComponent, PaginationComponent, PopoverComponent, ProgressComponent, ROUTE_CONTEXT_EVENT, RX_ACTION_PROVIDERS, RX_EFFECTS_PROVIDERS, RX_INIT_STATE, RX_STATE_DEBUG, RadioCardComponent, RadioCardGroupComponent, RadioComponent, RadioGroupComponent, RouteContextEvent, RouteContextService, RouteMatcher, RouterLinkComponent, RouterLinkCore, RouterOutletComponent, RouterService, SIGNAL_MARKER, SelectComponent, Service, SidebarComponent, SidebarGroupComponent, SidebarItemComponent, SignalEffect, SignalStoreService, SignupPageComponent, SliderComponent, SpinnerComponent, StackComponent, StepComponent, StepPanelComponent, StepsComponent, TabComponent, TabPanelComponent, TableComponent, TabsComponent, TagComponent, TemplateResult, TextareaComponent, ToastComponent, ToastContainerComponent, ToastService, ToggleComponent, TooltipComponent, Validators, VirtualScroller, activityFeedItemStyles, activityFeedItemTemplate, activityFeedStyles, activityFeedTemplate, allTokens, announce, appShellStyles, appShellTemplate, appendQueryParams, applyGlobalStyles, applyTheme, arrow, attributeNames, attributeTypes, autoUpdate, baseThemeCss, batch, bootstrap, borderTokens, breadcrumbItemStyles, breadcrumbItemTemplate, breadcrumbStyles, breadcrumbTemplate, breakpointTokens, breakpoints, buildPathFromRoute, calendarViewStyles, calendarViewTemplate, checkboxAdapter, classMap, clearCrossRootDescription, clickOutside, colorTokens, componentBaseStyles, computePosition, computed, containerStyles, containerTemplate, createAction, createAsyncValidator, createBrandTheme, createDeactivateGuard, createFocusTrap, createFormArray, createFormControl, createFormGroup, createGuard, createLiveRegion, createReducer, createResolver, createState, createTheme, createToken, createValidator, css, darkTheme, darkThemeCss, dashboardPageStyles, dashboardPageTemplate, defineConfig, defineLegacyAliases, describeToken, devWarn, directive, disposeContainerParts, disposeDirectiveState, disposePart, disposeParts, drawerStyles, drawerTemplate, dropdownGroupStyles, dropdownGroupTemplate, dropdownItemStyles, dropdownItemTemplate, dropdownSeparatorStyles, dropdownSeparatorTemplate, dropdownStyles, dropdownTemplate, effect, emit, environment, findRouteByName, flip, focusFirst, focusLast, focusTrap, focusVisible, formControlDirective, formFieldStyles, formFieldTemplate, getActiveComponent, getActiveEffect, getAdapter, getAttributeDirective, getComponentDefinition, getComponentDefinitions, getDeepActiveElement, getEnvironment, getFirstFocusable, getFocusableControl, getFocusableElements, getGlobalMessage, getLastFocusable, getRegisteredDirectives, getResolvedTheme, getTheme, getTokenKey, hasAttributeDirective, heroSectionStyles, heroSectionTemplate, html, inject, injectOptional, injectTheme, installConsoleApi, installHistoryEvents, isDeepFocusWithin, isDevMode, isDirective, isFocusVisible, isSafeUrl, isSignal, lightTheme, lightThemeCss, listItemStyles, listItemTemplate, listStyles, listTemplate, live, loginPageStyles, loginPageTemplate, matchRouteTree, newID, offset, onAction, onThemeChange, pageHeaderStyles, pageHeaderTemplate, paginationStyles, paginationTemplate, parseUrlParts, portalDirective, primitiveColors, progressStyles, progressTemplate, props, provideConfig, provideHttp, provideRX, provideRouter, radioAdapter, refreshGlobalStyles, registerAdapter, registerAttributeDirective, registerDefaultMessages, render, repeat, repeatRaw, resetDevWarnings, resetStyles, resolveMessage, routerLinkDirective, selectStyles, selectTemplate, setActiveComponent, setActiveEffect, setCrossRootActiveDescendant, setCrossRootDescription, setCrossRootLabel, setDefaultMessage, setDevMode, shadowTokens, shift, sidebarGroupStyles, sidebarGroupTemplate, sidebarItemStyles, sidebarItemTemplate, sidebarStyles, sidebarTemplate, signal, signupPageStyles, signupPageTemplate, sliderStyles, sliderTemplate, spacingTokens, stepPanelStyles, stepPanelTemplate, stepStyles, stepTemplate, stepsStyles, stepsTemplate, styleMap, supportsAriaElementReferences, tabPanelStyles, tabPanelTemplate, tabStyles, tabTemplate, tableStyles, tableTemplate, tabsStyles, tabsTemplate, textAdapter, toastContainerStyles, toastContainerTemplate, toastStyles, toastTemplate, toggleTheme, tokensToCss, tooltipDirective, transitionTokens, typographyTokens, unregisterAttributeDirective, unsafeHTML, untracked, visuallyHiddenStyles, warnDeprecatedOnce, warnDeprecatedTitleOnce, watchSlotPresence, when };
+export { APP_CONFIG, AbortError, AbstractControl, ActivityFeedComponent, ActivityFeedItemComponent, AlertComponent, AppShellComponent, AvatarComponent, BadgeComponent, BadgeGroupComponent, Binding, BreadcrumbComponent, BreadcrumbItemComponent, ButtonComponent, ButtonGroupComponent, ButtonGroupItemComponent, CalendarComponent, CalendarViewComponent, CardComponent, CheckboxComponent, ComponentBase, ComponentStateBaseService, ContainerComponent, DashboardPageComponent, DatePickerComponent, DialogComponent, DialogRef, DialogService, Directive, DividerComponent, DrawerComponent, DropdownComponent, DropdownGroupComponent, DropdownItemComponent, DropdownSeparatorComponent, EffectsBase, FormArray, FormControl, FormFieldComponent, FormGroup, HeroSectionComponent, HttpBaseError, HttpClient, HttpError, IconComponent, Inject, Injectable, InjectionEngine, Injector, InputComponent, ListComponent, ListItemComponent, LoginPageComponent, MelodicComponent, NetworkError, PageHeaderComponent, PaginationComponent, PopoverComponent, ProgressComponent, ROUTE_CONTEXT_EVENT, RX_ACTION_PROVIDERS, RX_EFFECTS_PROVIDERS, RX_INIT_STATE, RX_STATE_DEBUG, RadioCardComponent, RadioCardGroupComponent, RadioComponent, RadioGroupComponent, RouteContextEvent, RouteContextService, RouteMatcher, RouterLinkComponent, RouterLinkCore, RouterOutletComponent, RouterService, SIGNAL_MARKER, SelectComponent, Service, SidebarComponent, SidebarGroupComponent, SidebarItemComponent, SignalEffect, SignalStoreService, SignupPageComponent, SliderComponent, SpinnerComponent, StackComponent, StepComponent, StepPanelComponent, StepsComponent, TabComponent, TabPanelComponent, TableComponent, TabsComponent, TagComponent, TemplateResult, TextareaComponent, ToastComponent, ToastContainerComponent, ToastService, ToggleComponent, TooltipComponent, Validators, VirtualScroller, activityFeedItemStyles, activityFeedItemTemplate, activityFeedStyles, activityFeedTemplate, allTokens, announce, appShellStyles, appShellTemplate, appendQueryParams, applyGlobalStyles, applyTheme, arrow, attributeNames, attributeTypes, autoUpdate, baseThemeCss, batch, bootstrap, borderTokens, breadcrumbItemStyles, breadcrumbItemTemplate, breadcrumbStyles, breadcrumbTemplate, breakpointTokens, breakpoints, buildPathFromRoute, calendarViewStyles, calendarViewTemplate, checkboxAdapter, classMap, clearCrossRootDescription, clickOutside, colorTokens, componentBaseStyles, computePosition, computed, containerStyles, containerTemplate, createAction, createAsyncValidator, createBrandTheme, createDeactivateGuard, createFocusTrap, createFormArray, createFormControl, createFormGroup, createGuard, createLiveRegion, createReducer, createResolver, createState, createTheme, createToken, createValidator, css, darkTheme, darkThemeCss, dashboardPageStyles, dashboardPageTemplate, defineConfig, defineLegacyAliases, describeToken, devWarn, directive, disposeContainerParts, disposeDirectiveState, disposePart, disposeParts, drawerStyles, drawerTemplate, dropdownGroupStyles, dropdownGroupTemplate, dropdownItemStyles, dropdownItemTemplate, dropdownSeparatorStyles, dropdownSeparatorTemplate, dropdownStyles, dropdownTemplate, effect, emit, environment, findRouteByName, flip, focusFirst, focusLast, focusTrap, focusVisible, formControlDirective, formFieldStyles, formFieldTemplate, getActiveComponent, getActiveEffect, getAdapter, getAttributeDirective, getComponentDefinition, getComponentDefinitions, getDeepActiveElement, getEnvironment, getFirstFocusable, getFocusableControl, getFocusableElements, getGlobalMessage, getLastFocusable, getRegisteredDirectives, getResolvedTheme, getTheme, getTokenKey, hasAttributeDirective, hasLightSlot, heroSectionStyles, heroSectionTemplate, html, inject, injectOptional, injectTheme, installConsoleApi, installHistoryEvents, isDeepFocusWithin, isDevMode, isDirective, isFocusVisible, isSafeUrl, isSignal, lightTheme, lightThemeCss, listItemStyles, listItemTemplate, listStyles, listTemplate, live, loginPageStyles, loginPageTemplate, matchRouteTree, newID, offset, onAction, onThemeChange, pageHeaderStyles, pageHeaderTemplate, paginationStyles, paginationTemplate, parseUrlParts, portalDirective, primitiveColors, progressStyles, progressTemplate, props, provideConfig, provideHttp, provideRX, provideRouter, radioAdapter, refreshGlobalStyles, registerAdapter, registerAttributeDirective, registerDefaultMessages, render, repeat, repeatRaw, resetDevWarnings, resetStyles, resolveMessage, routerLinkDirective, selectStyles, selectTemplate, setActiveComponent, setActiveEffect, setCrossRootActiveDescendant, setCrossRootDescription, setCrossRootLabel, setDefaultMessage, setDevMode, shadowTokens, shift, sidebarGroupStyles, sidebarGroupTemplate, sidebarItemStyles, sidebarItemTemplate, sidebarStyles, sidebarTemplate, signal, signupPageStyles, signupPageTemplate, sliderStyles, sliderTemplate, spacingTokens, stepPanelStyles, stepPanelTemplate, stepStyles, stepTemplate, stepsStyles, stepsTemplate, styleMap, supportsAriaElementReferences, tabPanelStyles, tabPanelTemplate, tabStyles, tabTemplate, tableStyles, tableTemplate, tabsStyles, tabsTemplate, textAdapter, toastContainerStyles, toastContainerTemplate, toastStyles, toastTemplate, toggleTheme, tokensToCss, tooltipDirective, transitionTokens, typographyTokens, unregisterAttributeDirective, unsafeHTML, untracked, visuallyHiddenStyles, warnDeprecatedOnce, warnDeprecatedTitleOnce, watchLightSlots, watchSlotPresence, when };
 
 //# sourceMappingURL=melodic-components.js.map

@@ -2,6 +2,7 @@ import { MelodicComponent } from '@melodicdev/core';
 import type { IElementRef, OnCreate, OnDestroy, OnRender } from '@melodicdev/core';
 import type { CalendarViewMode, CalendarEvent, CalendarDayCell, CalendarTimeColumn } from './calendar-view.types.js';
 import {
+	setCalendarLocale,
 	toIsoDate,
 	parseDate,
 	addDays,
@@ -51,7 +52,8 @@ import { calendarViewStyles } from './calendar-view.styles.js';
 		'hide-nav',
 		'hide-today-button',
 		'hide-view-selector',
-		'hide-add-button'
+		'hide-add-button',
+		'locale'
 	]
 })
 export class CalendarViewComponent implements IElementRef, OnCreate, OnDestroy, OnRender {
@@ -62,6 +64,14 @@ export class CalendarViewComponent implements IElementRef, OnCreate, OnDestroy, 
 
 	/** Navigated date (ISO date string) */
 	public date = '';
+
+	/**
+	 * BCP 47 locale for month and weekday names. Defaults to the document's
+	 * `lang` (then the browser's) — these used to be hardcoded English arrays,
+	 * so the calendar showed "January" and "Mon" on every page regardless of
+	 * language.
+	 */
+	public locale = '';
 
 	/** Day the week starts on (0=Sunday, 1=Monday) */
 	public weekStartsOn = 0;
@@ -120,6 +130,7 @@ export class CalendarViewComponent implements IElementRef, OnCreate, OnDestroy, 
 	}
 
 	public onCreate(): void {
+		setCalendarLocale(this.locale);
 		// Initialize date if not set
 		if (!this.date) {
 			const now = new Date();
@@ -151,6 +162,10 @@ export class CalendarViewComponent implements IElementRef, OnCreate, OnDestroy, 
 	}
 
 	public onRender(): void {
+		// Re-apply before every render, so a later `locale` write is picked up
+		// by the month/weekday getters the template is about to read.
+		setCalendarLocale(this.locale);
+
 		// Auto-scroll time grid to ~6 AM on initial load
 		if ((this.view === 'week' || this.view === 'day') && !this._hasScrolledToTime) {
 			const shadow = this.elementRef.shadowRoot;
@@ -238,7 +253,7 @@ export class CalendarViewComponent implements IElementRef, OnCreate, OnDestroy, 
 
 	public get dayViewDateLabel(): string {
 		const d = this._currentDate;
-		return d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+		return d.toLocaleDateString(this.locale || undefined, { weekday: 'long', month: 'long', day: 'numeric' });
 	}
 
 	/* ── Mini calendar getters (day view sidebar) ── */

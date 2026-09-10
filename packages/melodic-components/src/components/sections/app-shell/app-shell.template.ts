@@ -17,6 +17,7 @@ export function appShellTemplate(c: AppShellComponent) {
 				'ml-app-shell--header-fixed': headerFixed,
 				'ml-app-shell--mobile-open': mobileOpen
 			})}
+			@keydown=${c.handleKeyDown}
 		>
 			${when(isMobile, () => html`
 				<div
@@ -29,10 +30,12 @@ export function appShellTemplate(c: AppShellComponent) {
 			`)}
 
 			<aside
+				id="app-shell-sidebar"
 				class=${classMap({
 					'ml-app-shell__sidebar': true,
 					'ml-app-shell__sidebar--mobile-open': mobileOpen
 				})}
+				aria-hidden=${isMobile && !mobileOpen ? 'true' : 'false'}
 			>
 				<slot name="sidebar"></slot>
 			</aside>
@@ -44,6 +47,8 @@ export function appShellTemplate(c: AppShellComponent) {
 							class="ml-app-shell__menu-btn"
 							type="button"
 							aria-label="Toggle navigation"
+							aria-expanded=${mobileOpen ? 'true' : 'false'}
+							aria-controls="app-shell-sidebar"
 							@click=${c.toggleMobileSidebar}
 						>
 							<svg width="20" height="20" viewBox="0 0 20 20" fill="none">

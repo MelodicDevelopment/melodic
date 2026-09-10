@@ -48,12 +48,12 @@ export class ContainerComponent implements IElementRef {
 			full: '100%'
 		};
 
+		// Component-scoped custom properties, not inline declarations — see the
+		// note on ml-stack.getStyles().
 		return {
-			'max-width': maxWidthMap[this.size],
-			'padding-left': `var(--ml-space-${this.padding})`,
-			'padding-right': `var(--ml-space-${this.padding})`,
-			'margin-left': this.centered ? 'auto' : '0',
-			'margin-right': this.centered ? 'auto' : '0'
+			'--ml-container-max-width': maxWidthMap[this.size],
+			'--ml-container-padding-x': `var(--ml-space-${this.padding})`,
+			'--ml-container-margin-x': this.centered ? 'auto' : '0'
 		};
 	}
 }

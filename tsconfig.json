@@ -85,7 +85,9 @@
 			"@melodicdev/components/login-page": ["packages/melodic-components/src/components/pages/auth/index.ts"],
 			"@melodicdev/components/signup-page": ["packages/melodic-components/src/components/pages/auth/index.ts"],
 			"@melodicdev/components/dashboard-page": ["packages/melodic-components/src/components/pages/dashboard/index.ts"],
-			"@melodicdev/components/directives": ["packages/melodic-components/src/directives/index.ts"]
+			"@melodicdev/components/directives": ["packages/melodic-components/src/directives/index.ts"],
+			"@melodicdev/components/utils": ["packages/melodic-components/src/utils/index.ts"],
+			"@melodicdev/components/functions": ["packages/melodic-components/src/functions/index.ts"]
 		},
 
 		/* Linting */

@@ -14,6 +14,10 @@ export const appShellStyles = () => css`
 
 		/* Mobile sidebar */
 		--ml-app-shell-sidebar-width: var(--ml-sidebar-width, 280px);
+		--ml-app-shell-sidebar-collapsed-width: var(--ml-sidebar-collapsed-width, 64px);
+		/* Viewport width below which the sidebar becomes a drawer. Kept in one
+		   place so the CSS media query and the component's matchMedia agree. */
+		--ml-app-shell-mobile-breakpoint: 768px;
 		--ml-app-shell-sidebar-bg: var(--ml-color-surface);
 		--ml-app-shell-sidebar-transition: var(--ml-duration-200);
 
@@ -46,6 +50,17 @@ export const appShellStyles = () => css`
 		grid-template-rows: 1fr;
 		height: 100%;
 		overflow: hidden;
+	}
+
+	/*
+	 * Collapsed sidebar: narrow the sidebar column to an icon rail. This
+	 * modifier class was rendered but had no rules at all, so the documented
+	 * icon-only collapse did nothing.
+	 */
+	.ml-app-shell--sidebar-collapsed .ml-app-shell__sidebar {
+		width: var(--ml-app-shell-sidebar-collapsed-width);
+		min-width: var(--ml-app-shell-sidebar-collapsed-width);
+		transition: width var(--ml-app-shell-sidebar-transition) var(--ml-ease-in-out);
 	}
 
 	/* Sidebar on the right */

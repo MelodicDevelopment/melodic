@@ -1,4 +1,5 @@
 import { css } from '@melodicdev/core';
+import { visuallyHiddenStyles } from '../../../utils/styles/visually-hidden.styles.js';
 
 export const spinnerStyles = () => css`
 	:host {
@@ -75,15 +76,5 @@ export const spinnerStyles = () => css`
 		}
 	}
 
-	.visually-hidden {
-		position: absolute;
-		width: 1px;
-		height: 1px;
-		padding: 0;
-		margin: -1px;
-		overflow: hidden;
-		clip: rect(0, 0, 0, 0);
-		white-space: nowrap;
-		border: 0;
-	}
+	${visuallyHiddenStyles}
 `;

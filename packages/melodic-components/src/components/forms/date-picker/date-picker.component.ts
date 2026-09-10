@@ -14,18 +14,36 @@ registerAdapter<string>((el) => el.tagName === 'ML-DATE-PICKER', {
 	setDisabled: (el, disabled) => { (el as unknown as { disabled: boolean }).disabled = disabled; }
 });
 
-/** Format an ISO date (YYYY-MM-DD) for display as MM/DD/YYYY. */
-function formatDisplayDate(iso: string): string {
+/**
+ * Format an ISO date (YYYY-MM-DD) for display in `locale`.
+ *
+ * The display format used to be hardcoded MM/DD/YYYY, which is wrong almost
+ * everywhere outside the US. `Intl` picks the locale's own numeric order.
+ */
+function formatDisplayDate(iso: string, locale?: string): string {
 	const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso ?? '');
 	if (!match) return iso ?? '';
-	return `${match[2]}/${match[3]}/${match[1]}`;
+
+	const date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+	return new Intl.DateTimeFormat(locale || undefined, { year: 'numeric', month: '2-digit', day: '2-digit' }).format(date);
+}
+
+/** Order of the numeric parts in `locale`'s short date format. */
+function localeDateOrder(locale?: string): ('year' | 'month' | 'day')[] {
+	const parts = new Intl.DateTimeFormat(locale || undefined, { year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(
+		new Date(2001, 1, 3)
+	);
+
+	return parts
+		.filter((part): part is Intl.DateTimeFormatPart & { type: 'year' | 'month' | 'day' } => part.type === 'year' || part.type === 'month' || part.type === 'day')
+		.map((part) => part.type);
 }
 
 /**
  * Parse typed text into an ISO date (YYYY-MM-DD).
  * Accepts `YYYY-MM-DD`, `MM/DD/YYYY`, and `M/D/YYYY`. Returns null when invalid.
  */
-function parseDateInput(text: string): string | null {
+function parseDateInput(text: string, locale?: string): string | null {
 	const trimmed = text.trim();
 	let year: number;
 	let month: number;
@@ -37,11 +55,24 @@ function parseDateInput(text: string): string | null {
 		month = Number(match[2]);
 		day = Number(match[3]);
 	} else {
-		match = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(trimmed);
+		// Accept the locale's own part order rather than assuming MM/DD/YYYY —
+		// a user typing 03/02/2001 in en-GB means 3 February.
+		match = /^(\d{1,4})[/.-](\d{1,2})[/.-](\d{1,4})$/.exec(trimmed);
 		if (!match) return null;
-		month = Number(match[1]);
-		day = Number(match[2]);
-		year = Number(match[3]);
+
+		const order = localeDateOrder(locale);
+		const values = { year: 0, month: 0, day: 0 };
+		order.forEach((part, index) => {
+			values[part] = Number(match![index + 1]);
+		});
+
+		year = values.year;
+		month = values.month;
+		day = values.day;
+
+		if (year < 100) {
+			year += year < 50 ? 2000 : 1900;
+		}
 	}
 
 	if (month < 1 || month > 12) return null;
@@ -71,7 +102,7 @@ function parseDateInput(text: string): string | null {
 	selector: 'ml-date-picker',
 	template: datePickerTemplate,
 	styles: datePickerStyles,
-	attributes: ['value', 'placeholder', 'label', 'hint', 'error', 'size', 'disabled', 'required', 'min', 'max', 'min-year', 'max-year']
+	attributes: ['value', 'placeholder', 'label', 'hint', 'error', 'size', 'disabled', 'required', 'min', 'max', 'min-year', 'max-year', 'locale']
 })
 export class DatePickerComponent implements IElementRef, OnCreate, OnDestroy {
 	public elementRef!: HTMLElement;
@@ -100,6 +131,13 @@ export class DatePickerComponent implements IElementRef, OnCreate, OnDestroy {
 	/** Required state */
 	public required = false;
 
+	/**
+	 * BCP 47 locale for the displayed and accepted date format. Defaults to
+	 * the document's `lang`, then the browser's — the format used to be
+	 * hardcoded MM/DD/YYYY.
+	 */
+	public locale = '';
+
 	/** Minimum selectable date (YYYY-MM-DD) */
 	public min = '';
 
@@ -123,7 +161,7 @@ export class DatePickerComponent implements IElementRef, OnCreate, OnDestroy {
 
 	/** The formatted text shown in the input (MM/DD/YYYY) */
 	public get displayValue(): string {
-		return formatDisplayDate(this.value);
+		return formatDisplayDate(this.value, this.locale);
 	}
 
 	public onCreate(): void {
@@ -162,12 +200,12 @@ export class DatePickerComponent implements IElementRef, OnCreate, OnDestroy {
 			return;
 		}
 
-		const iso = parseDateInput(text);
+		const iso = parseDateInput(text, this.locale);
 		if (iso && this.isWithinRange(iso)) {
 			this.commitValue(iso);
 			// Normalize the display immediately (re-render may be skipped when the
 			// committed value is unchanged).
-			input.value = formatDisplayDate(iso);
+			input.value = formatDisplayDate(iso, this.locale);
 		} else {
 			// Invalid or out-of-range input: revert to the last committed value,
 			// matching what the calendar enforces for min/max.

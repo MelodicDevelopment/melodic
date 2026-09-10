@@ -392,7 +392,13 @@ export class SelectComponent implements IElementRef, OnCreate, OnDestroy {
 		switch (event.key) {
 			case 'Enter':
 			case ' ':
-				if (isSearchInput) return;
+				// Space types a space in the search box, but Enter must commit
+				// the focused option from there too — in multiple mode the
+				// search input holds focus for the whole interaction, so Enter
+				// could not select anything at all.
+				if (isSearchInput && (event.key === ' ' || !this.isOpen || this.focusedIndex < 0)) {
+					return;
+				}
 				event.preventDefault();
 				if (this.isOpen && this.focusedIndex >= 0) {
 					const option = this.getActiveOptions()[this.focusedIndex];

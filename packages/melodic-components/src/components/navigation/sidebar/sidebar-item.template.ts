@@ -1,5 +1,6 @@
 import { html, classMap, when } from '@melodicdev/core';
 import type { SidebarItemComponent } from './sidebar-item.component.js';
+import { routeAnchorClick } from '../functions/route-link.function.js';
 
 export function sidebarItemTemplate(c: SidebarItemComponent) {
 	const level = parseInt(c.level, 10) || 0;
@@ -53,7 +54,10 @@ export function sidebarItemTemplate(c: SidebarItemComponent) {
 						href=${c.href}
 						?target=${c.external ? '_blank' : null}
 						?rel=${c.external ? 'noopener noreferrer' : null}
-						@click=${c.handleClick}
+						@click=${(event: MouseEvent) => {
+							routeAnchorClick(event, c.href, { external: c.external });
+							c.handleClick(event);
+						}}
 					>
 						${content}
 					</a>

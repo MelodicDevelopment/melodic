@@ -8,6 +8,10 @@ export function toastContainerTemplate(c: ToastContainerComponent) {
 				'ml-toast-container': true,
 				[`ml-toast-container--${c.position}`]: true
 			})}
+			role="region"
+			aria-label="Notifications"
+			aria-live="polite"
+			aria-relevant="additions"
 		>
 			<slot></slot>
 		</div>

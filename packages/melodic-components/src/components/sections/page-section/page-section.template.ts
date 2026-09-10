@@ -1,6 +1,7 @@
 import { html, classMap, when } from '@melodicdev/core';
 import type { PageSectionComponent } from './page-section.component.js';
 import { sanitizeHref } from './sanitize-href.function.js';
+import { routeAnchorClick } from '../../navigation/functions/route-link.function.js';
 
 /**
  * The header (and its action slot) is always rendered so `slotchange` fires
@@ -31,7 +32,11 @@ export function pageSectionTemplate(c: PageSectionComponent) {
 				<div class="ml-page-section__action">
 					<slot name="action">
 						${when(!!c.actionLabel, () => html`
-							<a class="ml-page-section__action-link" href=${sanitizeHref(c.actionHref)}>${c.actionLabel}</a>
+							<a
+								class="ml-page-section__action-link"
+								href=${sanitizeHref(c.actionHref)}
+								@click=${(event: MouseEvent) => routeAnchorClick(event, sanitizeHref(c.actionHref))}
+							>${c.actionLabel}</a>
 						`)}
 					</slot>
 				</div>

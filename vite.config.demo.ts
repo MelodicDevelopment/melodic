@@ -43,7 +43,6 @@ export default defineConfig({
 			'@melodicdev/components/tag': resolve(__dirname, 'packages/melodic-components/src/components/data-display/tag/index.ts'),
 			'@melodicdev/components/tooltip': resolve(__dirname, 'packages/melodic-components/src/components/overlays/tooltip/index.ts'),
 			'@melodicdev/components/icon': resolve(__dirname, 'packages/melodic-components/src/components/general/icon/index.ts'),
-			'@melodicdev/components/icons': resolve(__dirname, 'packages/melodic-components/src/icons/index.ts'),
 			'@melodicdev/components/tabs': resolve(__dirname, 'packages/melodic-components/src/components/navigation/tabs/index.ts'),
 			'@melodicdev/components/dialog': resolve(__dirname, 'packages/melodic-components/src/components/overlays/dialog/index.ts'),
 			'@melodicdev/components/popover': resolve(__dirname, 'packages/melodic-components/src/components/overlays/popover/index.ts'),
@@ -77,6 +76,8 @@ export default defineConfig({
 			'@melodicdev/components/signup-page': resolve(__dirname, 'packages/melodic-components/src/components/pages/auth/index.ts'),
 			'@melodicdev/components/dashboard-page': resolve(__dirname, 'packages/melodic-components/src/components/pages/dashboard/index.ts'),
 			'@melodicdev/components/directives': resolve(__dirname, 'packages/melodic-components/src/directives/index.ts'),
+			'@melodicdev/components/utils': resolve(__dirname, 'packages/melodic-components/src/utils/index.ts'),
+			'@melodicdev/components/functions': resolve(__dirname, 'packages/melodic-components/src/functions/index.ts'),
 			'@melodicdev/components': resolve(__dirname, 'packages/melodic-components/src/index.ts')
 		}
 	},

@@ -87,12 +87,23 @@ export class PaginationComponent implements IElementRef {
 		];
 	}
 
+	/**
+	 * The page actually being displayed, clamped into `[1, totalPages]`.
+	 *
+	 * `pages` already clamps, so a `page` outside the range (a filter that
+	 * shrank the result set while the user was on page 9) rendered a list where
+	 * nothing matched `page` — no active styling and no `aria-current` at all.
+	 */
+	public get currentPage(): number {
+		return Math.min(Math.max(1, Number(this.page) || 1), Math.max(1, this.totalPages));
+	}
+
 	public get hasPrevious(): boolean {
-		return this.page > 1;
+		return this.currentPage > 1;
 	}
 
 	public get hasNext(): boolean {
-		return this.page < this.totalPages;
+		return this.currentPage < this.totalPages;
 	}
 
 	public goToPage = (page: number): void => {

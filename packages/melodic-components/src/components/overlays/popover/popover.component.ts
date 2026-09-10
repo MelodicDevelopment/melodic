@@ -69,8 +69,26 @@ export class PopoverComponent implements IElementRef, OnCreate, OnDestroy {
 		const popoverEl = this.getPopoverEl();
 		if (popoverEl) {
 			popoverEl.addEventListener('toggle', this.handleToggle);
+			popoverEl.addEventListener('keydown', this.handleKeyDown);
 		}
 	}
+
+	/**
+	 * `popover="manual"` opts out of the platform's light-dismiss AND of its
+	 * close watcher, so Escape did nothing — and because the popover traps
+	 * focus, a keyboard user had no way out of it at all. Close on Escape
+	 * ourselves; a manual popover that must not be dismissible should not trap
+	 * focus in the first place.
+	 */
+	private readonly handleKeyDown = (event: KeyboardEvent): void => {
+		if (event.key !== 'Escape' || !this.isOpen || !this.manual) {
+			return;
+		}
+
+		event.preventDefault();
+		event.stopPropagation();
+		this.close();
+	};
 
 	public onDestroy(): void {
 		this._positioner.stop();
@@ -79,6 +97,7 @@ export class PopoverComponent implements IElementRef, OnCreate, OnDestroy {
 		const popoverEl = this.getPopoverEl();
 		if (popoverEl) {
 			popoverEl.removeEventListener('toggle', this.handleToggle);
+			popoverEl.removeEventListener('keydown', this.handleKeyDown);
 		}
 	}
 

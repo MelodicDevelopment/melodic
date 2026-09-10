@@ -2,8 +2,14 @@ import type { UniqueID } from '../../../functions';
 import type { IDialogConfig } from './dialog-config.interface';
 
 export class DialogRef<TResult = unknown, TData = unknown> {
-	private readonly _afterOpenedCallbacks: (() => void)[] = [];
-	private readonly _afterClosedCallbacks: ((result: TResult | undefined) => void)[] = [];
+	// One-shot listeners for the CURRENT open cycle. An inline <ml-dialog> keeps
+	// the same DialogRef across opens, so callbacks that were never cleared
+	// accumulated: reopening a dialog ten times ran afterClosed ten times.
+	private _afterOpenedCallbacks: (() => void)[] = [];
+	private _afterClosedCallbacks: ((result: TResult | undefined) => void)[] = [];
+	// Persistent listeners, kept across opens.
+	private readonly _openedListeners = new Set<() => void>();
+	private readonly _closedListeners = new Set<(result: TResult | undefined) => void>();
 	private _data: TData | undefined;
 	private _disableClose = false;
 	private _pendingResult: TResult | undefined;
@@ -70,7 +76,10 @@ export class DialogRef<TResult = unknown, TData = unknown> {
 		this._popoversDismissed = false;
 		this._pendingResult = undefined;
 		this._dialogEl.showModal();
-		this._afterOpenedCallbacks.forEach((callback) => callback());
+		const opened = this._afterOpenedCallbacks;
+		this._afterOpenedCallbacks = [];
+		opened.forEach((callback) => callback());
+		this._openedListeners.forEach((callback) => callback());
 		this._dialogEl.dispatchEvent(new CustomEvent('ml:open', { bubbles: true, composed: true }));
 	}
 
@@ -86,20 +95,41 @@ export class DialogRef<TResult = unknown, TData = unknown> {
 	}
 
 	/**
-	 * Register a callback invoked after the dialog opens. Multiple callbacks
-	 * accumulate and are invoked in registration order.
+	 * Run `callback` the next time this dialog opens, then forget it.
+	 *
+	 * One-shot: an inline `<ml-dialog>` reuses its DialogRef, so a callback
+	 * that stayed registered fired once per previous open as well. Use
+	 * `onOpened()` for a listener that should survive every open. Returns an
+	 * unsubscribe function.
 	 */
-	public afterOpened(callback: () => void): void {
+	public afterOpened(callback: () => void): () => void {
 		this._afterOpenedCallbacks.push(callback);
+		return () => {
+			this._afterOpenedCallbacks = this._afterOpenedCallbacks.filter((entry) => entry !== callback);
+		};
 	}
 
 	/**
-	 * Register a callback invoked after the dialog closes — including native
-	 * dismissals (Escape / backdrop). Multiple callbacks accumulate and are
-	 * invoked in registration order.
+	 * Run `callback` the next time this dialog closes — including native
+	 * dismissals (Escape / backdrop) — then forget it. See `afterOpened()`.
 	 */
-	public afterClosed(callback: (result: TResult | undefined) => void): void {
+	public afterClosed(callback: (result: TResult | undefined) => void): () => void {
 		this._afterClosedCallbacks.push(callback);
+		return () => {
+			this._afterClosedCallbacks = this._afterClosedCallbacks.filter((entry) => entry !== callback);
+		};
+	}
+
+	/** Listen to EVERY open of this dialog. Returns an unsubscribe function. */
+	public onOpened(callback: () => void): () => void {
+		this._openedListeners.add(callback);
+		return () => this._openedListeners.delete(callback);
+	}
+
+	/** Listen to EVERY close of this dialog. Returns an unsubscribe function. */
+	public onClosed(callback: (result: TResult | undefined) => void): () => void {
+		this._closedListeners.add(callback);
+		return () => this._closedListeners.delete(callback);
 	}
 
 	private onCancel(event: Event): void {
@@ -131,7 +161,10 @@ export class DialogRef<TResult = unknown, TData = unknown> {
 
 		const result = this._pendingResult;
 		this._pendingResult = undefined;
-		this._afterClosedCallbacks.forEach((callback) => callback(result));
+		const closed = this._afterClosedCallbacks;
+		this._afterClosedCallbacks = [];
+		closed.forEach((callback) => callback(result));
+		this._closedListeners.forEach((callback) => callback(result));
 		this._dialogEl.dispatchEvent(new CustomEvent('ml:close', { bubbles: true, composed: true, detail: { result } }));
 	}
 

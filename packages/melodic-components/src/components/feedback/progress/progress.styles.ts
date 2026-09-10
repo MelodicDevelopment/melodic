@@ -2,6 +2,11 @@ import { css } from '@melodicdev/core';
 
 export const progressStyles = () => css`
 	:host {
+		/* ── Progress: track heights ── */
+		--ml-progress-sm-height: 4px;
+		--ml-progress-md-height: 8px;
+		--ml-progress-lg-height: 12px;
+
 		display: block;
 
 		/* ---- Linear ---- */
@@ -105,15 +110,15 @@ export const progressStyles = () => css`
 	}
 
 	.ml-progress--sm .ml-progress__track {
-		height: 4px;
+		height: var(--ml-progress-sm-height);
 	}
 
 	.ml-progress--md .ml-progress__track {
-		height: 8px;
+		height: var(--ml-progress-md-height);
 	}
 
 	.ml-progress--lg .ml-progress__track {
-		height: 12px;
+		height: var(--ml-progress-lg-height);
 	}
 
 	.ml-progress__fill {

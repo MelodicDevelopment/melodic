@@ -11,7 +11,7 @@ const TOKEN_NAME_PATTERN = /^--[a-zA-Z0-9_-]+$/;
  * arbitrary CSS rules (`;`, `{`, `}`) or markup when the returned CSS string
  * is embedded in a page (`<`, `>`), plus control characters.
  */
-// eslint-disable-next-line no-control-regex
+ 
 const UNSAFE_VALUE_PATTERN = /[;{}<>\u0000-\u001f\u007f]/;
 
 function assertValidThemeName(name: string): void {

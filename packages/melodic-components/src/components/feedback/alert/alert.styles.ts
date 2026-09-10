@@ -27,6 +27,31 @@ export const alertStyles = () => css`
 		/* Transition */
 		--ml-alert-transition-duration: var(--ml-duration-150);
 		--ml-alert-transition-easing: var(--ml-ease-in-out);
+
+		/* ── Alert: variants ──
+		   Declared here so every property the rules reference has a value on
+		   :host. Without these declarations the variant rules resolved against
+		   nothing when the theme did not define them, and the alert rendered
+		   transparent. */
+		--ml-alert-info-bg: var(--ml-color-info-subtle, var(--ml-color-surface-secondary));
+		--ml-alert-info-border: var(--ml-color-info-border, var(--ml-color-border));
+		--ml-alert-info-text: var(--ml-color-info-text, var(--ml-color-text));
+		--ml-alert-info-icon: var(--ml-color-info, var(--ml-color-text-secondary));
+
+		--ml-alert-success-bg: var(--ml-color-success-subtle, var(--ml-color-surface-secondary));
+		--ml-alert-success-border: var(--ml-color-success-border, var(--ml-color-border));
+		--ml-alert-success-text: var(--ml-color-success-text, var(--ml-color-text));
+		--ml-alert-success-icon: var(--ml-color-success, var(--ml-color-text-secondary));
+
+		--ml-alert-warning-bg: var(--ml-color-warning-subtle, var(--ml-color-surface-secondary));
+		--ml-alert-warning-border: var(--ml-color-warning-border, var(--ml-color-border));
+		--ml-alert-warning-text: var(--ml-color-warning-text, var(--ml-color-text));
+		--ml-alert-warning-icon: var(--ml-color-warning, var(--ml-color-text-secondary));
+
+		--ml-alert-error-bg: var(--ml-color-error-subtle, var(--ml-color-surface-secondary));
+		--ml-alert-error-border: var(--ml-color-error-border, var(--ml-color-border));
+		--ml-alert-error-text: var(--ml-color-error-text, var(--ml-color-text));
+		--ml-alert-error-icon: var(--ml-color-error, var(--ml-color-text-secondary));
 	}
 
 	:host([hidden]) {

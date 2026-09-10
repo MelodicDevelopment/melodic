@@ -1,17 +1,78 @@
 import type { CalendarEvent, CalendarDayCell, CalendarTimeColumn, PositionedEvent } from './calendar-view.types.js';
 
-const MONTH_NAMES = [
-	'January', 'February', 'March', 'April', 'May', 'June',
-	'July', 'August', 'September', 'October', 'November', 'December'
-];
+/**
+ * Month and weekday names, resolved through `Intl` for the active locale.
+ *
+ * These were hardcoded English arrays, so the calendar rendered "January" and
+ * "Mon" no matter what language the page was in. `setCalendarLocale()` (or
+ * `<ml-calendar-view locale="fr-FR">`) changes them; the default follows
+ * `document.documentElement.lang`, falling back to the browser locale.
+ *
+ * The formatters are built once per locale — constructing an `Intl` formatter
+ * is expensive and these run inside render.
+ */
+let activeLocale: string | undefined;
 
-const MONTH_ABBREVS = [
-	'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-	'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
-];
+export function setCalendarLocale(locale: string | undefined): void {
+	activeLocale = locale || undefined;
+}
 
-const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-const DAY_ABBREVS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+function resolvedLocale(): string | undefined {
+	if (activeLocale) {
+		return activeLocale;
+	}
+
+	if (typeof document !== 'undefined') {
+		const lang = document.documentElement.lang?.trim();
+		if (lang) {
+			return lang;
+		}
+	}
+
+	return undefined;
+}
+
+const nameCache = new Map<string, string[]>();
+
+function names(kind: 'month' | 'weekday', width: 'long' | 'short'): string[] {
+	const locale = resolvedLocale() ?? 'default';
+	const key = `${locale}:${kind}:${width}`;
+	const cached = nameCache.get(key);
+	if (cached) {
+		return cached;
+	}
+
+	const formatter = new Intl.DateTimeFormat(resolvedLocale(), kind === 'month' ? { month: width } : { weekday: width });
+
+	// 2021-01-03 was a Sunday, so index 0 is Sunday, matching Date#getDay().
+	const values =
+		kind === 'month'
+			? Array.from({ length: 12 }, (_, i) => formatter.format(new Date(2021, i, 1)))
+			: Array.from({ length: 7 }, (_, i) => formatter.format(new Date(2021, 0, 3 + i)));
+
+	nameCache.set(key, values);
+	return values;
+}
+
+/** Full month names for the active locale ("January"). */
+export function monthNames(): string[] {
+	return names('month', 'long');
+}
+
+/** Abbreviated month names for the active locale ("Jan"). */
+export function monthAbbrevs(): string[] {
+	return names('month', 'short');
+}
+
+/** Full weekday names, Sunday first, for the active locale. */
+export function dayNames(): string[] {
+	return names('weekday', 'long');
+}
+
+/** Abbreviated weekday names, Sunday first, for the active locale. */
+export function dayAbbrevs(): string[] {
+	return names('weekday', 'short');
+}
 
 /** 30-minute time slots = 48 rows for 24 hours */
 export const TIME_INCREMENT = 30;
@@ -95,12 +156,12 @@ export function formatTime(iso: string): string {
 }
 
 export function formatMonthYear(date: Date): string {
-	return `${MONTH_NAMES[date.getMonth()]} ${date.getFullYear()}`;
+	return `${monthNames()[date.getMonth()]} ${date.getFullYear()}`;
 }
 
 export function formatDateRange(start: Date, end: Date): string {
-	const sMonth = MONTH_ABBREVS[start.getMonth()];
-	const eMonth = MONTH_ABBREVS[end.getMonth()];
+	const sMonth = monthAbbrevs()[start.getMonth()];
+	const eMonth = monthAbbrevs()[end.getMonth()];
 	if (start.getMonth() === end.getMonth() && start.getFullYear() === end.getFullYear()) {
 		return `${sMonth} ${start.getDate()} – ${end.getDate()}, ${start.getFullYear()}`;
 	}
@@ -171,7 +232,7 @@ export function getWeekDays(date: Date, weekStartsOn: number = 0): Date[] {
 export function getWeekdayHeaders(weekStartsOn: number = 0): { short: string; full: string }[] {
 	return Array.from({ length: 7 }, (_, i) => {
 		const idx = (weekStartsOn + i) % 7;
-		return { short: DAY_ABBREVS[idx], full: DAY_NAMES[idx] };
+		return { short: dayAbbrevs()[idx], full: dayNames()[idx] };
 	});
 }
 
@@ -183,15 +244,15 @@ export function getEventsForDate(events: CalendarEvent[], iso: string): Calendar
 }
 
 export function getMonthAbbrev(date: Date): string {
-	return MONTH_ABBREVS[date.getMonth()];
+	return monthAbbrevs()[date.getMonth()];
 }
 
 export function getDayAbbrev(date: Date): string {
-	return DAY_ABBREVS[date.getDay()];
+	return dayAbbrevs()[date.getDay()];
 }
 
 export function getDayName(date: Date): string {
-	return DAY_NAMES[date.getDay()];
+	return dayNames()[date.getDay()];
 }
 
 /** Convert minutes from midnight to a 1-based grid row (30-min increments, 48 rows) */
@@ -329,7 +390,7 @@ export function getWeekColumns(date: Date, weekStartsOn: number, events: Calenda
 		const dayEvents = getEventsForDate(events, iso).filter(e => !e.allDay);
 		return {
 			date: iso,
-			dayLabel: DAY_ABBREVS[d.getDay()],
+			dayLabel: dayAbbrevs()[d.getDay()],
 			dayNumber: d.getDate(),
 			isToday: isToday(d),
 			events: layoutOverlappingEvents(dayEvents)
@@ -342,7 +403,7 @@ export function getDayColumn(date: Date, events: CalendarEvent[]): CalendarTimeC
 	const dayEvents = getEventsForDate(events, iso).filter(e => !e.allDay);
 	return {
 		date: iso,
-		dayLabel: DAY_ABBREVS[date.getDay()],
+		dayLabel: dayAbbrevs()[date.getDay()],
 		dayNumber: date.getDate(),
 		isToday: isToday(date),
 		events: layoutOverlappingEvents(dayEvents)

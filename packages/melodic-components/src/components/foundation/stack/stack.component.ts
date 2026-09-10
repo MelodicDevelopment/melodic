@@ -47,6 +47,12 @@ export class StackComponent implements IElementRef {
 	/** Allow items to wrap */
 	public wrap = false;
 
+	/**
+	 * Layout values, exposed as component-scoped custom properties rather than
+	 * inline declarations. An inline `style` beats every stylesheet rule, so
+	 * inline layout could not be overridden — not by a token, not by a class,
+	 * not by a media query.
+	 */
 	public getStyles(): Record<string, string> {
 		const alignMap: Record<Alignment, string> = {
 			start: 'flex-start',
@@ -66,11 +72,11 @@ export class StackComponent implements IElementRef {
 		};
 
 		return {
-			'flex-direction': this.direction === 'vertical' ? 'column' : 'row',
-			gap: `var(--ml-space-${this.gap})`,
-			'align-items': alignMap[this.align],
-			'justify-content': justifyMap[this.justify],
-			'flex-wrap': this.wrap ? 'wrap' : 'nowrap'
+			'--ml-stack-direction': this.direction === 'vertical' ? 'column' : 'row',
+			'--ml-stack-gap': `var(--ml-space-${this.gap})`,
+			'--ml-stack-align': alignMap[this.align],
+			'--ml-stack-justify': justifyMap[this.justify],
+			'--ml-stack-wrap': this.wrap ? 'wrap' : 'nowrap'
 		};
 	}
 }

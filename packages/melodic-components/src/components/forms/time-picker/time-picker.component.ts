@@ -4,6 +4,7 @@ import { registerAdapter } from '@melodicdev/core/forms';
 import { computePosition, autoUpdate, offset, flip, shift } from '../../../utils/positioning/index.js';
 import { timePickerTemplate } from './time-picker.template.js';
 import { timePickerStyles } from './time-picker.styles.js';
+import { getDeepActiveElement } from '../../../utils/accessibility/focus-trap.js';
 
 registerAdapter<string>((el) => el.tagName === 'ML-TIME-PICKER', {
 	inputEvent: 'ml:change',
@@ -209,6 +210,7 @@ export class TimePickerComponent implements IElementRef, OnCreate, OnDestroy {
 	};
 
 	public confirmSelection = (): void => {
+		this.clampEditToRange();
 		let timeStr = `${pad(this.editHour)}:${pad(this.editMinute)}`;
 		if (this.showSeconds) {
 			timeStr += `:${pad(this.editSecond)}`;
@@ -223,6 +225,7 @@ export class TimePickerComponent implements IElementRef, OnCreate, OnDestroy {
 		this.editMinute = now.getMinutes();
 		this.editSecond = now.getSeconds();
 		this.editPeriod = this.editHour >= 12 ? 'PM' : 'AM';
+		this.clampEditToRange();
 	};
 
 	/** Called when the user types a time into the input */
@@ -403,11 +406,56 @@ export class TimePickerComponent implements IElementRef, OnCreate, OnDestroy {
 		popoverEl.style.top = `${y}px`;
 	}
 
+	/**
+	 * Return focus to the input — but only when focus was still inside this
+	 * component (Escape, a selection, a click on the trigger). Closing because
+	 * the user clicked or tabbed somewhere else used to yank focus back here,
+	 * which made the picker impossible to leave.
+	 */
 	private returnFocus(): void {
-		const inputEl = this.getInputEl();
-		if (inputEl) {
-			inputEl.focus();
+		const active = getDeepActiveElement();
+		const focusMovedAway = active !== null && active !== document.body && !this.elementRef.contains(active) && !this.elementRef.shadowRoot?.contains(active);
+
+		if (focusMovedAway) {
+			return;
 		}
+
+		this.getInputEl()?.focus();
+	}
+
+	/** Minutes since midnight for an `HH:mm[:ss]` string, or null. */
+	private toMinutes(time: string): number | null {
+		const parts = time.split(':');
+		if (parts.length < 2) {
+			return null;
+		}
+
+		const hours = Number.parseInt(parts[0], 10);
+		const minutes = Number.parseInt(parts[1], 10);
+		return Number.isNaN(hours) || Number.isNaN(minutes) ? null : hours * 60 + minutes;
+	}
+
+	/**
+	 * Clamp the edited time into the `min`/`max` window.
+	 *
+	 * The typed-input path validated against min/max; the popover's steppers
+	 * and Now button did not, so the picker happily produced an out-of-range
+	 * value the same component would reject when typed.
+	 */
+	private clampEditToRange(): void {
+		const current = this.editHour * 60 + this.editMinute;
+		const min = this.min ? this.toMinutes(this.min) : null;
+		const max = this.max ? this.toMinutes(this.max) : null;
+
+		const clamped = min !== null && current < min ? min : max !== null && current > max ? max : current;
+
+		if (clamped === current) {
+			return;
+		}
+
+		this.editHour = Math.floor(clamped / 60);
+		this.editMinute = clamped % 60;
+		this.editPeriod = this.editHour >= 12 ? 'PM' : 'AM';
 	}
 
 	private getInputEl(): HTMLElement | null {

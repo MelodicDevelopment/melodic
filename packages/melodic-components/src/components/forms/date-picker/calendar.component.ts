@@ -120,6 +120,28 @@ export class CalendarComponent implements IElementRef, OnInit, OnAttributeChange
 		}
 	}
 
+	/**
+	 * `.value=${iso}` never writes an attribute, so navigating to a
+	 * programmatically set date only worked when the consumer happened to use
+	 * `setAttribute`. The property hook covers both, since an observed
+	 * attribute write also lands on the property.
+	 */
+	public onPropertyChange(name: string, _: unknown, newValue: unknown): void {
+		if (name !== 'value' || !newValue) {
+			return;
+		}
+
+		const parts = String(newValue).split('-');
+		if (parts.length !== 3) {
+			return;
+		}
+
+		this.viewYear = Number.parseInt(parts[0], 10);
+		this.viewMonth = Number.parseInt(parts[1], 10) - 1;
+		this.yearPageStart = this.computeYearPageStart(this.viewYear);
+		this.rovingKey = String(newValue);
+	}
+
 	private navigateToValue(): void {
 		if (!this.value) return;
 		const parts = this.value.split('-');

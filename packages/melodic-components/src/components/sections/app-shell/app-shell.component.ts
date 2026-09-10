@@ -3,6 +3,7 @@ import type { IElementRef, OnCreate, OnDestroy } from '@melodicdev/core';
 import { appShellTemplate } from './app-shell.template.js';
 import { appShellStyles } from './app-shell.styles.js';
 import { defineLegacyAliases } from '../../../functions/index.js';
+import { focusFirst } from '../../../utils/accessibility/focus-utils.js';
 
 export type SidebarPosition = 'left' | 'right';
 
@@ -52,8 +53,21 @@ export class AppShellComponent implements IElementRef, OnCreate, OnDestroy {
 	private _mediaQuery: MediaQueryList | null = null;
 	private readonly _handleMediaChange = this.onMediaChange.bind(this);
 
+	/**
+	 * The viewport width below which the sidebar becomes a drawer, read from
+	 * `--ml-app-shell-mobile-breakpoint`. The value used to be hardcoded in
+	 * both the stylesheet and here, so overriding it in CSS left the JS
+	 * behaviour switching at the old width.
+	 */
+	public get mobileBreakpoint(): string {
+		const value = getComputedStyle(this.elementRef).getPropertyValue('--ml-app-shell-mobile-breakpoint').trim();
+		return value || '768px';
+	}
+
 	public onCreate(): void {
-		this._mediaQuery = window.matchMedia('(min-width: 768px)');
+		// Read the breakpoint from the same custom property the stylesheet uses,
+		// so overriding one no longer desynchronises JS from CSS.
+		this._mediaQuery = window.matchMedia(`(min-width: ${this.mobileBreakpoint})`);
 		this._mediaQuery.addEventListener('change', this._handleMediaChange);
 		this.mobile = !this._mediaQuery.matches;
 	}
@@ -65,12 +79,46 @@ export class AppShellComponent implements IElementRef, OnCreate, OnDestroy {
 	/** Toggle mobile sidebar drawer */
 	public toggleMobileSidebar = (): void => {
 		this.mobileOpen = !this.mobileOpen;
+
+		if (this.mobileOpen) {
+			// Move focus into the drawer so a keyboard user lands where the
+			// content is, and Escape has somewhere to close from.
+			queueMicrotask(() => {
+				const sidebar = this.elementRef.shadowRoot?.querySelector('.ml-app-shell__sidebar') as HTMLElement | null;
+				focusFirst(sidebar ?? this.elementRef);
+			});
+		} else {
+			this.focusMenuButton();
+		}
 	};
 
 	/** Close mobile sidebar */
 	public closeMobileSidebar = (): void => {
+		if (!this.mobileOpen) {
+			return;
+		}
+
 		this.mobileOpen = false;
+		this.focusMenuButton();
 	};
+
+	/**
+	 * Escape closes the mobile drawer. It had no keyboard dismissal at all:
+	 * the only way out was clicking the backdrop.
+	 */
+	public handleKeyDown = (event: KeyboardEvent): void => {
+		if (event.key === 'Escape' && this.mobileOpen) {
+			event.preventDefault();
+			this.closeMobileSidebar();
+		}
+	};
+
+	private focusMenuButton(): void {
+		queueMicrotask(() => {
+			const button = this.elementRef.shadowRoot?.querySelector('.ml-app-shell__menu-btn') as HTMLElement | null;
+			button?.focus();
+		});
+	}
 
 	private onMediaChange(event: MediaQueryListEvent): void {
 		this.mobile = !event.matches;

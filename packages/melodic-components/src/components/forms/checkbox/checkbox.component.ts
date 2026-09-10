@@ -29,7 +29,7 @@ registerAdapter<boolean>((el) => el.tagName === 'ML-CHECKBOX', {
 	selector: 'ml-checkbox',
 	template: checkboxTemplate,
 	styles: checkboxStyles,
-	attributes: ['label', 'hint', 'error', 'size', 'checked', 'indeterminate', 'disabled']
+	attributes: ['label', 'hint', 'error', 'size', 'checked', 'indeterminate', 'disabled', 'name', 'value']
 })
 export class CheckboxComponent implements IElementRef {
 	public elementRef!: HTMLElement;
@@ -48,6 +48,12 @@ export class CheckboxComponent implements IElementRef {
 
 	/** Checked state */
 	public checked = false;
+
+	/** Form field name, forwarded to the inner input. */
+	public name = '';
+
+	/** Value submitted when checked (mirrors the native checkbox `value`). */
+	public value = 'on';
 
 	/** Indeterminate state */
 	public indeterminate = false;

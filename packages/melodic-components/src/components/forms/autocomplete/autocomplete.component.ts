@@ -145,6 +145,7 @@ export class AutocompleteComponent implements IElementRef, OnCreate, OnDestroy {
 
 	public onDestroy(): void {
 		this.elementRef.removeEventListener('keydown', this._handleKeyDown);
+		this.getDropdownEl()?.removeEventListener('toggle', this.handlePopoverToggle);
 		this.stopPositioning();
 		this.removeDocumentClickListener();
 		if (this._debounceTimer) {
@@ -269,6 +270,23 @@ export class AutocompleteComponent implements IElementRef, OnCreate, OnDestroy {
 		return this.selectedOption?.label || '';
 	}
 
+	/**
+	 * The platform can hide a popover without going through `close()` — a
+	 * dialog closing above it, another popover taking the top layer, the
+	 * element being removed. Without observing `toggle`, `isOpen` stayed true
+	 * and the component refused to reopen.
+	 */
+	private readonly handlePopoverToggle = (event: Event): void => {
+		const state = (event as ToggleEvent).newState;
+
+		if (state === 'closed' && this.isOpen) {
+			this.isOpen = false;
+			this.focusedIndex = -1;
+			this.stopPositioning();
+			this.removeDocumentClickListener();
+		}
+	};
+
 	/** Open the dropdown */
 	public open = (): void => {
 		if (this.disabled || this.isOpen) return;
@@ -277,6 +295,7 @@ export class AutocompleteComponent implements IElementRef, OnCreate, OnDestroy {
 		const dropdownEl = this.getDropdownEl();
 		if (!dropdownEl) return;
 
+		dropdownEl.addEventListener('toggle', this.handlePopoverToggle);
 		dropdownEl.showPopover();
 		this.isOpen = true;
 		this.focusedIndex = this.findFirstEnabledIndex();
@@ -474,6 +493,22 @@ export class AutocompleteComponent implements IElementRef, OnCreate, OnDestroy {
 			if (generation !== this._searchGeneration) return;
 			this.asyncOptions = results;
 			this.focusedIndex = this.findFirstEnabledIndex();
+		} catch (error) {
+			// A rejected searchFn used to become an unhandled rejection and
+			// leave the spinner running forever. Report it as an event the app
+			// can surface, show no results, and clear loading in `finally`.
+			if (generation === this._searchGeneration) {
+				this.asyncOptions = [];
+				this.focusedIndex = -1;
+				this.elementRef.dispatchEvent(
+					new CustomEvent('ml:search-error', {
+						bubbles: true,
+						composed: true,
+						detail: { query, error }
+					})
+				);
+			}
+			console.error(`[Melodic] ml-autocomplete search failed for '${query}':`, error);
 		} finally {
 			if (generation === this._searchGeneration) {
 				this.loading = false;

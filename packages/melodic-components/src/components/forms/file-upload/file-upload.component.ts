@@ -76,7 +76,7 @@ export class FileUploadComponent implements IElementRef {
 			new CustomEvent('ml:change', {
 				bubbles: true,
 				composed: true,
-				detail: { files: this.files }
+				detail: { files: this.files, removed: [file] }
 			})
 		);
 	};
@@ -160,9 +160,17 @@ export class FileUploadComponent implements IElementRef {
 			});
 		}
 
-		if (this.maxFiles > 0 && validFiles.length > this.maxFiles) {
-			errors.push({ type: 'max-files', message: `Maximum ${this.maxFiles} files allowed` });
-			validFiles = validFiles.slice(0, this.maxFiles);
+		if (this.maxFiles > 0) {
+			// `maxFiles` is a limit on the SELECTION, not on one batch. Counting
+			// per batch let three drops of two files each end up with six files
+			// under `max-files="2"`.
+			const alreadySelected = this.multiple ? this.files.length : 0;
+			const remaining = Math.max(0, this.maxFiles - alreadySelected);
+
+			if (validFiles.length > remaining) {
+				errors.push({ type: 'max-files', message: `Maximum ${this.maxFiles} files allowed` });
+				validFiles = validFiles.slice(0, remaining);
+			}
 		}
 
 		if (errors.length > 0) {
@@ -180,11 +188,14 @@ export class FileUploadComponent implements IElementRef {
 			// multiple mode, replace in single mode.
 			this.files = this.multiple ? [...this.files, ...validFiles] : validFiles.slice(0, 1);
 
+			// Report the full selection, as removeFile does. The two paths used
+			// to disagree — one sent the newly added files, the other the whole
+			// list — so a consumer could not read `detail.files` uniformly.
 			this.elementRef.dispatchEvent(
 				new CustomEvent('ml:change', {
 					bubbles: true,
 					composed: true,
-					detail: { files: validFiles }
+					detail: { files: this.files, added: validFiles }
 				})
 			);
 		}

@@ -16,6 +16,8 @@ export function checkboxTemplate(c: CheckboxComponent) {
 			<input
 				type="checkbox"
 				class="ml-checkbox__input"
+				name="${c.name}"
+				value="${c.value}"
 				.checked=${c.checked}
 				.indeterminate=${c.indeterminate}
 				?disabled=${c.disabled}

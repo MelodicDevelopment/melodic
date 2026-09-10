@@ -46,7 +46,10 @@ export function autocompleteTemplate(c: AutocompleteComponent) {
 					${c.filteredOptions.length
 						? repeat(
 								c.filteredOptions,
-								(option) => `${option.value}-${c.multiple ? c.values.includes(option.value) : c.value === option.value}`,
+								// Key by identity only. Embedding the selection state in the
+							// key made every toggle destroy and rebuild the option's
+							// DOM — losing hover, focus and any in-flight click.
+							(option) => option.value,
 								(option, index) => renderOption(c, option, index)
 							)
 						: c.loading

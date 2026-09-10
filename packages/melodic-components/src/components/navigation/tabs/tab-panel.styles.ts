@@ -2,6 +2,11 @@ import { css } from '@melodicdev/core';
 
 export const tabPanelStyles = () => css`
 	:host {
+		/* ── Tab panel: focus ── */
+		--ml-tab-panel-focus-width: 2px;
+		--ml-tab-panel-focus-color: var(--ml-color-primary);
+		--ml-tab-panel-focus-offset: 2px;
+
 		display: block;
 	}
 
@@ -14,7 +19,7 @@ export const tabPanelStyles = () => css`
 	}
 
 	.ml-tab-panel:focus-visible {
-		outline: 2px solid var(--ml-color-primary);
-		outline-offset: 2px;
+		outline: var(--ml-tab-panel-focus-width) solid var(--ml-tab-panel-focus-color);
+		outline-offset: var(--ml-tab-panel-focus-offset);
 	}
 `;

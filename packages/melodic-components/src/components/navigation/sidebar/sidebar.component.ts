@@ -3,6 +3,7 @@ import type { IElementRef, OnCreate, OnDestroy, OnRender } from '@melodicdev/cor
 import type { SidebarVariant, SidebarNavGroup, SidebarNavItem } from './sidebar.types.js';
 import { sidebarTemplate } from './sidebar.template.js';
 import { sidebarStyles } from './sidebar.styles.js';
+import { watchLightSlots, hasLightSlot } from '../../../utils/directives/watch-light-slots.js';
 
 /**
  * ml-sidebar - App-level sidebar navigation component
@@ -64,26 +65,31 @@ export class SidebarComponent implements IElementRef, OnCreate, OnDestroy, OnRen
 	private readonly _handleMouseEnter = this.onMouseEnter.bind(this);
 	private readonly _handleMouseLeave = this.onMouseLeave.bind(this);
 
-	/** Check if search slot has content */
-	public get hasSearch(): boolean {
-		return this.elementRef?.querySelector('[slot="search"]') !== null;
-	}
+	/**
+	 * Slot presence, kept in sync from the light DOM.
+	 *
+	 * These were live getters read inside `when()`, so nothing re-rendered when
+	 * content was slotted after mount — an async-rendered user card or search
+	 * box simply never appeared. `watchSlotPresence` cannot help here because
+	 * the slots themselves are conditional.
+	 */
+	public hasSearch = false;
+	public hasFeature = false;
+	public hasUser = false;
 
-	/** Check if feature slot has content */
-	public get hasFeature(): boolean {
-		return this.elementRef?.querySelector('[slot="feature"]') !== null;
-	}
-
-	/** Check if user slot has content */
-	public get hasUser(): boolean {
-		return this.elementRef?.querySelector('[slot="user"]') !== null;
-	}
+	private _slotWatcherCleanup: (() => void) | null = null;
 
 	public onCreate(): void {
 		// Set initial collapsed state based on variant
 		if (this.variant === 'slim') {
 			this.collapsed = true;
 		}
+
+		this._slotWatcherCleanup = watchLightSlots(this.elementRef, () => {
+			this.hasSearch = hasLightSlot(this.elementRef, 'search');
+			this.hasFeature = hasLightSlot(this.elementRef, 'feature');
+			this.hasUser = hasLightSlot(this.elementRef, 'user');
+		});
 
 		// Listen for item click events from children
 		this.elementRef.addEventListener('ml:sidebar-item-click', this._handleItemClick as EventListener);
@@ -100,6 +106,8 @@ export class SidebarComponent implements IElementRef, OnCreate, OnDestroy, OnRen
 	}
 
 	public onDestroy(): void {
+		this._slotWatcherCleanup?.();
+		this._slotWatcherCleanup = null;
 		this.elementRef.removeEventListener('ml:sidebar-item-click', this._handleItemClick as EventListener);
 		this.elementRef.removeEventListener('mouseenter', this._handleMouseEnter);
 		this.elementRef.removeEventListener('mouseleave', this._handleMouseLeave);

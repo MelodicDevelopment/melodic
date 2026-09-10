@@ -4,6 +4,7 @@ import type { DataGridColumn, SortDirection } from './data-grid.types.js';
 import { dataGridTemplate } from './data-grid.template.js';
 import { dataGridStyles } from './data-grid.styles.js';
 import { TableCore } from '../table-core/index.js';
+import { memoOn } from '../table-core/index.js';
 
 /**
  * ml-data-grid — Full-featured data grid with virtual scrolling, sorting, filtering,
@@ -176,19 +177,35 @@ export class DataGridComponent implements IElementRef, OnCreate, OnDestroy, OnRe
 	}
 
 	public onRender(): void {
-		// Update CSS variable for filter row sticky offset
-		const shadow = this.elementRef.shadowRoot;
-		if (shadow) {
-			const headerRow = shadow.querySelector('.ml-data-grid__header-row') as HTMLElement | null;
-			if (headerRow) {
-				const h = headerRow.getBoundingClientRect().height;
-				if (h > 0) {
-					this.elementRef.style.setProperty('--ml-grid-header-h', `${h}px`);
-				}
-			}
+		this.syncHeaderHeight();
+		this._core.syncRenderWindow();
+	}
+
+	/**
+	 * Publish the header height as a CSS variable for the sticky filter row.
+	 *
+	 * `getBoundingClientRect()` forces a synchronous layout, and this ran on
+	 * every render — including the render each `pointermove` of a column
+	 * resize produced. Only write when the value actually changed, and skip
+	 * entirely while resizing (the header height cannot change then).
+	 */
+	private _headerHeight = 0;
+
+	private syncHeaderHeight(): void {
+		if (this.resizingKey) {
+			return;
 		}
 
-		this._core.syncRenderWindow();
+		const headerRow = this.elementRef.shadowRoot?.querySelector('.ml-data-grid__header-row') as HTMLElement | null;
+		if (!headerRow) {
+			return;
+		}
+
+		const height = headerRow.getBoundingClientRect().height;
+		if (height > 0 && height !== this._headerHeight) {
+			this._headerHeight = height;
+			this.elementRef.style.setProperty('--ml-grid-header-h', `${height}px`);
+		}
 	}
 
 	public onDestroy(): void {
@@ -208,26 +225,40 @@ export class DataGridComponent implements IElementRef, OnCreate, OnDestroy, OnRe
 
 	// ── Data pipeline ─────────────────────────────────────────────────────────────
 
+	private readonly _filteredRowsMemo = memoOn<Record<string, unknown>[]>();
+	private readonly _sortedRowsMemo = memoOn<Record<string, unknown>[]>();
+	private readonly _pagedRowsMemo = memoOn<Record<string, unknown>[]>();
+
+	// The filter object is mutated in place, so its identity is not a usable
+	// memo key; its serialized contents are.
+	private get _filterKey(): string {
+		return JSON.stringify(this.filters);
+	}
+
 	public get filteredRows(): Record<string, unknown>[] {
-		if (this.serverSide) return this.rows;
-		const entries = Object.entries(this.filters).filter(([, v]) => v !== '');
-		if (!entries.length) return this.rows;
-		return this.rows.filter(row =>
-			entries.every(([key, val]) =>
-				String(row[key] ?? '').toLowerCase().includes(val.toLowerCase())
-			)
-		);
+		// Memoized — see the note on ml-table.sortedRows.
+		return this._filteredRowsMemo([this.rows, this.serverSide, this._filterKey], () => {
+			if (this.serverSide) return this.rows;
+			const entries = Object.entries(this.filters).filter(([, v]) => v !== '');
+			if (!entries.length) return this.rows;
+			return this.rows.filter((row) => entries.every(([key, val]) => String(row[key] ?? '').toLowerCase().includes(val.toLowerCase())));
+		});
 	}
 
 	public get sortedRows(): Record<string, unknown>[] {
-		if (this.serverSide) return this.filteredRows;
-		return this._core.sortRows(this.filteredRows);
+		const filtered = this.filteredRows;
+		return this._sortedRowsMemo([filtered, this.serverSide, this.sortKey, this.sortDirection], () =>
+			this.serverSide ? filtered : this._core.sortRows(filtered)
+		);
 	}
 
 	public get pagedRows(): Record<string, unknown>[] {
 		if (this.serverSide) return this.rows;
-		const start = (this.currentPage - 1) * this.pageSize;
-		return this.sortedRows.slice(start, start + this.pageSize);
+		const sorted = this.sortedRows;
+		return this._pagedRowsMemo([sorted, this.currentPage, this.pageSize], () => {
+			const start = (this.currentPage - 1) * this.pageSize;
+			return sorted.slice(start, start + this.pageSize);
+		});
 	}
 
 	public get processedRows(): Record<string, unknown>[] {
@@ -273,9 +304,9 @@ export class DataGridComponent implements IElementRef, OnCreate, OnDestroy, OnRe
 	}
 
 	public get gridTemplateColumns(): string {
-		const cols = this.orderedColumns
-			.map(col => `${this.columnWidths[col.key] ?? 150}px`)
-			.join(' ');
+		// `var(--ml-grid-col-<key>, <committed>px)` lets a live column drag
+		// update the layout by writing one custom property, without a render.
+		const cols = this.orderedColumns.map((col) => `var(--ml-grid-col-${col.key}, ${this.columnWidths[col.key] ?? 150}px)`).join(' ');
 		return this.selectable ? `44px ${cols}` : cols;
 	}
 
@@ -387,16 +418,28 @@ export class DataGridComponent implements IElementRef, OnCreate, OnDestroy, OnRe
 	public handleResizeMove = (key: string, e: PointerEvent): void => {
 		if (this.resizingKey !== key) return;
 		const delta = e.clientX - this._resizeStartX;
-		const col = this.columns.find(c => c.key === key);
+		const col = this.columns.find((c) => c.key === key);
 		const minW = col?.minWidth ?? 80;
-		this.colWidths = {
-			...this.colWidths,
-			[key]: Math.max(minW, this._resizeStartWidth + delta)
-		};
+		const width = Math.max(minW, this._resizeStartWidth + delta);
+
+		// Writing to `colWidths` re-renders the entire grid — every row, every
+		// cell — on each pointermove. Drive the live drag through a CSS custom
+		// property instead and commit the value once, on pointerup.
+		this._pendingResizeWidth = width;
+		this.elementRef.style.setProperty(`--ml-grid-col-${key}`, `${width}px`);
 	};
+
+	private _pendingResizeWidth: number | null = null;
 
 	public handleResizeEnd = (): void => {
 		if (!this.resizingKey) return;
+
+		if (this._pendingResizeWidth !== null) {
+			this.colWidths = { ...this.colWidths, [this.resizingKey]: this._pendingResizeWidth };
+			this.elementRef.style.removeProperty(`--ml-grid-col-${this.resizingKey}`);
+			this._pendingResizeWidth = null;
+		}
+
 		this.elementRef.dispatchEvent(
 			new CustomEvent('ml:column-resize', {
 				bubbles: true,

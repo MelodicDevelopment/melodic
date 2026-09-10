@@ -5,6 +5,7 @@ import { watchSlotPresence } from '../../../functions/index.js';
 import { tableTemplate } from './table.template.js';
 import { tableStyles } from './table.styles.js';
 import { TableCore } from '../table-core/index.js';
+import { memoOn } from '../table-core/index.js';
 
 /**
  * ml-table - Data table with sorting, selection, and custom cell rendering
@@ -159,9 +160,15 @@ export class TableComponent implements IElementRef, OnCreate, OnDestroy, OnRende
 	// ── Data ──────────────────────────────────────────────────────────────────────
 
 	/** Rows sorted by current sort key/direction */
+	private readonly _sortedRowsMemo = memoOn<Record<string, unknown>[]>();
+
 	public get sortedRows(): Record<string, unknown>[] {
-		if (this.manualSort) return this.rows;
-		return this._core.sortRows(this.rows);
+		// Memoized: this is read by VirtualScroller.itemCount on every scroll
+		// event and several times per render, and each call cloned and sorted
+		// the whole dataset.
+		return this._sortedRowsMemo([this.rows, this.manualSort, this.sortKey, this.sortDirection], () =>
+			this.manualSort ? this.rows : this._core.sortRows(this.rows)
+		);
 	}
 
 	public get visibleRows(): Record<string, unknown>[] {
