@@ -25,6 +25,8 @@ const ENTRY_BARRELS = [
 	'src/signals/index.ts',
 	'src/state/index.ts',
 	'src/template/index.ts',
+	'src/testing/index.ts',
+	'src/devtools/index.ts',
 ];
 
 describe('exports-map entry barrels', () => {

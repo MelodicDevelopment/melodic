@@ -75,9 +75,17 @@
 			"types": "./lib/state/index.d.ts",
 			"default": "./lib/state/index.js"
 		},
+		"./testing": {
+			"types": "./lib/testing/index.d.ts",
+			"default": "./lib/testing/index.js"
+		},
 		"./template": {
 			"types": "./lib/template/index.d.ts",
 			"default": "./lib/template/index.js"
+		},
+		"./devtools": {
+			"types": "./lib/devtools/index.d.ts",
+			"default": "./lib/devtools/index.js"
 		}
 	},
 	"workspaces": [

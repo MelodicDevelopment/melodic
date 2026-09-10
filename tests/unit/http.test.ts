@@ -663,3 +663,50 @@ describe('HttpClient deduplication identity (review regressions)', () => {
 		expect(remove).toHaveBeenCalledWith('abort', add.mock.calls[0][1]);
 	});
 });
+
+describe('http error bodies', () => {
+	afterEach(() => {
+		vi.unstubAllGlobals();
+		vi.restoreAllMocks();
+	});
+
+	it('keeps the status when a JSON-typed error body is not JSON (S12)', async () => {
+		// A failing gateway routinely returns an HTML error page under a JSON
+		// content-type. Throwing from the parser turned that into a
+		// NetworkError, erasing the 502 — so retry and auth interceptors keyed
+		// on HttpError never fired.
+		const fetchMock = vi.fn().mockResolvedValue(
+			new Response('<html><body>502 Bad Gateway</body></html>', {
+				status: 502,
+				statusText: 'Bad Gateway',
+				headers: { 'content-type': 'application/json' }
+			})
+		);
+		vi.stubGlobal('fetch', fetchMock);
+
+		const client = new HttpClient();
+		const error = await client.get('/gateway', { deduplicate: false }).catch((caught: unknown) => caught);
+
+		expect(error).toBeInstanceOf(HttpError);
+		expect((error as HttpError).response?.status).toBe(502);
+		expect(String((error as HttpError).response?.data)).toContain('502 Bad Gateway');
+	});
+
+	it('returns the raw text when a successful JSON response does not parse', async () => {
+		const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+		const fetchMock = vi.fn().mockResolvedValue(
+			new Response('not json at all', {
+				status: 200,
+				headers: { 'content-type': 'application/json' }
+			})
+		);
+		vi.stubGlobal('fetch', fetchMock);
+
+		const client = new HttpClient();
+		const response = await client.get<string>('/broken', { deduplicate: false });
+
+		expect(response.status).toBe(200);
+		expect(response.data).toBe('not json at all');
+		warnSpy.mockRestore();
+	});
+});

@@ -15,6 +15,8 @@
  * earlier in that batch.
  */
 
+import { emitDevtools } from '../../devtools/hook';
+
 interface Runnable {
 	runNow(): void;
 }
@@ -96,6 +98,7 @@ function rethrow(errors: unknown[]): void {
  */
 function flushBatch(): void {
 	flushing = true;
+	emitDevtools('flush:start', () => ({ notifications: pendingNotifications.size, effects: pendingEffects.size }));
 	const errors: unknown[] = [];
 
 	try {
@@ -137,6 +140,7 @@ function flushBatch(): void {
 	} finally {
 		flushing = false;
 		flushRuns.clear();
+		emitDevtools('flush:end');
 	}
 
 	rethrow(errors);

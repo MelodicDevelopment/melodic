@@ -7,9 +7,9 @@ import { disposeContainerParts } from '../../functions/dispose.functions';
 import { renderDetachedItem } from '../../functions/render-detached.function';
 import { directive } from '../functions/directive.function';
 import type { IDirectiveResult } from '../interfaces/idirective-result.interface';
+import { devWarn } from '../../../devtools/dev-mode';
 
 interface RepeatState {
-	keyToIndex: Map<unknown, number>;
 	items: RepeatItem[];
 	startMarker: Comment;
 	endMarker: Comment;
@@ -57,7 +57,6 @@ export function repeat<T>(items: T[], keyFn: (item: T, index: number) => unknown
 			parent.insertBefore(endMarker, startMarker.nextSibling);
 
 			const state: RepeatState = {
-				keyToIndex: new Map(),
 				items: [],
 				startMarker,
 				endMarker,
@@ -66,7 +65,6 @@ export function repeat<T>(items: T[], keyFn: (item: T, index: number) => unknown
 						disposeContainerParts(item.container);
 					}
 					state.items = [];
-					state.keyToIndex.clear();
 				}
 			};
 
@@ -88,6 +86,8 @@ function updateList<T>(
 	state: RepeatState
 ): void {
 	const oldItems = state.items;
+	// Only used to detect duplicates and to look items up by key while
+	// reconciling; it is not kept on the state (nothing ever read it back).
 	const newKeyToIndex = new Map<unknown, number>();
 	const newEntries: {
 		item: RepeatItem;
@@ -95,18 +95,38 @@ function updateList<T>(
 		isNew: boolean;
 	}[] = [];
 
-	// Build new key map
+	// Compute every key ONCE. keyFn used to be called two or three times per
+	// item per render (key map, fast-path check, reconciliation).
+	const newKeys: unknown[] = new Array(newItems.length);
+	let duplicateKey: unknown;
+	let hasDuplicate = false;
+
 	for (let i = 0; i < newItems.length; i++) {
 		const key = keyFn(newItems[i], i);
+		newKeys[i] = key;
+		if (!hasDuplicate && newKeyToIndex.has(key)) {
+			hasDuplicate = true;
+			duplicateKey = key;
+		}
 		newKeyToIndex.set(key, i);
+	}
+
+	if (hasDuplicate) {
+		// Keyed reconciliation addresses items BY key, so a repeated key means
+		// one entry shadows the other: the shadowed item is neither reused nor
+		// removed, and its DOM and part tree are orphaned on every render.
+		devWarn(
+			'repeat-duplicate-key',
+			`repeat() received a duplicate key (${String(duplicateKey)}). Keys must be unique — with a repeated key one item ` +
+				'shadows the other, leaving orphaned DOM behind on every update. Use a key that is unique per item (an id, not an index into a filtered list).'
+		);
 	}
 
 	// Quick check: if length and all keys are the same, skip expensive reconciliation
 	if (oldItems.length === newItems.length) {
 		let allKeysMatch = true;
 		for (let i = 0; i < newItems.length; i++) {
-			const key = keyFn(newItems[i], i);
-			if (i >= oldItems.length || oldItems[i].key !== key) {
+			if (oldItems[i].key !== newKeys[i]) {
 				allKeysMatch = false;
 				break;
 			}
@@ -121,23 +141,34 @@ function updateList<T>(
 		}
 	}
 
-	// Track old items by key so we can reuse and remove efficiently
-	const oldItemsByKey = new Map<unknown, RepeatItem>();
+	// Track old items by key so we can reuse and remove efficiently. A key may
+	// appear more than once in a malformed list, so each key holds a QUEUE:
+	// every old item is then either reused or removed, never silently dropped.
+	const oldItemsByKey = new Map<unknown, RepeatItem[]>();
 	const oldIndexByKey = new Map<unknown, number>();
-	for (const oldItem of oldItems) {
-		oldItemsByKey.set(oldItem.key, oldItem);
-		oldIndexByKey.set(oldItem.key, oldIndexByKey.size);
+	for (let i = 0; i < oldItems.length; i++) {
+		const oldItem = oldItems[i];
+		const bucket = oldItemsByKey.get(oldItem.key);
+		if (bucket) {
+			bucket.push(oldItem);
+		} else {
+			oldItemsByKey.set(oldItem.key, [oldItem]);
+			oldIndexByKey.set(oldItem.key, i);
+		}
 	}
 
 	// Build new items list, reusing when possible
 	for (let i = 0; i < newItems.length; i++) {
 		const item = newItems[i];
-		const key = keyFn(item, i);
+		const key = newKeys[i];
+		const bucket = oldItemsByKey.get(key);
 
-		if (oldItemsByKey.has(key)) {
+		if (bucket && bucket.length > 0) {
 			// Reuse existing item
-			const oldItem = oldItemsByKey.get(key)!;
-			oldItemsByKey.delete(key); // Mark as used
+			const oldItem = bucket.shift()!;
+			if (bucket.length === 0) {
+				oldItemsByKey.delete(key);
+			}
 
 			// Re-render with new data
 			const templateResult = template(item, i);
@@ -160,12 +191,13 @@ function updateList<T>(
 	}
 
 	// Remove old items that are no longer needed
-	for (const oldItem of oldItemsByKey.values()) {
-		removeItemRange(oldItem);
+	for (const bucket of oldItemsByKey.values()) {
+		for (const oldItem of bucket) {
+			removeItemRange(oldItem);
+		}
 	}
 
 	if (newEntries.length === 0) {
-		state.keyToIndex = newKeyToIndex;
 		state.items = [];
 		return;
 	}
@@ -187,7 +219,6 @@ function updateList<T>(
 	}
 
 	// Update state
-	state.keyToIndex = newKeyToIndex;
 	state.items = newEntries.map((entry) => entry.item);
 }
 

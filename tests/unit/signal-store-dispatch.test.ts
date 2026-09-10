@@ -216,3 +216,51 @@ describe('SignalStoreService dispatch', () => {
 		process.off('unhandledRejection', unhandled);
 	});
 });
+
+describe('SignalStoreService reducers and snapshots', () => {
+
+	it('keyed dispatch applies EVERY matching reducer in the slice (S14)', () => {
+		// A slice may register more than one reducer for the same action. The
+		// keyless dispatch always applied them all; the keyed one silently took
+		// the first match only.
+		const state: State<AppState> = createState<AppState>({
+			auth: { loggedIn: true },
+			cart: { items: ['a'] },
+			audit: { events: [] }
+		});
+
+		const reducerMap: ActionReducerMap<AppState> = {
+			audit: createReducer<AppState, 'audit'>(
+				onAction(recordEvent, (current: AuditState) => ({ events: [...current.events, 'first'] })),
+				onAction(recordEvent, (current: AuditState) => ({ events: [...current.events, 'second'] }))
+			)
+		};
+
+		const store = makeStore({ state, reducerMap, effectMap: {} });
+
+		store.dispatch('audit', recordEvent({ name: 'x' }));
+
+		expect(state.audit().events).toEqual(['first', 'second']);
+	});
+
+	it('snapshot() reads state without leaving a dependent behind (S15)', () => {
+		const state: State<AppState> = createState<AppState>({
+			auth: { loggedIn: false },
+			cart: { items: [] },
+			audit: { events: [] }
+		});
+
+		const store = makeStore({ state, reducerMap: {}, effectMap: {} });
+
+		expect(store.snapshot().auth.loggedIn).toBe(false);
+		expect(store.snapshotSlice('cart').items).toEqual([]);
+
+		// A select() outside a component would retain one computed per call;
+		// repeated snapshots retain nothing.
+		for (let i = 0; i < 50; i++) {
+			store.snapshot();
+		}
+
+		expect(store.snapshot().audit.events).toEqual([]);
+	});
+});

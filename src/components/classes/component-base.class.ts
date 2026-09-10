@@ -1,4 +1,5 @@
 import type { ComponentMeta } from '../types/component-meta.type';
+import { attributeTypes } from '../types/component-meta.type';
 import type { Component } from '../types/component.type';
 import { render } from '../../template/functions/render.function';
 import type { Unsubscriber } from '../../signals/types/unsubscriber.type';
@@ -10,6 +11,18 @@ import { applyGlobalStyles } from '../styles/apply-global-styles.function';
 import { getComponentStyleSheet } from '../styles/component-style-sheets.function';
 import { AbstractControl } from '../../forms/classes/abstract-control.class';
 import { getActiveComponent, setActiveComponent } from '../functions/active-component.functions';
+import { SignalEffect } from '../../signals/classes/signal-effect.class';
+import { untracked } from '../../signals/functions/untracked.function';
+import { devWarn } from '../../devtools/dev-mode';
+import { devtoolsListening, emitDevtools, getHook } from '../../devtools/hook';
+
+/**
+ * Renders allowed for one component within a single macrotask before the
+ * framework calls it a loop. A property write inside `onRender` re-renders
+ * through a microtask, which re-runs `onRender`, forever — with no stack
+ * overflow and no error, just a wedged tab.
+ */
+const MAX_RENDERS_PER_TASK = 25;
 
 export interface PendingComponentScope {
 	disposables: Set<{ destroy(): void }>;
@@ -58,6 +71,21 @@ export abstract class ComponentBase extends HTMLElement {
 	private _created = false;
 	private _destroyed = false;
 	private _teardownScheduled = false;
+	// Set by scheduleRender(), cleared by render(): the queued microtask skips
+	// when a synchronous render already happened (every component used to
+	// render twice on mount).
+	private _dirty = true;
+	// The template runs inside this effect, so ANY signal read while rendering
+	// — a service's signal, a signal inside an object or array — schedules the
+	// next render. Component fields holding signals remain wired separately as
+	// a fallback for reads that happen outside the template.
+	private _renderEffect: SignalEffect | null = null;
+	private _rendersThisTask = 0;
+	private _renderBurstReset: ReturnType<typeof setTimeout> | null = null;
+	private _renderLoopReported = false;
+	/** DevTools id, assigned only when something is listening. */
+	private _devtoolsId = 0;
+	private _renderCount = 0;
 
 	constructor(meta: ComponentMeta, component: Component, pending?: PendingComponentScope) {
 		super();
@@ -69,13 +97,17 @@ export abstract class ComponentBase extends HTMLElement {
 		// Components may declare attribute→property coercion types explicitly for
 		// properties whose initial value doesn't reveal the type (e.g. `open?: boolean`):
 		//   static propertyTypes = { open: 'boolean', offset: 'number' };
-		const declaredTypes = (component.constructor as { propertyTypes?: Record<string, PropertyType> }).propertyTypes;
-		if (declaredTypes) {
-			for (const [prop, type] of Object.entries(declaredTypes)) {
-				if (type === 'boolean') this._booleanProperties.add(prop);
-				else if (type === 'number') this._numberProperties.add(prop);
-				else if (type === 'string') this._stringProperties.add(prop);
-			}
+		const declaredTypes = {
+			// `attributes: { open: 'boolean' }` is the preferred form; the older
+			// `static propertyTypes` still works and wins on conflict.
+			...attributeTypes(meta.attributes),
+			...((component.constructor as { propertyTypes?: Record<string, PropertyType> }).propertyTypes ?? {})
+		};
+		for (const [attribute, type] of Object.entries(declaredTypes)) {
+			const prop = attribute.replace(/-([a-z])/g, (_, ch: string) => ch.toUpperCase());
+			if (type === 'boolean') this._booleanProperties.add(prop);
+			else if (type === 'number') this._numberProperties.add(prop);
+			else if (type === 'string') this._stringProperties.add(prop);
 		}
 		// Adopt the same Set/Map the decorator used during Reflect.construct so
 		// disposables and cache entries from class-field initializers belong to us.
@@ -92,11 +124,18 @@ export abstract class ComponentBase extends HTMLElement {
 		const prevActive = getActiveComponent();
 		setActiveComponent(this);
 		try {
-			this.observe();
+			// untracked: a parent's render effect is active while this element
+			// is being upgraded inside the parent's template. Signals read in
+			// observe()/onInit belong to THIS component, not the parent's
+			// render — tracking them there would re-render the parent on every
+			// child state change.
+			untracked(() => {
+				this.observe();
 
-			if (this._component.onInit) {
-				this._component.onInit();
-			}
+				if (this._component.onInit) {
+					this._component.onInit();
+				}
+			});
 		} finally {
 			setActiveComponent(prevActive);
 		}
@@ -104,6 +143,16 @@ export abstract class ComponentBase extends HTMLElement {
 
 	public get component(): Component {
 		return this._component;
+	}
+
+	/** True while this component's template is executing. */
+	public get isRendering(): boolean {
+		return this._rendering;
+	}
+
+	/** The component's selector (used by diagnostics and DevTools). */
+	public get selector(): string {
+		return this._meta.selector;
 	}
 
 	public registerDisposable(d: { destroy(): void }): void {
@@ -156,25 +205,31 @@ export abstract class ComponentBase extends HTMLElement {
 		// so moving the element in the DOM does not destroy its state.
 		this._teardownScheduled = false;
 
+		emitDevtools('component:connect', () => ({ id: this.devtoolsId(), selector: this._meta.selector }));
+
 		this.subscribeReactiveSources();
 		this.render();
 
 		const prev = getActiveComponent();
 		setActiveComponent(this);
 		try {
-			// onCreate fires exactly once, the first time the element enters the DOM.
-			if (!this._created) {
-				this._created = true;
-				this._component.onCreate?.();
-			}
-			// onConnect fires on every connect (including the first).
-			this._component.onConnect?.();
+			untracked(() => {
+				// onCreate fires exactly once, the first time the element enters the DOM.
+				if (!this._created) {
+					this._created = true;
+					this._component.onCreate?.();
+				}
+				// onConnect fires on every connect (including the first).
+				this._component.onConnect?.();
+			});
 		} finally {
 			setActiveComponent(prev);
 		}
 	}
 
 	public disconnectedCallback(): void {
+		emitDevtools('component:disconnect', () => ({ id: this.devtoolsId(), selector: this._meta.selector }));
+
 		// Tear down reactive subscriptions immediately so a detached element stops
 		// reacting; they are re-established on the next connect.
 		for (const entry of this._reactiveSourceEntries) {
@@ -185,7 +240,7 @@ export abstract class ComponentBase extends HTMLElement {
 		}
 
 		try {
-			this._component.onDisconnect?.();
+			untracked(() => this._component.onDisconnect?.());
 		} finally {
 			// Defer destruction of owned resources (forms/signals/directives) to a
 			// microtask. A transient move (remove + re-add) reconnects first and
@@ -219,7 +274,7 @@ export abstract class ComponentBase extends HTMLElement {
 		}
 
 		if (this._component.onAttributeChange !== undefined) {
-			this._component.onAttributeChange(attribute, oldVal, newVal);
+			untracked(() => this._component.onAttributeChange!(attribute, oldVal, newVal));
 		}
 	}
 
@@ -265,20 +320,41 @@ export abstract class ComponentBase extends HTMLElement {
 	private teardown(): void {
 		this._destroyed = true;
 
+		if (this._devtoolsId !== 0) {
+			emitDevtools('component:destroy', () => ({ id: this._devtoolsId, selector: this._meta.selector }));
+			getHook()?.components.delete(this._devtoolsId);
+		}
+
+		if (this._renderBurstReset !== null) {
+			clearTimeout(this._renderBurstReset);
+			this._renderBurstReset = null;
+		}
+
+		this._renderEffect?.destroy();
+		this._renderEffect = null;
+
 		// Recursively dispose the rendered part tree: action-directive cleanups
 		// (e.g. clickOutside document listeners) plus everything nested inside
 		// when/repeat branches, nested templates, and array items.
-		const parts = (this._root as ShadowRoot & IRenderedContainer).__parts;
+		const root = this._root as ShadowRoot & IRenderedContainer;
+		const parts = root.__parts;
 		if (parts) {
 			disposeParts(parts);
 		}
+
+		// Drop the render bookkeeping with it. Leaving `__parts`/`__templateKey`
+		// behind made a re-attached element a zombie: the renderer took the
+		// unchanged-template fast path, skipped re-binding handlers whose
+		// identity had not changed, and the element came back inert.
+		delete root.__parts;
+		delete (root as { __templateKey?: string }).__templateKey;
 
 		// User's onDestroy runs first so user code can still reference signals
 		// before they're destroyed. Framework cleanup runs in `finally`: a
 		// throwing hook must not leave subscriptions and signals alive.
 		try {
 			if (this._component.onDestroy !== undefined) {
-				this._component.onDestroy();
+				untracked(() => this._component.onDestroy!());
 			}
 		} finally {
 			for (const d of this._disposables) {
@@ -319,14 +395,83 @@ export abstract class ComponentBase extends HTMLElement {
 		return this._root.appendChild(styleNode);
 	}
 
+	/**
+	 * Render the template, tracking every signal read while it runs.
+	 *
+	 * The template body executes inside a `SignalEffect` whose invalidation
+	 * schedules the next render, so a template reading `this.auth.user()` from
+	 * an injected service — or a signal nested in an object or array — updates
+	 * like any other reactive source. Before this, only component *fields*
+	 * whose value happened to be a Signal were subscribed, and everything else
+	 * silently never updated.
+	 */
 	private render(): void {
+		if (this.enteredRenderLoop()) {
+			return;
+		}
+
+		this._dirty = false;
+
+		if (!this._renderEffect) {
+			this._renderEffect = new SignalEffect(() => this.renderTemplate(), {
+				name: this._meta.selector,
+				// Never render synchronously from a signal write: batch through
+				// the normal microtask so one flush produces one render.
+				onInvalidate: () => this.scheduleRender()
+			});
+		}
+
+		if (!devtoolsListening()) {
+			this._renderEffect.runNow();
+			return;
+		}
+
+		const started = performance.now();
+		this._renderEffect.runNow();
+		const elapsed = performance.now() - started;
+		this._renderCount++;
+
+		const record = getHook()?.components.get(this.devtoolsId());
+		if (record) {
+			record.renders = this._renderCount;
+			record.lastRenderMs = elapsed;
+		}
+
+		emitDevtools('component:render', () => ({ id: this.devtoolsId(), selector: this._meta.selector, ms: elapsed, renders: this._renderCount }));
+	}
+
+	/** Stable DevTools id for this instance, registered on first use. */
+	private devtoolsId(): number {
+		if (this._devtoolsId === 0) {
+			const hook = getHook();
+			if (!hook) {
+				return 0;
+			}
+
+			this._devtoolsId = hook.nextId();
+			hook.components.set(this._devtoolsId, {
+				id: this._devtoolsId,
+				selector: this._meta.selector,
+				host: new WeakRef(this),
+				renders: this._renderCount,
+				lastRenderMs: 0
+			});
+		}
+
+		return this._devtoolsId;
+	}
+
+	private renderTemplate(): void {
 		const prev = getActiveComponent();
 		setActiveComponent(this);
 		this._rendering = true;
 		this._selectEpoch++;
 		try {
 			if (this._meta.template) {
-				const templateResult = this._meta.template(this._component, this.getAttributeValues());
+				// Only build the attribute snapshot when the template actually
+				// declares the parameter — nearly none do, and it allocated an
+				// object plus an attribute walk on every render of every component.
+				const templateResult = this._meta.template(this._component, this._meta.template.length > 1 ? this.getAttributeValues() : undefined);
 				render(templateResult, this._root);
 
 				if (this._style && this._style.parentNode !== this._root) {
@@ -335,13 +480,46 @@ export abstract class ComponentBase extends HTMLElement {
 			}
 
 			if (this._component.onRender !== undefined) {
-				this._component.onRender();
+				// onRender is user code, not part of the template: reads made
+				// here must not subscribe the render.
+				untracked(() => this._component.onRender!());
 			}
 		} finally {
 			this._rendering = false;
 			setActiveComponent(prev);
 			this.sweepRenderScopedSelects();
 		}
+	}
+
+	/**
+	 * Guard against a render loop — a property write in `onRender` that
+	 * schedules another render, which writes again. Signals have a 100-run
+	 * guard; components had none, so this reported nothing and simply spun.
+	 */
+	private enteredRenderLoop(): boolean {
+		if (++this._rendersThisTask <= MAX_RENDERS_PER_TASK) {
+			if (this._renderBurstReset === null) {
+				// A macrotask boundary means the burst was real work (user
+				// interaction, network, timers), not a loop.
+				this._renderBurstReset = setTimeout(() => {
+					this._renderBurstReset = null;
+					this._rendersThisTask = 0;
+					this._renderLoopReported = false;
+				}, 0);
+			}
+			return false;
+		}
+
+		if (!this._renderLoopReported) {
+			this._renderLoopReported = true;
+			console.error(
+				`[Melodic] <${this._meta.selector}> rendered ${MAX_RENDERS_PER_TASK} times without yielding and was stopped. ` +
+					'A render loop is usually a property or signal written from onRender (or from the template itself), ' +
+					'which schedules the render that writes it again.'
+			);
+		}
+
+		return true;
 	}
 
 	/**
@@ -366,6 +544,8 @@ export abstract class ComponentBase extends HTMLElement {
 	}
 
 	private scheduleRender(): void {
+		this._dirty = true;
+
 		if (this._renderScheduled) {
 			return;
 		}
@@ -373,7 +553,10 @@ export abstract class ComponentBase extends HTMLElement {
 		this._renderScheduled = true;
 		queueMicrotask(() => {
 			this._renderScheduled = false;
-			if (this.isConnected) {
+			// `_dirty` is cleared by any render that ran in the meantime —
+			// notably the synchronous one in connectedCallback, which used to
+			// be followed by a second, identical render from this microtask.
+			if (this.isConnected && this._dirty) {
 				this.render();
 			}
 		});
@@ -411,11 +594,14 @@ export abstract class ComponentBase extends HTMLElement {
 
 			const descriptor = this.getPropertyDescriptor(this._component, prop);
 
-			// Skip getter-only accessors (e.g. @Service fields): leave their lazy,
-			// per-instance-cached getter intact rather than eagerly reading it and
-			// reifying it as a reactive data property. Public ones are still
-			// surfaced on the host (without invoking the getter here).
-			if (descriptor && descriptor.get && !descriptor.set) {
+			// Skip lazy accessors — getter-only properties (computed getters) and
+			// @Service injection points, which are writable so tests can assign a
+			// fake but must still resolve lazily. Reading one here would resolve
+			// the dependency during construction and reify it as reactive data.
+			// Public ones are still surfaced on the host (without invoking the
+			// getter here).
+			const isServiceAccessor = `__service_${prop}` in this._component;
+			if (descriptor && descriptor.get && (!descriptor.set || isServiceAccessor)) {
 				getterOnly.push(prop);
 				return false;
 			}
@@ -490,13 +676,26 @@ export abstract class ComponentBase extends HTMLElement {
 				configurable: true
 			});
 
-			// Expose on wrapper for property binding (.prop=${value})
-			Object.defineProperty(this, prop, {
-				get: componentGetter,
-				set: componentSetter,
-				enumerable: true,
-				configurable: true
-			});
+			// Expose on wrapper for property binding (.prop=${value}) — unless the
+			// name belongs to HTMLElement. Shadowing `hidden`, `title`, `id`,
+			// `slot`, `dir` or `tabIndex` broke the platform behaviour they name:
+			// `el.setAttribute('hidden', '')` left `el.hidden === false` and the
+			// element stayed visible.
+			if (prop in HTMLElement.prototype) {
+				devWarn(
+					`native-prop:${this._meta.selector}:${prop}`,
+					`<${this._meta.selector}> declares a property "${prop}", which is also a native HTMLElement property. ` +
+						`The native behaviour is kept on the element; the component's field is still reactive internally, ` +
+						`but \`element.${prop}\` reads the platform value. Rename the field to avoid the collision.`
+				);
+			} else {
+				Object.defineProperty(this, prop, {
+					get: componentGetter,
+					set: componentSetter,
+					enumerable: true,
+					configurable: true
+				});
+			}
 		}
 
 		// Mirror public computed getters onto the host so `el.prop` reads the live

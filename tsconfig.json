@@ -28,6 +28,8 @@
 			"@melodicdev/core/routing": ["src/routing/index.ts"],
 			"@melodicdev/core/injection": ["src/injection/index.ts"],
 			"@melodicdev/core/bootstrap": ["src/bootstrap/index.ts"],
+			"@melodicdev/core/testing": ["src/testing/index.ts"],
+			"@melodicdev/core/devtools": ["src/devtools/index.ts"],
 			"@melodicdev/components": ["packages/melodic-components/src/index.ts"],
 			"@melodicdev/components/theme": ["packages/melodic-components/src/theme/index.ts"],
 			"@melodicdev/components/button": ["packages/melodic-components/src/components/forms/button/index.ts"],

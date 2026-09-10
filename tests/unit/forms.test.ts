@@ -4,7 +4,7 @@ import { html } from '../../src/template';
 import {
 	AbstractControl,
 	FormControl,
-	FormGroup,
+	type FormGroup,
 	FormArray,
 	createFormControl,
 	createFormGroup,

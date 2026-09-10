@@ -3,7 +3,19 @@ export { bootstrap } from './bootstrap';
 export type * from './bootstrap';
 
 // Components
-export { ComponentBase, MelodicComponent, applyGlobalStyles, getActiveComponent, setActiveComponent } from './components';
+export {
+	ComponentBase,
+	MelodicComponent,
+	applyGlobalStyles,
+	attributeNames,
+	attributeTypes,
+	emit,
+	getActiveComponent,
+	getComponentDefinition,
+	getComponentDefinitions,
+	refreshGlobalStyles,
+	setActiveComponent
+} from './components';
 export type * from './components';
 
 // Config
@@ -40,7 +52,7 @@ export { AbortError, HttpBaseError, HttpClient, HttpError, NetworkError, provide
 export type * from './http';
 
 // Injection
-export { Binding, Inject, Injectable, InjectionEngine, Injector, Service, createToken, describeToken, getTokenKey } from './injection';
+export { Binding, Inject, Injectable, InjectionEngine, Injector, Service, createToken, describeToken, getTokenKey, inject, injectOptional } from './injection';
 export type * from './injection';
 
 // Interfaces
@@ -72,7 +84,7 @@ export {
 export type * from './routing';
 
 // Signals
-export { SIGNAL_MARKER, SignalEffect, batch, computed, getActiveEffect, isSignal, setActiveEffect, signal } from './signals';
+export { SIGNAL_MARKER, SignalEffect, batch, computed, effect, getActiveEffect, isSignal, setActiveEffect, signal, untracked } from './signals';
 export type * from './signals';
 
 // State
@@ -98,6 +110,7 @@ export {
 	Directive,
 	TemplateResult,
 	classMap,
+	live,
 	css,
 	directive,
 	disposeContainerParts,
@@ -120,3 +133,7 @@ export {
 	when
 } from './template';
 export type * from './template';
+
+// DevTools
+export { devWarn, installConsoleApi, isDevMode, resetDevWarnings, setDevMode } from './devtools';
+export type * from './devtools';

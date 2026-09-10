@@ -488,8 +488,7 @@ export class HttpClient {
 			const blob = new Blob(chunks as BlobPart[]);
 
 			if (contentType.includes('application/json')) {
-				const text = await blob.text();
-				return (text ? JSON.parse(text) : null) as T;
+				return this.parseJsonText<T>(await blob.text(), response);
 			}
 
 			if (contentType.includes('text/')) {
@@ -504,10 +503,7 @@ export class HttpClient {
 		}
 
 		if (contentType.includes('application/json')) {
-			// Empty bodies are common on 201/204/200 (POST/PUT/DELETE). Parsing
-			// an empty string would throw and surface a success as a NetworkError.
-			const text = await response.text();
-			return (text ? JSON.parse(text) : null) as T;
+			return this.parseJsonText<T>(await response.text(), response);
 		}
 
 		if (contentType.includes('text/')) {
@@ -519,6 +515,32 @@ export class HttpClient {
 		}
 
 		return (await response.text()) as T;
+	}
+
+	/**
+	 * Parse a body a JSON content-type promised.
+	 *
+	 * Empty bodies are common on 201/204/200 (POST/PUT/DELETE), and a failing
+	 * gateway routinely returns an HTML error page under a JSON content-type.
+	 * Neither may throw here: a parse error thrown from the response handler
+	 * became a `NetworkError`, which erased the status code, so retry and auth
+	 * interceptors keyed on `HttpError` never fired for a 502.
+	 */
+	private parseJsonText<T>(text: string, response: Response): T {
+		if (!text) {
+			return null as T;
+		}
+
+		try {
+			return JSON.parse(text) as T;
+		} catch {
+			if (response.ok) {
+				// A successful response that does not contain the JSON it
+				// promised is worth surfacing; the raw text is still returned.
+				console.warn(`[Melodic] [HttpClient] Response for ${response.url} declared JSON but did not parse; returning the raw text.`);
+			}
+			return text as unknown as T;
+		}
 	}
 
 	private isBinaryContentType(contentType: string): boolean {

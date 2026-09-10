@@ -82,9 +82,20 @@ export interface ITemplatePart {
 	staticValue?: string; // For static :directive="value" attributes
 	attributeStrings?: string[];
 	attributeIndices?: number[];
+	/**
+	 * Per-segment directive state for a COMPOSITE attribute
+	 * (`class="card ${classMap(...)}"`), keyed by value index. A composite
+	 * attribute can hold several directives plus static text, so one
+	 * `directiveState` slot is not enough.
+	 */
+	segmentDirectiveStates?: Map<number, { state: unknown; type: string | symbol }>;
+	/**
+	 * State for a KEYED interpolated array. An ordered list rather than a
+	 * key→item map: a duplicate key must not collapse two entries into one
+	 * (which silently dropped an item and orphaned its DOM).
+	 */
 	arrayState?: {
-		items: Map<unknown, IKeyedArrayItem>;
-		keys: unknown[];
+		items: IKeyedArrayItem[];
 	};
 	/**
 	 * State for a plain (unkeyed) interpolated array — the `${items.map(…)}`

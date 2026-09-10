@@ -1,6 +1,10 @@
 export { setActiveEffect, getActiveEffect } from './active-effect.functions';
 export { batch } from './batch.function';
 export { computed } from './computed.function';
-export type { ReadonlySignal } from './computed.function';
+export type { ReadonlySignal, IComputedOptions } from './computed.function';
+export { effect } from './effect.function';
+export type { EffectCleanup, IEffectOptions, IEffectRef } from './effect.function';
 export { isSignal } from './is-signal.function';
 export { signal } from './signal.function';
+export type { ISignalOptions } from './signal.function';
+export { untracked } from './untracked.function';

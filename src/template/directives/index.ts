@@ -3,6 +3,7 @@ export { repeat } from './builtin/repeat.directive';
 export { repeatRaw } from './builtin/repeat-raw.directive';
 export { when } from './builtin/when.directive';
 export { classMap } from './builtin/class-map.directive';
+export { live } from './builtin/live.directive';
 export { styleMap } from './builtin/style-map.directive';
 export { unsafeHTML } from './builtin/unsafe-html.directive';
 export { portalDirective } from './builtin/portal.directive';

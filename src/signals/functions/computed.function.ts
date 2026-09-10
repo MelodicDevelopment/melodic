@@ -6,9 +6,13 @@ import { DEPENDENTS, SIGNAL_MARKER, type IDependent } from '../types/signal.type
 import type { Subscriber } from '../types/subscriber.type';
 import type { Unsubscriber } from '../types/unsubscriber.type';
 import { getActiveComponent } from '../../components/functions/active-component.functions';
+import { devWarn } from '../../devtools/dev-mode';
+import { emitDevtools } from '../../devtools/hook';
 
-const DESTROYED_MESSAGE =
-	'Signal accessed after destruction. Holding a signal beyond its owning component (e.g. cached on a long-lived service) is a bug — the signal is destroyed when its component disconnects.';
+const destroyedMessage = (name: string | undefined): string =>
+	`Computed signal${name ? ` '${name}'` : ''} accessed after destruction. ` +
+	'Holding a signal beyond its owning component (e.g. cached on a long-lived service) is a bug — ' +
+	'the signal is destroyed when its component disconnects.';
 
 const READ_ONLY_MESSAGE =
 	'Cannot write to a computed signal — its value is derived from its sources. Update the source signal(s) instead.';
@@ -29,6 +33,11 @@ export type ReadonlySignal<T> = {
 	destroy(): void;
 };
 
+export interface IComputedOptions {
+	/** Label used in error messages and DevTools. */
+	name?: string;
+}
+
 /**
  * Creates a lazily-evaluated derived signal.
  *
@@ -45,7 +54,7 @@ export type ReadonlySignal<T> = {
  * one. Direct `subscribe()` callbacks, in contrast, are equality-gated: they
  * only fire when the recomputed value actually changed (`Object.is`).
  */
-export function computed<T>(computation: () => T): ReadonlySignal<T> {
+export function computed<T>(computation: () => T, options: IComputedOptions = {}): ReadonlySignal<T> {
 	let value: T;
 	let dirty = true;
 	let destroyed = false;
@@ -62,6 +71,7 @@ export function computed<T>(computation: () => T): ReadonlySignal<T> {
 		try {
 			value = computation();
 			dirty = false;
+			emitDevtools('computed:recompute', () => ({ name: options.name, value }));
 		} finally {
 			setActiveEffect(prevEffect);
 		}
@@ -119,7 +129,7 @@ export function computed<T>(computation: () => T): ReadonlySignal<T> {
 
 	const read = (() => {
 		if (destroyed) {
-			throw new Error(DESTROYED_MESSAGE);
+			throw new Error(destroyedMessage(options.name));
 		}
 
 		// Register the active effect (if any) as a dependent before computing,
@@ -147,7 +157,7 @@ export function computed<T>(computation: () => T): ReadonlySignal<T> {
 
 	read.subscribe = (subscriber: Subscriber<T>): Unsubscriber => {
 		if (destroyed) {
-			throw new Error(DESTROYED_MESSAGE);
+			throw new Error(destroyedMessage(options.name));
 		}
 
 		// Ensure source tracking is established (a never-read computed has no
@@ -198,7 +208,21 @@ export function computed<T>(computation: () => T): ReadonlySignal<T> {
 	// computed's source subscriptions are torn down when that component is
 	// destroyed. Mirrors form/select registration. Outside a component scope,
 	// the caller owns the lifetime.
-	getActiveComponent()?.registerDisposable(read);
+	const owner = getActiveComponent();
+	owner?.registerDisposable(read);
+
+	// A computed created DURING a render is created again on every render and
+	// each copy lives until the component unmounts — 20 updates left 21 live
+	// computeds. `select()` sweeps its render-scoped entries; computed() cannot,
+	// because it has no cache key to recognise the same computed by.
+	if (owner?.isRendering) {
+		devWarn(
+			`computed-in-render:${owner.selector ?? 'component'}${options.name ? `:${options.name}` : ''}`,
+			`computed()${options.name ? ` '${options.name}'` : ''} was created while <${owner.selector ?? 'a component'}> was rendering. ` +
+				'A new one is created on every render and they accumulate for the life of the component. ' +
+				'Create it in a field initializer or onInit, or use store.select(key, fn, cacheKey), which is render-scoped.'
+		);
+	}
 
 	return read;
 }

@@ -7,7 +7,13 @@ import { isDirective } from '../directives/functions/is-directive.function';
 import { disposeParts, disposeContainerParts, disposeDirectiveState } from '../functions/dispose.functions';
 import { renderDetachedItem } from '../functions/render-detached.function';
 import { clearBetween, moveRange, removeRange } from '../functions/marker-range.functions';
-import { isDevMode } from '../../devtools/dev-mode';
+import { isDevMode, devWarn } from '../../devtools/dev-mode';
+
+/** Structural view of a directive result, avoiding a circular type import. */
+interface IDirectiveResultLike {
+	type: string | symbol;
+	render(container: Node, previousState?: unknown, name?: string): unknown;
+}
 
 // Unique marker for identifying dynamic positions
 const MARKER = `m${Math.random().toString(36).slice(2, 9)}`;
@@ -18,6 +24,76 @@ const ATTRIBUTE_MARKER_REGEX = new RegExp(`${ATTRIBUTE_MARKER_PREFIX}(\\d+)__`, 
 const createAttributeMarker = (index: number): string => `${ATTRIBUTE_MARKER_PREFIX}${index}__`;
 
 const templateCache = new Map<string, ITemplateCache>();
+
+/**
+ * Where the parser cursor sits in the markup written so far.
+ *
+ * Without this, the attribute regexes ran against raw HTML with no notion of
+ * tag boundaries, so `html`<p>Total=${n}</p>`` matched `Total=` as an attribute
+ * name and rendered the marker as visible text — in production, silently.
+ */
+interface ITagState {
+	/** Inside an unclosed `<tag …`. */
+	inTag: boolean;
+	/** The quote character delimiting the attribute value being written, if any. */
+	quote: string | null;
+}
+
+/** Advance `state` over a literal chunk of template text. */
+function scanTagState(text: string, state: ITagState): ITagState {
+	let { inTag, quote } = state;
+
+	for (let i = 0; i < text.length; i++) {
+		const char = text[i];
+
+		if (inTag) {
+			if (quote) {
+				if (char === quote) {
+					quote = null;
+				}
+				continue;
+			}
+			if (char === '"' || char === "'") {
+				quote = char;
+				continue;
+			}
+			if (char === '>') {
+				inTag = false;
+			}
+			continue;
+		}
+
+		if (char !== '<') {
+			continue;
+		}
+
+		if (text.startsWith('<!--', i)) {
+			const end = text.indexOf('-->', i + 4);
+			if (end === -1) {
+				// Unterminated comment: the rest of this chunk is comment text.
+				return { inTag: false, quote: null };
+			}
+			i = end + 2;
+			continue;
+		}
+
+		if (text.startsWith('</', i)) {
+			const end = text.indexOf('>', i);
+			if (end === -1) {
+				return { inTag: true, quote: null };
+			}
+			i = end;
+			continue;
+		}
+
+		// `<` followed by anything that cannot start a tag name is literal text.
+		if (/[a-zA-Z]/.test(text[i + 1] ?? '')) {
+			inTag = true;
+		}
+	}
+
+	return { inTag, quote };
+}
 
 // Dev-mode warning (once per property name) for property bindings that assign
 // raw HTML — .innerHTML=${...} looks like a normal bind but bypasses the safe
@@ -351,12 +427,16 @@ export class TemplateResult {
 		const attrPreProcessor = this.getAttributePreProcessor(parts);
 		let activeAttributeName: string | null = null;
 		let activeAttributeQuote: string | null = null;
+		let tagState = scanTagState(html, { inTag: false, quote: null });
 
 		for (let i = 1; i < this.strings.length; i++) {
-			const s = this.strings[i];
+			let s = this.strings[i];
 			const valueIndex = i - 1;
 
-			const match = /([@.:?]?[\w:-]+)\s*=\s*["']?$/.exec(html);
+			// A binding is an ATTRIBUTE binding only when the cursor is inside an
+			// open tag. Everywhere else it is a text binding, however much the
+			// surrounding characters look like `name=`.
+			const match = tagState.inTag ? /([@.:?]?[\w:-]+)\s*=\s*["']?$/.exec(html) : null;
 
 			// An attribute value may legitimately contain the OTHER quote character
 			// (title="it's ${x}" / title='say "${x}"'), so each quote style is
@@ -365,8 +445,8 @@ export class TemplateResult {
 			// which injects a comment marker inside the attribute value — it then
 			// leaks into the DOM as literal text and the binding never updates.
 			// When both match, the later one is the attribute still left open.
-			const doubleQuotedAttrMatch = /([@.:?]?[\w:-]+)\s*=\s*(")([^"]*)$/.exec(html);
-			const singleQuotedAttrMatch = /([@.:?]?[\w:-]+)\s*=\s*(')([^']*)$/.exec(html);
+			const doubleQuotedAttrMatch = tagState.inTag ? /([@.:?]?[\w:-]+)\s*=\s*(")([^"]*)$/.exec(html) : null;
+			const singleQuotedAttrMatch = tagState.inTag ? /([@.:?]?[\w:-]+)\s*=\s*(')([^']*)$/.exec(html) : null;
 			const quotedAttrMatch =
 				doubleQuotedAttrMatch && singleQuotedAttrMatch
 					? doubleQuotedAttrMatch.index >= singleQuotedAttrMatch.index
@@ -402,11 +482,23 @@ export class TemplateResult {
 						const quoteMatch = /(["'])$/.exec(match[0]);
 						activeAttributeQuote = quoteMatch ? quoteMatch[1] : null;
 					} else {
+						// A special binding written with quotes (`@click="${h}"`)
+						// has its OPENING quote consumed by the pre-processor, which
+						// emits a complete `__event-N__=""` attribute. The closing
+						// quote at the head of the next chunk then leaked out as a
+						// stray attribute literally named `"`.
+						const consumedQuote = attrKey !== '___' && match ? (/(["'])$/.exec(match[0])?.[1] ?? null) : null;
+
 						html = attrPreProcessor[attrKey](valueIndex, html, match ? match[1] : undefined, match);
+
+						if (consumedQuote && s.startsWith(consumedQuote)) {
+							s = s.slice(1);
+						}
 					}
 				}
 			}
 			html += s;
+			tagState = scanTagState(s, tagState);
 
 			if (activeAttributeName) {
 				if (activeAttributeQuote) {
@@ -585,6 +677,84 @@ export class TemplateResult {
 		templateCache.set(key, cached);
 
 		return cached;
+	}
+
+	/**
+	 * Write a composite attribute (`class="card ${a} ${classMap(...)}"`).
+	 *
+	 * Static text and plain values are composed and written first; directive
+	 * segments then run against the element, so an additive directive such as
+	 * `classMap` layers on top of the static classes instead of replacing the
+	 * whole attribute. Each directive segment keeps its own state, keyed by
+	 * value index, because a composite attribute may hold several.
+	 */
+	private commitCompositeAttribute(part: ITemplatePart, element: Element): void {
+		const name = part.name as string;
+		const strings = part.attributeStrings as string[];
+		const indices = part.attributeIndices as number[];
+
+		let composed = strings[0] ?? '';
+		const directiveSegments: Array<{ index: number; value: IDirectiveResultLike }> = [];
+
+		for (let i = 0; i < indices.length; i++) {
+			const segmentValue = this.values[indices[i]];
+
+			if (isDirective(segmentValue)) {
+				directiveSegments.push({ index: indices[i], value: segmentValue as IDirectiveResultLike });
+				composed += strings[i + 1] ?? '';
+			} else {
+				composed += `${segmentValue ?? ''}${strings[i + 1] ?? ''}`;
+			}
+		}
+
+		// Drop state for segments that stopped being directives.
+		if (part.segmentDirectiveStates) {
+			for (const [index, entry] of part.segmentDirectiveStates) {
+				if (!directiveSegments.some((segment) => segment.index === index)) {
+					disposeDirectiveState(entry.state);
+					part.segmentDirectiveStates.delete(index);
+				}
+			}
+		}
+
+		const staticChanged = part.previousValue !== composed;
+
+		if (staticChanged) {
+			if (composed === '' && directiveSegments.length === 0 && strings.every((segment) => segment === '')) {
+				element.removeAttribute(name);
+			} else {
+				element.setAttribute(name, composed);
+			}
+
+			part.previousValue = composed;
+
+			// Rewriting the attribute wiped whatever the directives had applied,
+			// so their "what did I add last time" state is now a lie.
+			if (part.segmentDirectiveStates) {
+				for (const entry of part.segmentDirectiveStates.values()) {
+					disposeDirectiveState(entry.state);
+				}
+				part.segmentDirectiveStates.clear();
+			}
+		}
+
+		if (directiveSegments.length === 0) {
+			return;
+		}
+
+		const states = (part.segmentDirectiveStates ??= new Map());
+
+		for (const segment of directiveSegments) {
+			const existing = states.get(segment.index);
+
+			if (existing && existing.type !== segment.value.type) {
+				disposeDirectiveState(existing.state);
+				states.delete(segment.index);
+			}
+
+			const state = segment.value.render(element, states.get(segment.index)?.state, name);
+			states.set(segment.index, { state, type: segment.value.type });
+		}
 	}
 
 	private getAttributePreProcessor(
@@ -798,7 +968,7 @@ export class TemplateResult {
 		}
 
 		if (part.arrayState) {
-			for (const item of part.arrayState.items.values()) {
+			for (const item of part.arrayState.items) {
 				disposeContainerParts(item.container);
 			}
 			part.arrayState = undefined;
@@ -936,28 +1106,52 @@ export class TemplateResult {
 				this.clearRenderedNodes(part);
 			}
 
-			const state = part.arrayState ?? {
-				items: new Map<unknown, IKeyedArrayItem>(),
-				keys: []
-			};
+			const previousItems = part.arrayState?.items ?? [];
 
-			const newItems = new Map<unknown, IKeyedArrayItem>();
-			const newKeys: unknown[] = [];
-
-			for (const item of keyedValues) {
-				const existing = state.items.get(item.key);
-				if (existing) {
-					this.updateArrayItem(existing, item.value);
-					newItems.set(item.key, existing);
+			// Old items bucketed by key. A bucket, not a single slot: with a
+			// duplicated key the second entry used to reuse the item the first
+			// had already claimed, so one value silently vanished from the DOM
+			// and the surplus item was never disposed.
+			const available = new Map<unknown, IKeyedArrayItem[]>();
+			for (const item of previousItems) {
+				const bucket = available.get(item.key);
+				if (bucket) {
+					bucket.push(item);
 				} else {
-					const created = this.createArrayItem(item.value, parent, part.endMarker!);
-					newItems.set(item.key, { key: item.key, ...created });
+					available.set(item.key, [item]);
 				}
-				newKeys.push(item.key);
 			}
 
-			for (const [key, oldItem] of state.items.entries()) {
-				if (!newItems.has(key)) {
+			const seenKeys = new Set<unknown>();
+			const nextItems: IKeyedArrayItem[] = [];
+
+			for (const item of keyedValues) {
+				if (seenKeys.has(item.key)) {
+					devWarn(
+						'array-duplicate-key',
+						`An interpolated keyed array contains a duplicate key (${String(item.key)}). ` +
+							'Keys must be unique — entries sharing a key cannot be tracked apart across renders.'
+					);
+				}
+				seenKeys.add(item.key);
+
+				const bucket = available.get(item.key);
+				const existing = bucket?.shift();
+
+				if (existing) {
+					if (bucket!.length === 0) {
+						available.delete(item.key);
+					}
+					this.updateArrayItem(existing, item.value);
+					nextItems.push(existing);
+				} else {
+					const created = this.createArrayItem(item.value, parent, part.endMarker!);
+					nextItems.push({ key: item.key, ...created });
+				}
+			}
+
+			for (const bucket of available.values()) {
+				for (const oldItem of bucket) {
 					// Dispose the removed item's part tree, then remove its live
 					// range (markers included) — not a snapshot of its nodes.
 					disposeContainerParts(oldItem.container);
@@ -969,8 +1163,7 @@ export class TemplateResult {
 			// front of the first node not yet placed. Items already in position
 			// are skipped over without touching the DOM.
 			let referenceNode: Node = this.firstArrayNode(part);
-			for (const key of newKeys) {
-				const item = newItems.get(key)!;
+			for (const item of nextItems) {
 				if (item.start === referenceNode) {
 					referenceNode = item.end.nextSibling ?? part.endMarker!;
 					continue;
@@ -978,10 +1171,7 @@ export class TemplateResult {
 				moveRange(item.start, item.end, referenceNode);
 			}
 
-			part.arrayState = {
-				items: newItems,
-				keys: newKeys
-			};
+			part.arrayState = { items: nextItems };
 			return;
 		}
 
@@ -1294,6 +1484,16 @@ export class TemplateResult {
 					if (part.node && part.name) {
 						const element = part.node as Element;
 
+						// A composite attribute is handled as a whole — including when
+						// one of its segments is a directive. Checking `isDirective`
+						// first (as this used to) rendered the directive and dropped
+						// every static segment: `class="card ${classMap({active})}"`
+						// produced `class="active"`.
+						if (isCompositeAttribute) {
+							this.commitCompositeAttribute(part, element);
+							continue;
+						}
+
 						// Leaving a directive for a plain value: run its cleanup now,
 						// not whenever another directive happens to replace it.
 						if (!isDirective(value) && part.directiveState !== undefined) {
@@ -1310,34 +1510,8 @@ export class TemplateResult {
 								disposeDirectiveState(part.directiveState);
 								part.directiveState = undefined;
 							}
-							part.directiveState = value.render(element, part.directiveState);
+							part.directiveState = value.render(element, part.directiveState, part.name);
 							part.directiveType = value.type;
-						} else if (isCompositeAttribute) {
-							const strings = part.attributeStrings as string[];
-							const indices = part.attributeIndices as number[];
-							let composed = strings[0] ?? '';
-
-							for (let i = 0; i < indices.length; i++) {
-								const segmentValue = this.values[indices[i]];
-								composed += `${segmentValue ?? ''}${strings[i + 1] ?? ''}`;
-							}
-
-							if (part.previousValue === composed) {
-								// Composed value unchanged — skip the DOM write. Use continue
-								// (not break) so the loop's trailing `part.previousValue = value`
-								// can't overwrite the stored composed string with a single
-								// segment value, which would defeat this skip forever.
-								continue;
-							}
-
-							if (composed === '' && strings.every((segment) => segment === '')) {
-								element.removeAttribute(part.name);
-							} else {
-								element.setAttribute(part.name, composed);
-							}
-
-							part.previousValue = composed;
-							continue;
 						} else if (typeof value === 'boolean' && part.name.startsWith('aria-')) {
 							// ARIA state attributes use the literal strings "true"/"false",
 							// never HTML boolean-attribute (present/absent) semantics.
@@ -1379,7 +1553,7 @@ export class TemplateResult {
 								disposeDirectiveState(part.directiveState);
 								part.directiveState = undefined;
 							}
-							part.directiveState = value.render(part.node as Element, part.directiveState);
+							part.directiveState = value.render(part.node as Element, part.directiveState, part.name);
 							part.directiveType = value.type;
 						} else {
 							if (part.name === 'innerHTML' || part.name === 'outerHTML') {

@@ -3,6 +3,7 @@ import type { IAppConfig } from '../interfaces/iapp-config.interface';
 import type { IMelodicApp } from '../interfaces/imelodic-app.interface';
 import type { Token } from '../../injection';
 import { isDevMode, setDevMode } from '../../devtools/dev-mode';
+import { installConsoleApi } from '../../devtools/console-api';
 import { HttpClient } from '../../http/classes/http-client.class';
 
 export async function bootstrap(config: IAppConfig = {}): Promise<IMelodicApp> {
@@ -15,6 +16,12 @@ export async function bootstrap(config: IAppConfig = {}): Promise<IMelodicApp> {
 	}
 
 	const devMode = isDevMode();
+
+	if (devMode) {
+		// `window.melodic` — component registry, mounted instances, injector
+		// contents and the framework event stream, from the console.
+		installConsoleApi();
+	}
 	const errorHandlers: { type: string; handler: EventListener }[] = [];
 
 	if (devMode) {

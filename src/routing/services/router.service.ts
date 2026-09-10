@@ -19,6 +19,7 @@ import { matchRouteTree } from '../functions/match-route-tree.function';
 import { buildPathFromRoute } from '../functions/build-path-from-route.function';
 import { installHistoryEvents, routerStateEvent } from '../functions/install-history-events.function';
 import { appendQueryParams, parseUrlParts } from '../functions/url-parts.function';
+import { emitDevtools } from '../../devtools/hook';
 
 /**
  * In-flight / completed lazy loads, keyed by route so concurrent navigations
@@ -262,6 +263,7 @@ export class RouterService {
 
 	private emit(type: NavigationEventType, id: number, url: string, trigger: INavigationEvent['trigger'], extra: Partial<INavigationEvent> = {}): void {
 		this._events.set({ type, id, url, trigger, ...extra });
+		emitDevtools(`nav:${type}` as 'nav:start', () => ({ id, url, trigger, ...extra }));
 	}
 
 	/**

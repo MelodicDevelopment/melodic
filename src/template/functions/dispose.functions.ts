@@ -70,7 +70,7 @@ export function disposePart(part: ITemplatePart): void {
 	}
 
 	if (part.arrayState) {
-		for (const item of part.arrayState.items.values()) {
+		for (const item of part.arrayState.items) {
 			disposeContainerParts(item.container);
 		}
 		part.arrayState = undefined;

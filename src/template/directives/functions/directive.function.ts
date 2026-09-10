@@ -19,7 +19,7 @@ import type { IDirectiveResult } from '../interfaces/idirective-result.interface
  *   should also implement `__dispose` on their state (see IDirectiveState).
  */
 
-export function directive(renderFn: (container: Node, previousState?: any) => any, type?: string | symbol): IDirectiveResult {
+export function directive(renderFn: (container: Node, previousState?: any, name?: string) => any, type?: string | symbol): IDirectiveResult {
 	return {
 		__directive: true,
 		type,

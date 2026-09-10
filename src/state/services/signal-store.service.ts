@@ -5,10 +5,11 @@ import type { ActionReducerMap } from '../types/reducer-config.type';
 import { RX_INIT_STATE, RX_ACTION_PROVIDERS, RX_EFFECTS_PROVIDERS, RX_STATE_DEBUG } from '../injection.tokens';
 import type { ActionReducer } from '../types/action-reducer.type';
 import { Injectable, Injector, Service } from '../../injection';
-import { type ReadonlySignal, type Signal, batch, computed } from '../../signals';
+import { type ReadonlySignal, type Signal, batch, computed, untracked } from '../../signals';
 import { getActiveComponent } from '../../components/functions/active-component.functions';
 import { getSelectorCacheKey } from '../functions/selector-cache-key.function';
 import { getComponentCachedSelect } from '../functions/component-select-cache.function';
+import { devtoolsListening, emitDevtools } from '../../devtools/hook';
 
 type ReducerIndexEntry<S> = { key: keyof S; reducer: ActionReducer<S[keyof S], Action> };
 type EffectIndexEntry<S> = { key: keyof S; effect: ActionEffect };
@@ -75,7 +76,25 @@ export class SignalStoreService<S> {
 	}
 
 	public logState(): void {
-		console.log(this.getCurrentState());
+		console.log(this.snapshot());
+	}
+
+	/**
+	 * Read the whole state once, without tracking.
+	 *
+	 * Use this instead of `select()` outside a component (guards, resolvers,
+	 * services, one-off checks): `select()` returns a live computed that stays
+	 * subscribed to the slice signal for as long as the caller holds it, and
+	 * outside a component nothing ever destroys it — 100 guard invocations left
+	 * 100 dependents attached to the state.
+	 */
+	public snapshot(): S {
+		return untracked(() => this.getCurrentState());
+	}
+
+	/** One slice, read once, without tracking. See `snapshot()`. */
+	public snapshotSlice<K extends keyof S>(key: K): S[K] {
+		return untracked(() => this._state[key]());
 	}
 
 	public dispatch<T extends ActionIdentifier, P extends ActionPayload>(action: TypedAction<T, P>): void;
@@ -90,11 +109,15 @@ export class SignalStoreService<S> {
 			console.log(`Current State:`, this.getCurrentState());
 		}
 
+		const before = devtoolsListening() ? this.snapshot() : undefined;
+
 		if (key) {
 			this.dispatchWithKey(key, action);
 		} else {
 			this.dispatchWithoutKey(action);
 		}
+
+		emitDevtools('store:dispatch', () => ({ action: action.type, payload: action.payload, key, before, after: this.snapshot() }));
 	}
 
 	private dispatchWithKey<K extends keyof S, T extends ActionIdentifier, P extends ActionPayload>(key: K, action: TypedAction<T, P>): void {
@@ -104,10 +127,19 @@ export class SignalStoreService<S> {
 
 		const reducers = this._reducerMap[key].reducers;
 
-		const reducer = reducers.find((reducer) => reducer.action.type === action.type);
-		if (reducer !== undefined) {
-			const newState = reducer.reducer(this._state[key](), action);
-			(this._state[key] as Signal<S[K]>).set(newState);
+		// EVERY reducer registered for this action type in the slice, threaded in
+		// registration order — the same rule the key-less dispatch follows. Taking
+		// only the first match meant a slice could handle one action in two ways
+		// and silently get one of them.
+		const matching = reducers.filter((reducer) => reducer.action.type === action.type);
+		if (matching.length > 0) {
+			batch(() => {
+				let sliceState = this._state[key]();
+				for (const reducer of matching) {
+					sliceState = reducer.reducer(sliceState, action) as S[K];
+				}
+				(this._state[key] as Signal<S[K]>).set(sliceState);
+			});
 
 			if (this._debug) {
 				console.log(`New State:`, this.getCurrentState());

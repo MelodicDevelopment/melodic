@@ -2,9 +2,17 @@ import { DEPENDENTS, SIGNAL_MARKER, type IDependent, type Signal } from '../type
 import type { Subscriber } from '../types/subscriber.type';
 import { getActiveEffect } from './active-effect.functions';
 import { flush, scheduleNotify } from './batch.function';
+import { emitDevtools } from '../../devtools/hook';
 
-const DESTROYED_MESSAGE =
-	'Signal accessed after destruction. Holding a signal beyond its owning component (e.g. cached on a long-lived service) is a bug — the signal is destroyed when its component disconnects.';
+export interface ISignalOptions {
+	/** Label used in error messages and DevTools. */
+	name?: string;
+}
+
+const destroyedMessage = (name: string | undefined): string =>
+	`Signal${name ? ` '${name}'` : ''} accessed after destruction. ` +
+	'Holding a signal beyond its owning component (e.g. cached on a long-lived service) is a bug — ' +
+	'the signal is destroyed when its component disconnects.';
 
 /**
  * Call every subscriber even if one throws; rethrow afterwards so the caller
@@ -29,9 +37,9 @@ export function notifyAll<T>(subscribers: Iterable<Subscriber<T>>, value: T): vo
 	}
 }
 
-export function signal<T>(initialValue: T): Signal<T>;
+export function signal<T>(initialValue: T, options?: ISignalOptions): Signal<T>;
 export function signal<T>(): Signal<T | undefined>;
-export function signal<T>(initialValue?: T): Signal<T | undefined> {
+export function signal<T>(initialValue?: T, options: ISignalOptions = {}): Signal<T | undefined> {
 	let value = initialValue;
 	let destroyed = false;
 	const subscribers = new Set<Subscriber<T | undefined>>();
@@ -44,7 +52,7 @@ export function signal<T>(initialValue?: T): Signal<T | undefined> {
 
 	const read = (() => {
 		if (destroyed) {
-			throw new Error(DESTROYED_MESSAGE);
+			throw new Error(destroyedMessage(options.name));
 		}
 		const activeEffect = getActiveEffect();
 		if (activeEffect) {
@@ -57,13 +65,14 @@ export function signal<T>(initialValue?: T): Signal<T | undefined> {
 
 	read.set = (newValue: T | undefined): void => {
 		if (destroyed) {
-			throw new Error(DESTROYED_MESSAGE);
+			throw new Error(destroyedMessage(options.name));
 		}
 		if (Object.is(value, newValue)) {
 			return;
 		}
 
 		value = newValue;
+		emitDevtools('signal:set', () => ({ name: options.name, value: newValue }));
 
 		// Phase 1 — invalidate: queue raw subscribers, mark every dependent.
 		if (subscribers.size > 0) {
@@ -79,14 +88,14 @@ export function signal<T>(initialValue?: T): Signal<T | undefined> {
 
 	read.update = (updater: (current: T | undefined) => T | undefined): void => {
 		if (destroyed) {
-			throw new Error(DESTROYED_MESSAGE);
+			throw new Error(destroyedMessage(options.name));
 		}
 		read.set(updater(value));
 	};
 
 	read.subscribe = (subscriber: Subscriber<T | undefined>): (() => void) => {
 		if (destroyed) {
-			throw new Error(DESTROYED_MESSAGE);
+			throw new Error(destroyedMessage(options.name));
 		}
 		subscribers.add(subscriber);
 		return () => subscribers.delete(subscriber);
@@ -99,9 +108,12 @@ export function signal<T>(initialValue?: T): Signal<T | undefined> {
 	read.destroy = (): void => {
 		if (destroyed) return;
 		destroyed = true;
+		emitDevtools('signal:destroy', () => ({ name: options.name }));
 		subscribers.clear();
 		dependents.clear();
 	};
+
+	emitDevtools('signal:create', () => ({ name: options.name, value: initialValue }));
 
 	Object.defineProperty(read, SIGNAL_MARKER, {
 		value: true,

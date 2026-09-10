@@ -1,6 +1,11 @@
 import type { INewable } from '../../interfaces/inewable.interface';
 import { ComponentBase } from '../classes/component-base.class';
 import type { TypedComponentMeta } from '../types/component-meta.type';
+import { attributeNames } from '../types/component-meta.type';
+import { registerComponentDefinition, getComponentDefinition } from '../functions/component-registry.functions';
+import { devWarn, isDevMode } from '../../devtools/dev-mode';
+import { emitDevtools } from '../../devtools/hook';
+import { untracked } from '../../signals/functions/untracked.function';
 import type { Component } from '../types/component.type';
 import { Injector } from '../../injection/classes/injection-engine.class';
 import { resolveInjectedParams } from '../../injection/function/resolve-injected-params.function';
@@ -45,9 +50,59 @@ function assertValidSelector(selector: unknown): void {
 	}
 }
 
+/**
+ * Dev-only checks on the observed-attribute list. Both failures are silent in
+ * production and baffling in development: an attribute whose name has an
+ * uppercase letter simply never fires (the platform lowercases attribute
+ * names), and an attribute pointed at a property that holds a signal or a
+ * method overwrites it with the raw attribute string.
+ */
+function warnAboutAttributes<C extends Component>(meta: TypedComponentMeta<C>, component: INewable<C>): void {
+	if (!isDevMode()) {
+		return;
+	}
+
+	for (const name of attributeNames(meta.attributes)) {
+		if (/[A-Z]/.test(name)) {
+			devWarn(
+				`attr-case:${meta.selector}:${name}`,
+				`<${meta.selector}> observes attribute "${name}", which can never fire — HTML lowercases attribute names. ` +
+					`Use "${name.replace(/[A-Z]/g, (ch) => `-${ch.toLowerCase()}`)}" (it maps to the "${name}" property).`
+			);
+		}
+	}
+
+	const prototype = component.prototype as Record<string, unknown> | undefined;
+	if (!prototype) {
+		return;
+	}
+
+	for (const name of attributeNames(meta.attributes)) {
+		const prop = name.replace(/-([a-z])/g, (_, ch: string) => (ch as string).toUpperCase());
+		if (typeof prototype[prop] === 'function') {
+			devWarn(
+				`attr-method:${meta.selector}:${name}`,
+				`<${meta.selector}> observes attribute "${name}", but "${prop}" is a method. ` +
+					'Setting the attribute would replace the method with the attribute string.'
+			);
+		}
+	}
+}
+
 export function MelodicComponent<C extends Component>(meta: TypedComponentMeta<C>): (component: INewable<C>) => void {
 	return function (component: INewable<C>): void {
 		assertValidSelector(meta.selector);
+		warnAboutAttributes(meta, component);
+
+		const existing = getComponentDefinition(meta.selector);
+		if (existing && existing.componentClass !== component) {
+			devWarn(
+				`duplicate-selector:${meta.selector}`,
+				`Two classes were registered as <${meta.selector}> ('${(existing.componentClass as { name?: string })?.name ?? 'unknown'}' and ` +
+					`'${component.name}'). The first registration wins and the second is ignored — custom element names are global.`
+			);
+		}
+
 		if (customElements.get(meta.selector) === undefined) {
 			const webComponent = class extends ComponentBase {
 				constructor() {
@@ -71,7 +126,9 @@ export function MelodicComponent<C extends Component>(meta: TypedComponentMeta<C
 					setActiveComponent(placeholder as unknown as ComponentBase);
 					let userInstance: C;
 					try {
-						userInstance = Reflect.construct(component, dependencies) as C;
+						// untracked: field initializers belong to this component,
+						// not to whichever parent render effect is upgrading it.
+						userInstance = untracked(() => Reflect.construct(component, dependencies) as C);
 					} finally {
 						setActiveComponent(prevActive);
 					}
@@ -79,7 +136,7 @@ export function MelodicComponent<C extends Component>(meta: TypedComponentMeta<C
 					super(meta, userInstance, { disposables, selectCache });
 				}
 
-				public static readonly observedAttributes: string[] = meta.attributes ?? [];
+				public static readonly observedAttributes: string[] = attributeNames(meta.attributes);
 			};
 
 			const componentWithSelector: INewable<C> & { selector?: string } = component as INewable<C> & { selector?: string };
@@ -87,5 +144,8 @@ export function MelodicComponent<C extends Component>(meta: TypedComponentMeta<C
 
 			customElements.define(meta.selector, webComponent);
 		}
+
+		registerComponentDefinition({ selector: meta.selector, componentClass: component, meta: meta as TypedComponentMeta<Component> });
+		emitDevtools('component:define', () => ({ selector: meta.selector, className: component.name }));
 	};
 }

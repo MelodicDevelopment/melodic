@@ -7,6 +7,7 @@ export {
 	getRegisteredDirectives,
 	hasAttributeDirective,
 	isDirective,
+	live,
 	portalDirective,
 	registerAttributeDirective,
 	repeat,

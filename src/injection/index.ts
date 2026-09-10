@@ -1,5 +1,5 @@
 export { Inject, Injectable, Service } from './decorators';
-export { createToken, describeToken, getTokenKey } from './function';
+export { createToken, describeToken, getTokenKey, inject, injectOptional } from './function';
 export { Binding } from './classes/binding.class';
 export { InjectionEngine, Injector } from './classes/injection-engine.class';
 

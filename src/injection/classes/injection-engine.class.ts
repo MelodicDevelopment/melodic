@@ -6,6 +6,7 @@ import { resolveInjectedParams } from '../function/resolve-injected-params.funct
 import type { IClassBindingOptions } from '../interfaces/iclass-binding-options.interface';
 import type { IFactoryBindingOptions } from '../interfaces/ifactory-binding-options.interface';
 import { getActiveComponent, setActiveComponent } from '../../components/functions/active-component.functions';
+import { devWarn } from '../../devtools/dev-mode';
 
 export class InjectionEngine {
 	private _bindings: Map<TokenKey, Binding<unknown>> = new Map();
@@ -51,8 +52,27 @@ export class InjectionEngine {
 			binding.withArgs(options.args);
 		}
 
+		this.warnOnRebind(key);
 		this._bindings.set(key, binding as Binding<unknown>);
 		return binding;
+	}
+
+	/**
+	 * Re-binding a token whose singleton has already been handed out leaves
+	 * every existing holder on the old instance while new consumers get the new
+	 * one — a split-brain that is very hard to see. Warn in dev; tests that
+	 * deliberately swap a binding can ignore it (or unbind first).
+	 */
+	private warnOnRebind(key: TokenKey): void {
+		const existing = this._bindings.get(key);
+		if (existing?.isSingleton && existing.getInstance() !== undefined) {
+			devWarn(
+				`rebind:${describeToken(key)}`,
+				`'${describeToken(key)}' was re-bound after its singleton had already been resolved. ` +
+					'Consumers holding the previous instance keep it, so two versions are now live. ' +
+					'Bind before the first resolution, or call Injector.unbind() first.'
+			);
+		}
 	}
 
 	public bindValue<T>(token: Token<T>, value: T): Binding<T>;
@@ -64,6 +84,7 @@ export class InjectionEngine {
 		binding.setInstance(value as T);
 		binding.setSingleton(true);
 
+		this.warnOnRebind(key);
 		this._bindings.set(key, binding as Binding<unknown>);
 
 		return binding;
@@ -102,6 +123,14 @@ export class InjectionEngine {
 	public getBinding<T>(token: Token<T>): Binding<T> | undefined {
 		const key = getTokenKey(token);
 		return this._bindings.get(key) as Binding<T> | undefined;
+	}
+
+	/**
+	 * Every registered binding, as `[token key, binding]`. Powers DevTools and
+	 * diagnostics; not a hook for mutating the container.
+	 */
+	public entries(): Array<[TokenKey, Binding<unknown>]> {
+		return [...this._bindings.entries()];
 	}
 
 	public unbind<T>(token: Token<T>): boolean {

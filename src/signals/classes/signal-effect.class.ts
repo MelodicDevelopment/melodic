@@ -1,6 +1,7 @@
 import { DEPENDENTS, type IDependent, type IProducer } from '../types/signal.type';
 import { getActiveEffect, setActiveEffect } from '../functions/active-effect.functions';
 import { isCoalescingEffects, scheduleEffect, unscheduleEffect } from '../functions/batch.function';
+import { emitDevtools } from '../../devtools/hook';
 
 /**
  * Maximum number of synchronous re-runs allowed in a single direct run cycle.
@@ -16,6 +17,9 @@ export interface ISignalEffectOptions {
 	 * `computed()` to propagate invalidation lazily without executing.
 	 */
 	onInvalidate?: () => void;
+
+	/** Label used in error messages and DevTools. */
+	name?: string;
 }
 
 export class SignalEffect implements IDependent {
@@ -23,7 +27,11 @@ export class SignalEffect implements IDependent {
 	private _isRunning = false;
 	private _needsRerun = false;
 	private _destroyed = false;
+	private _hasRun = false;
 	private readonly _onInvalidate: (() => void) | undefined;
+
+	/** Label used in error messages and DevTools. */
+	public readonly name: string | undefined;
 
 	public readonly run: () => void;
 
@@ -32,21 +40,32 @@ export class SignalEffect implements IDependent {
 		options?: ISignalEffectOptions
 	) {
 		this._onInvalidate = options?.onInvalidate;
+		this.name = options?.name;
 
 		this.run = () => {
 			if (this._destroyed) {
 				return;
 			}
 
-			// During a batch (or its flush) coalesce: schedule a single run so an
-			// effect depending on several batched signals executes once.
-			if (isCoalescingEffects()) {
+			// The FIRST run always executes synchronously, even inside a batch
+			// or a flush: `run()` is how an effect establishes its tracking, and
+			// deferring it meant code immediately after `effect.run()` observed
+			// an effect that had not run yet — which made a predictable
+			// `effect()` helper impossible to build.
+			if (this._hasRun && isCoalescingEffects()) {
+				// During a batch (or its flush) coalesce: schedule a single run so an
+				// effect depending on several batched signals executes once.
 				scheduleEffect(this);
 				return;
 			}
 
 			this.runNow();
 		};
+	}
+
+	/** True once the effect has executed at least once. */
+	public get hasRun(): boolean {
+		return this._hasRun;
 	}
 
 	public get destroyed(): boolean {
@@ -82,6 +101,7 @@ export class SignalEffect implements IDependent {
 		}
 
 		this._isRunning = true;
+		this._hasRun = true;
 		let iterations = 0;
 
 		try {
@@ -90,7 +110,7 @@ export class SignalEffect implements IDependent {
 					// Reset re-run state; _isRunning is restored by the finally below.
 					this._needsRerun = false;
 					throw new Error(
-						`Circular dependency detected in effect: exceeded ${MAX_EFFECT_ITERATIONS} synchronous re-runs. ` +
+						`Circular dependency detected in effect${this.name ? ` '${this.name}'` : ''}: exceeded ${MAX_EFFECT_ITERATIONS} synchronous re-runs. ` +
 							'An effect is repeatedly writing to a signal it also reads.'
 					);
 				}
@@ -102,6 +122,7 @@ export class SignalEffect implements IDependent {
 				setActiveEffect(this);
 
 				try {
+					emitDevtools('effect:run', () => ({ name: this.name }));
 					this.execute();
 				} finally {
 					// A throwing execute() must never leave the global active-effect

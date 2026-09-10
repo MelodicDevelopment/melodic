@@ -1,5 +1,5 @@
 export { SignalEffect } from './classes/signal-effect.class';
-export { batch, computed, getActiveEffect, isSignal, setActiveEffect, signal } from './functions';
+export { batch, computed, effect, getActiveEffect, isSignal, setActiveEffect, signal, untracked } from './functions';
 export { SIGNAL_MARKER } from './types';
 
 export type * from './classes/signal-effect.class';
