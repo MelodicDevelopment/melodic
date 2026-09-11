@@ -16,11 +16,11 @@
  * see this failure; it only exists at the CDN. Pinning the exact version in
  * the URL busts esm.sh's cache so a fresh publish is actually what's tested.
  */
-import { mkdtempSync, writeFileSync, existsSync, readFileSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { execFileSync } from 'node:child_process';
+import { launchChrome, openPage } from './lib/chrome-driver.mjs';
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const pkg = JSON.parse(readFileSync(join(repoRoot, 'package.json'), 'utf8'));
@@ -114,36 +114,38 @@ const html = `<!doctype html>
 `;
 
 const dir = mkdtempSync(join(tmpdir(), 'melodic-cdn-smoke-'));
-const page = join(dir, 'index.html');
-writeFileSync(page, html);
+const pageFile = join(dir, 'index.html');
+writeFileSync(pageFile, html);
 
-const chrome =
-	process.env.CHROME_BIN ??
-	[
-		'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
-		'/usr/bin/google-chrome',
-		'/usr/bin/google-chrome-stable',
-		'/usr/bin/chromium-browser',
-		'/usr/bin/chromium'
-	].find(existsSync);
+// `--dump-dom` was how this ran, and it silently produces NO OUTPUT on current
+// Chrome builds (verified empty on 152 for --headless, =old and =new, even for
+// a trivial local file) — the check would have reported a false failure for
+// every publish. Driving the page over the DevTools Protocol also lets us read
+// the console directly instead of scraping it out of the DOM.
+const browser = await launchChrome();
 
-if (!chrome) {
-	console.error('cdn-smoke-check: no Chrome/Chromium found (set CHROME_BIN)');
-	process.exit(2);
-}
+try {
+	// esm.sh has to fetch and rebuild the module graph, so allow a generous
+	// settle window before asserting.
+	const page = await openPage(browser.wsUrl, pathToFileURL(pageFile).href, { settleMs: 4000 });
 
-console.log(`cdn-smoke-check: @melodicdev/core@${version} via ${chrome}`);
-const dom = execFileSync(
-	chrome,
-	['--headless=new', '--disable-gpu', '--no-sandbox', '--virtual-time-budget=30000', '--dump-dom', pathToFileURL(page).href],
-	{ encoding: 'utf8', timeout: 120_000, maxBuffer: 32 * 1024 * 1024 }
-);
+	const reported = await page.evaluate(`document.getElementById('smoke-errors')?.textContent?.trim() ?? ''`);
+	const ok = await page.evaluate(`Boolean(document.getElementById('smoke-ok'))`);
+	const failures = [...page.pageErrors, ...page.consoleErrors, reported].filter(Boolean);
 
-const errors = /<pre id="smoke-errors">([\s\S]*?)<\/pre>/.exec(dom)?.[1].trim();
-if (dom.includes('SMOKE-OK') && !errors) {
-	console.log(`cdn-smoke-check: PASS — esm.sh module graph for ${version} boots clean`);
-} else {
-	console.error(`cdn-smoke-check: FAIL for @melodicdev/core@${version}`);
-	console.error(errors ? `page errors:\n${errors}` : 'no SMOKE-OK marker (module graph likely failed to link; run without --headless to inspect)');
-	process.exit(1);
+	await page.close();
+
+	if (ok && failures.length === 0) {
+		console.log(`cdn-smoke-check: PASS — esm.sh module graph for ${version} boots clean`);
+	} else {
+		console.error(`cdn-smoke-check: FAIL for @melodicdev/core@${version}`);
+		if (failures.length > 0) {
+			console.error(`page errors:\n${failures.join('\n')}`);
+		} else {
+			console.error('no SMOKE-OK marker (the module graph likely failed to link)');
+		}
+		process.exit(1);
+	}
+} finally {
+	browser.close();
 }

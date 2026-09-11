@@ -156,3 +156,72 @@ Assert on the event stream for redirects, blocks and failures:
 const events: INavigationEvent[] = [];
 router.events.subscribe((event) => event && events.push(event));
 ```
+
+## Browser smoke checks
+
+Unit tests run against happy-dom and never execute the real apps; a build only
+type-checks and bundles. A change to when components re-render, or to how a panel is
+hidden, can pass both and still leave a blank page or a dead button in a browser. Three
+scripts close that gap by driving headless Chrome over the DevTools Protocol.
+
+```bash
+npm run smoke:apps      # build the example + demo, then exercise them in a browser
+npm run smoke:bundle    # assert the dev/prod bundle split is real
+npm run smoke:cdn -- 4.0.0   # after publishing: the esm.sh module graph
+```
+
+### `smoke:apps`
+
+Boots the built demo and example and *interacts* with them — switches tabs, types into an
+input, toggles the theme, navigates routes, goes back, and drives a guarded route both
+logged out and logged in. Every check fails on an uncaught exception, a console error, or
+a failed resource load.
+
+It asserts outcomes, not just that the page loaded:
+
+| Check | What it would catch |
+|---|---|
+| one panel visible per tab group | the `hidden`-attribute panel switch silently showing all or none |
+| `ml-stack` computed layout | a layout custom property that does not resolve |
+| theme toggle moves `--ml-color-surface` | a theme that sets `data-theme` but applies nothing |
+| back restores the previous view | a broken popstate/history-index path |
+| guard blocks when logged out, admits when logged in | a guard redirect that bypasses the target's guards |
+
+### `smoke:bundle`
+
+Loads **both** prebuilt `bundle/` artifacts and checks that the development one reports
+`isDevMode() === true` and actually emits a `[Melodic]` diagnostic, while the production
+one is silent. Through 3.x both artifacts folded every diagnostic away, so a CDN consumer
+could not get a build that warns; this is what keeps that fixed.
+
+### Writing a new browser check
+
+`scripts/lib/chrome-driver.mjs` is a dependency-free CDP client — Node's built-in
+`WebSocket` speaks the protocol directly.
+
+```javascript
+import { launchChrome, openPage } from './lib/chrome-driver.mjs';
+import { serveDirectory } from './lib/static-server.mjs';
+
+const site = await serveDirectory('dist/demo', { spaFallback: true });
+const browser = await launchChrome();
+const page = await openPage(browser.wsUrl, `${site.origin}/`);
+
+await page.evaluate(`document.querySelector('button').click()`);
+await page.settle(300);
+
+console.log(page.consoleErrors, page.pageErrors, page.failedRequests);
+```
+
+Two things to know:
+
+- **Serve over HTTP, never `file://`.** Chrome gives every `file://` document its own
+  opaque origin, so an ES module import across directories is blocked as cross-origin.
+- **Queries must pierce shadow roots**, *including the root element's own* —
+  `element.querySelectorAll` only sees light-DOM descendants, so a component that renders
+  into its shadow root looks completely empty without an explicit `element.shadowRoot`
+  hop. `smoke:apps` injects `__deepAll`/`__deep`/`__deepText` helpers that do this.
+
+`--dump-dom` is not used anywhere: it silently produces **no output** on current Chrome
+builds (verified empty on 152 for `--headless`, `=old` and `=new`, even for a trivial
+local file).

@@ -11,7 +11,13 @@ node_modules
 dist
 dist-ssr
 *.local
-lib
+
+# Temporary pages written by scripts/bundle-smoke-check.mjs
+.bundle-smoke-*.html
+# TypeScript build output (root and each package). Anchored so it does not
+# also swallow source directories that happen to be named `lib`.
+/lib
+packages/*/lib
 
 # Editor directories and files
 .vscode/*
