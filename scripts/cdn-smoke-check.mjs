@@ -26,6 +26,38 @@ const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const pkg = JSON.parse(readFileSync(join(repoRoot, 'package.json'), 'utf8'));
 const version = process.argv[2] ?? pkg.version;
 
+/**
+ * Fail early, and clearly, when the version simply is not published.
+ *
+ * This check imports the package FROM THE CDN, so running it before
+ * `npm publish` produced a bare "the module graph likely failed to link" —
+ * which reads like a serious packaging bug rather than "you have not published
+ * yet", the overwhelmingly more likely cause.
+ */
+async function assertPublished() {
+	const response = await fetch(`https://registry.npmjs.org/@melodicdev/core/${version}`).catch(() => null);
+
+	if (response?.ok) {
+		return;
+	}
+
+	if (response?.status === 404) {
+		console.error(`cdn-smoke-check: @melodicdev/core@${version} is not on npm.`);
+		console.error('');
+		console.error('This check runs AFTER publishing — it imports the package from esm.sh.');
+		console.error('Publish first:');
+		console.error('');
+		console.error('  npm publish --access public');
+		console.error(`  npm run smoke:cdn -- ${version}`);
+		process.exit(2);
+	}
+
+	console.error(`cdn-smoke-check: could not reach the npm registry (${response ? `HTTP ${response.status}` : 'network error'}).`);
+	process.exit(2);
+}
+
+await assertPublished();
+
 const html = `<!doctype html>
 <html>
 <head>
@@ -142,7 +174,9 @@ try {
 		if (failures.length > 0) {
 			console.error(`page errors:\n${failures.join('\n')}`);
 		} else {
-			console.error('no SMOKE-OK marker (the module graph likely failed to link)');
+			console.error('no SMOKE-OK marker: the page never finished its module script.');
+			console.error(`Check https://esm.sh/@melodicdev/core@${version} in a browser — esm.sh may still be building`);
+			console.error('this version, or its rebuild of the entry barrels dropped an export.');
 		}
 		process.exit(1);
 	}
