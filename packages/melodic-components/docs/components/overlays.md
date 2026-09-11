@@ -105,7 +105,8 @@ interface IDialogConfig<T = unknown> {
 | `open()` | Open the dialog |
 | `close(result?)` | Close with an optional result |
 | `afterOpened(fn)` | Callback fired after the dialog opens |
-| `afterClosed(fn)` | Callback fired with result after close |
+| `afterClosed(fn)` | Callback fired with the result after **every** close. Returns an unsubscribe function |
+| `afterOpened(fn)` | Callback fired after **every** open. Returns an unsubscribe function |
 
 **Slots:** `dialog-header`, `default` (body), `dialog-footer`
 
@@ -324,3 +325,34 @@ import { tooltip } from '@melodicdev/components';
 ```html
 <ml-icon icon="question" ${tooltip('Learn more', 'right')}></ml-icon>
 ```
+
+### Dialog callbacks and inline dialogs
+
+`afterOpened` and `afterClosed` are persistent: one registration fires on every open/close
+cycle. A dialog opened through `DialogService` gets a fresh `DialogRef` each time, so there
+is nothing to clean up.
+
+An inline `<ml-dialog>` is different — it keeps **one** `DialogRef` for its lifetime. If you
+register a callback each time you open it, every previous registration is still attached and
+they all run:
+
+```typescript
+// Leaks: a new closure is attached on every open, and none are ever released.
+open(): void {
+	this.ref.afterClosed((result) => this.save(result));
+	this.ref.open();
+}
+```
+
+Either register once, outside the open path, or release the previous registration with the
+unsubscribe function:
+
+```typescript
+open(): void {
+	this._stop?.();
+	this._stop = this.ref.afterClosed((result) => this.save(result));
+	this.ref.open();
+}
+```
+
+Dev mode warns once a single dialog accumulates 20 callbacks.

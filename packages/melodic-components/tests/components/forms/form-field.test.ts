@@ -19,9 +19,21 @@ describe('ml-form-field', () => {
 		return input;
 	}
 
-	it('connects aria-describedby to the hint', async () => {
+	// The control is in the LIGHT dom while the hint and error live in this
+	// component's shadow root, so an `aria-describedby` IDREF between them can
+	// never resolve — it was set, pointed at nothing, and was never announced.
+	// The description now crosses the boundary: element references where the
+	// engine supports them, otherwise the text itself via `aria-description`.
+	// (happy-dom has no ariaDescribedByElements, so these assert the fallback.)
+	const describedText = (input: HTMLElement): string =>
+		input.getAttribute('aria-description') ??
+		((input as HTMLElement & { ariaDescribedByElements?: Element[] | null }).ariaDescribedByElements ?? [])
+			.map((element) => element.textContent?.trim() ?? '')
+			.join('. ');
+
+	it('describes the control with the hint', async () => {
 		const input = await createFieldWithInput({ hint: 'Pick something unique' });
-		expect(input.getAttribute('aria-describedby')).toBe(el.hintId);
+		expect(describedText(input)).toContain('Pick something unique');
 	});
 
 	it('re-syncs ARIA when an error is set reactively after mount', async () => {
@@ -31,12 +43,13 @@ describe('ml-form-field', () => {
 		await flush();
 
 		expect(input.getAttribute('aria-invalid')).toBe('true');
-		// BOTH the error and the hint describe the control
-		const describedBy = (input.getAttribute('aria-describedby') ?? '').split(/\s+/);
-		expect(describedBy).toContain(el.errorId);
-		expect(describedBy).toContain(el.hintId);
 
-		// Both referenced elements must exist in the shadow DOM
+		// BOTH the error and the hint describe the control.
+		const described = describedText(input);
+		expect(described).toContain('This field is required');
+		expect(described).toContain('Pick something unique');
+
+		// The elements they come from are really rendered.
 		expect(el.shadowRoot!.getElementById(el.errorId)).toBeTruthy();
 		expect(el.shadowRoot!.getElementById(el.hintId)).toBeTruthy();
 	});
@@ -47,12 +60,12 @@ describe('ml-form-field', () => {
 		el.error = 'Bad value';
 		await flush();
 		expect(input.getAttribute('aria-invalid')).toBe('true');
-		expect(input.getAttribute('aria-describedby')).toBe(el.errorId);
+		expect(describedText(input)).toContain('Bad value');
 
 		el.error = '';
 		await flush();
 		expect(input.hasAttribute('aria-invalid')).toBe(false);
-		expect(input.hasAttribute('aria-describedby')).toBe(false);
+		expect(describedText(input)).toBe('');
 	});
 
 	it('re-syncs aria-required when required changes', async () => {

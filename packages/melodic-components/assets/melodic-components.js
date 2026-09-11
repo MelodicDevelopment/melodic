@@ -2913,7 +2913,7 @@ function formControlDirective(element, value, _) {
 	};
 }
 registerAttributeDirective("formControl", formControlDirective);
-function modelDirective(element, value, _name) {
+function modelDirective(element, value, name) {
 	if (!isSignal(value)) {
 		devWarn("model-not-signal", ":model expects a signal — for example `:model=${this.name}` where `name = signal(\"\")`. Received:", value);
 		return;
@@ -7969,12 +7969,22 @@ function createState$1(element) {
 		show,
 		hide
 	};
-	const content = tooltip.shadowRoot?.querySelector(".ml-tooltip__content");
-	if (content && !element.hasAttribute("aria-describedby")) {
+	describeWhenReady(element, tooltip, state);
+	return state;
+}
+function describeWhenReady(element, tooltip, state) {
+	if (element.hasAttribute("aria-describedby")) return;
+	const attach = () => {
+		const content = tooltip.shadowRoot?.querySelector(".ml-tooltip__content");
+		if (!content || state.pendingRemoval) return false;
 		setCrossRootDescription(element, [content]);
 		state.ownsDescribedBy = true;
-	}
-	return state;
+		return true;
+	};
+	if (attach()) return;
+	Promise.resolve().then(() => attach()).then((done) => {
+		if (!done) setTimeout(attach, 0);
+	});
 }
 function destroyState(element, state) {
 	element.removeEventListener("mouseenter", state.show);
@@ -26333,14 +26343,13 @@ const dialogStyles = () => css`
 		}
 	}
 `;
+var RUNAWAY_CALLBACK_COUNT = 20;
 var DialogRef = class {
 	constructor(_dialogID, _dialogEl) {
 		this._dialogID = _dialogID;
 		this._dialogEl = _dialogEl;
 		this._afterOpenedCallbacks = [];
 		this._afterClosedCallbacks = [];
-		this._openedListeners = /* @__PURE__ */ new Set();
-		this._closedListeners = /* @__PURE__ */ new Set();
 		this._disableClose = false;
 		this._closeNotified = false;
 		this._popoversDismissed = false;
@@ -26376,10 +26385,7 @@ var DialogRef = class {
 		this._popoversDismissed = false;
 		this._pendingResult = void 0;
 		this._dialogEl.showModal();
-		const opened = this._afterOpenedCallbacks;
-		this._afterOpenedCallbacks = [];
-		opened.forEach((callback) => callback());
-		this._openedListeners.forEach((callback) => callback());
+		this._afterOpenedCallbacks.forEach((callback) => callback());
 		this._dialogEl.dispatchEvent(new CustomEvent("ml:open", {
 			bubbles: true,
 			composed: true
@@ -26394,23 +26400,21 @@ var DialogRef = class {
 	}
 	afterOpened(callback) {
 		this._afterOpenedCallbacks.push(callback);
+		this.warnOnRunawayCallbacks("afterOpened", this._afterOpenedCallbacks.length);
 		return () => {
 			this._afterOpenedCallbacks = this._afterOpenedCallbacks.filter((entry) => entry !== callback);
 		};
 	}
 	afterClosed(callback) {
 		this._afterClosedCallbacks.push(callback);
+		this.warnOnRunawayCallbacks("afterClosed", this._afterClosedCallbacks.length);
 		return () => {
 			this._afterClosedCallbacks = this._afterClosedCallbacks.filter((entry) => entry !== callback);
 		};
 	}
-	onOpened(callback) {
-		this._openedListeners.add(callback);
-		return () => this._openedListeners.delete(callback);
-	}
-	onClosed(callback) {
-		this._closedListeners.add(callback);
-		return () => this._closedListeners.delete(callback);
+	warnOnRunawayCallbacks(method, count) {
+		if (count !== RUNAWAY_CALLBACK_COUNT) return;
+		devWarn(`dialog-ref-callbacks:${method}`, `DialogRef.${method}() has ${count} registered callbacks on one dialog. They all run on every open/close. If you are registering inside the code that opens the dialog, call the unsubscribe function it returns (or register once, outside).`);
 	}
 	onCancel(event) {
 		if (this._disableClose) event.preventDefault();
@@ -26428,10 +26432,7 @@ var DialogRef = class {
 		this._popoversDismissed = false;
 		const result = this._pendingResult;
 		this._pendingResult = void 0;
-		const closed = this._afterClosedCallbacks;
-		this._afterClosedCallbacks = [];
-		closed.forEach((callback) => callback(result));
-		this._closedListeners.forEach((callback) => callback(result));
+		this._afterClosedCallbacks.forEach((callback) => callback(result));
 		this._dialogEl.dispatchEvent(new CustomEvent("ml:close", {
 			bubbles: true,
 			composed: true,

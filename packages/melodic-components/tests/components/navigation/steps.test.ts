@@ -98,8 +98,10 @@ describe('ml-steps slotted mode — keyboard focus and panels', () => {
 		await settle();
 
 		const [panelOne, panelTwo] = Array.from(el.querySelectorAll('ml-step-panel')) as HTMLElement[];
-		expect(panelOne.style.display).toBe('');
-		expect(panelTwo.style.display).toBe('none');
+		// `hidden`, not an inline display: an inline style beats every stylesheet
+		// rule, so a consumer could not style or animate a panel at all.
+		expect(panelOne.hasAttribute('hidden')).toBe(false);
+		expect(panelTwo.hasAttribute('hidden')).toBe(true);
 
 		expect(panelOne.shadowRoot!.querySelector('[role="tabpanel"]')?.getAttribute('aria-label')).toBe('Step One');
 		expect(panelTwo.shadowRoot!.querySelector('[role="tabpanel"]')?.getAttribute('aria-label')).toBe('Step Two');

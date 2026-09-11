@@ -134,9 +134,14 @@ describe('ml-toast', () => {
 	});
 });
 
-/** C8 — inline dialogs reuse their DialogRef across opens. */
+/**
+ * C8 — inline dialogs reuse their DialogRef across opens, so callbacks
+ * registered per-open pile up. `afterClosed` stays PERSISTENT (one
+ * registration fires on every cycle, which ml-dialog's own suite pins); the
+ * fix is the unsubscribe function it now returns.
+ */
 describe('DialogRef callbacks', () => {
-	it('does not accumulate afterClosed callbacks across opens', () => {
+	function makeDialog(id: string): { ref: DialogRef; dialogEl: HTMLDialogElement } {
 		const dialogEl = document.createElement('dialog');
 		document.body.appendChild(dialogEl);
 		dialogEl.showModal = () => dialogEl.setAttribute('open', '');
@@ -145,44 +150,53 @@ describe('DialogRef callbacks', () => {
 			dialogEl.dispatchEvent(new Event('close'));
 		};
 
-		const ref = new DialogRef('test', dialogEl);
+		return { ref: new DialogRef(id, dialogEl), dialogEl };
+	}
+
+	it('fires one registration on every open/close cycle', () => {
+		const { ref, dialogEl } = makeDialog('persistent');
+		let calls = 0;
+		ref.afterClosed(() => calls++);
+
+		ref.open();
+		ref.close();
+		ref.open();
+		ref.close();
+
+		expect(calls).toBe(2);
+		dialogEl.remove();
+	});
+
+	it('returns an unsubscribe function, which is how repeat registration is avoided', () => {
+		const { ref, dialogEl } = makeDialog('unsubscribe');
 		let calls = 0;
 
+		// The accumulating pattern: register before each open. Releasing the
+		// previous registration keeps it at one invocation per close instead of
+		// 1 + 2 + 3.
 		for (let i = 0; i < 3; i++) {
-			ref.afterClosed(() => calls++);
+			const stop = ref.afterClosed(() => calls++);
 			ref.open();
 			ref.close();
+			stop();
 		}
 
-		// One registration, one invocation, per open — not 1 + 2 + 3.
 		expect(calls).toBe(3);
 		dialogEl.remove();
 	});
 
-	it('keeps onClosed listeners across opens', () => {
-		const dialogEl = document.createElement('dialog');
-		document.body.appendChild(dialogEl);
-		dialogEl.showModal = () => dialogEl.setAttribute('open', '');
-		dialogEl.close = () => {
-			dialogEl.removeAttribute('open');
-			dialogEl.dispatchEvent(new Event('close'));
-		};
+	it('warns when callbacks run away on one dialog', () => {
+		const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+		setDevMode(true);
 
-		const ref = new DialogRef('persistent', dialogEl);
-		let calls = 0;
-		const stop = ref.onClosed(() => calls++);
+		const { ref, dialogEl } = makeDialog('runaway');
+		for (let i = 0; i < 25; i++) {
+			ref.afterClosed(() => undefined);
+		}
 
-		ref.open();
-		ref.close();
-		ref.open();
-		ref.close();
-		expect(calls).toBe(2);
+		expect(warn.mock.calls.some((call) => String(call[1]).includes('registered callbacks'))).toBe(true);
 
-		stop();
-		ref.open();
-		ref.close();
-		expect(calls).toBe(2);
-
+		warn.mockRestore();
 		dialogEl.remove();
 	});
 });

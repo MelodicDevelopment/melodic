@@ -1,15 +1,17 @@
 import type { UniqueID } from '../../../functions';
 import type { IDialogConfig } from './dialog-config.interface';
+import { devWarn } from '@melodicdev/core';
+
+/** Registered-callback count at which the accumulation warning fires. */
+const RUNAWAY_CALLBACK_COUNT = 20;
 
 export class DialogRef<TResult = unknown, TData = unknown> {
-	// One-shot listeners for the CURRENT open cycle. An inline <ml-dialog> keeps
-	// the same DialogRef across opens, so callbacks that were never cleared
-	// accumulated: reopening a dialog ten times ran afterClosed ten times.
+	// Persistent: one registration fires on EVERY open/close cycle. An inline
+	// <ml-dialog> keeps the same DialogRef across opens, so a caller that
+	// registers a fresh closure before each open piles them up — hence the
+	// returned unsubscribe function, and the dev warning below.
 	private _afterOpenedCallbacks: (() => void)[] = [];
 	private _afterClosedCallbacks: ((result: TResult | undefined) => void)[] = [];
-	// Persistent listeners, kept across opens.
-	private readonly _openedListeners = new Set<() => void>();
-	private readonly _closedListeners = new Set<(result: TResult | undefined) => void>();
 	private _data: TData | undefined;
 	private _disableClose = false;
 	private _pendingResult: TResult | undefined;
@@ -76,10 +78,7 @@ export class DialogRef<TResult = unknown, TData = unknown> {
 		this._popoversDismissed = false;
 		this._pendingResult = undefined;
 		this._dialogEl.showModal();
-		const opened = this._afterOpenedCallbacks;
-		this._afterOpenedCallbacks = [];
-		opened.forEach((callback) => callback());
-		this._openedListeners.forEach((callback) => callback());
+		this._afterOpenedCallbacks.forEach((callback) => callback());
 		this._dialogEl.dispatchEvent(new CustomEvent('ml:open', { bubbles: true, composed: true }));
 	}
 
@@ -95,41 +94,52 @@ export class DialogRef<TResult = unknown, TData = unknown> {
 	}
 
 	/**
-	 * Run `callback` the next time this dialog opens, then forget it.
+	 * Run `callback` after this dialog opens — on every open, not just the next
+	 * one. Multiple callbacks accumulate and run in registration order.
 	 *
-	 * One-shot: an inline `<ml-dialog>` reuses its DialogRef, so a callback
-	 * that stayed registered fired once per previous open as well. Use
-	 * `onOpened()` for a listener that should survive every open. Returns an
-	 * unsubscribe function.
+	 * Returns an unsubscribe function. Reach for it when the dialog is an
+	 * inline `<ml-dialog>`, whose DialogRef is reused across opens: registering
+	 * a new closure before each `open()` otherwise leaves every previous one
+	 * attached, and they all run.
 	 */
 	public afterOpened(callback: () => void): () => void {
 		this._afterOpenedCallbacks.push(callback);
+		this.warnOnRunawayCallbacks('afterOpened', this._afterOpenedCallbacks.length);
+
 		return () => {
 			this._afterOpenedCallbacks = this._afterOpenedCallbacks.filter((entry) => entry !== callback);
 		};
 	}
 
 	/**
-	 * Run `callback` the next time this dialog closes — including native
-	 * dismissals (Escape / backdrop) — then forget it. See `afterOpened()`.
+	 * Run `callback` after this dialog closes — including native dismissals
+	 * (Escape / backdrop) — on every close. See `afterOpened()`.
 	 */
 	public afterClosed(callback: (result: TResult | undefined) => void): () => void {
 		this._afterClosedCallbacks.push(callback);
+		this.warnOnRunawayCallbacks('afterClosed', this._afterClosedCallbacks.length);
+
 		return () => {
 			this._afterClosedCallbacks = this._afterClosedCallbacks.filter((entry) => entry !== callback);
 		};
 	}
 
-	/** Listen to EVERY open of this dialog. Returns an unsubscribe function. */
-	public onOpened(callback: () => void): () => void {
-		this._openedListeners.add(callback);
-		return () => this._openedListeners.delete(callback);
-	}
+	/**
+	 * A handful of callbacks is normal; dozens means they are being registered
+	 * inside the code that opens the dialog and never released — the failure
+	 * this API's unsubscribe function exists to prevent.
+	 */
+	private warnOnRunawayCallbacks(method: string, count: number): void {
+		if (count !== RUNAWAY_CALLBACK_COUNT) {
+			return;
+		}
 
-	/** Listen to EVERY close of this dialog. Returns an unsubscribe function. */
-	public onClosed(callback: (result: TResult | undefined) => void): () => void {
-		this._closedListeners.add(callback);
-		return () => this._closedListeners.delete(callback);
+		devWarn(
+			`dialog-ref-callbacks:${method}`,
+			`DialogRef.${method}() has ${count} registered callbacks on one dialog. ` +
+				'They all run on every open/close. If you are registering inside the code that opens the dialog, ' +
+				'call the unsubscribe function it returns (or register once, outside).'
+		);
 	}
 
 	private onCancel(event: Event): void {
@@ -161,10 +171,7 @@ export class DialogRef<TResult = unknown, TData = unknown> {
 
 		const result = this._pendingResult;
 		this._pendingResult = undefined;
-		const closed = this._afterClosedCallbacks;
-		this._afterClosedCallbacks = [];
-		closed.forEach((callback) => callback(result));
-		this._closedListeners.forEach((callback) => callback(result));
+		this._afterClosedCallbacks.forEach((callback) => callback(result));
 		this._dialogEl.dispatchEvent(new CustomEvent('ml:close', { bubbles: true, composed: true, detail: { result } }));
 	}
 

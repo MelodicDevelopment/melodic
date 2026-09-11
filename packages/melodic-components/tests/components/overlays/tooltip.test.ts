@@ -37,8 +37,18 @@ describe('ml-tooltip', () => {
 			expect(content.id).not.toBe('');
 		});
 
-		it("points the slotted trigger's aria-describedby at the tooltip content id", () => {
-			expect(trigger.getAttribute('aria-describedby')).toBe(content.id);
+		it('describes the slotted trigger with the tooltip content', () => {
+			// An `aria-describedby` IDREF pointing INTO the tooltip's shadow root
+			// resolves to nothing, so the tooltip looked correct in the DOM and
+			// was never announced. Element references cross the boundary; where
+			// they are unsupported (happy-dom) the text is carried instead.
+			const reflected = trigger as HTMLElement & { ariaDescribedByElements?: Element[] | null };
+
+			if ('ariaDescribedByElements' in reflected) {
+				expect(reflected.ariaDescribedByElements).toContain(content);
+			} else {
+				expect(trigger.getAttribute('aria-description')).toBe(content.textContent?.trim());
+			}
 		});
 
 		it('does not overwrite an existing aria-describedby on the trigger', async () => {

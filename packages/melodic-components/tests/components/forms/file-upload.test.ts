@@ -87,7 +87,8 @@ describe('ml-file-upload file selection state', () => {
 		el.addEventListener('ml:change', (e: CustomEvent) => (detail = e.detail));
 		el.component.removeFile(file);
 
-		expect(detail).toEqual({ files: [] });
+		// Both change paths report the full selection; `removed` says what left.
+		expect(detail).toEqual({ files: [], removed: [file] });
 	});
 });
 

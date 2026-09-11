@@ -1,4 +1,4 @@
-import { promises as fs } from 'node:fs';
+import { promises as fs, readFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -29,13 +29,24 @@ const exists = async (relative: string): Promise<boolean> => {
 	}
 };
 
+/**
+ * The scaffold must pin a core range compatible with this CLI. Derived from the
+ * CLI's own version so a major bump does not need every expectation edited.
+ */
+const cliVersion = JSON.parse(
+	readFileSync(new URL('../package.json', import.meta.url), 'utf8')
+).version as string;
+const expectedCoreRange = `^${cliVersion.split('.')[0]}.0.0`;
+
 describe('initApp', () => {
 	it('scaffolds a single app with pinned dependencies', async () => {
 		const target = path.join(root, 'my-app');
 		await initApp(target);
 		const pkg = JSON.parse(await fs.readFile(path.join(target, 'package.json'), 'utf8'));
 		expect(pkg.name).toBe('my-app');
-		expect(pkg.dependencies['@melodicdev/core']).toBe('^3.0.0');
+		// Pinned to a caret range on the CLI's OWN major, not `latest`. Asserting
+		// a hardcoded version made this fail on every major bump for no reason.
+		expect(pkg.dependencies['@melodicdev/core']).toBe(expectedCoreRange);
 		expect(pkg.dependencies['@melodicdev/core']).not.toBe('latest');
 		expect(pkg.devDependencies['@types/node']).toBeDefined();
 		expect(pkg.devDependencies.vite).toMatch(/^\^7\./);
@@ -57,7 +68,7 @@ describe('initMonorepo', () => {
 		const pkg = JSON.parse(await fs.readFile(path.join(target, 'package.json'), 'utf8'));
 		expect(pkg.workspaces).toEqual(['apps/*', 'libs/*']);
 		expect(pkg.scripts.dev).toBe('vite apps/web');
-		expect(pkg.dependencies['@melodicdev/core']).toBe('^3.0.0');
+		expect(pkg.dependencies['@melodicdev/core']).toBe(expectedCoreRange);
 
 		// Libs are npm workspace packages scoped to the repo, not @melodicdev
 		const configPkg = JSON.parse(await fs.readFile(path.join(target, 'libs/config/package.json'), 'utf8'));

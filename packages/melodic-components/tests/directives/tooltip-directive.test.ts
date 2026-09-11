@@ -41,16 +41,22 @@ describe(':tooltip directive', () => {
 			expect(tooltip.getAttribute('content')).toBe('Helpful tip');
 		});
 
-		it('wires the host element aria-describedby to the tooltip content', async () => {
+		it('describes the host element with the tooltip content', async () => {
 			render(view('Tip'), container);
 			await flush();
 
-			const button = container.querySelector('button') as HTMLButtonElement;
-			const describedBy = button.getAttribute('aria-describedby');
-			expect(describedBy).toBeTruthy();
-
+			const button = container.querySelector('button') as HTMLButtonElement & { ariaDescribedByElements?: Element[] | null };
 			const content = container.querySelector('ml-tooltip')?.shadowRoot?.querySelector('.ml-tooltip__content');
-			expect(content?.id).toBe(describedBy);
+			expect(content).toBeTruthy();
+
+			// An id reference into the tooltip's shadow root cannot resolve, so
+			// the relationship is made with the element itself — or, where that
+			// is unsupported, by carrying the text.
+			if ('ariaDescribedByElements' in button) {
+				expect(button.ariaDescribedByElements).toContain(content);
+			} else {
+				expect(button.getAttribute('aria-description')).toBe(content?.textContent?.trim());
+			}
 		});
 	});
 

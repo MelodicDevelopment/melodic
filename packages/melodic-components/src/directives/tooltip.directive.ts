@@ -109,13 +109,48 @@ function createState(element: Element): TooltipDirectiveState {
 	// Mirror ml-tooltip's slotted-trigger ARIA wiring. The content lives inside
 	// the tooltip's shadow root, so an IDREF would resolve to nothing —
 	// describe the element with the content ELEMENT instead.
-	const content = tooltip.shadowRoot?.querySelector('.ml-tooltip__content') as HTMLElement | null;
-	if (content && !element.hasAttribute('aria-describedby')) {
-		setCrossRootDescription(element, [content]);
-		state.ownsDescribedBy = true;
-	}
+	//
+	// The tooltip has only just been created here, so its shadow content does
+	// not exist yet; wiring it synchronously silently described nothing at all.
+	describeWhenReady(element, tooltip, state);
 
 	return state;
+}
+
+/**
+ * Attach the description once the tooltip has rendered its content.
+ *
+ * Melodic renders on a microtask, so the content element appears shortly after
+ * the tooltip is constructed. A couple of microtask turns is enough; the
+ * fallback timeout covers a tooltip whose first render is deferred further.
+ */
+function describeWhenReady(element: Element, tooltip: TooltipHostElement, state: TooltipDirectiveState): void {
+	if (element.hasAttribute('aria-describedby')) {
+		return; // the consumer wired their own description; never overwrite it
+	}
+
+	const attach = (): boolean => {
+		const content = tooltip.shadowRoot?.querySelector('.ml-tooltip__content') as HTMLElement | null;
+		if (!content || state.pendingRemoval) {
+			return false;
+		}
+
+		setCrossRootDescription(element, [content]);
+		state.ownsDescribedBy = true;
+		return true;
+	};
+
+	if (attach()) {
+		return;
+	}
+
+	void Promise.resolve()
+		.then(() => attach())
+		.then((done) => {
+			if (!done) {
+				setTimeout(attach, 0);
+			}
+		});
 }
 
 function destroyState(element: Element, state: TooltipDirectiveState): void {

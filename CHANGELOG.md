@@ -218,9 +218,11 @@ changed — see [Migrating](#migrating-to-400) at the end of this entry.
   or drawer can still be dismissed with focus in the field.
 - `ml-select` commits the focused option when Enter is pressed from the search input
   (multiple mode keeps focus there, so Enter could select nothing at all).
-- **`DialogRef.afterOpened`/`afterClosed` are one-shot** and return an unsubscribe function;
-  new `onOpened`/`onClosed` for listeners that survive every open. An inline `<ml-dialog>`
-  reuses its ref, so callbacks accumulated across opens.
+- **`DialogRef.afterOpened`/`afterClosed` return an unsubscribe function.** They remain
+  persistent — one registration fires on every open/close cycle — so the leak an inline
+  `<ml-dialog>` could produce (it reuses its ref, so registering a fresh closure before
+  each open leaves every previous one attached) is now releasable. Dev mode warns when
+  callbacks pile up on one dialog.
 - **`ml-toast` clears its auto-dismiss timer on destroy.**
 - **`ToastService` returns a handle**, gained `dismissAll()` and `setMaxVisible()`.
 - `ml-popover` manual mode closes on Escape instead of trapping focus with no exit.
@@ -284,9 +286,6 @@ changed — see [Migrating](#migrating-to-400) at the end of this entry.
 - **`createValidator(code, fn, message)` no longer writes to the global message registry.**
   Controls using *that validator* still get the message. If you relied on it applying to
   other validators producing the same code, pass `{ global: true }`.
-- **`DialogRef.afterClosed`/`afterOpened` fire once per registration.** Register inside the
-  code that opens the dialog (the common pattern, and now leak-free), or switch to
-  `onClosed`/`onOpened` for a listener that should survive every open.
 - **Tab and step panels are hidden with the `hidden` attribute**, not an inline
   `display: none`. CSS that assumed the inline style needs `[hidden] { display: none }` —
   the components' own styles already do this.

@@ -105,8 +105,10 @@ describe('ml-tabs slotted mode — keyboard focus', () => {
 		await settle();
 
 		const [panelOne, panelTwo] = Array.from(el.querySelectorAll('ml-tab-panel')) as HTMLElement[];
-		expect(panelOne.style.display).toBe('');
-		expect(panelTwo.style.display).toBe('none');
+		// `hidden`, not an inline display: an inline style beats every stylesheet
+		// rule, so a consumer could not style or animate a panel at all.
+		expect(panelOne.hasAttribute('hidden')).toBe(false);
+		expect(panelTwo.hasAttribute('hidden')).toBe(true);
 
 		const innerOne = panelOne.shadowRoot!.querySelector('[role="tabpanel"]');
 		const innerTwo = panelTwo.shadowRoot!.querySelector('[role="tabpanel"]');
