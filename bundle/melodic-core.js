@@ -1342,6 +1342,15 @@ function signal(initialValue, options = {}) {
 }
 var destroyedMessage = (name) => `Computed signal${name ? ` '${name}'` : ""} accessed after destruction. Holding a signal beyond its owning component (e.g. cached on a long-lived service) is a bug — the signal is destroyed when its component disconnects.`;
 var READ_ONLY_MESSAGE = "Cannot write to a computed signal — its value is derived from its sources. Update the source signal(s) instead.";
+var renderScopedDepth = 0;
+function createRenderScopedComputed(factory) {
+	renderScopedDepth++;
+	try {
+		return factory();
+	} finally {
+		renderScopedDepth--;
+	}
+}
 function computed(computation, options = {}) {
 	let value;
 	let dirty = true;
@@ -1424,7 +1433,7 @@ function computed(computation, options = {}) {
 	});
 	const owner = getActiveComponent();
 	owner?.registerDisposable(read);
-	if (owner?.isRendering) devWarn(`computed-in-render:${owner.selector ?? "component"}${options.name ? `:${options.name}` : ""}`, `computed()${options.name ? ` '${options.name}'` : ""} was created while <${owner.selector ?? "a component"}> was rendering. A new one is created on every render and they accumulate for the life of the component. Create it in a field initializer or onInit, or use store.select(key, fn, cacheKey), which is render-scoped.`);
+	if (owner?.isRendering && renderScopedDepth === 0) devWarn(`computed-in-render:${owner.selector ?? "component"}${options.name ? `:${options.name}` : ""}`, `computed()${options.name ? ` '${options.name}'` : ""} was created while <${owner.selector ?? "a component"}> was rendering. A new one is created on every render and they accumulate for the life of the component. Create it in a field initializer or onInit, or use store.select(key, fn, cacheKey), which is render-scoped.`);
 	return read;
 }
 function effect(fn, options = {}) {
@@ -5555,7 +5564,7 @@ function getComponentCachedSelect(consumer, fullKey, create) {
 		consumer.touchSelectEntry?.(fullKey);
 		return cached$1;
 	}
-	const sig = create();
+	const sig = createRenderScopedComputed(create);
 	cache.set(fullKey, sig);
 	consumer.registerDisposable(sig);
 	consumer.trackSelectEntry?.(fullKey, sig);
