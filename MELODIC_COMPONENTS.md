@@ -723,7 +723,9 @@ All exported from `@melodicdev/components/theme`.
 
 ## Component-Scoped CSS Custom Properties
 
-Every component defines scoped CSS custom properties on `:host` that default to global design tokens. This allows per-instance customization without affecting other components.
+Every component exposes scoped CSS custom properties that default to global design tokens. This allows per-instance customization without affecting other components.
+
+A component never declares these tokens on its own `:host`. Each rule reads its token with the default as the `var()` fallback (`font-weight: var(--ml-button-font-weight, var(--ml-font-semibold))`), so a value set anywhere above the component — on the element itself or inherited from any ancestor, including a wrapping custom element's `:host` — wins over the default.
 
 ### Naming Convention
 
@@ -761,7 +763,35 @@ ml-card.parchment {
 }
 ```
 
-Each component's available custom properties are documented in its `:host` block in the styles source file. See the individual component sections below for key properties.
+### Restyling from a wrapper
+
+A custom element that wraps `ml-*` components can restyle them in two ways. Both work from the wrapper's shadow tree.
+
+**Token inheritance** — set the token on the wrapper's `:host` (or any ancestor). Custom properties inherit, and because the inner component reads the token with a fallback rather than declaring it, the inherited value is used:
+
+```css
+/* wrapper.styles.ts — every ml-button inside this wrapper */
+:host {
+    --ml-button-font-weight: 400;
+    --ml-input-border-radius: 0;
+}
+```
+
+**Element selector** — target the element itself from the wrapper's stylesheet. This sets the token on the element, so it also wins over a value inherited from further up:
+
+```css
+/* wrapper.styles.ts — only the buttons this rule matches */
+ml-button.cta {
+    --ml-button-font-weight: 700;
+}
+```
+
+Two limits apply to both paths:
+
+- Variant and size modifiers reassign tokens on the component's inner element (`.ml-button--secondary { --ml-button-bg: … }`), so those specific tokens cannot be overridden for that variant from outside. Use the global tokens they reference (`--ml-color-surface`, …) for that.
+- A few tokens are read by the component's JavaScript rather than by a rule and stay declared on `:host`: `--ml-drawer-transition-duration`, `--ml-drawer-transition-easing` and `--ml-app-shell-mobile-breakpoint`. Set those with an element selector.
+
+Each component's available custom properties and their defaults are listed in the comment block at the top of its styles source file. See the individual component sections below for key properties.
 
 ---
 

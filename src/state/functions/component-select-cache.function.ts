@@ -1,5 +1,6 @@
 import type { ReadonlySignal, Signal } from '../../signals';
 import type { ComponentBase } from '../../components/classes/component-base.class';
+import { createRenderScopedComputed } from '../../signals/functions/computed.function';
 
 /**
  * Per-component caching shared by the store selectors (SignalStoreService and
@@ -22,7 +23,10 @@ export function getComponentCachedSelect<T>(consumer: ComponentBase, fullKey: st
 		return cached;
 	}
 
-	const sig = create();
+	// The computed is keyed by `fullKey` and swept by the render that stops using
+	// it, so the computed-in-render warning (which targets uncached computeds)
+	// does not apply here.
+	const sig = createRenderScopedComputed(create);
 	cache.set(fullKey, sig as unknown as Signal<unknown>);
 	consumer.registerDisposable(sig as unknown as { destroy(): void });
 	consumer.trackSelectEntry?.(fullKey, sig as unknown as Signal<unknown>);

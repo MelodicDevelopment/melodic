@@ -1,44 +1,50 @@
 import { css } from '@melodicdev/core';
 
 export const appShellStyles = () => css`
+	/*
+	 * Tokens. Rules read each one with its default as the var() fallback,
+	 * so a value set on the element or inherited from any ancestor wins.
+	 *
+	 * Border
+	 * --ml-app-shell-border-width: var(--ml-border)
+	 * --ml-app-shell-border-color: var(--ml-color-border)
+	 *
+	 * Header
+	 * --ml-app-shell-header-bg: var(--ml-color-surface)
+	 *
+	 * Mobile sidebar
+	 * --ml-app-shell-sidebar-width: var(--ml-sidebar-width, 280px)
+	 * --ml-app-shell-sidebar-collapsed-width: var(--ml-sidebar-collapsed-width, 64px)
+	 * --ml-app-shell-sidebar-bg: var(--ml-color-surface)
+	 * --ml-app-shell-sidebar-transition: var(--ml-duration-200)
+	 *
+	 * Backdrop
+	 * --ml-app-shell-backdrop-bg: rgba(0, 0, 0, 0.4)
+	 * --ml-app-shell-backdrop-transition: var(--ml-duration-200)
+	 *
+	 * Menu button
+	 * --ml-app-shell-menu-btn-size: 36px
+	 * --ml-app-shell-menu-btn-margin: var(--ml-space-3)
+	 * --ml-app-shell-menu-btn-radius: var(--ml-radius)
+	 * --ml-app-shell-menu-btn-color: var(--ml-color-text-secondary)
+	 * --ml-app-shell-menu-btn-hover-bg: var(--ml-color-surface-secondary)
+	 * --ml-app-shell-menu-btn-hover-color: var(--ml-color-text)
+	 * --ml-app-shell-menu-btn-focus-color: var(--ml-color-primary)
+	 * --ml-app-shell-menu-btn-transition: var(--ml-duration-150)
+	 *
+	 * Scrollbar
+	 * --ml-app-shell-scrollbar-width: 6px
+	 * --ml-app-shell-scrollbar-thumb-color: var(--ml-color-border)
+	 * --ml-app-shell-scrollbar-thumb-radius: var(--ml-radius-full)
+	 */
+
 	:host {
 		display: block;
 		height: 100%;
 
-		/* Border */
-		--ml-app-shell-border-width: var(--ml-border);
-		--ml-app-shell-border-color: var(--ml-color-border);
-
-		/* Header */
-		--ml-app-shell-header-bg: var(--ml-color-surface);
-
-		/* Mobile sidebar */
-		--ml-app-shell-sidebar-width: var(--ml-sidebar-width, 280px);
-		--ml-app-shell-sidebar-collapsed-width: var(--ml-sidebar-collapsed-width, 64px);
 		/* Viewport width below which the sidebar becomes a drawer. Kept in one
 		   place so the CSS media query and the component's matchMedia agree. */
 		--ml-app-shell-mobile-breakpoint: 768px;
-		--ml-app-shell-sidebar-bg: var(--ml-color-surface);
-		--ml-app-shell-sidebar-transition: var(--ml-duration-200);
-
-		/* Backdrop */
-		--ml-app-shell-backdrop-bg: rgba(0, 0, 0, 0.4);
-		--ml-app-shell-backdrop-transition: var(--ml-duration-200);
-
-		/* Menu button */
-		--ml-app-shell-menu-btn-size: 36px;
-		--ml-app-shell-menu-btn-margin: var(--ml-space-3);
-		--ml-app-shell-menu-btn-radius: var(--ml-radius);
-		--ml-app-shell-menu-btn-color: var(--ml-color-text-secondary);
-		--ml-app-shell-menu-btn-hover-bg: var(--ml-color-surface-secondary);
-		--ml-app-shell-menu-btn-hover-color: var(--ml-color-text);
-		--ml-app-shell-menu-btn-focus-color: var(--ml-color-primary);
-		--ml-app-shell-menu-btn-transition: var(--ml-duration-150);
-
-		/* Scrollbar */
-		--ml-app-shell-scrollbar-width: 6px;
-		--ml-app-shell-scrollbar-thumb-color: var(--ml-color-border);
-		--ml-app-shell-scrollbar-thumb-radius: var(--ml-radius-full);
 	}
 
 	/* ============================================
@@ -58,9 +64,9 @@ export const appShellStyles = () => css`
 	 * icon-only collapse did nothing.
 	 */
 	.ml-app-shell--sidebar-collapsed .ml-app-shell__sidebar {
-		width: var(--ml-app-shell-sidebar-collapsed-width);
-		min-width: var(--ml-app-shell-sidebar-collapsed-width);
-		transition: width var(--ml-app-shell-sidebar-transition) var(--ml-ease-in-out);
+		width: var(--ml-app-shell-sidebar-collapsed-width, var(--ml-sidebar-collapsed-width, 64px));
+		min-width: var(--ml-app-shell-sidebar-collapsed-width, var(--ml-sidebar-collapsed-width, 64px));
+		transition: width var(--ml-app-shell-sidebar-transition, var(--ml-duration-200)) var(--ml-ease-in-out);
 	}
 
 	/* Sidebar on the right */
@@ -70,7 +76,7 @@ export const appShellStyles = () => css`
 
 	.ml-app-shell--sidebar-right .ml-app-shell__sidebar {
 		order: 2;
-		border-left: var(--ml-app-shell-border-width) solid var(--ml-app-shell-border-color);
+		border-left: var(--ml-app-shell-border-width, var(--ml-border)) solid var(--ml-app-shell-border-color, var(--ml-color-border));
 		border-right: none;
 	}
 
@@ -84,7 +90,7 @@ export const appShellStyles = () => css`
 	.ml-app-shell__sidebar {
 		grid-row: 1 / -1;
 		overflow: hidden;
-		border-right: var(--ml-app-shell-border-width) solid var(--ml-app-shell-border-color);
+		border-right: var(--ml-app-shell-border-width, var(--ml-border)) solid var(--ml-app-shell-border-color, var(--ml-color-border));
 	}
 
 	::slotted([slot="sidebar"]) {
@@ -108,8 +114,8 @@ export const appShellStyles = () => css`
 		display: flex;
 		align-items: center;
 		flex-shrink: 0;
-		border-bottom: var(--ml-app-shell-border-width) solid var(--ml-app-shell-border-color);
-		background-color: var(--ml-app-shell-header-bg);
+		border-bottom: var(--ml-app-shell-border-width, var(--ml-border)) solid var(--ml-app-shell-border-color, var(--ml-color-border));
+		background-color: var(--ml-app-shell-header-bg, var(--ml-color-surface));
 	}
 
 	.ml-app-shell__header:empty {
@@ -134,7 +140,7 @@ export const appShellStyles = () => css`
 
 	/* Scrollbar styling */
 	.ml-app-shell__content::-webkit-scrollbar {
-		width: var(--ml-app-shell-scrollbar-width);
+		width: var(--ml-app-shell-scrollbar-width, 6px);
 	}
 
 	.ml-app-shell__content::-webkit-scrollbar-track {
@@ -142,8 +148,8 @@ export const appShellStyles = () => css`
 	}
 
 	.ml-app-shell__content::-webkit-scrollbar-thumb {
-		background-color: var(--ml-app-shell-scrollbar-thumb-color);
-		border-radius: var(--ml-app-shell-scrollbar-thumb-radius);
+		background-color: var(--ml-app-shell-scrollbar-thumb-color, var(--ml-color-border));
+		border-radius: var(--ml-app-shell-scrollbar-thumb-radius, var(--ml-radius-full));
 	}
 
 	/* ============================================
@@ -154,25 +160,25 @@ export const appShellStyles = () => css`
 		align-items: center;
 		justify-content: center;
 		flex-shrink: 0;
-		width: var(--ml-app-shell-menu-btn-size);
-		height: var(--ml-app-shell-menu-btn-size);
-		margin-left: var(--ml-app-shell-menu-btn-margin);
+		width: var(--ml-app-shell-menu-btn-size, 36px);
+		height: var(--ml-app-shell-menu-btn-size, 36px);
+		margin-left: var(--ml-app-shell-menu-btn-margin, var(--ml-space-3));
 		padding: 0;
 		border: none;
-		border-radius: var(--ml-app-shell-menu-btn-radius);
+		border-radius: var(--ml-app-shell-menu-btn-radius, var(--ml-radius));
 		background: transparent;
-		color: var(--ml-app-shell-menu-btn-color);
+		color: var(--ml-app-shell-menu-btn-color, var(--ml-color-text-secondary));
 		cursor: pointer;
-		transition: background-color var(--ml-app-shell-menu-btn-transition) var(--ml-ease-in-out);
+		transition: background-color var(--ml-app-shell-menu-btn-transition, var(--ml-duration-150)) var(--ml-ease-in-out);
 	}
 
 	.ml-app-shell__menu-btn:hover {
-		background-color: var(--ml-app-shell-menu-btn-hover-bg);
-		color: var(--ml-app-shell-menu-btn-hover-color);
+		background-color: var(--ml-app-shell-menu-btn-hover-bg, var(--ml-color-surface-secondary));
+		color: var(--ml-app-shell-menu-btn-hover-color, var(--ml-color-text));
 	}
 
 	.ml-app-shell__menu-btn:focus-visible {
-		outline: 2px solid var(--ml-app-shell-menu-btn-focus-color);
+		outline: 2px solid var(--ml-app-shell-menu-btn-focus-color, var(--ml-color-primary));
 		outline-offset: -2px;
 	}
 
@@ -197,18 +203,18 @@ export const appShellStyles = () => css`
 			left: 0;
 			bottom: 0;
 			z-index: 50;
-			width: var(--ml-app-shell-sidebar-width);
+			width: var(--ml-app-shell-sidebar-width, var(--ml-sidebar-width, 280px));
 			transform: translateX(-100%);
-			transition: transform var(--ml-app-shell-sidebar-transition) var(--ml-ease-in-out);
-			border-right: var(--ml-app-shell-border-width) solid var(--ml-app-shell-border-color);
-			background-color: var(--ml-app-shell-sidebar-bg);
+			transition: transform var(--ml-app-shell-sidebar-transition, var(--ml-duration-200)) var(--ml-ease-in-out);
+			border-right: var(--ml-app-shell-border-width, var(--ml-border)) solid var(--ml-app-shell-border-color, var(--ml-color-border));
+			background-color: var(--ml-app-shell-sidebar-bg, var(--ml-color-surface));
 		}
 
 		.ml-app-shell--sidebar-right .ml-app-shell__sidebar {
 			left: auto;
 			right: 0;
 			transform: translateX(100%);
-			border-left: var(--ml-app-shell-border-width) solid var(--ml-app-shell-border-color);
+			border-left: var(--ml-app-shell-border-width, var(--ml-border)) solid var(--ml-app-shell-border-color, var(--ml-color-border));
 			border-right: none;
 		}
 
@@ -222,10 +228,10 @@ export const appShellStyles = () => css`
 			position: fixed;
 			inset: 0;
 			z-index: 40;
-			background-color: var(--ml-app-shell-backdrop-bg);
+			background-color: var(--ml-app-shell-backdrop-bg, rgba(0, 0, 0, 0.4));
 			opacity: 0;
 			pointer-events: none;
-			transition: opacity var(--ml-app-shell-backdrop-transition) var(--ml-ease-in-out);
+			transition: opacity var(--ml-app-shell-backdrop-transition, var(--ml-duration-200)) var(--ml-ease-in-out);
 		}
 
 		.ml-app-shell__backdrop--visible {

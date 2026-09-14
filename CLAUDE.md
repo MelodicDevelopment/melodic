@@ -425,36 +425,46 @@ Multi-component directories (e.g. tabs, sidebar, steps) use the same pattern wit
 
 ### Component CSS Custom Properties (Required)
 
-Every component **must** define component-scoped CSS custom properties on `:host` for all visual properties. Rules reference these properties, never global tokens directly. This allows consumers to customize individual components without overriding global tokens.
+Every component **must** expose component-scoped CSS custom properties for all visual properties. Rules read these properties with the default as the `var()` fallback, never global tokens directly and never a `:host` declaration. This lets consumers customize individual components without overriding global tokens, and lets a value set on any ancestor (a wrapping element's `:host`) inherit into the component — a `:host { --ml-button-bg: … }` declaration would shadow that inherited value.
 
 **Pattern:**
 ```css
+/*
+ * Tokens. Rules read each one with its default as the var() fallback,
+ * so a value set on the element or inherited from any ancestor wins.
+ *
+ * Colors
+ * --ml-button-bg: var(--ml-color-primary)
+ * --ml-button-color: var(--ml-color-text-inverse)
+ * --ml-button-hover-bg: var(--ml-color-primary-hover)
+ *
+ * Shape
+ * --ml-button-radius: var(--ml-radius)
+ * --ml-button-transition-duration: var(--ml-duration-150)
+ */
+
 :host {
-    /* ── Button: base ── */
-    --ml-button-bg: var(--ml-color-primary);
-    --ml-button-color: var(--ml-color-text-inverse);
-    --ml-button-radius: var(--ml-radius);
-    --ml-button-hover-bg: var(--ml-color-primary-hover);
-    --ml-button-transition-duration: var(--ml-duration-150);
+    display: inline-block;
 }
 .ml-button {
-    background-color: var(--ml-button-bg);
-    color: var(--ml-button-color);
-    border-radius: var(--ml-button-radius);
+    background-color: var(--ml-button-bg, var(--ml-color-primary));
+    color: var(--ml-button-color, var(--ml-color-text-inverse));
+    border-radius: var(--ml-button-radius, var(--ml-radius));
 }
 .ml-button:hover {
-    background-color: var(--ml-button-hover-bg);
+    background-color: var(--ml-button-hover-bg, var(--ml-color-primary-hover));
 }
 ```
 
 **Rules:**
 - Naming: `--ml-{component}-{state?}-{property}` (states: hover, active, focus, disabled, checked)
-- Variants (e.g. primary/secondary) reassign the base `--ml-{component}-*` properties
-- Sizes (e.g. sm/md/lg) override base properties on the size modifier class
+- Do NOT declare a token on the plain `:host` block; a test in `packages/melodic-components/tests/components/token-inheritance.test.ts` fails if a rule-read token is. The only exception is a token read by the component's JavaScript instead of a rule (drawer timing, app-shell breakpoint).
+- A token whose default is another component token nests the fallback: `var(--ml-button-hover-border-color, var(--ml-button-hover-bg, var(--ml-color-primary-hover)))`
+- Variants (e.g. primary/secondary) reassign the base `--ml-{component}-*` properties on the variant class; sizes (e.g. sm/md/lg) override them on the size modifier class
 - Expose `border-width` and `border-color` separately, not the full shorthand
 - Expose transitions as `--ml-{component}-transition-duration` and `--ml-{component}-transition-easing`
 - Do NOT expose structural properties (display, overflow, position, flex-direction)
-- Add grouped comment documentation in `:host` listing all available properties
+- List every token with its default in the comment block at the top of the styles file, grouped by section
 - No inline styles for layout — the component's shadow DOM handles all slot layout
 
 ---

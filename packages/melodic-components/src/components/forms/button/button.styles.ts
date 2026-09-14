@@ -1,40 +1,45 @@
 import { css } from '@melodicdev/core';
 
 export const buttonStyles = () => css`
+	/*
+	 * Tokens. Rules read each one with its default as the var() fallback,
+	 * so a value set on the element or inherited from any ancestor wins.
+	 *
+	 * Colors
+	 * --ml-button-bg: var(--ml-color-primary)
+	 * --ml-button-border-color: var(--ml-color-primary)
+	 * --ml-button-color: var(--ml-color-text-inverse)
+	 * --ml-button-hover-bg: var(--ml-color-primary-hover)
+	 * --ml-button-hover-border-color: var(--ml-color-primary-hover)
+	 * --ml-button-hover-color: var(--ml-color-text-inverse)
+	 * --ml-button-active-bg: var(--ml-color-primary-active)
+	 * --ml-button-active-border-color: var(--ml-color-primary-active)
+	 * --ml-button-shadow: var(--ml-shadow-xs)
+	 * --ml-button-focus-shadow: var(--ml-shadow-focus-ring)
+	 *
+	 * Typography
+	 * --ml-button-font-family: var(--ml-font-sans)
+	 * --ml-button-font-weight: var(--ml-font-semibold)
+	 * --ml-button-font-size: var(--ml-text-sm)
+	 * --ml-button-line-height: var(--ml-leading-tight)
+	 *
+	 * Spacing
+	 * --ml-button-height: 2.5rem
+	 * --ml-button-padding: 0 var(--ml-space-3-5)
+	 * --ml-button-gap: var(--ml-space-2)
+	 * --ml-button-border-width: var(--ml-border)
+	 * --ml-button-border-radius: var(--ml-radius)
+	 *
+	 * Disabled
+	 * --ml-button-disabled-opacity: 0.5
+	 *
+	 * Transition
+	 * --ml-button-transition-duration: var(--ml-duration-150)
+	 * --ml-button-transition-easing: var(--ml-ease-in-out)
+	 */
+
 	:host {
 		display: inline-block;
-
-		/* --- Colors --- */
-		--ml-button-bg: var(--ml-color-primary);
-		--ml-button-border-color: var(--ml-color-primary);
-		--ml-button-color: var(--ml-color-text-inverse);
-		--ml-button-hover-bg: var(--ml-color-primary-hover);
-		--ml-button-hover-border-color: var(--ml-color-primary-hover);
-		--ml-button-hover-color: var(--ml-color-text-inverse);
-		--ml-button-active-bg: var(--ml-color-primary-active);
-		--ml-button-active-border-color: var(--ml-color-primary-active);
-		--ml-button-shadow: var(--ml-shadow-xs);
-		--ml-button-focus-shadow: var(--ml-shadow-focus-ring);
-
-		/* --- Typography --- */
-		--ml-button-font-family: var(--ml-font-sans);
-		--ml-button-font-weight: var(--ml-font-semibold);
-		--ml-button-font-size: var(--ml-text-sm);
-		--ml-button-line-height: var(--ml-leading-tight);
-
-		/* --- Spacing --- */
-		--ml-button-height: 2.5rem;
-		--ml-button-padding: 0 var(--ml-space-3-5);
-		--ml-button-gap: var(--ml-space-2);
-		--ml-button-border-width: var(--ml-border);
-		--ml-button-border-radius: var(--ml-radius);
-
-		/* --- Disabled --- */
-		--ml-button-disabled-opacity: 0.5;
-
-		/* --- Transition --- */
-		--ml-button-transition-duration: var(--ml-duration-150);
-		--ml-button-transition-easing: var(--ml-ease-in-out);
 	}
 
 	:host([full-width]) {
@@ -51,27 +56,27 @@ export const buttonStyles = () => css`
 		display: inline-flex;
 		align-items: center;
 		justify-content: center;
-		gap: var(--ml-button-gap);
+		gap: var(--ml-button-gap, var(--ml-space-2));
 		position: relative;
-		font-family: var(--ml-button-font-family);
-		font-weight: var(--ml-button-font-weight);
-		font-size: var(--ml-button-font-size);
-		line-height: var(--ml-button-line-height);
+		font-family: var(--ml-button-font-family, var(--ml-font-sans));
+		font-weight: var(--ml-button-font-weight, var(--ml-font-semibold));
+		font-size: var(--ml-button-font-size, var(--ml-text-sm));
+		line-height: var(--ml-button-line-height, var(--ml-leading-tight));
 		white-space: nowrap;
 		text-align: center;
-		height: var(--ml-button-height);
-		padding: var(--ml-button-padding);
-		border: var(--ml-button-border-width) solid var(--ml-button-border-color);
-		border-radius: var(--ml-button-border-radius);
-		background-color: var(--ml-button-bg);
-		color: var(--ml-button-color);
-		box-shadow: var(--ml-button-shadow);
+		height: var(--ml-button-height, 2.5rem);
+		padding: var(--ml-button-padding, 0 var(--ml-space-3-5));
+		border: var(--ml-button-border-width, var(--ml-border)) solid var(--ml-button-border-color, var(--ml-color-primary));
+		border-radius: var(--ml-button-border-radius, var(--ml-radius));
+		background-color: var(--ml-button-bg, var(--ml-color-primary));
+		color: var(--ml-button-color, var(--ml-color-text-inverse));
+		box-shadow: var(--ml-button-shadow, var(--ml-shadow-xs));
 		transition:
-			background-color var(--ml-button-transition-duration) var(--ml-button-transition-easing),
-			border-color var(--ml-button-transition-duration) var(--ml-button-transition-easing),
-			color var(--ml-button-transition-duration) var(--ml-button-transition-easing),
-			box-shadow var(--ml-button-transition-duration) var(--ml-button-transition-easing),
-			transform var(--ml-button-transition-duration) var(--ml-button-transition-easing);
+			background-color var(--ml-button-transition-duration, var(--ml-duration-150)) var(--ml-button-transition-easing, var(--ml-ease-in-out)),
+			border-color var(--ml-button-transition-duration, var(--ml-duration-150)) var(--ml-button-transition-easing, var(--ml-ease-in-out)),
+			color var(--ml-button-transition-duration, var(--ml-duration-150)) var(--ml-button-transition-easing, var(--ml-ease-in-out)),
+			box-shadow var(--ml-button-transition-duration, var(--ml-duration-150)) var(--ml-button-transition-easing, var(--ml-ease-in-out)),
+			transform var(--ml-button-transition-duration, var(--ml-duration-150)) var(--ml-button-transition-easing, var(--ml-ease-in-out));
 	}
 
 	.ml-button:focus {
@@ -79,18 +84,18 @@ export const buttonStyles = () => css`
 	}
 
 	.ml-button:focus-visible {
-		box-shadow: var(--ml-button-focus-shadow);
+		box-shadow: var(--ml-button-focus-shadow, var(--ml-shadow-focus-ring));
 	}
 
 	.ml-button:hover:not(:disabled) {
-		background-color: var(--ml-button-hover-bg);
-		border-color: var(--ml-button-hover-border-color);
-		color: var(--ml-button-hover-color);
+		background-color: var(--ml-button-hover-bg, var(--ml-color-primary-hover));
+		border-color: var(--ml-button-hover-border-color, var(--ml-color-primary-hover));
+		color: var(--ml-button-hover-color, var(--ml-color-text-inverse));
 	}
 
 	.ml-button:active:not(:disabled) {
-		background-color: var(--ml-button-active-bg);
-		border-color: var(--ml-button-active-border-color);
+		background-color: var(--ml-button-active-bg, var(--ml-color-primary-active));
+		border-color: var(--ml-button-active-border-color, var(--ml-color-primary-active));
 	}
 
 	/* --- Size variants --- */
@@ -212,7 +217,7 @@ export const buttonStyles = () => css`
 
 	/* --- Disabled --- */
 	.ml-button--disabled {
-		opacity: var(--ml-button-disabled-opacity);
+		opacity: var(--ml-button-disabled-opacity, 0.5);
 		cursor: not-allowed;
 		pointer-events: none;
 		box-shadow: none;
@@ -237,7 +242,7 @@ export const buttonStyles = () => css`
 	.ml-button__content {
 		display: inline-flex;
 		align-items: center;
-		gap: var(--ml-button-gap);
+		gap: var(--ml-button-gap, var(--ml-space-2));
 	}
 
 	::slotted([slot='icon-start']),

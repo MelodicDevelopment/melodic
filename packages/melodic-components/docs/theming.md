@@ -439,7 +439,7 @@ ml-card {
 
 ### Component-specific tokens
 
-Some components expose their own tokens:
+Every component exposes its own `--ml-{component}-*` tokens. A component reads each one with its default as the `var()` fallback instead of declaring it on `:host`, so a value set on the element or inherited from any ancestor (including a wrapping custom element's `:host`) takes effect. See "Restyling from a wrapper" in `MELODIC_COMPONENTS.md` for both override paths and their limits.
 
 ```css
 ml-icon {

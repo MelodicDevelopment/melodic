@@ -1,70 +1,75 @@
 import { css } from '@melodicdev/core';
 
 export const dataGridStyles = () => css`
+	/*
+	 * Tokens. Rules read each one with its default as the var() fallback,
+	 * so a value set on the element or inherited from any ancestor wins.
+	 *
+	 * Data Grid: surface
+	 * --ml-data-grid-bg: var(--ml-color-surface)
+	 * --ml-data-grid-border-width: var(--ml-border)
+	 * --ml-data-grid-border-color: var(--ml-color-border)
+	 * --ml-data-grid-radius: var(--ml-radius-lg)
+	 *
+	 * Data Grid: header
+	 * --ml-data-grid-header-bg: var(--ml-color-surface-sunken)
+	 * --ml-data-grid-header-color: var(--ml-color-text-muted)
+	 * --ml-data-grid-header-sorted-color: var(--ml-color-text)
+	 *
+	 * Data Grid: title
+	 * --ml-data-grid-title-color: var(--ml-color-text)
+	 * --ml-data-grid-description-color: var(--ml-color-text-muted)
+	 *
+	 * Data Grid: rows
+	 * --ml-data-grid-row-hover-bg: var(--ml-color-surface-sunken)
+	 * --ml-data-grid-row-selected-bg: var(--ml-color-primary-subtle, rgba(99, 102, 241, 0.04))
+	 * --ml-data-grid-row-selected-hover-bg: var(--ml-color-primary-subtle, rgba(99, 102, 241, 0.07))
+	 * --ml-data-grid-row-striped-bg: var(--ml-color-surface-sunken)
+	 * --ml-data-grid-row-striped-hover-bg: var(--ml-color-surface-raised)
+	 *
+	 * Data Grid: cells
+	 * --ml-data-grid-cell-color: var(--ml-color-text)
+	 *
+	 * Data Grid: drag-over
+	 * --ml-data-grid-drag-over-bg: var(--ml-color-primary-subtle, rgba(99, 102, 241, 0.08))
+	 * --ml-data-grid-drag-over-color: var(--ml-color-primary)
+	 *
+	 * Data Grid: sort icon
+	 * --ml-data-grid-sort-color: var(--ml-color-text-muted)
+	 * --ml-data-grid-sort-active-color: var(--ml-color-primary)
+	 *
+	 * Data Grid: resize handle
+	 * --ml-data-grid-resize-active-color: var(--ml-color-primary)
+	 *
+	 * Data Grid: checkbox
+	 * --ml-data-grid-checkbox-accent: var(--ml-color-primary)
+	 *
+	 * Data Grid: filter input
+	 * --ml-data-grid-filter-bg: var(--ml-color-surface-sunken)
+	 * --ml-data-grid-filter-border-color: var(--ml-color-border)
+	 * --ml-data-grid-filter-focus-color: var(--ml-color-primary)
+	 * --ml-data-grid-filter-focus-ring: 0 0 0 2px var(--ml-color-primary-subtle, rgba(99, 102, 241, 0.12))
+	 *
+	 * Data Grid: scrollbar
+	 * --ml-data-grid-scrollbar-thumb: var(--ml-color-border)
+	 * --ml-data-grid-scrollbar-thumb-hover: var(--ml-color-text-muted)
+	 *
+	 * Data Grid: footer
+	 * --ml-data-grid-footer-bg: var(--ml-color-surface)
+	 * --ml-data-grid-footer-color: var(--ml-color-text-muted)
+	 * --ml-data-grid-page-btn-border: var(--ml-color-border)
+	 * --ml-data-grid-page-btn-color: var(--ml-color-text-muted)
+	 * --ml-data-grid-page-btn-hover-bg: var(--ml-color-surface-sunken)
+	 * --ml-data-grid-page-btn-hover-color: var(--ml-color-text)
+	 * --ml-data-grid-page-btn-hover-border: var(--ml-color-border-strong)
+	 */
+
 	:host {
 		display: flex;
 		flex-direction: column;
 		height: 100%;
 		min-width: 0;
 		font-family: var(--ml-font-sans);
-
-		/* ── Data Grid: surface ── */
-		--ml-data-grid-bg: var(--ml-color-surface);
-		--ml-data-grid-border-width: var(--ml-border);
-		--ml-data-grid-border-color: var(--ml-color-border);
-		--ml-data-grid-radius: var(--ml-radius-lg);
-
-		/* ── Data Grid: header ── */
-		--ml-data-grid-header-bg: var(--ml-color-surface-sunken);
-		--ml-data-grid-header-color: var(--ml-color-text-muted);
-		--ml-data-grid-header-sorted-color: var(--ml-color-text);
-
-		/* ── Data Grid: title ── */
-		--ml-data-grid-title-color: var(--ml-color-text);
-		--ml-data-grid-description-color: var(--ml-color-text-muted);
-
-		/* ── Data Grid: rows ── */
-		--ml-data-grid-row-hover-bg: var(--ml-color-surface-sunken);
-		--ml-data-grid-row-selected-bg: var(--ml-color-primary-subtle, rgba(99, 102, 241, 0.04));
-		--ml-data-grid-row-selected-hover-bg: var(--ml-color-primary-subtle, rgba(99, 102, 241, 0.07));
-		--ml-data-grid-row-striped-bg: var(--ml-color-surface-sunken);
-		--ml-data-grid-row-striped-hover-bg: var(--ml-color-surface-raised);
-
-		/* ── Data Grid: cells ── */
-		--ml-data-grid-cell-color: var(--ml-color-text);
-
-		/* ── Data Grid: drag-over ── */
-		--ml-data-grid-drag-over-bg: var(--ml-color-primary-subtle, rgba(99, 102, 241, 0.08));
-		--ml-data-grid-drag-over-color: var(--ml-color-primary);
-
-		/* ── Data Grid: sort icon ── */
-		--ml-data-grid-sort-color: var(--ml-color-text-muted);
-		--ml-data-grid-sort-active-color: var(--ml-color-primary);
-
-		/* ── Data Grid: resize handle ── */
-		--ml-data-grid-resize-active-color: var(--ml-color-primary);
-
-		/* ── Data Grid: checkbox ── */
-		--ml-data-grid-checkbox-accent: var(--ml-color-primary);
-
-		/* ── Data Grid: filter input ── */
-		--ml-data-grid-filter-bg: var(--ml-color-surface-sunken);
-		--ml-data-grid-filter-border-color: var(--ml-color-border);
-		--ml-data-grid-filter-focus-color: var(--ml-color-primary);
-		--ml-data-grid-filter-focus-ring: 0 0 0 2px var(--ml-color-primary-subtle, rgba(99, 102, 241, 0.12));
-
-		/* ── Data Grid: scrollbar ── */
-		--ml-data-grid-scrollbar-thumb: var(--ml-color-border);
-		--ml-data-grid-scrollbar-thumb-hover: var(--ml-color-text-muted);
-
-		/* ── Data Grid: footer ── */
-		--ml-data-grid-footer-bg: var(--ml-color-surface);
-		--ml-data-grid-footer-color: var(--ml-color-text-muted);
-		--ml-data-grid-page-btn-border: var(--ml-color-border);
-		--ml-data-grid-page-btn-color: var(--ml-color-text-muted);
-		--ml-data-grid-page-btn-hover-bg: var(--ml-color-surface-sunken);
-		--ml-data-grid-page-btn-hover-color: var(--ml-color-text);
-		--ml-data-grid-page-btn-hover-border: var(--ml-color-border-strong);
 	}
 
 	/* ── Root container ── */
@@ -72,9 +77,9 @@ export const dataGridStyles = () => css`
 		display: flex;
 		flex-direction: column;
 		height: 100%;
-		border: var(--ml-data-grid-border-width) solid var(--ml-data-grid-border-color);
-		border-radius: var(--ml-data-grid-radius);
-		background-color: var(--ml-data-grid-bg);
+		border: var(--ml-data-grid-border-width, var(--ml-border)) solid var(--ml-data-grid-border-color, var(--ml-color-border));
+		border-radius: var(--ml-data-grid-radius, var(--ml-radius-lg));
+		background-color: var(--ml-data-grid-bg, var(--ml-color-surface));
 		overflow: hidden;
 	}
 
@@ -85,7 +90,7 @@ export const dataGridStyles = () => css`
 		justify-content: space-between;
 		gap: var(--ml-space-4);
 		padding: var(--ml-space-5) var(--ml-space-6);
-		border-bottom: var(--ml-data-grid-border-width) solid var(--ml-data-grid-border-color);
+		border-bottom: var(--ml-data-grid-border-width, var(--ml-border)) solid var(--ml-data-grid-border-color, var(--ml-color-border));
 		flex-shrink: 0;
 	}
 
@@ -99,14 +104,14 @@ export const dataGridStyles = () => css`
 		margin: 0;
 		font-size: var(--ml-text-lg);
 		font-weight: var(--ml-font-semibold);
-		color: var(--ml-data-grid-title-color);
+		color: var(--ml-data-grid-title-color, var(--ml-color-text));
 		line-height: var(--ml-leading-tight);
 	}
 
 	.ml-data-grid__description {
 		margin: 0;
 		font-size: var(--ml-text-sm);
-		color: var(--ml-data-grid-description-color);
+		color: var(--ml-data-grid-description-color, var(--ml-color-text-muted));
 		line-height: var(--ml-leading-normal);
 	}
 
@@ -129,12 +134,12 @@ export const dataGridStyles = () => css`
 	}
 
 	.ml-data-grid__viewport::-webkit-scrollbar-thumb {
-		background: var(--ml-data-grid-scrollbar-thumb);
+		background: var(--ml-data-grid-scrollbar-thumb, var(--ml-color-border));
 		border-radius: 3px;
 	}
 
 	.ml-data-grid__viewport::-webkit-scrollbar-thumb:hover {
-		background: var(--ml-data-grid-scrollbar-thumb-hover);
+		background: var(--ml-data-grid-scrollbar-thumb-hover, var(--ml-color-text-muted));
 	}
 
 	.ml-data-grid__viewport::-webkit-scrollbar-corner {
@@ -152,8 +157,8 @@ export const dataGridStyles = () => css`
 		position: sticky;
 		top: 0;
 		z-index: 2;
-		background: var(--ml-data-grid-header-bg);
-		border-bottom: var(--ml-data-grid-border-width) solid var(--ml-data-grid-border-color);
+		background: var(--ml-data-grid-header-bg, var(--ml-color-surface-sunken));
+		border-bottom: var(--ml-data-grid-border-width, var(--ml-border)) solid var(--ml-data-grid-border-color, var(--ml-color-border));
 	}
 
 	/* ── Filter row — sticky below header ── */
@@ -162,8 +167,8 @@ export const dataGridStyles = () => css`
 		position: sticky;
 		top: var(--ml-grid-header-h, 40px);
 		z-index: 2;
-		background: var(--ml-data-grid-bg);
-		border-bottom: var(--ml-data-grid-border-width) solid var(--ml-data-grid-border-color);
+		background: var(--ml-data-grid-bg, var(--ml-color-surface));
+		border-bottom: var(--ml-data-grid-border-width, var(--ml-border)) solid var(--ml-data-grid-border-color, var(--ml-color-border));
 		padding: var(--ml-space-2) 0;
 	}
 
@@ -173,14 +178,14 @@ export const dataGridStyles = () => css`
 		padding: var(--ml-space-3) var(--ml-space-4);
 		font-size: var(--ml-text-xs);
 		font-weight: var(--ml-font-medium);
-		color: var(--ml-data-grid-header-color);
+		color: var(--ml-data-grid-header-color, var(--ml-color-text-muted));
 		text-transform: uppercase;
 		letter-spacing: 0.05em;
 		white-space: nowrap;
 		overflow: hidden;
 		text-overflow: ellipsis;
 		user-select: none;
-		background: var(--ml-data-grid-header-bg);
+		background: var(--ml-data-grid-header-bg, var(--ml-color-surface-sunken));
 	}
 
 	.ml-data-grid--sm .ml-data-grid__th {
@@ -198,16 +203,16 @@ export const dataGridStyles = () => css`
 	}
 
 	.ml-data-grid__th--sortable:hover {
-		color: var(--ml-data-grid-header-sorted-color);
+		color: var(--ml-data-grid-header-sorted-color, var(--ml-color-text));
 	}
 
 	.ml-data-grid__th--sorted {
-		color: var(--ml-data-grid-header-sorted-color);
+		color: var(--ml-data-grid-header-sorted-color, var(--ml-color-text));
 	}
 
 	.ml-data-grid__th--drag-over {
-		background: var(--ml-data-grid-drag-over-bg);
-		color: var(--ml-data-grid-drag-over-color);
+		background: var(--ml-data-grid-drag-over-bg, var(--ml-color-primary-subtle, rgba(99, 102, 241, 0.08)));
+		color: var(--ml-data-grid-drag-over-color, var(--ml-color-primary));
 	}
 
 	.ml-data-grid__th--dragging {
@@ -226,11 +231,11 @@ export const dataGridStyles = () => css`
 		display: inline-flex;
 		align-items: center;
 		flex-shrink: 0;
-		color: var(--ml-data-grid-sort-color);
+		color: var(--ml-data-grid-sort-color, var(--ml-color-text-muted));
 	}
 
 	.ml-data-grid__th--sorted .ml-data-grid__sort-icon {
-		color: var(--ml-data-grid-sort-active-color);
+		color: var(--ml-data-grid-sort-active-color, var(--ml-color-primary));
 	}
 
 	/* ── Resize handle ── */
@@ -248,7 +253,7 @@ export const dataGridStyles = () => css`
 
 	.ml-data-grid__resize-handle:hover,
 	.ml-data-grid__th--resizing .ml-data-grid__resize-handle {
-		background: var(--ml-data-grid-resize-active-color);
+		background: var(--ml-data-grid-resize-active-color, var(--ml-color-primary));
 	}
 
 	/* ── Filter cells ── */
@@ -256,7 +261,7 @@ export const dataGridStyles = () => css`
 		display: flex;
 		align-items: center;
 		padding: 0 var(--ml-space-2);
-		background: var(--ml-data-grid-bg);
+		background: var(--ml-data-grid-bg, var(--ml-color-surface));
 		position: relative;
 	}
 
@@ -264,7 +269,7 @@ export const dataGridStyles = () => css`
 	.ml-data-grid__filter-cell--pinned-right {
 		position: sticky;
 		z-index: 3;
-		background: var(--ml-data-grid-bg);
+		background: var(--ml-data-grid-bg, var(--ml-color-surface));
 	}
 
 	.ml-data-grid__filter-input {
@@ -272,21 +277,21 @@ export const dataGridStyles = () => css`
 		padding: var(--ml-space-1-5) var(--ml-space-2);
 		font-size: var(--ml-text-xs);
 		font-family: var(--ml-font-sans);
-		color: var(--ml-data-grid-cell-color);
-		background: var(--ml-data-grid-filter-bg);
-		border: var(--ml-data-grid-border-width) solid var(--ml-data-grid-filter-border-color);
+		color: var(--ml-data-grid-cell-color, var(--ml-color-text));
+		background: var(--ml-data-grid-filter-bg, var(--ml-color-surface-sunken));
+		border: var(--ml-data-grid-border-width, var(--ml-border)) solid var(--ml-data-grid-filter-border-color, var(--ml-color-border));
 		border-radius: var(--ml-radius-sm);
 		outline: none;
 		transition: border-color var(--ml-duration-150);
 	}
 
 	.ml-data-grid__filter-input::placeholder {
-		color: var(--ml-data-grid-header-color);
+		color: var(--ml-data-grid-header-color, var(--ml-color-text-muted));
 	}
 
 	.ml-data-grid__filter-input:focus {
-		border-color: var(--ml-data-grid-filter-focus-color);
-		box-shadow: var(--ml-data-grid-filter-focus-ring);
+		border-color: var(--ml-data-grid-filter-focus-color, var(--ml-color-primary));
+		box-shadow: var(--ml-data-grid-filter-focus-ring, 0 0 0 2px var(--ml-color-primary-subtle, rgba(99, 102, 241, 0.12)));
 	}
 
 	/* ── Virtual scroll spacers ── */
@@ -298,7 +303,7 @@ export const dataGridStyles = () => css`
 	/* ── Data rows ── */
 	.ml-data-grid__row {
 		display: grid;
-		border-bottom: var(--ml-data-grid-border-width) solid var(--ml-data-grid-border-color);
+		border-bottom: var(--ml-data-grid-border-width, var(--ml-border)) solid var(--ml-data-grid-border-color, var(--ml-color-border));
 		transition: background-color var(--ml-duration-150) var(--ml-ease-in-out);
 		cursor: default;
 	}
@@ -308,30 +313,30 @@ export const dataGridStyles = () => css`
 	}
 
 	.ml-data-grid--hoverable .ml-data-grid__row:hover {
-		background-color: var(--ml-data-grid-row-hover-bg);
+		background-color: var(--ml-data-grid-row-hover-bg, var(--ml-color-surface-sunken));
 	}
 
 	.ml-data-grid__row--selected {
-		background-color: var(--ml-data-grid-row-selected-bg);
+		background-color: var(--ml-data-grid-row-selected-bg, var(--ml-color-primary-subtle, rgba(99, 102, 241, 0.04)));
 	}
 
 	.ml-data-grid--hoverable .ml-data-grid__row--selected:hover {
-		background-color: var(--ml-data-grid-row-selected-hover-bg);
+		background-color: var(--ml-data-grid-row-selected-hover-bg, var(--ml-color-primary-subtle, rgba(99, 102, 241, 0.07)));
 	}
 
 	.ml-data-grid--striped .ml-data-grid__row--even {
-		background-color: var(--ml-data-grid-row-striped-bg);
+		background-color: var(--ml-data-grid-row-striped-bg, var(--ml-color-surface-sunken));
 	}
 
 	.ml-data-grid--striped.ml-data-grid--hoverable .ml-data-grid__row--even:hover {
-		background-color: var(--ml-data-grid-row-striped-hover-bg);
+		background-color: var(--ml-data-grid-row-striped-hover-bg, var(--ml-color-surface-raised));
 	}
 
 	/* ── Data cells ── */
 	.ml-data-grid__td {
 		padding: var(--ml-space-3) var(--ml-space-4);
 		font-size: var(--ml-text-sm);
-		color: var(--ml-data-grid-cell-color);
+		color: var(--ml-data-grid-cell-color, var(--ml-color-text));
 		vertical-align: middle;
 		overflow: hidden;
 		text-overflow: ellipsis;
@@ -357,17 +362,17 @@ export const dataGridStyles = () => css`
 		position: sticky;
 		left: 0;
 		z-index: 1;
-		background: var(--ml-data-grid-bg);
+		background: var(--ml-data-grid-bg, var(--ml-color-surface));
 	}
 
 	.ml-data-grid__header-row .ml-data-grid__check-cell {
 		z-index: 3;
-		background: var(--ml-data-grid-header-bg);
+		background: var(--ml-data-grid-header-bg, var(--ml-color-surface-sunken));
 	}
 
 	.ml-data-grid__filter-row .ml-data-grid__check-cell {
 		z-index: 3;
-		background: var(--ml-data-grid-bg);
+		background: var(--ml-data-grid-bg, var(--ml-color-surface));
 	}
 
 	.ml-data-grid--sm .ml-data-grid__check-cell {
@@ -377,7 +382,7 @@ export const dataGridStyles = () => css`
 	.ml-data-grid__checkbox {
 		width: 1rem;
 		height: 1rem;
-		accent-color: var(--ml-data-grid-checkbox-accent);
+		accent-color: var(--ml-data-grid-checkbox-accent, var(--ml-color-primary));
 		cursor: pointer;
 		margin: 0;
 		flex-shrink: 0;
@@ -388,12 +393,12 @@ export const dataGridStyles = () => css`
 	.ml-data-grid__td--pinned-left {
 		position: sticky;
 		z-index: 1;
-		background: var(--ml-data-grid-bg);
+		background: var(--ml-data-grid-bg, var(--ml-color-surface));
 	}
 
 	.ml-data-grid__header-row .ml-data-grid__th--pinned-left {
 		z-index: 3;
-		background: var(--ml-data-grid-header-bg);
+		background: var(--ml-data-grid-header-bg, var(--ml-color-surface-sunken));
 	}
 
 	/* Pinned left shadow — renders only on the rightmost (boundary) left-pinned cell */
@@ -413,12 +418,12 @@ export const dataGridStyles = () => css`
 	.ml-data-grid__td--pinned-right {
 		position: sticky;
 		z-index: 1;
-		background: var(--ml-data-grid-bg);
+		background: var(--ml-data-grid-bg, var(--ml-color-surface));
 	}
 
 	.ml-data-grid__header-row .ml-data-grid__th--pinned-right {
 		z-index: 3;
-		background: var(--ml-data-grid-header-bg);
+		background: var(--ml-data-grid-header-bg, var(--ml-color-surface-sunken));
 	}
 
 	/* Pinned right shadow — renders only on the leftmost (boundary) right-pinned cell */
@@ -438,31 +443,31 @@ export const dataGridStyles = () => css`
 	.ml-data-grid--striped .ml-data-grid__row--even .ml-data-grid__td--pinned-left,
 	.ml-data-grid--striped .ml-data-grid__row--even .ml-data-grid__td--pinned-right,
 	.ml-data-grid--striped .ml-data-grid__row--even .ml-data-grid__check-cell {
-		background: var(--ml-data-grid-row-striped-bg);
+		background: var(--ml-data-grid-row-striped-bg, var(--ml-color-surface-sunken));
 	}
 
 	.ml-data-grid--hoverable .ml-data-grid__row:hover .ml-data-grid__td--pinned-left,
 	.ml-data-grid--hoverable .ml-data-grid__row:hover .ml-data-grid__td--pinned-right,
 	.ml-data-grid--hoverable .ml-data-grid__row:hover .ml-data-grid__check-cell {
-		background: var(--ml-data-grid-row-hover-bg);
+		background: var(--ml-data-grid-row-hover-bg, var(--ml-color-surface-sunken));
 	}
 
 	.ml-data-grid__row--selected .ml-data-grid__td--pinned-left,
 	.ml-data-grid__row--selected .ml-data-grid__td--pinned-right,
 	.ml-data-grid__row--selected .ml-data-grid__check-cell {
-		background: var(--ml-data-grid-row-selected-bg);
+		background: var(--ml-data-grid-row-selected-bg, var(--ml-color-primary-subtle, rgba(99, 102, 241, 0.04)));
 	}
 
 	.ml-data-grid--hoverable .ml-data-grid__row--selected:hover .ml-data-grid__td--pinned-left,
 	.ml-data-grid--hoverable .ml-data-grid__row--selected:hover .ml-data-grid__td--pinned-right,
 	.ml-data-grid--hoverable .ml-data-grid__row--selected:hover .ml-data-grid__check-cell {
-		background: var(--ml-data-grid-row-selected-hover-bg);
+		background: var(--ml-data-grid-row-selected-hover-bg, var(--ml-color-primary-subtle, rgba(99, 102, 241, 0.07)));
 	}
 
 	.ml-data-grid--striped.ml-data-grid--hoverable .ml-data-grid__row--even:hover .ml-data-grid__td--pinned-left,
 	.ml-data-grid--striped.ml-data-grid--hoverable .ml-data-grid__row--even:hover .ml-data-grid__td--pinned-right,
 	.ml-data-grid--striped.ml-data-grid--hoverable .ml-data-grid__row--even:hover .ml-data-grid__check-cell {
-		background: var(--ml-data-grid-row-striped-hover-bg);
+		background: var(--ml-data-grid-row-striped-hover-bg, var(--ml-color-surface-raised));
 	}
 
 	/* ── Footer / Pagination ── */
@@ -472,8 +477,8 @@ export const dataGridStyles = () => css`
 		justify-content: space-between;
 		gap: var(--ml-space-4);
 		padding: var(--ml-space-3) var(--ml-space-6);
-		border-top: var(--ml-data-grid-border-width) solid var(--ml-data-grid-border-color);
-		background: var(--ml-data-grid-footer-bg);
+		border-top: var(--ml-data-grid-border-width, var(--ml-border)) solid var(--ml-data-grid-border-color, var(--ml-color-border));
+		background: var(--ml-data-grid-footer-bg, var(--ml-color-surface));
 		flex-shrink: 0;
 	}
 
@@ -483,7 +488,7 @@ export const dataGridStyles = () => css`
 
 	.ml-data-grid__footer-count {
 		font-size: var(--ml-text-sm);
-		color: var(--ml-data-grid-footer-color);
+		color: var(--ml-data-grid-footer-color, var(--ml-color-text-muted));
 	}
 
 	.ml-data-grid--sm .ml-data-grid__footer-count {
@@ -498,7 +503,7 @@ export const dataGridStyles = () => css`
 
 	.ml-data-grid__page-info {
 		font-size: var(--ml-text-sm);
-		color: var(--ml-data-grid-footer-color);
+		color: var(--ml-data-grid-footer-color, var(--ml-color-text-muted));
 		white-space: nowrap;
 	}
 
@@ -519,10 +524,10 @@ export const dataGridStyles = () => css`
 		width: 2rem;
 		height: 2rem;
 		padding: 0;
-		border: var(--ml-data-grid-border-width) solid var(--ml-data-grid-page-btn-border);
+		border: var(--ml-data-grid-border-width, var(--ml-border)) solid var(--ml-data-grid-page-btn-border, var(--ml-color-border));
 		border-radius: var(--ml-radius-md);
-		background: var(--ml-data-grid-bg);
-		color: var(--ml-data-grid-page-btn-color);
+		background: var(--ml-data-grid-bg, var(--ml-color-surface));
+		color: var(--ml-data-grid-page-btn-color, var(--ml-color-text-muted));
 		cursor: pointer;
 		transition:
 			background-color var(--ml-duration-150),
@@ -537,9 +542,9 @@ export const dataGridStyles = () => css`
 	}
 
 	.ml-data-grid__page-btn:hover:not(:disabled) {
-		background: var(--ml-data-grid-page-btn-hover-bg);
-		color: var(--ml-data-grid-page-btn-hover-color);
-		border-color: var(--ml-data-grid-page-btn-hover-border);
+		background: var(--ml-data-grid-page-btn-hover-bg, var(--ml-color-surface-sunken));
+		color: var(--ml-data-grid-page-btn-hover-color, var(--ml-color-text));
+		border-color: var(--ml-data-grid-page-btn-hover-border, var(--ml-color-border-strong));
 	}
 
 	.ml-data-grid__page-btn:disabled {

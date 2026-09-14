@@ -2,6 +2,20 @@ import { css } from '@melodicdev/core';
 import { visuallyHiddenStyles } from '../../../utils/styles/visually-hidden.styles.js';
 
 export const spinnerStyles = () => css`
+	/*
+	 * Tokens. Rules read each one with its default as the var() fallback,
+	 * so a value set on the element or inherited from any ancestor wins.
+	 *
+	 * Size — default md (1.5rem)
+	 * --ml-spinner-size: 1.5rem
+	 *
+	 * Track opacity
+	 * --ml-spinner-track-opacity: 0.25
+	 *
+	 * Animation
+	 * --ml-spinner-animation-duration: 0.75s
+	 */
+
 	:host {
 		display: inline-flex;
 		align-items: center;
@@ -9,15 +23,6 @@ export const spinnerStyles = () => css`
 
 		/* Color — defaults to currentColor via stroke in SVG */
 		--ml-spinner-color: currentColor;
-
-		/* Size — default md (1.5rem) */
-		--ml-spinner-size: 1.5rem;
-
-		/* Track opacity */
-		--ml-spinner-track-opacity: 0.25;
-
-		/* Animation */
-		--ml-spinner-animation-duration: 0.75s;
 	}
 
 	.spinner {
@@ -27,11 +32,11 @@ export const spinnerStyles = () => css`
 	}
 
 	.spinner__svg {
-		animation: spin var(--ml-spinner-animation-duration) linear infinite;
+		animation: spin var(--ml-spinner-animation-duration, 0.75s) linear infinite;
 	}
 
 	.spinner__track {
-		opacity: var(--ml-spinner-track-opacity);
+		opacity: var(--ml-spinner-track-opacity, 0.25);
 	}
 
 	.spinner__indicator {
@@ -63,8 +68,8 @@ export const spinnerStyles = () => css`
 	.spinner--md .spinner__svg,
 	.spinner--lg .spinner__svg,
 	.spinner--xl .spinner__svg {
-		width: var(--ml-spinner-size);
-		height: var(--ml-spinner-size);
+		width: var(--ml-spinner-size, 1.5rem);
+		height: var(--ml-spinner-size, 1.5rem);
 	}
 
 	@keyframes spin {

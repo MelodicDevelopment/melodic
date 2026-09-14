@@ -1,5 +1,31 @@
 # Changelog
 
+## Unreleased
+
+### @melodicdev/core
+
+- **`store.select(key, fn, cacheKey)` read during a render no longer trips the
+  computed-in-render warning.** The warning tells you to use exactly that call, but the
+  select cache creates its computed through `computed()` on the first render, so following
+  the advice still warned once per component. Computeds created through the per-component
+  select cache are keyed and swept, which is what the warning guards against, so they are
+  exempt. A bare `computed()` in a render still warns.
+
+### @melodicdev/components
+
+- **Component tokens now inherit from any ancestor.** Every component declared its
+  `--ml-{component}-*` defaults on its own `:host`, and a declaration on the element beats
+  an inherited value, so a wrapping custom element that set `--ml-button-font-weight` on
+  *its* `:host` had no effect — only a rule targeting the element (`ml-button { … }`)
+  worked. Rules now read each token with its default as the `var()` fallback
+  (`font-weight: var(--ml-button-font-weight, var(--ml-font-semibold))`) and the `:host`
+  token block is gone from every component, so both paths work. Variant and size
+  modifiers still reassign tokens on the inner element, as before, and the three tokens the
+  drawer and app-shell JavaScript reads stay on `:host`. The token list for each component
+  now lives in a comment at the top of its styles file, and `MELODIC_COMPONENTS.md` gained
+  a "Restyling from a wrapper" section covering both override paths. A convention test
+  fails if a rule-read token is declared on `:host` again.
+
 ## 4.0.0
 
 A large review-driven pass across the framework and the component library. It fixes ~90

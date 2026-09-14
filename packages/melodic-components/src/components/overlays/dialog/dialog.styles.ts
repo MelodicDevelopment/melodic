@@ -1,47 +1,52 @@
 import { css } from '@melodicdev/core';
 
 export const dialogStyles = () => css`
+	/*
+	 * Tokens. Rules read each one with its default as the var() fallback,
+	 * so a value set on the element or inherited from any ancestor wins.
+	 *
+	 * Dialog panel
+	 * --ml-dialog-max-width: 500px
+	 * --ml-dialog-bg: var(--ml-color-surface)
+	 * --ml-dialog-radius: var(--ml-radius-xl)
+	 * --ml-dialog-shadow: var(--ml-shadow-xl)
+	 * --ml-dialog-transition: var(--ml-transition-normal)
+	 *
+	 * Backdrop
+	 * --ml-dialog-backdrop-color: rgba(0, 0, 0, 0.5)
+	 *
+	 * Size variants
+	 * --ml-dialog-sm-max-width: 400px
+	 * --ml-dialog-md-max-width: 500px
+	 * --ml-dialog-lg-max-width: 640px
+	 * --ml-dialog-xl-max-width: 800px
+	 *
+	 * Header
+	 * --ml-dialog-header-padding: var(--ml-space-6)
+	 * --ml-dialog-header-gap: var(--ml-space-4)
+	 * --ml-dialog-header-title-font-size: var(--ml-text-lg)
+	 * --ml-dialog-header-title-font-weight: var(--ml-font-semibold)
+	 * --ml-dialog-header-title-color: var(--ml-color-text)
+	 * --ml-dialog-header-title-line-height: var(--ml-leading-tight)
+	 * --ml-dialog-header-desc-font-size: var(--ml-text-sm)
+	 * --ml-dialog-header-desc-color: var(--ml-color-text-secondary)
+	 * --ml-dialog-header-desc-line-height: var(--ml-leading-relaxed)
+	 *
+	 * Body
+	 * --ml-dialog-body-padding: var(--ml-space-6)
+	 * --ml-dialog-body-font-size: var(--ml-text-sm)
+	 * --ml-dialog-body-color: var(--ml-color-text-secondary)
+	 * --ml-dialog-body-line-height: var(--ml-leading-relaxed)
+	 *
+	 * Footer
+	 * --ml-dialog-footer-padding-y: var(--ml-space-4)
+	 * --ml-dialog-footer-padding-x: var(--ml-space-6)
+	 * --ml-dialog-footer-gap: var(--ml-space-3)
+	 * --ml-dialog-footer-border-color: var(--ml-color-border)
+	 * --ml-dialog-footer-bg: var(--ml-color-surface)
+	 */
+
 	:host {
-		/* Dialog panel */
-		--ml-dialog-max-width: 500px;
-		--ml-dialog-bg: var(--ml-color-surface);
-		--ml-dialog-radius: var(--ml-radius-xl);
-		--ml-dialog-shadow: var(--ml-shadow-xl);
-		--ml-dialog-transition: var(--ml-transition-normal);
-
-		/* Backdrop */
-		--ml-dialog-backdrop-color: rgba(0, 0, 0, 0.5);
-
-		/* Size variants */
-		--ml-dialog-sm-max-width: 400px;
-		--ml-dialog-md-max-width: 500px;
-		--ml-dialog-lg-max-width: 640px;
-		--ml-dialog-xl-max-width: 800px;
-
-		/* Header */
-		--ml-dialog-header-padding: var(--ml-space-6);
-		--ml-dialog-header-gap: var(--ml-space-4);
-		--ml-dialog-header-title-font-size: var(--ml-text-lg);
-		--ml-dialog-header-title-font-weight: var(--ml-font-semibold);
-		--ml-dialog-header-title-color: var(--ml-color-text);
-		--ml-dialog-header-title-line-height: var(--ml-leading-tight);
-		--ml-dialog-header-desc-font-size: var(--ml-text-sm);
-		--ml-dialog-header-desc-color: var(--ml-color-text-secondary);
-		--ml-dialog-header-desc-line-height: var(--ml-leading-relaxed);
-
-		/* Body */
-		--ml-dialog-body-padding: var(--ml-space-6);
-		--ml-dialog-body-font-size: var(--ml-text-sm);
-		--ml-dialog-body-color: var(--ml-color-text-secondary);
-		--ml-dialog-body-line-height: var(--ml-leading-relaxed);
-
-		/* Footer */
-		--ml-dialog-footer-padding-y: var(--ml-space-4);
-		--ml-dialog-footer-padding-x: var(--ml-space-6);
-		--ml-dialog-footer-gap: var(--ml-space-3);
-		--ml-dialog-footer-border-color: var(--ml-color-border);
-		--ml-dialog-footer-bg: var(--ml-color-surface);
-
 		display: contents;
 	}
 
@@ -51,23 +56,23 @@ export const dialogStyles = () => css`
 		display: none;
 		flex-direction: column;
 		width: 100%;
-		max-width: var(--ml-dialog-max-width);
+		max-width: var(--ml-dialog-max-width, 500px);
 		max-height: calc(100vh - var(--ml-space-8));
 		margin: auto;
 		padding: 0;
-		background-color: var(--ml-dialog-bg);
+		background-color: var(--ml-dialog-bg, var(--ml-color-surface));
 		border: none;
-		border-radius: var(--ml-dialog-radius);
-		box-shadow: var(--ml-dialog-shadow);
+		border-radius: var(--ml-dialog-radius, var(--ml-radius-xl));
+		box-shadow: var(--ml-dialog-shadow, var(--ml-shadow-xl));
 		outline: none;
 		overflow: hidden;
 		transform: scale(0.95) translateY(10px);
 		opacity: 0;
 		transition:
-			transform var(--ml-dialog-transition),
-			opacity var(--ml-dialog-transition),
-			overlay var(--ml-dialog-transition) allow-discrete,
-			display var(--ml-dialog-transition) allow-discrete;
+			transform var(--ml-dialog-transition, var(--ml-transition-normal)),
+			opacity var(--ml-dialog-transition, var(--ml-transition-normal)),
+			overlay var(--ml-dialog-transition, var(--ml-transition-normal)) allow-discrete,
+			display var(--ml-dialog-transition, var(--ml-transition-normal)) allow-discrete;
 	}
 
 	dialog.ml-dialog[open] {
@@ -87,13 +92,13 @@ export const dialogStyles = () => css`
 	dialog.ml-dialog::backdrop {
 		background-color: rgba(0, 0, 0, 0);
 		transition:
-			background-color var(--ml-dialog-transition),
-			overlay var(--ml-dialog-transition) allow-discrete,
-			display var(--ml-dialog-transition) allow-discrete;
+			background-color var(--ml-dialog-transition, var(--ml-transition-normal)),
+			overlay var(--ml-dialog-transition, var(--ml-transition-normal)) allow-discrete,
+			display var(--ml-dialog-transition, var(--ml-transition-normal)) allow-discrete;
 	}
 
 	dialog.ml-dialog[open]::backdrop {
-		background-color: var(--ml-dialog-backdrop-color);
+		background-color: var(--ml-dialog-backdrop-color, rgba(0, 0, 0, 0.5));
 	}
 
 	@starting-style {
@@ -104,19 +109,19 @@ export const dialogStyles = () => css`
 
 	/* Size variants */
 	dialog.ml-dialog--sm {
-		max-width: var(--ml-dialog-sm-max-width);
+		max-width: var(--ml-dialog-sm-max-width, 400px);
 	}
 
 	dialog.ml-dialog--md {
-		max-width: var(--ml-dialog-md-max-width);
+		max-width: var(--ml-dialog-md-max-width, 500px);
 	}
 
 	dialog.ml-dialog--lg {
-		max-width: var(--ml-dialog-lg-max-width);
+		max-width: var(--ml-dialog-lg-max-width, 640px);
 	}
 
 	dialog.ml-dialog--xl {
-		max-width: var(--ml-dialog-xl-max-width);
+		max-width: var(--ml-dialog-xl-max-width, 800px);
 	}
 
 	dialog.ml-dialog--full {
@@ -128,8 +133,8 @@ export const dialogStyles = () => css`
 	.ml-dialog-header {
 		display: flex;
 		align-items: flex-start;
-		gap: var(--ml-dialog-header-gap);
-		padding: var(--ml-dialog-header-padding);
+		gap: var(--ml-dialog-header-gap, var(--ml-space-4));
+		padding: var(--ml-dialog-header-padding, var(--ml-space-6));
 		padding-bottom: 0;
 	}
 
@@ -147,27 +152,27 @@ export const dialogStyles = () => css`
 	.ml-dialog-header ::slotted(h3),
 	.ml-dialog-header ::slotted(h4) {
 		margin: 0;
-		font-size: var(--ml-dialog-header-title-font-size);
-		font-weight: var(--ml-dialog-header-title-font-weight);
-		color: var(--ml-dialog-header-title-color);
-		line-height: var(--ml-dialog-header-title-line-height);
+		font-size: var(--ml-dialog-header-title-font-size, var(--ml-text-lg));
+		font-weight: var(--ml-dialog-header-title-font-weight, var(--ml-font-semibold));
+		color: var(--ml-dialog-header-title-color, var(--ml-color-text));
+		line-height: var(--ml-dialog-header-title-line-height, var(--ml-leading-tight));
 	}
 
 	.ml-dialog-header ::slotted(p) {
 		margin: var(--ml-space-1) 0 0;
-		font-size: var(--ml-dialog-header-desc-font-size);
-		color: var(--ml-dialog-header-desc-color);
-		line-height: var(--ml-dialog-header-desc-line-height);
+		font-size: var(--ml-dialog-header-desc-font-size, var(--ml-text-sm));
+		color: var(--ml-dialog-header-desc-color, var(--ml-color-text-secondary));
+		line-height: var(--ml-dialog-header-desc-line-height, var(--ml-leading-relaxed));
 	}
 
 	/* Body */
 	.ml-dialog-body {
 		flex: 1 1 auto;
-		padding: var(--ml-dialog-body-padding);
+		padding: var(--ml-dialog-body-padding, var(--ml-space-6));
 		overflow-y: auto;
-		font-size: var(--ml-dialog-body-font-size);
-		color: var(--ml-dialog-body-color);
-		line-height: var(--ml-dialog-body-line-height);
+		font-size: var(--ml-dialog-body-font-size, var(--ml-text-sm));
+		color: var(--ml-dialog-body-color, var(--ml-color-text-secondary));
+		line-height: var(--ml-dialog-body-line-height, var(--ml-leading-relaxed));
 	}
 
 	.ml-dialog-body ::slotted(p) {
@@ -183,10 +188,10 @@ export const dialogStyles = () => css`
 		display: flex;
 		align-items: center;
 		justify-content: flex-end;
-		gap: var(--ml-dialog-footer-gap);
-		padding: var(--ml-dialog-footer-padding-y) var(--ml-dialog-footer-padding-x);
-		border-top: 1px solid var(--ml-dialog-footer-border-color);
-		background-color: var(--ml-dialog-footer-bg);
+		gap: var(--ml-dialog-footer-gap, var(--ml-space-3));
+		padding: var(--ml-dialog-footer-padding-y, var(--ml-space-4)) var(--ml-dialog-footer-padding-x, var(--ml-space-6));
+		border-top: 1px solid var(--ml-dialog-footer-border-color, var(--ml-color-border));
+		background-color: var(--ml-dialog-footer-bg, var(--ml-color-surface));
 	}
 
 	.ml-dialog-footer:not(:has(*)) {

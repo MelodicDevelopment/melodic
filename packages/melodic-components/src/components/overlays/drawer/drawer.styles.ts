@@ -1,54 +1,59 @@
 import { css } from '@melodicdev/core';
 
 export const drawerStyles = () => css`
+	/*
+	 * Tokens. Rules read each one with its default as the var() fallback,
+	 * so a value set on the element or inherited from any ancestor wins.
+	 *
+	 * Backdrop
+	 * --ml-drawer-backdrop-color: rgba(0, 0, 0, 0.5)
+	 * --ml-drawer-backdrop-transition: var(--ml-duration-300) var(--ml-ease-out)
+	 *
+	 * Panel
+	 * --ml-drawer-bg: var(--ml-color-surface)
+	 * --ml-drawer-shadow: var(--ml-shadow-xl)
+	 *
+	 * Size variants
+	 * --ml-drawer-sm-width: 320px
+	 * --ml-drawer-md-width: 480px
+	 * --ml-drawer-lg-width: 640px
+	 * --ml-drawer-xl-width: 800px
+	 *
+	 * Header
+	 * --ml-drawer-header-padding: var(--ml-space-6)
+	 * --ml-drawer-header-gap: var(--ml-space-4)
+	 * --ml-drawer-header-title-font-size: var(--ml-text-lg)
+	 * --ml-drawer-header-title-font-weight: var(--ml-font-semibold)
+	 * --ml-drawer-header-title-color: var(--ml-color-text)
+	 * --ml-drawer-header-title-line-height: var(--ml-leading-tight)
+	 * --ml-drawer-header-desc-font-size: var(--ml-text-sm)
+	 * --ml-drawer-header-desc-color: var(--ml-color-text-secondary)
+	 *
+	 * Close button
+	 * --ml-drawer-close-size: 32px
+	 * --ml-drawer-close-radius: var(--ml-radius-md)
+	 * --ml-drawer-close-color: var(--ml-color-text-tertiary)
+	 * --ml-drawer-close-hover-bg: var(--ml-color-surface-hover)
+	 * --ml-drawer-close-hover-color: var(--ml-color-text)
+	 * --ml-drawer-close-transition: var(--ml-duration-150) var(--ml-ease-in-out)
+	 *
+	 * Body
+	 * --ml-drawer-body-padding: var(--ml-space-6)
+	 * --ml-drawer-body-font-size: var(--ml-text-sm)
+	 * --ml-drawer-body-color: var(--ml-color-text-secondary)
+	 * --ml-drawer-body-line-height: var(--ml-leading-relaxed)
+	 *
+	 * Footer
+	 * --ml-drawer-footer-padding-y: var(--ml-space-4)
+	 * --ml-drawer-footer-padding-x: var(--ml-space-6)
+	 * --ml-drawer-footer-gap: var(--ml-space-3)
+	 * --ml-drawer-footer-border-color: var(--ml-color-border)
+	 */
+
 	:host {
-		/* Backdrop */
-		--ml-drawer-backdrop-color: rgba(0, 0, 0, 0.5);
-		--ml-drawer-backdrop-transition: var(--ml-duration-300) var(--ml-ease-out);
-
-		/* Panel */
-		--ml-drawer-bg: var(--ml-color-surface);
-		--ml-drawer-shadow: var(--ml-shadow-xl);
-
 		/* Slide animation (read by the component for the panel animation) */
 		--ml-drawer-transition-duration: var(--ml-duration-300);
 		--ml-drawer-transition-easing: cubic-bezier(0.16, 1, 0.3, 1);
-
-		/* Size variants */
-		--ml-drawer-sm-width: 320px;
-		--ml-drawer-md-width: 480px;
-		--ml-drawer-lg-width: 640px;
-		--ml-drawer-xl-width: 800px;
-
-		/* Header */
-		--ml-drawer-header-padding: var(--ml-space-6);
-		--ml-drawer-header-gap: var(--ml-space-4);
-		--ml-drawer-header-title-font-size: var(--ml-text-lg);
-		--ml-drawer-header-title-font-weight: var(--ml-font-semibold);
-		--ml-drawer-header-title-color: var(--ml-color-text);
-		--ml-drawer-header-title-line-height: var(--ml-leading-tight);
-		--ml-drawer-header-desc-font-size: var(--ml-text-sm);
-		--ml-drawer-header-desc-color: var(--ml-color-text-secondary);
-
-		/* Close button */
-		--ml-drawer-close-size: 32px;
-		--ml-drawer-close-radius: var(--ml-radius-md);
-		--ml-drawer-close-color: var(--ml-color-text-tertiary);
-		--ml-drawer-close-hover-bg: var(--ml-color-surface-hover);
-		--ml-drawer-close-hover-color: var(--ml-color-text);
-		--ml-drawer-close-transition: var(--ml-duration-150) var(--ml-ease-in-out);
-
-		/* Body */
-		--ml-drawer-body-padding: var(--ml-space-6);
-		--ml-drawer-body-font-size: var(--ml-text-sm);
-		--ml-drawer-body-color: var(--ml-color-text-secondary);
-		--ml-drawer-body-line-height: var(--ml-leading-relaxed);
-
-		/* Footer */
-		--ml-drawer-footer-padding-y: var(--ml-space-4);
-		--ml-drawer-footer-padding-x: var(--ml-space-6);
-		--ml-drawer-footer-gap: var(--ml-space-3);
-		--ml-drawer-footer-border-color: var(--ml-color-border);
 
 		display: contents;
 	}
@@ -75,13 +80,13 @@ export const drawerStyles = () => css`
 	dialog.ml-drawer::backdrop {
 		background-color: rgba(0, 0, 0, 0);
 		transition:
-			background-color var(--ml-drawer-backdrop-transition),
-			overlay var(--ml-drawer-backdrop-transition) allow-discrete,
-			display var(--ml-drawer-backdrop-transition) allow-discrete;
+			background-color var(--ml-drawer-backdrop-transition, var(--ml-duration-300) var(--ml-ease-out)),
+			overlay var(--ml-drawer-backdrop-transition, var(--ml-duration-300) var(--ml-ease-out)) allow-discrete,
+			display var(--ml-drawer-backdrop-transition, var(--ml-duration-300) var(--ml-ease-out)) allow-discrete;
 	}
 
 	dialog.ml-drawer[open]::backdrop {
-		background-color: var(--ml-drawer-backdrop-color);
+		background-color: var(--ml-drawer-backdrop-color, rgba(0, 0, 0, 0.5));
 	}
 
 	@starting-style {
@@ -98,8 +103,8 @@ export const drawerStyles = () => css`
 		display: flex;
 		flex-direction: column;
 		height: 100%;
-		background-color: var(--ml-drawer-bg);
-		box-shadow: var(--ml-drawer-shadow);
+		background-color: var(--ml-drawer-bg, var(--ml-color-surface));
+		box-shadow: var(--ml-drawer-shadow, var(--ml-shadow-xl));
 	}
 
 	/* Side variants - panel is off-screen by default */
@@ -113,27 +118,27 @@ export const drawerStyles = () => css`
 
 	/* Size variants */
 	.ml-drawer--sm .ml-drawer__panel {
-		width: var(--ml-drawer-sm-width);
+		width: var(--ml-drawer-sm-width, 320px);
 	}
 
 	.ml-drawer--md .ml-drawer__panel {
-		width: var(--ml-drawer-md-width);
+		width: var(--ml-drawer-md-width, 480px);
 	}
 
 	.ml-drawer--lg .ml-drawer__panel {
-		width: var(--ml-drawer-lg-width);
+		width: var(--ml-drawer-lg-width, 640px);
 	}
 
 	.ml-drawer--xl .ml-drawer__panel {
-		width: var(--ml-drawer-xl-width);
+		width: var(--ml-drawer-xl-width, 800px);
 	}
 
 	/* Header */
 	.ml-drawer__header {
 		display: flex;
 		align-items: flex-start;
-		gap: var(--ml-drawer-header-gap);
-		padding: var(--ml-drawer-header-padding);
+		gap: var(--ml-drawer-header-gap, var(--ml-space-4));
+		padding: var(--ml-drawer-header-padding, var(--ml-space-6));
 		padding-bottom: 0;
 	}
 
@@ -151,16 +156,16 @@ export const drawerStyles = () => css`
 	.ml-drawer__header-content ::slotted(h3),
 	.ml-drawer__header-content ::slotted(h4) {
 		margin: 0;
-		font-size: var(--ml-drawer-header-title-font-size);
-		font-weight: var(--ml-drawer-header-title-font-weight);
-		color: var(--ml-drawer-header-title-color);
-		line-height: var(--ml-drawer-header-title-line-height);
+		font-size: var(--ml-drawer-header-title-font-size, var(--ml-text-lg));
+		font-weight: var(--ml-drawer-header-title-font-weight, var(--ml-font-semibold));
+		color: var(--ml-drawer-header-title-color, var(--ml-color-text));
+		line-height: var(--ml-drawer-header-title-line-height, var(--ml-leading-tight));
 	}
 
 	.ml-drawer__header-content ::slotted(p) {
 		margin: var(--ml-space-1) 0 0;
-		font-size: var(--ml-drawer-header-desc-font-size);
-		color: var(--ml-drawer-header-desc-color);
+		font-size: var(--ml-drawer-header-desc-font-size, var(--ml-text-sm));
+		color: var(--ml-drawer-header-desc-color, var(--ml-color-text-secondary));
 	}
 
 	.ml-drawer__close {
@@ -168,32 +173,32 @@ export const drawerStyles = () => css`
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		width: var(--ml-drawer-close-size);
-		height: var(--ml-drawer-close-size);
+		width: var(--ml-drawer-close-size, 32px);
+		height: var(--ml-drawer-close-size, 32px);
 		padding: 0;
 		background: none;
 		border: none;
-		border-radius: var(--ml-drawer-close-radius);
+		border-radius: var(--ml-drawer-close-radius, var(--ml-radius-md));
 		cursor: pointer;
-		color: var(--ml-drawer-close-color);
+		color: var(--ml-drawer-close-color, var(--ml-color-text-tertiary));
 		transition:
-			background-color var(--ml-drawer-close-transition),
-			color var(--ml-drawer-close-transition);
+			background-color var(--ml-drawer-close-transition, var(--ml-duration-150) var(--ml-ease-in-out)),
+			color var(--ml-drawer-close-transition, var(--ml-duration-150) var(--ml-ease-in-out));
 	}
 
 	.ml-drawer__close:hover {
-		background-color: var(--ml-drawer-close-hover-bg);
-		color: var(--ml-drawer-close-hover-color);
+		background-color: var(--ml-drawer-close-hover-bg, var(--ml-color-surface-hover));
+		color: var(--ml-drawer-close-hover-color, var(--ml-color-text));
 	}
 
 	/* Body */
 	.ml-drawer__body {
 		flex: 1;
-		padding: var(--ml-drawer-body-padding);
+		padding: var(--ml-drawer-body-padding, var(--ml-space-6));
 		overflow-y: auto;
-		font-size: var(--ml-drawer-body-font-size);
-		color: var(--ml-drawer-body-color);
-		line-height: var(--ml-drawer-body-line-height);
+		font-size: var(--ml-drawer-body-font-size, var(--ml-text-sm));
+		color: var(--ml-drawer-body-color, var(--ml-color-text-secondary));
+		line-height: var(--ml-drawer-body-line-height, var(--ml-leading-relaxed));
 	}
 
 	/* Footer */
@@ -201,9 +206,9 @@ export const drawerStyles = () => css`
 		display: flex;
 		align-items: center;
 		justify-content: flex-end;
-		gap: var(--ml-drawer-footer-gap);
-		padding: var(--ml-drawer-footer-padding-y) var(--ml-drawer-footer-padding-x);
-		border-top: 1px solid var(--ml-drawer-footer-border-color);
+		gap: var(--ml-drawer-footer-gap, var(--ml-space-3));
+		padding: var(--ml-drawer-footer-padding-y, var(--ml-space-4)) var(--ml-drawer-footer-padding-x, var(--ml-space-6));
+		border-top: 1px solid var(--ml-drawer-footer-border-color, var(--ml-color-border));
 	}
 
 	.ml-drawer__footer:not(:has(*)) {

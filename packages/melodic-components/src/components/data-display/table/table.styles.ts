@@ -1,74 +1,79 @@
 import { css } from '@melodicdev/core';
 
 export const tableStyles = () => css`
+	/*
+	 * Tokens. Rules read each one with its default as the var() fallback,
+	 * so a value set on the element or inherited from any ancestor wins.
+	 *
+	 * Table: surface
+	 * --ml-table-bg: var(--ml-color-surface)
+	 * --ml-table-font: var(--ml-font-sans)
+	 *
+	 * Deprecated aliases — prefer container-* and divider-* tokens below
+	 * --ml-table-border-width: var(--ml-border)
+	 * --ml-table-border-color: var(--ml-color-border)
+	 * --ml-table-radius: var(--ml-radius-lg)
+	 *
+	 * Table: container chrome (outer border + radius)
+	 * --ml-table-container-border-width: var(--ml-table-border-width)
+	 * --ml-table-container-border-color: var(--ml-table-border-color)
+	 * --ml-table-container-radius: var(--ml-table-radius)
+	 *
+	 * Table: internal dividers (header/row/footer separators)
+	 * --ml-table-divider-width: var(--ml-table-border-width)
+	 * --ml-table-divider-color: var(--ml-table-border-color)
+	 *
+	 * Table: header section
+	 * --ml-table-title-color: var(--ml-color-text)
+	 * --ml-table-description-color: var(--ml-color-text-muted)
+	 *
+	 * Table: column header
+	 * --ml-table-header-bg: var(--ml-color-surface-sunken)
+	 * --ml-table-header-color: var(--ml-color-text-muted)
+	 * --ml-table-header-sorted-color: var(--ml-color-text)
+	 *
+	 * Table: sort icon
+	 * --ml-table-sort-color: var(--ml-color-text-muted)
+	 * --ml-table-sort-active-color: var(--ml-color-primary)
+	 *
+	 * Table: rows
+	 * --ml-table-row-hover-bg: var(--ml-color-surface-sunken)
+	 * --ml-table-row-hover-border-color: transparent
+	 * --ml-table-row-hover-border-width: 0
+	 * --ml-table-row-hover-border-left-width: 0
+	 * --ml-table-row-hover-border-left-color: transparent
+	 * --ml-table-row-selected-bg: var(--ml-color-primary-subtle, rgba(99, 102, 241, 0.04))
+	 * --ml-table-row-selected-hover-bg: var(--ml-color-primary-subtle, rgba(99, 102, 241, 0.06))
+	 * --ml-table-row-striped-bg: var(--ml-color-surface-sunken)
+	 * --ml-table-row-striped-hover-bg: var(--ml-color-surface-raised)
+	 *
+	 * Table: cells
+	 * --ml-table-cell-color: var(--ml-color-text)
+	 * --ml-table-cell-padding-y: var(--ml-space-4)
+	 * --ml-table-cell-padding-x: var(--ml-space-6)
+	 * --ml-table-cell-padding-y-sm: var(--ml-space-2-5)
+	 * --ml-table-cell-padding-x-sm: var(--ml-space-4)
+	 *
+	 * Table: header cells
+	 * --ml-table-header-padding-y: var(--ml-space-3)
+	 * --ml-table-header-padding-x: var(--ml-space-6)
+	 * --ml-table-header-padding-y-sm: var(--ml-space-2)
+	 * --ml-table-header-padding-x-sm: var(--ml-space-4)
+	 *
+	 * Table: checkbox
+	 * --ml-table-checkbox-accent: var(--ml-color-primary)
+	 */
+
 	:host {
 		display: block;
-
-		/* ── Table: surface ── */
-		--ml-table-bg: var(--ml-color-surface);
-		--ml-table-font: var(--ml-font-sans);
-
-		/* Deprecated aliases — prefer container-* and divider-* tokens below */
-		--ml-table-border-width: var(--ml-border);
-		--ml-table-border-color: var(--ml-color-border);
-		--ml-table-radius: var(--ml-radius-lg);
-
-		/* ── Table: container chrome (outer border + radius) ── */
-		--ml-table-container-border-width: var(--ml-table-border-width);
-		--ml-table-container-border-color: var(--ml-table-border-color);
-		--ml-table-container-radius: var(--ml-table-radius);
-
-		/* ── Table: internal dividers (header/row/footer separators) ── */
-		--ml-table-divider-width: var(--ml-table-border-width);
-		--ml-table-divider-color: var(--ml-table-border-color);
-
-		/* ── Table: header section ── */
-		--ml-table-title-color: var(--ml-color-text);
-		--ml-table-description-color: var(--ml-color-text-muted);
-
-		/* ── Table: column header ── */
-		--ml-table-header-bg: var(--ml-color-surface-sunken);
-		--ml-table-header-color: var(--ml-color-text-muted);
-		--ml-table-header-sorted-color: var(--ml-color-text);
-
-		/* ── Table: sort icon ── */
-		--ml-table-sort-color: var(--ml-color-text-muted);
-		--ml-table-sort-active-color: var(--ml-color-primary);
-
-		/* ── Table: rows ── */
-		--ml-table-row-hover-bg: var(--ml-color-surface-sunken);
-		--ml-table-row-hover-border-color: transparent;
-		--ml-table-row-hover-border-width: 0;
-		--ml-table-row-hover-border-left-width: 0;
-		--ml-table-row-hover-border-left-color: transparent;
-		--ml-table-row-selected-bg: var(--ml-color-primary-subtle, rgba(99, 102, 241, 0.04));
-		--ml-table-row-selected-hover-bg: var(--ml-color-primary-subtle, rgba(99, 102, 241, 0.06));
-		--ml-table-row-striped-bg: var(--ml-color-surface-sunken);
-		--ml-table-row-striped-hover-bg: var(--ml-color-surface-raised);
-
-		/* ── Table: cells ── */
-		--ml-table-cell-color: var(--ml-color-text);
-		--ml-table-cell-padding-y: var(--ml-space-4);
-		--ml-table-cell-padding-x: var(--ml-space-6);
-		--ml-table-cell-padding-y-sm: var(--ml-space-2-5);
-		--ml-table-cell-padding-x-sm: var(--ml-space-4);
-
-		/* ── Table: header cells ── */
-		--ml-table-header-padding-y: var(--ml-space-3);
-		--ml-table-header-padding-x: var(--ml-space-6);
-		--ml-table-header-padding-y-sm: var(--ml-space-2);
-		--ml-table-header-padding-x-sm: var(--ml-space-4);
-
-		/* ── Table: checkbox ── */
-		--ml-table-checkbox-accent: var(--ml-color-primary);
 	}
 
 	.ml-table {
-		border: var(--ml-table-container-border-width) solid var(--ml-table-container-border-color);
-		border-radius: var(--ml-table-container-radius);
-		background-color: var(--ml-table-bg);
+		border: var(--ml-table-container-border-width, var(--ml-table-border-width, var(--ml-border))) solid var(--ml-table-container-border-color, var(--ml-table-border-color, var(--ml-color-border)));
+		border-radius: var(--ml-table-container-radius, var(--ml-table-radius, var(--ml-radius-lg)));
+		background-color: var(--ml-table-bg, var(--ml-color-surface));
 		overflow: hidden;
-		font-family: var(--ml-table-font);
+		font-family: var(--ml-table-font, var(--ml-font-sans));
 	}
 
 	/* ── Header ── */
@@ -78,7 +83,7 @@ export const tableStyles = () => css`
 		justify-content: space-between;
 		gap: var(--ml-space-4);
 		padding: var(--ml-space-5) var(--ml-space-6);
-		border-bottom: var(--ml-table-divider-width) solid var(--ml-table-divider-color);
+		border-bottom: var(--ml-table-divider-width, var(--ml-table-border-width, var(--ml-border))) solid var(--ml-table-divider-color, var(--ml-table-border-color, var(--ml-color-border)));
 	}
 
 	.ml-table__header-text {
@@ -91,14 +96,14 @@ export const tableStyles = () => css`
 		margin: 0;
 		font-size: var(--ml-text-lg);
 		font-weight: var(--ml-font-semibold);
-		color: var(--ml-table-title-color);
+		color: var(--ml-table-title-color, var(--ml-color-text));
 		line-height: var(--ml-leading-tight);
 	}
 
 	.ml-table__description {
 		margin: 0;
 		font-size: var(--ml-text-sm);
-		color: var(--ml-table-description-color);
+		color: var(--ml-table-description-color, var(--ml-color-text-muted));
 		line-height: var(--ml-leading-normal);
 	}
 
@@ -115,7 +120,7 @@ export const tableStyles = () => css`
 
 	/* ── Header cells ── */
 	thead {
-		background-color: var(--ml-table-header-bg);
+		background-color: var(--ml-table-header-bg, var(--ml-color-surface-sunken));
 	}
 
 	.ml-table--sticky-header thead {
@@ -125,14 +130,14 @@ export const tableStyles = () => css`
 	}
 
 	thead tr {
-		border-bottom: var(--ml-table-divider-width) solid var(--ml-table-divider-color);
+		border-bottom: var(--ml-table-divider-width, var(--ml-table-border-width, var(--ml-border))) solid var(--ml-table-divider-color, var(--ml-table-border-color, var(--ml-color-border)));
 	}
 
 	.ml-table__th {
-		padding: var(--ml-table-header-padding-y) var(--ml-table-header-padding-x);
+		padding: var(--ml-table-header-padding-y, var(--ml-space-3)) var(--ml-table-header-padding-x, var(--ml-space-6));
 		font-size: var(--ml-text-xs);
 		font-weight: var(--ml-font-medium);
-		color: var(--ml-table-header-color);
+		color: var(--ml-table-header-color, var(--ml-color-text-muted));
 		text-transform: uppercase;
 		letter-spacing: 0.05em;
 		text-align: left;
@@ -141,7 +146,7 @@ export const tableStyles = () => css`
 	}
 
 	.ml-table--sm .ml-table__th {
-		padding: var(--ml-table-header-padding-y-sm) var(--ml-table-header-padding-x-sm);
+		padding: var(--ml-table-header-padding-y-sm, var(--ml-space-2)) var(--ml-table-header-padding-x-sm, var(--ml-space-4));
 	}
 
 	.ml-table__th--center { text-align: center; }
@@ -153,11 +158,11 @@ export const tableStyles = () => css`
 	}
 
 	.ml-table__th--sortable:hover {
-		color: var(--ml-table-header-sorted-color);
+		color: var(--ml-table-header-sorted-color, var(--ml-color-text));
 	}
 
 	.ml-table__th--sorted {
-		color: var(--ml-table-header-sorted-color);
+		color: var(--ml-table-header-sorted-color, var(--ml-color-text));
 	}
 
 	.ml-table__th-content {
@@ -170,11 +175,11 @@ export const tableStyles = () => css`
 		display: inline-flex;
 		align-items: center;
 		flex-shrink: 0;
-		color: var(--ml-table-sort-color);
+		color: var(--ml-table-sort-color, var(--ml-color-text-muted));
 	}
 
 	.ml-table__th--sorted .ml-table__sort-icon {
-		color: var(--ml-table-sort-active-color);
+		color: var(--ml-table-sort-active-color, var(--ml-color-primary));
 	}
 
 	/* ── Body rows ── */
@@ -182,7 +187,7 @@ export const tableStyles = () => css`
 	   participates in layout — hover/selected/striped state changes can't
 	   collapse it and shift rows below by 1px. */
 	.ml-table__row {
-		box-shadow: inset 0 calc(-1 * var(--ml-table-divider-width)) 0 var(--ml-table-divider-color);
+		box-shadow: inset 0 calc(-1 * var(--ml-table-divider-width, var(--ml-table-border-width, var(--ml-border)))) 0 var(--ml-table-divider-color, var(--ml-table-border-color, var(--ml-color-border)));
 		transition: background-color var(--ml-duration-150) var(--ml-ease-in-out);
 	}
 
@@ -191,12 +196,12 @@ export const tableStyles = () => css`
 	}
 
 	.ml-table--hoverable .ml-table__row:hover {
-		background-color: var(--ml-table-row-hover-bg);
-		border-color: var(--ml-table-row-hover-border-color);
-		border-width: var(--ml-table-row-hover-border-width);
+		background-color: var(--ml-table-row-hover-bg, var(--ml-color-surface-sunken));
+		border-color: var(--ml-table-row-hover-border-color, transparent);
+		border-width: var(--ml-table-row-hover-border-width, 0);
 		border-style: solid;
-		border-left-width: var(--ml-table-row-hover-border-left-width);
-		border-left-color: var(--ml-table-row-hover-border-left-color);
+		border-left-width: var(--ml-table-row-hover-border-left-width, 0);
+		border-left-color: var(--ml-table-row-hover-border-left-color, transparent);
 	}
 
 	.ml-table--row-clickable .ml-table__row {
@@ -204,32 +209,32 @@ export const tableStyles = () => css`
 	}
 
 	.ml-table__row--selected {
-		background-color: var(--ml-table-row-selected-bg);
+		background-color: var(--ml-table-row-selected-bg, var(--ml-color-primary-subtle, rgba(99, 102, 241, 0.04)));
 	}
 
 	.ml-table--hoverable .ml-table__row--selected:hover {
-		background-color: var(--ml-table-row-selected-hover-bg);
+		background-color: var(--ml-table-row-selected-hover-bg, var(--ml-color-primary-subtle, rgba(99, 102, 241, 0.06)));
 	}
 
 	/* Striped */
 	.ml-table--striped .ml-table__row:nth-child(even) {
-		background-color: var(--ml-table-row-striped-bg);
+		background-color: var(--ml-table-row-striped-bg, var(--ml-color-surface-sunken));
 	}
 
 	.ml-table--striped.ml-table--hoverable .ml-table__row:hover {
-		background-color: var(--ml-table-row-striped-hover-bg);
+		background-color: var(--ml-table-row-striped-hover-bg, var(--ml-color-surface-raised));
 	}
 
 	/* ── Body cells ── */
 	.ml-table__td {
-		padding: var(--ml-table-cell-padding-y) var(--ml-table-cell-padding-x);
+		padding: var(--ml-table-cell-padding-y, var(--ml-space-4)) var(--ml-table-cell-padding-x, var(--ml-space-6));
 		font-size: var(--ml-text-sm);
-		color: var(--ml-table-cell-color);
+		color: var(--ml-table-cell-color, var(--ml-color-text));
 		vertical-align: middle;
 	}
 
 	.ml-table--sm .ml-table__td {
-		padding: var(--ml-table-cell-padding-y-sm) var(--ml-table-cell-padding-x-sm);
+		padding: var(--ml-table-cell-padding-y-sm, var(--ml-space-2-5)) var(--ml-table-cell-padding-x-sm, var(--ml-space-4));
 		font-size: var(--ml-text-xs);
 	}
 
@@ -251,7 +256,7 @@ export const tableStyles = () => css`
 	.ml-table__checkbox {
 		width: 1rem;
 		height: 1rem;
-		accent-color: var(--ml-table-checkbox-accent);
+		accent-color: var(--ml-table-checkbox-accent, var(--ml-color-primary));
 		cursor: pointer;
 		margin: 0;
 		vertical-align: middle;
@@ -302,7 +307,7 @@ export const tableStyles = () => css`
 		align-items: center;
 		justify-content: space-between;
 		padding: var(--ml-space-3) var(--ml-space-6);
-		border-top: var(--ml-table-divider-width) solid var(--ml-table-divider-color);
+		border-top: var(--ml-table-divider-width, var(--ml-table-border-width, var(--ml-border))) solid var(--ml-table-divider-color, var(--ml-table-border-color, var(--ml-color-border)));
 	}
 
 	.ml-table--sm .ml-table__footer--visible {

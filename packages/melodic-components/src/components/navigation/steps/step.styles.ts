@@ -1,73 +1,78 @@
 import { css } from '@melodicdev/core';
 
 export const stepStyles = () => css`
+	/*
+	 * Tokens. Rules read each one with its default as the var() fallback,
+	 * so a value set on the element or inherited from any ancestor wins.
+	 *
+	 * Focus ring
+	 * --ml-step-focus-color: var(--ml-color-primary)
+	 * --ml-step-focus-radius: var(--ml-radius)
+	 *
+	 * Disabled state
+	 * --ml-step-disabled-opacity: 0.5
+	 *
+	 * Connector
+	 * --ml-step-connector-thickness: 2px
+	 * --ml-step-connector-color: var(--ml-color-border)
+	 * --ml-step-connector-transition: var(--ml-duration-150) var(--ml-ease-in-out)
+	 *
+	 * Indicator (numbered & circles)
+	 * --ml-step-indicator-size: 32px
+	 * --ml-step-indicator-border-width: 2px
+	 * --ml-step-indicator-font-size: var(--ml-text-sm)
+	 * --ml-step-indicator-font-weight: var(--ml-font-medium)
+	 * --ml-step-indicator-font-family: var(--ml-font-sans)
+	 * --ml-step-indicator-transition: var(--ml-duration-150) var(--ml-ease-in-out)
+	 *
+	 * Indicator upcoming
+	 * --ml-step-upcoming-border-color: var(--ml-color-border)
+	 * --ml-step-upcoming-color: var(--ml-color-text-secondary)
+	 * --ml-step-upcoming-bg: var(--ml-color-surface)
+	 *
+	 * Indicator dot (circles variant)
+	 * --ml-step-dot-size: 10px
+	 *
+	 * Icons variant
+	 * --ml-step-icon-indicator-size: 40px
+	 * --ml-step-icon-indicator-radius: var(--ml-radius-lg)
+	 * --ml-step-icon-upcoming-color: var(--ml-color-text-muted)
+	 * --ml-step-icon-current-border-color: var(--ml-color-text)
+	 * --ml-step-icon-current-color: var(--ml-color-text)
+	 *
+	 * Completed indicator text
+	 * --ml-step-completed-indicator-text: #fff
+	 *
+	 * Bar variant
+	 * --ml-step-bar-height: 4px
+	 * --ml-step-bar-radius: 2px
+	 * --ml-step-bar-color: var(--ml-color-border)
+	 *
+	 * Compact / dots
+	 * --ml-step-compact-dot-size: 12px
+	 * --ml-step-compact-dot-color: var(--ml-color-border)
+	 *
+	 * Content spacing
+	 * --ml-step-content-gap: var(--ml-space-1)
+	 * --ml-step-track-gap: var(--ml-space-3)
+	 * --ml-step-vertical-content-padding: var(--ml-space-6)
+	 *
+	 * Label
+	 * --ml-step-label-font-family: var(--ml-font-sans)
+	 * --ml-step-label-font-size: var(--ml-text-sm)
+	 * --ml-step-label-font-weight: var(--ml-font-medium)
+	 * --ml-step-label-color: var(--ml-color-text)
+	 * --ml-step-label-line-height: var(--ml-leading-tight)
+	 * --ml-step-label-upcoming-color: var(--ml-color-text-secondary)
+	 *
+	 * Description
+	 * --ml-step-desc-font-family: var(--ml-font-sans)
+	 * --ml-step-desc-font-size: var(--ml-text-xs)
+	 * --ml-step-desc-color: var(--ml-color-text-muted)
+	 * --ml-step-desc-line-height: var(--ml-leading-normal)
+	 */
+
 	:host {
-		/* Focus ring */
-		--ml-step-focus-color: var(--ml-color-primary);
-		--ml-step-focus-radius: var(--ml-radius);
-
-		/* Disabled state */
-		--ml-step-disabled-opacity: 0.5;
-
-		/* Connector */
-		--ml-step-connector-thickness: 2px;
-		--ml-step-connector-color: var(--ml-color-border);
-		--ml-step-connector-transition: var(--ml-duration-150) var(--ml-ease-in-out);
-
-		/* Indicator (numbered & circles) */
-		--ml-step-indicator-size: 32px;
-		--ml-step-indicator-border-width: 2px;
-		--ml-step-indicator-font-size: var(--ml-text-sm);
-		--ml-step-indicator-font-weight: var(--ml-font-medium);
-		--ml-step-indicator-font-family: var(--ml-font-sans);
-		--ml-step-indicator-transition: var(--ml-duration-150) var(--ml-ease-in-out);
-
-		/* Indicator upcoming */
-		--ml-step-upcoming-border-color: var(--ml-color-border);
-		--ml-step-upcoming-color: var(--ml-color-text-secondary);
-		--ml-step-upcoming-bg: var(--ml-color-surface);
-
-		/* Indicator dot (circles variant) */
-		--ml-step-dot-size: 10px;
-
-		/* Icons variant */
-		--ml-step-icon-indicator-size: 40px;
-		--ml-step-icon-indicator-radius: var(--ml-radius-lg);
-		--ml-step-icon-upcoming-color: var(--ml-color-text-muted);
-		--ml-step-icon-current-border-color: var(--ml-color-text);
-		--ml-step-icon-current-color: var(--ml-color-text);
-
-		/* Completed indicator text */
-		--ml-step-completed-indicator-text: #fff;
-
-		/* Bar variant */
-		--ml-step-bar-height: 4px;
-		--ml-step-bar-radius: 2px;
-		--ml-step-bar-color: var(--ml-color-border);
-
-		/* Compact / dots */
-		--ml-step-compact-dot-size: 12px;
-		--ml-step-compact-dot-color: var(--ml-color-border);
-
-		/* Content spacing */
-		--ml-step-content-gap: var(--ml-space-1);
-		--ml-step-track-gap: var(--ml-space-3);
-		--ml-step-vertical-content-padding: var(--ml-space-6);
-
-		/* Label */
-		--ml-step-label-font-family: var(--ml-font-sans);
-		--ml-step-label-font-size: var(--ml-text-sm);
-		--ml-step-label-font-weight: var(--ml-font-medium);
-		--ml-step-label-color: var(--ml-color-text);
-		--ml-step-label-line-height: var(--ml-leading-tight);
-		--ml-step-label-upcoming-color: var(--ml-color-text-secondary);
-
-		/* Description */
-		--ml-step-desc-font-family: var(--ml-font-sans);
-		--ml-step-desc-font-size: var(--ml-text-xs);
-		--ml-step-desc-color: var(--ml-color-text-muted);
-		--ml-step-desc-line-height: var(--ml-leading-normal);
-
 		display: contents;
 	}
 
@@ -84,13 +89,13 @@ export const stepStyles = () => css`
 
 	.ml-step--disabled {
 		cursor: not-allowed;
-		opacity: var(--ml-step-disabled-opacity);
+		opacity: var(--ml-step-disabled-opacity, 0.5);
 	}
 
 	.ml-step:focus-visible {
-		outline: 2px solid var(--ml-step-focus-color);
+		outline: 2px solid var(--ml-step-focus-color, var(--ml-color-primary));
 		outline-offset: 2px;
-		border-radius: var(--ml-step-focus-radius);
+		border-radius: var(--ml-step-focus-radius, var(--ml-radius));
 	}
 
 	/* ============================================
@@ -106,13 +111,13 @@ export const stepStyles = () => css`
 		display: flex;
 		align-items: center;
 		width: 100%;
-		margin-bottom: var(--ml-step-track-gap);
+		margin-bottom: var(--ml-step-track-gap, var(--ml-space-3));
 	}
 
 	.ml-step--horizontal .ml-step__connector-before,
 	.ml-step--horizontal .ml-step__connector-after {
 		flex: 1;
-		height: var(--ml-step-connector-thickness);
+		height: var(--ml-step-connector-thickness, 2px);
 	}
 
 	.ml-step--horizontal .ml-step__connector--hidden {
@@ -132,13 +137,13 @@ export const stepStyles = () => css`
 		display: flex;
 		flex-direction: column;
 		align-items: center;
-		margin-right: var(--ml-step-track-gap);
+		margin-right: var(--ml-step-track-gap, var(--ml-space-3));
 	}
 
 	.ml-step--vertical .ml-step__connector-before,
 	.ml-step--vertical .ml-step__connector-after {
 		flex: 1;
-		width: var(--ml-step-connector-thickness);
+		width: var(--ml-step-connector-thickness, 2px);
 		min-height: 12px;
 	}
 
@@ -147,7 +152,7 @@ export const stepStyles = () => css`
 	}
 
 	.ml-step--vertical .ml-step__content {
-		padding-bottom: var(--ml-step-vertical-content-padding);
+		padding-bottom: var(--ml-step-vertical-content-padding, var(--ml-space-6));
 	}
 
 	.ml-step--vertical.ml-step--last .ml-step__content {
@@ -159,12 +164,12 @@ export const stepStyles = () => css`
 	   ============================================ */
 	.ml-step__connector-before,
 	.ml-step__connector-after {
-		transition: background-color var(--ml-step-connector-transition);
+		transition: background-color var(--ml-step-connector-transition, var(--ml-duration-150) var(--ml-ease-in-out));
 	}
 
 	/* Solid connector */
 	.ml-step__connector--solid {
-		background-color: var(--ml-step-connector-color);
+		background-color: var(--ml-step-connector-color, var(--ml-color-border));
 	}
 
 	/* Dotted connector */
@@ -176,8 +181,8 @@ export const stepStyles = () => css`
 	.ml-step--horizontal .ml-step__connector--dotted {
 		background-image: repeating-linear-gradient(
 			to right,
-			var(--ml-step-connector-color) 0,
-			var(--ml-step-connector-color) 4px,
+			var(--ml-step-connector-color, var(--ml-color-border)) 0,
+			var(--ml-step-connector-color, var(--ml-color-border)) 4px,
 			transparent 4px,
 			transparent 8px
 		);
@@ -190,8 +195,8 @@ export const stepStyles = () => css`
 	.ml-step--vertical .ml-step__connector--dotted {
 		background-image: repeating-linear-gradient(
 			to bottom,
-			var(--ml-step-connector-color) 0,
-			var(--ml-step-connector-color) 4px,
+			var(--ml-step-connector-color, var(--ml-color-border)) 0,
+			var(--ml-step-connector-color, var(--ml-color-border)) 4px,
 			transparent 4px,
 			transparent 8px
 		);
@@ -304,87 +309,87 @@ export const stepStyles = () => css`
 		align-items: center;
 		justify-content: center;
 		transition:
-			background-color var(--ml-step-indicator-transition),
-			border-color var(--ml-step-indicator-transition),
-			color var(--ml-step-indicator-transition);
+			background-color var(--ml-step-indicator-transition, var(--ml-duration-150) var(--ml-ease-in-out)),
+			border-color var(--ml-step-indicator-transition, var(--ml-duration-150) var(--ml-ease-in-out)),
+			color var(--ml-step-indicator-transition, var(--ml-duration-150) var(--ml-ease-in-out));
 	}
 
 	/* ============================================
 	   NUMBERED VARIANT
 	   ============================================ */
 	.ml-step__indicator-inner--numbered {
-		width: var(--ml-step-indicator-size);
-		height: var(--ml-step-indicator-size);
+		width: var(--ml-step-indicator-size, 32px);
+		height: var(--ml-step-indicator-size, 32px);
 		border-radius: 50%;
-		font-size: var(--ml-step-indicator-font-size);
-		font-weight: var(--ml-step-indicator-font-weight);
-		font-family: var(--ml-step-indicator-font-family);
+		font-size: var(--ml-step-indicator-font-size, var(--ml-text-sm));
+		font-weight: var(--ml-step-indicator-font-weight, var(--ml-font-medium));
+		font-family: var(--ml-step-indicator-font-family, var(--ml-font-sans));
 	}
 
 	/* Numbered - Upcoming */
 	.ml-step--upcoming .ml-step__indicator-inner--numbered {
-		border: var(--ml-step-indicator-border-width) solid var(--ml-step-upcoming-border-color);
-		color: var(--ml-step-upcoming-color);
-		background-color: var(--ml-step-upcoming-bg);
+		border: var(--ml-step-indicator-border-width, 2px) solid var(--ml-step-upcoming-border-color, var(--ml-color-border));
+		color: var(--ml-step-upcoming-color, var(--ml-color-text-secondary));
+		background-color: var(--ml-step-upcoming-bg, var(--ml-color-surface));
 	}
 
 	/* Numbered - Current (primary) */
 	.ml-step--current.ml-step--primary .ml-step__indicator-inner--numbered {
-		border: var(--ml-step-indicator-border-width) solid var(--ml-color-primary);
+		border: var(--ml-step-indicator-border-width, 2px) solid var(--ml-color-primary);
 		color: var(--ml-color-primary);
-		background-color: var(--ml-step-upcoming-bg);
+		background-color: var(--ml-step-upcoming-bg, var(--ml-color-surface));
 	}
 
 	/* Numbered - Current (success) */
 	.ml-step--current.ml-step--success .ml-step__indicator-inner--numbered {
-		border: var(--ml-step-indicator-border-width) solid var(--ml-color-success);
+		border: var(--ml-step-indicator-border-width, 2px) solid var(--ml-color-success);
 		color: var(--ml-color-success);
-		background-color: var(--ml-step-upcoming-bg);
+		background-color: var(--ml-step-upcoming-bg, var(--ml-color-surface));
 	}
 
 	/* Numbered - Completed (primary) */
 	.ml-step--completed.ml-step--primary .ml-step__indicator-inner--numbered {
 		background-color: var(--ml-color-primary);
-		border: var(--ml-step-indicator-border-width) solid var(--ml-color-primary);
-		color: var(--ml-step-completed-indicator-text);
+		border: var(--ml-step-indicator-border-width, 2px) solid var(--ml-color-primary);
+		color: var(--ml-step-completed-indicator-text, #fff);
 	}
 
 	/* Numbered - Completed (success) */
 	.ml-step--completed.ml-step--success .ml-step__indicator-inner--numbered {
 		background-color: var(--ml-color-success);
-		border: var(--ml-step-indicator-border-width) solid var(--ml-color-success);
-		color: var(--ml-step-completed-indicator-text);
+		border: var(--ml-step-indicator-border-width, 2px) solid var(--ml-color-success);
+		color: var(--ml-step-completed-indicator-text, #fff);
 	}
 
 	/* ============================================
 	   CIRCLES VARIANT
 	   ============================================ */
 	.ml-step__indicator-inner--circles {
-		width: var(--ml-step-indicator-size);
-		height: var(--ml-step-indicator-size);
+		width: var(--ml-step-indicator-size, 32px);
+		height: var(--ml-step-indicator-size, 32px);
 		border-radius: 50%;
 	}
 
 	.ml-step__indicator-dot {
-		width: var(--ml-step-dot-size);
-		height: var(--ml-step-dot-size);
+		width: var(--ml-step-dot-size, 10px);
+		height: var(--ml-step-dot-size, 10px);
 		border-radius: 50%;
-		transition: background-color var(--ml-step-connector-transition);
+		transition: background-color var(--ml-step-connector-transition, var(--ml-duration-150) var(--ml-ease-in-out));
 	}
 
 	/* Circles - Upcoming */
 	.ml-step--upcoming .ml-step__indicator-inner--circles {
-		border: var(--ml-step-indicator-border-width) solid var(--ml-step-upcoming-border-color);
-		background-color: var(--ml-step-upcoming-bg);
+		border: var(--ml-step-indicator-border-width, 2px) solid var(--ml-step-upcoming-border-color, var(--ml-color-border));
+		background-color: var(--ml-step-upcoming-bg, var(--ml-color-surface));
 	}
 	.ml-step--upcoming .ml-step__indicator-dot {
-		background-color: var(--ml-step-upcoming-border-color);
+		background-color: var(--ml-step-upcoming-border-color, var(--ml-color-border));
 	}
 
 	/* Circles - Current (primary) */
 	.ml-step--current.ml-step--primary .ml-step__indicator-inner--circles {
-		border: var(--ml-step-indicator-border-width) solid var(--ml-color-primary);
-		background-color: var(--ml-step-upcoming-bg);
+		border: var(--ml-step-indicator-border-width, 2px) solid var(--ml-color-primary);
+		background-color: var(--ml-step-upcoming-bg, var(--ml-color-surface));
 	}
 	.ml-step--current.ml-step--primary .ml-step__indicator-dot {
 		background-color: var(--ml-color-primary);
@@ -392,8 +397,8 @@ export const stepStyles = () => css`
 
 	/* Circles - Current (success) */
 	.ml-step--current.ml-step--success .ml-step__indicator-inner--circles {
-		border: var(--ml-step-indicator-border-width) solid var(--ml-color-success);
-		background-color: var(--ml-step-upcoming-bg);
+		border: var(--ml-step-indicator-border-width, 2px) solid var(--ml-color-success);
+		background-color: var(--ml-step-upcoming-bg, var(--ml-color-surface));
 	}
 	.ml-step--current.ml-step--success .ml-step__indicator-dot {
 		background-color: var(--ml-color-success);
@@ -402,39 +407,39 @@ export const stepStyles = () => css`
 	/* Circles - Completed (primary) */
 	.ml-step--completed.ml-step--primary .ml-step__indicator-inner--circles {
 		background-color: var(--ml-color-primary);
-		border: var(--ml-step-indicator-border-width) solid var(--ml-color-primary);
-		color: var(--ml-step-completed-indicator-text);
+		border: var(--ml-step-indicator-border-width, 2px) solid var(--ml-color-primary);
+		color: var(--ml-step-completed-indicator-text, #fff);
 	}
 
 	/* Circles - Completed (success) */
 	.ml-step--completed.ml-step--success .ml-step__indicator-inner--circles {
 		background-color: var(--ml-color-success);
-		border: var(--ml-step-indicator-border-width) solid var(--ml-color-success);
-		color: var(--ml-step-completed-indicator-text);
+		border: var(--ml-step-indicator-border-width, 2px) solid var(--ml-color-success);
+		color: var(--ml-step-completed-indicator-text, #fff);
 	}
 
 	/* ============================================
 	   ICONS VARIANT
 	   ============================================ */
 	.ml-step__indicator-inner--icons {
-		width: var(--ml-step-icon-indicator-size);
-		height: var(--ml-step-icon-indicator-size);
-		border-radius: var(--ml-step-icon-indicator-radius);
-		border: var(--ml-step-indicator-border-width) solid var(--ml-step-upcoming-border-color);
+		width: var(--ml-step-icon-indicator-size, 40px);
+		height: var(--ml-step-icon-indicator-size, 40px);
+		border-radius: var(--ml-step-icon-indicator-radius, var(--ml-radius-lg));
+		border: var(--ml-step-indicator-border-width, 2px) solid var(--ml-step-upcoming-border-color, var(--ml-color-border));
 	}
 
 	/* Icons - Upcoming */
 	.ml-step--upcoming .ml-step__indicator-inner--icons {
-		border-color: var(--ml-step-upcoming-border-color);
-		background-color: var(--ml-step-upcoming-bg);
-		color: var(--ml-step-icon-upcoming-color);
+		border-color: var(--ml-step-upcoming-border-color, var(--ml-color-border));
+		background-color: var(--ml-step-upcoming-bg, var(--ml-color-surface));
+		color: var(--ml-step-icon-upcoming-color, var(--ml-color-text-muted));
 	}
 
 	/* Icons - Current */
 	.ml-step--current .ml-step__indicator-inner--icons {
-		border-color: var(--ml-step-icon-current-border-color);
-		background-color: var(--ml-step-upcoming-bg);
-		color: var(--ml-step-icon-current-color);
+		border-color: var(--ml-step-icon-current-border-color, var(--ml-color-text));
+		background-color: var(--ml-step-upcoming-bg, var(--ml-color-surface));
+		color: var(--ml-step-icon-current-color, var(--ml-color-text));
 	}
 
 	/* Icons - Completed (primary) */
@@ -461,11 +466,11 @@ export const stepStyles = () => css`
 
 	.ml-step--bar .ml-step__bar {
 		width: 100%;
-		height: var(--ml-step-bar-height);
-		border-radius: var(--ml-step-bar-radius);
-		background-color: var(--ml-step-bar-color);
-		margin-bottom: var(--ml-step-track-gap);
-		transition: background-color var(--ml-step-connector-transition);
+		height: var(--ml-step-bar-height, 4px);
+		border-radius: var(--ml-step-bar-radius, 2px);
+		background-color: var(--ml-step-bar-color, var(--ml-color-border));
+		margin-bottom: var(--ml-step-track-gap, var(--ml-space-3));
+		transition: background-color var(--ml-step-connector-transition, var(--ml-duration-150) var(--ml-ease-in-out));
 	}
 
 	/* Bar - Current & Completed (primary) */
@@ -486,15 +491,15 @@ export const stepStyles = () => css`
 	}
 
 	.ml-step--bar.ml-step--vertical .ml-step__bar {
-		width: var(--ml-step-bar-height);
+		width: var(--ml-step-bar-height, 4px);
 		height: auto;
 		min-height: 40px;
 		margin-bottom: 0;
-		margin-right: var(--ml-step-track-gap);
+		margin-right: var(--ml-step-track-gap, var(--ml-space-3));
 	}
 
 	.ml-step--bar.ml-step--vertical .ml-step__content {
-		padding-bottom: var(--ml-step-vertical-content-padding);
+		padding-bottom: var(--ml-step-vertical-content-padding, var(--ml-space-6));
 	}
 
 	.ml-step--bar.ml-step--vertical.ml-step--last .ml-step__content {
@@ -512,11 +517,11 @@ export const stepStyles = () => css`
 	}
 
 	.ml-step__dot {
-		width: var(--ml-step-compact-dot-size);
-		height: var(--ml-step-compact-dot-size);
+		width: var(--ml-step-compact-dot-size, 12px);
+		height: var(--ml-step-compact-dot-size, 12px);
 		border-radius: 50%;
-		background-color: var(--ml-step-compact-dot-color);
-		transition: background-color var(--ml-step-connector-transition);
+		background-color: var(--ml-step-compact-dot-color, var(--ml-color-border));
+		transition: background-color var(--ml-step-connector-transition, var(--ml-duration-150) var(--ml-ease-in-out));
 	}
 
 	.ml-step--compact.ml-step--current.ml-step--primary .ml-step__dot {
@@ -538,21 +543,21 @@ export const stepStyles = () => css`
 	.ml-step__content {
 		display: flex;
 		flex-direction: column;
-		gap: var(--ml-step-content-gap);
+		gap: var(--ml-step-content-gap, var(--ml-space-1));
 		min-width: 0;
 	}
 
 	.ml-step__label {
-		font-family: var(--ml-step-label-font-family);
-		font-size: var(--ml-step-label-font-size);
-		font-weight: var(--ml-step-label-font-weight);
-		color: var(--ml-step-label-color);
-		line-height: var(--ml-step-label-line-height);
-		transition: color var(--ml-step-connector-transition);
+		font-family: var(--ml-step-label-font-family, var(--ml-font-sans));
+		font-size: var(--ml-step-label-font-size, var(--ml-text-sm));
+		font-weight: var(--ml-step-label-font-weight, var(--ml-font-medium));
+		color: var(--ml-step-label-color, var(--ml-color-text));
+		line-height: var(--ml-step-label-line-height, var(--ml-leading-tight));
+		transition: color var(--ml-step-connector-transition, var(--ml-duration-150) var(--ml-ease-in-out));
 	}
 
 	.ml-step--upcoming .ml-step__label {
-		color: var(--ml-step-label-upcoming-color);
+		color: var(--ml-step-label-upcoming-color, var(--ml-color-text-secondary));
 	}
 
 	.ml-step--current.ml-step--primary .ml-step__label {
@@ -564,9 +569,9 @@ export const stepStyles = () => css`
 	}
 
 	.ml-step__description {
-		font-family: var(--ml-step-desc-font-family);
-		font-size: var(--ml-step-desc-font-size);
-		color: var(--ml-step-desc-color);
-		line-height: var(--ml-step-desc-line-height);
+		font-family: var(--ml-step-desc-font-family, var(--ml-font-sans));
+		font-size: var(--ml-step-desc-font-size, var(--ml-text-xs));
+		color: var(--ml-step-desc-color, var(--ml-color-text-muted));
+		line-height: var(--ml-step-desc-line-height, var(--ml-leading-normal));
 	}
 `;

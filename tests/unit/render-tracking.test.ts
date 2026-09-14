@@ -3,6 +3,8 @@ import { MelodicComponent } from '../../src/components/decorators/melodic-compon
 import { html } from '../../src/template';
 import { signal, computed, effect, untracked, batch, SignalEffect } from '../../src/signals';
 import { setDevMode, resetDevWarnings } from '../../src/devtools/dev-mode';
+import { SignalStoreService } from '../../src/state/services/signal-store.service';
+import type { Signal } from '../../src/signals';
 
 const flush = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0));
 
@@ -313,6 +315,72 @@ describe('computed created during render', () => {
 		await flush();
 
 		expect(warnSpy.mock.calls.some((call) => String(call[1]).includes('was created while'))).toBe(true);
+
+		element.remove();
+		warnSpy.mockRestore();
+	});
+
+	/**
+	 * The warning tells you to use `store.select(key, fn, cacheKey)` instead.
+	 * Following that advice must not warn: the select cache keys and sweeps
+	 * its computeds, so the first render (a cache miss, where the computed is
+	 * created) is not the leak the warning is about.
+	 */
+	it('does not warn for store.select(key, fn, cacheKey) read during render', async () => {
+		const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+		setDevMode(true);
+		const tag = nextTag('select-in-render');
+
+		type AppState = { a: { n: number } };
+		const store = Object.create(SignalStoreService.prototype) as SignalStoreService<AppState>;
+		const state = { a: signal({ n: 1 }) };
+		Object.defineProperty(store, '_state', { value: state, writable: true, configurable: true });
+		Object.defineProperty(store, '_reducerMap', { value: {}, writable: true, configurable: true });
+		Object.defineProperty(store, '_effectMap', { value: {}, writable: true, configurable: true });
+		Object.defineProperty(store, '_debug', { value: false, writable: true, configurable: true });
+
+		class Host {
+			public elementRef!: HTMLElement;
+			public get n(): number {
+				return store.select('a', (s) => s.n, 'k')();
+			}
+		}
+		MelodicComponent({ selector: tag, template: (c: Host) => html`<p>${c.n}</p>` })(Host as never);
+
+		const element = document.createElement(tag);
+		document.body.appendChild(element);
+		await flush();
+		expect(element.shadowRoot!.textContent).toContain('1');
+
+		(state.a as Signal<{ n: number }>).set({ n: 2 });
+		await flush();
+		expect(element.shadowRoot!.textContent).toContain('2');
+
+		expect(warnSpy).not.toHaveBeenCalled();
+
+		element.remove();
+		warnSpy.mockRestore();
+	});
+
+	it('still warns for a bare computed() in render after a render-scoped select', async () => {
+		const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+		setDevMode(true);
+		const tag = nextTag('computed-after-select');
+		const source = signal(1);
+
+		class Host {
+			public elementRef!: HTMLElement;
+			public get doubled(): number {
+				return computed(() => source() * 2)();
+			}
+		}
+		MelodicComponent({ selector: tag, template: (c: Host) => html`<p>${c.doubled}</p>` })(Host as never);
+
+		const element = document.createElement(tag);
+		document.body.appendChild(element);
+		await flush();
+
+		expect(warnSpy.mock.calls.filter((call) => String(call[1]).includes('was created while'))).toHaveLength(1);
 
 		element.remove();
 		warnSpy.mockRestore();

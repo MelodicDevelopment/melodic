@@ -1,85 +1,90 @@
 import { css } from '@melodicdev/core';
 
 export const stepsStyles = () => css`
+	/*
+	 * Tokens. Rules read each one with its default as the var() fallback,
+	 * so a value set on the element or inherited from any ancestor wins.
+	 *
+	 * Compact label
+	 * --ml-steps-compact-gap: var(--ml-space-3)
+	 * --ml-steps-compact-label-font-family: var(--ml-font-sans)
+	 * --ml-steps-compact-label-font-size: var(--ml-text-sm)
+	 * --ml-steps-compact-label-font-weight: var(--ml-font-medium)
+	 * --ml-steps-compact-label-color: var(--ml-color-text-secondary)
+	 * --ml-steps-compact-label-margin-top: var(--ml-space-3)
+	 *
+	 * Panels
+	 * --ml-steps-panels-padding-top: var(--ml-space-6)
+	 * --ml-steps-compact-panels-padding-top: var(--ml-space-4)
+	 *
+	 * Focus ring
+	 * --ml-steps-focus-color: var(--ml-color-primary)
+	 * --ml-steps-focus-radius: var(--ml-radius)
+	 *
+	 * Disabled state
+	 * --ml-steps-disabled-opacity: 0.5
+	 *
+	 * Connector
+	 * --ml-steps-connector-thickness: 2px
+	 * --ml-steps-connector-color: var(--ml-color-border)
+	 * --ml-steps-connector-transition: var(--ml-duration-150) var(--ml-ease-in-out)
+	 *
+	 * Indicator (numbered & circles)
+	 * --ml-steps-indicator-size: 32px
+	 * --ml-steps-indicator-border-width: 2px
+	 * --ml-steps-indicator-font-size: var(--ml-text-sm)
+	 * --ml-steps-indicator-font-weight: var(--ml-font-medium)
+	 * --ml-steps-indicator-font-family: var(--ml-font-sans)
+	 * --ml-steps-indicator-transition: var(--ml-duration-150) var(--ml-ease-in-out)
+	 *
+	 * Indicator upcoming
+	 * --ml-steps-upcoming-border-color: var(--ml-color-border)
+	 * --ml-steps-upcoming-color: var(--ml-color-text-secondary)
+	 * --ml-steps-upcoming-bg: var(--ml-color-surface)
+	 *
+	 * Indicator dot (circles variant)
+	 * --ml-steps-dot-size: 10px
+	 *
+	 * Icons variant
+	 * --ml-steps-icon-indicator-size: 40px
+	 * --ml-steps-icon-indicator-radius: var(--ml-radius-lg)
+	 * --ml-steps-icon-upcoming-color: var(--ml-color-text-muted)
+	 * --ml-steps-icon-current-border-color: var(--ml-color-text)
+	 * --ml-steps-icon-current-color: var(--ml-color-text)
+	 *
+	 * Completed indicator text
+	 * --ml-steps-completed-indicator-text: #fff
+	 *
+	 * Bar variant
+	 * --ml-steps-bar-height: 4px
+	 * --ml-steps-bar-radius: 2px
+	 * --ml-steps-bar-color: var(--ml-color-border)
+	 *
+	 * Compact / dots
+	 * --ml-steps-compact-dot-size: 12px
+	 * --ml-steps-compact-dot-color: var(--ml-color-border)
+	 *
+	 * Content spacing
+	 * --ml-steps-content-gap: var(--ml-space-1)
+	 * --ml-steps-track-gap: var(--ml-space-3)
+	 * --ml-steps-vertical-content-padding: var(--ml-space-6)
+	 *
+	 * Label
+	 * --ml-steps-label-font-family: var(--ml-font-sans)
+	 * --ml-steps-label-font-size: var(--ml-text-sm)
+	 * --ml-steps-label-font-weight: var(--ml-font-medium)
+	 * --ml-steps-label-color: var(--ml-color-text)
+	 * --ml-steps-label-line-height: var(--ml-leading-tight)
+	 * --ml-steps-label-upcoming-color: var(--ml-color-text-secondary)
+	 *
+	 * Description
+	 * --ml-steps-desc-font-family: var(--ml-font-sans)
+	 * --ml-steps-desc-font-size: var(--ml-text-xs)
+	 * --ml-steps-desc-color: var(--ml-color-text-muted)
+	 * --ml-steps-desc-line-height: var(--ml-leading-normal)
+	 */
+
 	:host {
-		/* Compact label */
-		--ml-steps-compact-gap: var(--ml-space-3);
-		--ml-steps-compact-label-font-family: var(--ml-font-sans);
-		--ml-steps-compact-label-font-size: var(--ml-text-sm);
-		--ml-steps-compact-label-font-weight: var(--ml-font-medium);
-		--ml-steps-compact-label-color: var(--ml-color-text-secondary);
-		--ml-steps-compact-label-margin-top: var(--ml-space-3);
-
-		/* Panels */
-		--ml-steps-panels-padding-top: var(--ml-space-6);
-		--ml-steps-compact-panels-padding-top: var(--ml-space-4);
-
-		/* Focus ring */
-		--ml-steps-focus-color: var(--ml-color-primary);
-		--ml-steps-focus-radius: var(--ml-radius);
-
-		/* Disabled state */
-		--ml-steps-disabled-opacity: 0.5;
-
-		/* Connector */
-		--ml-steps-connector-thickness: 2px;
-		--ml-steps-connector-color: var(--ml-color-border);
-		--ml-steps-connector-transition: var(--ml-duration-150) var(--ml-ease-in-out);
-
-		/* Indicator (numbered & circles) */
-		--ml-steps-indicator-size: 32px;
-		--ml-steps-indicator-border-width: 2px;
-		--ml-steps-indicator-font-size: var(--ml-text-sm);
-		--ml-steps-indicator-font-weight: var(--ml-font-medium);
-		--ml-steps-indicator-font-family: var(--ml-font-sans);
-		--ml-steps-indicator-transition: var(--ml-duration-150) var(--ml-ease-in-out);
-
-		/* Indicator upcoming */
-		--ml-steps-upcoming-border-color: var(--ml-color-border);
-		--ml-steps-upcoming-color: var(--ml-color-text-secondary);
-		--ml-steps-upcoming-bg: var(--ml-color-surface);
-
-		/* Indicator dot (circles variant) */
-		--ml-steps-dot-size: 10px;
-
-		/* Icons variant */
-		--ml-steps-icon-indicator-size: 40px;
-		--ml-steps-icon-indicator-radius: var(--ml-radius-lg);
-		--ml-steps-icon-upcoming-color: var(--ml-color-text-muted);
-		--ml-steps-icon-current-border-color: var(--ml-color-text);
-		--ml-steps-icon-current-color: var(--ml-color-text);
-
-		/* Completed indicator text */
-		--ml-steps-completed-indicator-text: #fff;
-
-		/* Bar variant */
-		--ml-steps-bar-height: 4px;
-		--ml-steps-bar-radius: 2px;
-		--ml-steps-bar-color: var(--ml-color-border);
-
-		/* Compact / dots */
-		--ml-steps-compact-dot-size: 12px;
-		--ml-steps-compact-dot-color: var(--ml-color-border);
-
-		/* Content spacing */
-		--ml-steps-content-gap: var(--ml-space-1);
-		--ml-steps-track-gap: var(--ml-space-3);
-		--ml-steps-vertical-content-padding: var(--ml-space-6);
-
-		/* Label */
-		--ml-steps-label-font-family: var(--ml-font-sans);
-		--ml-steps-label-font-size: var(--ml-text-sm);
-		--ml-steps-label-font-weight: var(--ml-font-medium);
-		--ml-steps-label-color: var(--ml-color-text);
-		--ml-steps-label-line-height: var(--ml-leading-tight);
-		--ml-steps-label-upcoming-color: var(--ml-color-text-secondary);
-
-		/* Description */
-		--ml-steps-desc-font-family: var(--ml-font-sans);
-		--ml-steps-desc-font-size: var(--ml-text-xs);
-		--ml-steps-desc-color: var(--ml-color-text-muted);
-		--ml-steps-desc-line-height: var(--ml-leading-normal);
-
 		display: block;
 		width: 100%;
 	}
@@ -109,29 +114,29 @@ export const stepsStyles = () => css`
 	   COMPACT LABEL (Step X of Y)
 	   ============================================ */
 	.ml-steps--compact .ml-steps__list {
-		gap: var(--ml-steps-compact-gap);
+		gap: var(--ml-steps-compact-gap, var(--ml-space-3));
 		justify-content: center;
 		align-items: center;
 	}
 
 	.ml-steps__compact-label {
-		font-family: var(--ml-steps-compact-label-font-family);
-		font-size: var(--ml-steps-compact-label-font-size);
-		font-weight: var(--ml-steps-compact-label-font-weight);
-		color: var(--ml-steps-compact-label-color);
+		font-family: var(--ml-steps-compact-label-font-family, var(--ml-font-sans));
+		font-size: var(--ml-steps-compact-label-font-size, var(--ml-text-sm));
+		font-weight: var(--ml-steps-compact-label-font-weight, var(--ml-font-medium));
+		color: var(--ml-steps-compact-label-color, var(--ml-color-text-secondary));
 		text-align: center;
-		margin-top: var(--ml-steps-compact-label-margin-top);
+		margin-top: var(--ml-steps-compact-label-margin-top, var(--ml-space-3));
 	}
 
 	/* ============================================
 	   PANELS
 	   ============================================ */
 	.ml-steps__panels {
-		padding-top: var(--ml-steps-panels-padding-top);
+		padding-top: var(--ml-steps-panels-padding-top, var(--ml-space-6));
 	}
 
 	.ml-steps--compact .ml-steps__panels {
-		padding-top: var(--ml-steps-compact-panels-padding-top);
+		padding-top: var(--ml-steps-compact-panels-padding-top, var(--ml-space-4));
 	}
 
 	/* ============================================
@@ -150,13 +155,13 @@ export const stepsStyles = () => css`
 
 	.ml-step--disabled {
 		cursor: not-allowed;
-		opacity: var(--ml-steps-disabled-opacity);
+		opacity: var(--ml-steps-disabled-opacity, 0.5);
 	}
 
 	.ml-step:focus-visible {
-		outline: 2px solid var(--ml-steps-focus-color);
+		outline: 2px solid var(--ml-steps-focus-color, var(--ml-color-primary));
 		outline-offset: 2px;
-		border-radius: var(--ml-steps-focus-radius);
+		border-radius: var(--ml-steps-focus-radius, var(--ml-radius));
 	}
 
 	/* Horizontal layout */
@@ -170,13 +175,13 @@ export const stepsStyles = () => css`
 		display: flex;
 		align-items: center;
 		width: 100%;
-		margin-bottom: var(--ml-steps-track-gap);
+		margin-bottom: var(--ml-steps-track-gap, var(--ml-space-3));
 	}
 
 	.ml-step--horizontal .ml-step__connector-before,
 	.ml-step--horizontal .ml-step__connector-after {
 		flex: 1;
-		height: var(--ml-steps-connector-thickness);
+		height: var(--ml-steps-connector-thickness, 2px);
 	}
 
 	.ml-step--horizontal .ml-step__connector--hidden {
@@ -194,13 +199,13 @@ export const stepsStyles = () => css`
 		display: flex;
 		flex-direction: column;
 		align-items: center;
-		margin-right: var(--ml-steps-track-gap);
+		margin-right: var(--ml-steps-track-gap, var(--ml-space-3));
 	}
 
 	.ml-step--vertical .ml-step__connector-before,
 	.ml-step--vertical .ml-step__connector-after {
 		flex: 1;
-		width: var(--ml-steps-connector-thickness);
+		width: var(--ml-steps-connector-thickness, 2px);
 		min-height: 12px;
 	}
 
@@ -209,7 +214,7 @@ export const stepsStyles = () => css`
 	}
 
 	.ml-step--vertical .ml-step__content {
-		padding-bottom: var(--ml-steps-vertical-content-padding);
+		padding-bottom: var(--ml-steps-vertical-content-padding, var(--ml-space-6));
 	}
 
 	.ml-step--vertical.ml-step--last .ml-step__content {
@@ -219,11 +224,11 @@ export const stepsStyles = () => css`
 	/* Connectors */
 	.ml-step__connector-before,
 	.ml-step__connector-after {
-		transition: background-color var(--ml-steps-connector-transition);
+		transition: background-color var(--ml-steps-connector-transition, var(--ml-duration-150) var(--ml-ease-in-out));
 	}
 
 	.ml-step__connector--solid {
-		background-color: var(--ml-steps-connector-color);
+		background-color: var(--ml-steps-connector-color, var(--ml-color-border));
 	}
 
 	.ml-step__connector--dotted {
@@ -233,8 +238,8 @@ export const stepsStyles = () => css`
 	.ml-step--horizontal .ml-step__connector--dotted {
 		background-image: repeating-linear-gradient(
 			to right,
-			var(--ml-steps-connector-color) 0,
-			var(--ml-steps-connector-color) 4px,
+			var(--ml-steps-connector-color, var(--ml-color-border)) 0,
+			var(--ml-steps-connector-color, var(--ml-color-border)) 4px,
 			transparent 4px,
 			transparent 8px
 		);
@@ -246,8 +251,8 @@ export const stepsStyles = () => css`
 	.ml-step--vertical .ml-step__connector--dotted {
 		background-image: repeating-linear-gradient(
 			to bottom,
-			var(--ml-steps-connector-color) 0,
-			var(--ml-steps-connector-color) 4px,
+			var(--ml-steps-connector-color, var(--ml-color-border)) 0,
+			var(--ml-steps-connector-color, var(--ml-color-border)) 4px,
 			transparent 4px,
 			transparent 8px
 		);
@@ -359,84 +364,84 @@ export const stepsStyles = () => css`
 		align-items: center;
 		justify-content: center;
 		transition:
-			background-color var(--ml-steps-indicator-transition),
-			border-color var(--ml-steps-indicator-transition),
-			color var(--ml-steps-indicator-transition);
+			background-color var(--ml-steps-indicator-transition, var(--ml-duration-150) var(--ml-ease-in-out)),
+			border-color var(--ml-steps-indicator-transition, var(--ml-duration-150) var(--ml-ease-in-out)),
+			color var(--ml-steps-indicator-transition, var(--ml-duration-150) var(--ml-ease-in-out));
 	}
 
 	/* Numbered */
 	.ml-step__indicator-inner--numbered {
-		width: var(--ml-steps-indicator-size);
-		height: var(--ml-steps-indicator-size);
+		width: var(--ml-steps-indicator-size, 32px);
+		height: var(--ml-steps-indicator-size, 32px);
 		border-radius: 50%;
-		font-size: var(--ml-steps-indicator-font-size);
-		font-weight: var(--ml-steps-indicator-font-weight);
-		font-family: var(--ml-steps-indicator-font-family);
+		font-size: var(--ml-steps-indicator-font-size, var(--ml-text-sm));
+		font-weight: var(--ml-steps-indicator-font-weight, var(--ml-font-medium));
+		font-family: var(--ml-steps-indicator-font-family, var(--ml-font-sans));
 	}
 
 	.ml-step--upcoming .ml-step__indicator-inner--numbered {
-		border: var(--ml-steps-indicator-border-width) solid var(--ml-steps-upcoming-border-color);
-		color: var(--ml-steps-upcoming-color);
-		background-color: var(--ml-steps-upcoming-bg);
+		border: var(--ml-steps-indicator-border-width, 2px) solid var(--ml-steps-upcoming-border-color, var(--ml-color-border));
+		color: var(--ml-steps-upcoming-color, var(--ml-color-text-secondary));
+		background-color: var(--ml-steps-upcoming-bg, var(--ml-color-surface));
 	}
 
 	.ml-step--current.ml-step--primary .ml-step__indicator-inner--numbered {
-		border: var(--ml-steps-indicator-border-width) solid var(--ml-color-primary);
+		border: var(--ml-steps-indicator-border-width, 2px) solid var(--ml-color-primary);
 		color: var(--ml-color-primary);
-		background-color: var(--ml-steps-upcoming-bg);
+		background-color: var(--ml-steps-upcoming-bg, var(--ml-color-surface));
 	}
 
 	.ml-step--current.ml-step--success .ml-step__indicator-inner--numbered {
-		border: var(--ml-steps-indicator-border-width) solid var(--ml-color-success);
+		border: var(--ml-steps-indicator-border-width, 2px) solid var(--ml-color-success);
 		color: var(--ml-color-success);
-		background-color: var(--ml-steps-upcoming-bg);
+		background-color: var(--ml-steps-upcoming-bg, var(--ml-color-surface));
 	}
 
 	.ml-step--completed.ml-step--primary .ml-step__indicator-inner--numbered {
 		background-color: var(--ml-color-primary);
-		border: var(--ml-steps-indicator-border-width) solid var(--ml-color-primary);
-		color: var(--ml-steps-completed-indicator-text);
+		border: var(--ml-steps-indicator-border-width, 2px) solid var(--ml-color-primary);
+		color: var(--ml-steps-completed-indicator-text, #fff);
 	}
 
 	.ml-step--completed.ml-step--success .ml-step__indicator-inner--numbered {
 		background-color: var(--ml-color-success);
-		border: var(--ml-steps-indicator-border-width) solid var(--ml-color-success);
-		color: var(--ml-steps-completed-indicator-text);
+		border: var(--ml-steps-indicator-border-width, 2px) solid var(--ml-color-success);
+		color: var(--ml-steps-completed-indicator-text, #fff);
 	}
 
 	/* Circles */
 	.ml-step__indicator-inner--circles {
-		width: var(--ml-steps-indicator-size);
-		height: var(--ml-steps-indicator-size);
+		width: var(--ml-steps-indicator-size, 32px);
+		height: var(--ml-steps-indicator-size, 32px);
 		border-radius: 50%;
 	}
 
 	.ml-step__indicator-dot {
-		width: var(--ml-steps-dot-size);
-		height: var(--ml-steps-dot-size);
+		width: var(--ml-steps-dot-size, 10px);
+		height: var(--ml-steps-dot-size, 10px);
 		border-radius: 50%;
-		transition: background-color var(--ml-steps-connector-transition);
+		transition: background-color var(--ml-steps-connector-transition, var(--ml-duration-150) var(--ml-ease-in-out));
 	}
 
 	.ml-step--upcoming .ml-step__indicator-inner--circles {
-		border: var(--ml-steps-indicator-border-width) solid var(--ml-steps-upcoming-border-color);
-		background-color: var(--ml-steps-upcoming-bg);
+		border: var(--ml-steps-indicator-border-width, 2px) solid var(--ml-steps-upcoming-border-color, var(--ml-color-border));
+		background-color: var(--ml-steps-upcoming-bg, var(--ml-color-surface));
 	}
 	.ml-step--upcoming .ml-step__indicator-dot {
-		background-color: var(--ml-steps-upcoming-border-color);
+		background-color: var(--ml-steps-upcoming-border-color, var(--ml-color-border));
 	}
 
 	.ml-step--current.ml-step--primary .ml-step__indicator-inner--circles {
-		border: var(--ml-steps-indicator-border-width) solid var(--ml-color-primary);
-		background-color: var(--ml-steps-upcoming-bg);
+		border: var(--ml-steps-indicator-border-width, 2px) solid var(--ml-color-primary);
+		background-color: var(--ml-steps-upcoming-bg, var(--ml-color-surface));
 	}
 	.ml-step--current.ml-step--primary .ml-step__indicator-dot {
 		background-color: var(--ml-color-primary);
 	}
 
 	.ml-step--current.ml-step--success .ml-step__indicator-inner--circles {
-		border: var(--ml-steps-indicator-border-width) solid var(--ml-color-success);
-		background-color: var(--ml-steps-upcoming-bg);
+		border: var(--ml-steps-indicator-border-width, 2px) solid var(--ml-color-success);
+		background-color: var(--ml-steps-upcoming-bg, var(--ml-color-surface));
 	}
 	.ml-step--current.ml-step--success .ml-step__indicator-dot {
 		background-color: var(--ml-color-success);
@@ -444,34 +449,34 @@ export const stepsStyles = () => css`
 
 	.ml-step--completed.ml-step--primary .ml-step__indicator-inner--circles {
 		background-color: var(--ml-color-primary);
-		border: var(--ml-steps-indicator-border-width) solid var(--ml-color-primary);
-		color: var(--ml-steps-completed-indicator-text);
+		border: var(--ml-steps-indicator-border-width, 2px) solid var(--ml-color-primary);
+		color: var(--ml-steps-completed-indicator-text, #fff);
 	}
 
 	.ml-step--completed.ml-step--success .ml-step__indicator-inner--circles {
 		background-color: var(--ml-color-success);
-		border: var(--ml-steps-indicator-border-width) solid var(--ml-color-success);
-		color: var(--ml-steps-completed-indicator-text);
+		border: var(--ml-steps-indicator-border-width, 2px) solid var(--ml-color-success);
+		color: var(--ml-steps-completed-indicator-text, #fff);
 	}
 
 	/* Icons */
 	.ml-step__indicator-inner--icons {
-		width: var(--ml-steps-icon-indicator-size);
-		height: var(--ml-steps-icon-indicator-size);
-		border-radius: var(--ml-steps-icon-indicator-radius);
-		border: var(--ml-steps-indicator-border-width) solid var(--ml-steps-upcoming-border-color);
+		width: var(--ml-steps-icon-indicator-size, 40px);
+		height: var(--ml-steps-icon-indicator-size, 40px);
+		border-radius: var(--ml-steps-icon-indicator-radius, var(--ml-radius-lg));
+		border: var(--ml-steps-indicator-border-width, 2px) solid var(--ml-steps-upcoming-border-color, var(--ml-color-border));
 	}
 
 	.ml-step--upcoming .ml-step__indicator-inner--icons {
-		border-color: var(--ml-steps-upcoming-border-color);
-		background-color: var(--ml-steps-upcoming-bg);
-		color: var(--ml-steps-icon-upcoming-color);
+		border-color: var(--ml-steps-upcoming-border-color, var(--ml-color-border));
+		background-color: var(--ml-steps-upcoming-bg, var(--ml-color-surface));
+		color: var(--ml-steps-icon-upcoming-color, var(--ml-color-text-muted));
 	}
 
 	.ml-step--current .ml-step__indicator-inner--icons {
-		border-color: var(--ml-steps-icon-current-border-color);
-		background-color: var(--ml-steps-upcoming-bg);
-		color: var(--ml-steps-icon-current-color);
+		border-color: var(--ml-steps-icon-current-border-color, var(--ml-color-text));
+		background-color: var(--ml-steps-upcoming-bg, var(--ml-color-surface));
+		color: var(--ml-steps-icon-current-color, var(--ml-color-text));
 	}
 
 	.ml-step--completed.ml-step--primary .ml-step__indicator-inner--icons {
@@ -496,11 +501,11 @@ export const stepsStyles = () => css`
 
 	.ml-step--bar .ml-step__bar {
 		width: 100%;
-		height: var(--ml-steps-bar-height);
-		border-radius: var(--ml-steps-bar-radius);
-		background-color: var(--ml-steps-bar-color);
-		margin-bottom: var(--ml-steps-track-gap);
-		transition: background-color var(--ml-steps-connector-transition);
+		height: var(--ml-steps-bar-height, 4px);
+		border-radius: var(--ml-steps-bar-radius, 2px);
+		background-color: var(--ml-steps-bar-color, var(--ml-color-border));
+		margin-bottom: var(--ml-steps-track-gap, var(--ml-space-3));
+		transition: background-color var(--ml-steps-connector-transition, var(--ml-duration-150) var(--ml-ease-in-out));
 	}
 
 	.ml-step--bar.ml-step--current.ml-step--primary .ml-step__bar,
@@ -518,15 +523,15 @@ export const stepsStyles = () => css`
 	}
 
 	.ml-step--bar.ml-step--vertical .ml-step__bar {
-		width: var(--ml-steps-bar-height);
+		width: var(--ml-steps-bar-height, 4px);
 		height: auto;
 		min-height: 40px;
 		margin-bottom: 0;
-		margin-right: var(--ml-steps-track-gap);
+		margin-right: var(--ml-steps-track-gap, var(--ml-space-3));
 	}
 
 	.ml-step--bar.ml-step--vertical .ml-step__content {
-		padding-bottom: var(--ml-steps-vertical-content-padding);
+		padding-bottom: var(--ml-steps-vertical-content-padding, var(--ml-space-6));
 	}
 
 	.ml-step--bar.ml-step--vertical.ml-step--last .ml-step__content {
@@ -544,11 +549,11 @@ export const stepsStyles = () => css`
 	}
 
 	.ml-step__dot {
-		width: var(--ml-steps-compact-dot-size);
-		height: var(--ml-steps-compact-dot-size);
+		width: var(--ml-steps-compact-dot-size, 12px);
+		height: var(--ml-steps-compact-dot-size, 12px);
 		border-radius: 50%;
-		background-color: var(--ml-steps-compact-dot-color);
-		transition: background-color var(--ml-steps-connector-transition);
+		background-color: var(--ml-steps-compact-dot-color, var(--ml-color-border));
+		transition: background-color var(--ml-steps-connector-transition, var(--ml-duration-150) var(--ml-ease-in-out));
 	}
 
 	.ml-step--compact.ml-step--current.ml-step--primary .ml-step__dot,
@@ -567,21 +572,21 @@ export const stepsStyles = () => css`
 	.ml-step__content {
 		display: flex;
 		flex-direction: column;
-		gap: var(--ml-steps-content-gap);
+		gap: var(--ml-steps-content-gap, var(--ml-space-1));
 		min-width: 0;
 	}
 
 	.ml-step__label {
-		font-family: var(--ml-steps-label-font-family);
-		font-size: var(--ml-steps-label-font-size);
-		font-weight: var(--ml-steps-label-font-weight);
-		color: var(--ml-steps-label-color);
-		line-height: var(--ml-steps-label-line-height);
-		transition: color var(--ml-steps-connector-transition);
+		font-family: var(--ml-steps-label-font-family, var(--ml-font-sans));
+		font-size: var(--ml-steps-label-font-size, var(--ml-text-sm));
+		font-weight: var(--ml-steps-label-font-weight, var(--ml-font-medium));
+		color: var(--ml-steps-label-color, var(--ml-color-text));
+		line-height: var(--ml-steps-label-line-height, var(--ml-leading-tight));
+		transition: color var(--ml-steps-connector-transition, var(--ml-duration-150) var(--ml-ease-in-out));
 	}
 
 	.ml-step--upcoming .ml-step__label {
-		color: var(--ml-steps-label-upcoming-color);
+		color: var(--ml-steps-label-upcoming-color, var(--ml-color-text-secondary));
 	}
 
 	.ml-step--current.ml-step--primary .ml-step__label {
@@ -593,10 +598,10 @@ export const stepsStyles = () => css`
 	}
 
 	.ml-step__description {
-		font-family: var(--ml-steps-desc-font-family);
-		font-size: var(--ml-steps-desc-font-size);
-		color: var(--ml-steps-desc-color);
-		line-height: var(--ml-steps-desc-line-height);
+		font-family: var(--ml-steps-desc-font-family, var(--ml-font-sans));
+		font-size: var(--ml-steps-desc-font-size, var(--ml-text-xs));
+		color: var(--ml-steps-desc-color, var(--ml-color-text-muted));
+		line-height: var(--ml-steps-desc-line-height, var(--ml-leading-normal));
 	}
 
 	/* ============================================

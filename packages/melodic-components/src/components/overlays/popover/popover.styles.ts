@@ -1,23 +1,28 @@
 import { css } from '@melodicdev/core';
 
 export const popoverStyles = () => css`
+	/*
+	 * Tokens. Rules read each one with its default as the var() fallback,
+	 * so a value set on the element or inherited from any ancestor wins.
+	 *
+	 * Content panel
+	 * --ml-popover-padding-y: var(--ml-space-3)
+	 * --ml-popover-padding-x: var(--ml-space-4)
+	 * --ml-popover-border-color: var(--ml-color-border)
+	 * --ml-popover-radius: var(--ml-radius-lg)
+	 * --ml-popover-bg: var(--ml-color-surface)
+	 * --ml-popover-color: var(--ml-color-text)
+	 * --ml-popover-shadow: var(--ml-shadow-lg)
+	 * --ml-popover-content-overflow: visible
+	 * --ml-popover-transition: var(--ml-duration-150) var(--ml-ease-out)
+	 *
+	 * Arrow
+	 * --ml-popover-arrow-size: 8px
+	 * --ml-popover-arrow-bg: var(--ml-color-surface)
+	 * --ml-popover-arrow-border-color: var(--ml-color-border)
+	 */
+
 	:host {
-		/* Content panel */
-		--ml-popover-padding-y: var(--ml-space-3);
-		--ml-popover-padding-x: var(--ml-space-4);
-		--ml-popover-border-color: var(--ml-color-border);
-		--ml-popover-radius: var(--ml-radius-lg);
-		--ml-popover-bg: var(--ml-color-surface);
-		--ml-popover-color: var(--ml-color-text);
-		--ml-popover-shadow: var(--ml-shadow-lg);
-		--ml-popover-content-overflow: visible;
-		--ml-popover-transition: var(--ml-duration-150) var(--ml-ease-out);
-
-		/* Arrow */
-		--ml-popover-arrow-size: 8px;
-		--ml-popover-arrow-bg: var(--ml-color-surface);
-		--ml-popover-arrow-border-color: var(--ml-color-border);
-
 		display: inline-block;
 	}
 
@@ -35,20 +40,20 @@ export const popoverStyles = () => css`
 		position: fixed;
 		inset: unset;
 		margin: 0;
-		padding: var(--ml-popover-padding-y) var(--ml-popover-padding-x);
-		border: 1px solid var(--ml-popover-border-color);
-		border-radius: var(--ml-popover-radius);
-		background-color: var(--ml-popover-bg);
-		color: var(--ml-popover-color);
-		box-shadow: var(--ml-popover-shadow);
-		overflow: var(--ml-popover-content-overflow);
+		padding: var(--ml-popover-padding-y, var(--ml-space-3)) var(--ml-popover-padding-x, var(--ml-space-4));
+		border: 1px solid var(--ml-popover-border-color, var(--ml-color-border));
+		border-radius: var(--ml-popover-radius, var(--ml-radius-lg));
+		background-color: var(--ml-popover-bg, var(--ml-color-surface));
+		color: var(--ml-popover-color, var(--ml-color-text));
+		box-shadow: var(--ml-popover-shadow, var(--ml-shadow-lg));
+		overflow: var(--ml-popover-content-overflow, visible);
 		opacity: 0;
 		transform: scale(0.95);
 		transition:
-			opacity var(--ml-popover-transition),
-			transform var(--ml-popover-transition),
-			overlay var(--ml-popover-transition) allow-discrete,
-			display var(--ml-popover-transition) allow-discrete;
+			opacity var(--ml-popover-transition, var(--ml-duration-150) var(--ml-ease-out)),
+			transform var(--ml-popover-transition, var(--ml-duration-150) var(--ml-ease-out)),
+			overlay var(--ml-popover-transition, var(--ml-duration-150) var(--ml-ease-out)) allow-discrete,
+			display var(--ml-popover-transition, var(--ml-duration-150) var(--ml-ease-out)) allow-discrete;
 	}
 
 	.ml-popover__content:not(:popover-open) {
@@ -69,10 +74,10 @@ export const popoverStyles = () => css`
 
 	.ml-popover__arrow {
 		position: absolute;
-		width: var(--ml-popover-arrow-size);
-		height: var(--ml-popover-arrow-size);
-		background-color: var(--ml-popover-arrow-bg);
-		border: 1px solid var(--ml-popover-arrow-border-color);
+		width: var(--ml-popover-arrow-size, 8px);
+		height: var(--ml-popover-arrow-size, 8px);
+		background-color: var(--ml-popover-arrow-bg, var(--ml-color-surface));
+		border: 1px solid var(--ml-popover-arrow-border-color, var(--ml-color-border));
 		transform: rotate(45deg);
 	}
 

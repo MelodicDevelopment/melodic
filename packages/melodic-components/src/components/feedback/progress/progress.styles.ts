@@ -1,66 +1,70 @@
 import { css } from '@melodicdev/core';
 
 export const progressStyles = () => css`
-	:host {
-		/* ── Progress: track heights ── */
-		--ml-progress-sm-height: 4px;
-		--ml-progress-md-height: 8px;
-		--ml-progress-lg-height: 12px;
+	/*
+	 * Tokens. Rules read each one with its default as the var() fallback,
+	 * so a value set on the element or inherited from any ancestor wins.
+	 *
+	 * Progress: track heights
+	 * --ml-progress-sm-height: 4px
+	 * --ml-progress-md-height: 8px
+	 * --ml-progress-lg-height: 12px
+	 *
+	 * Track
+	 * --ml-progress-track-color: var(--ml-color-surface-sunken)
+	 * --ml-progress-track-radius: var(--ml-radius-full)
+	 *
+	 * Fill
+	 * --ml-progress-fill-color: var(--ml-color-primary)
+	 * --ml-progress-fill-radius: var(--ml-radius-full)
+	 *
+	 * Label / value text
+	 * --ml-progress-label-font-size: var(--ml-text-sm)
+	 * --ml-progress-label-font-weight: var(--ml-font-medium)
+	 * --ml-progress-label-color: var(--ml-color-text)
+	 *
+	 * Floating tooltip
+	 * --ml-progress-floating-font-size: var(--ml-text-xs)
+	 * --ml-progress-floating-font-weight: var(--ml-font-medium)
+	 * --ml-progress-floating-color: var(--ml-color-text-inverse)
+	 * --ml-progress-floating-bg: var(--ml-color-text)
+	 * --ml-progress-floating-radius: var(--ml-radius-md)
+	 * --ml-progress-floating-padding-y: var(--ml-space-1)
+	 * --ml-progress-floating-padding-x: var(--ml-space-2)
+	 *
+	 * Spacing
+	 * --ml-progress-header-margin-bottom: var(--ml-space-2)
+	 * --ml-progress-value-bottom-margin-top: var(--ml-space-2)
+	 * --ml-progress-bar-row-gap: var(--ml-space-3)
+	 *
+	 * Transition
+	 * --ml-progress-transition-duration: var(--ml-duration-300)
+	 * --ml-progress-transition-easing: var(--ml-ease-out)
+	 *
+	 * Circle
+	 * --ml-progress-circle-track-color: var(--ml-color-surface-sunken)
+	 * --ml-progress-circle-fill-color: var(--ml-color-primary)
+	 * --ml-progress-circle-value-font-weight: var(--ml-font-semibold)
+	 * --ml-progress-circle-value-color: var(--ml-color-text)
+	 * --ml-progress-circle-label-font-size: var(--ml-text-xs)
+	 * --ml-progress-circle-label-color: var(--ml-color-text-muted)
+	 * --ml-progress-circle-label-margin-top: var(--ml-space-0-5)
+	 *
+	 * Half circle
+	 * --ml-progress-half-track-color: var(--ml-color-surface-sunken)
+	 * --ml-progress-half-fill-color: var(--ml-color-primary)
+	 * --ml-progress-half-value-font-weight: var(--ml-font-semibold)
+	 * --ml-progress-half-value-color: var(--ml-color-text)
+	 * --ml-progress-half-label-font-size: var(--ml-text-xs)
+	 * --ml-progress-half-label-color: var(--ml-color-text-muted)
+	 * --ml-progress-half-label-margin-top: var(--ml-space-0-5)
+	 * --ml-progress-half-center-padding-bottom: var(--ml-space-1)
+	 */
 
+	:host {
 		display: block;
 
 		/* ---- Linear ---- */
-
-		/* Track */
-		--ml-progress-track-color: var(--ml-color-surface-sunken);
-		--ml-progress-track-radius: var(--ml-radius-full);
-		/* Fill */
-		--ml-progress-fill-color: var(--ml-color-primary);
-		--ml-progress-fill-radius: var(--ml-radius-full);
-
-		/* Label / value text */
-		--ml-progress-label-font-size: var(--ml-text-sm);
-		--ml-progress-label-font-weight: var(--ml-font-medium);
-		--ml-progress-label-color: var(--ml-color-text);
-
-		/* Floating tooltip */
-		--ml-progress-floating-font-size: var(--ml-text-xs);
-		--ml-progress-floating-font-weight: var(--ml-font-medium);
-		--ml-progress-floating-color: var(--ml-color-text-inverse);
-		--ml-progress-floating-bg: var(--ml-color-text);
-		--ml-progress-floating-radius: var(--ml-radius-md);
-		--ml-progress-floating-padding-y: var(--ml-space-1);
-		--ml-progress-floating-padding-x: var(--ml-space-2);
-
-		/* Spacing */
-		--ml-progress-header-margin-bottom: var(--ml-space-2);
-		--ml-progress-value-bottom-margin-top: var(--ml-space-2);
-		--ml-progress-bar-row-gap: var(--ml-space-3);
-
-		/* Transition */
-		--ml-progress-transition-duration: var(--ml-duration-300);
-		--ml-progress-transition-easing: var(--ml-ease-out);
-
-		/* ---- Circle ---- */
-
-		--ml-progress-circle-track-color: var(--ml-color-surface-sunken);
-		--ml-progress-circle-fill-color: var(--ml-color-primary);
-		--ml-progress-circle-value-font-weight: var(--ml-font-semibold);
-		--ml-progress-circle-value-color: var(--ml-color-text);
-		--ml-progress-circle-label-font-size: var(--ml-text-xs);
-		--ml-progress-circle-label-color: var(--ml-color-text-muted);
-		--ml-progress-circle-label-margin-top: var(--ml-space-0-5);
-
-		/* ---- Half circle ---- */
-
-		--ml-progress-half-track-color: var(--ml-color-surface-sunken);
-		--ml-progress-half-fill-color: var(--ml-color-primary);
-		--ml-progress-half-value-font-weight: var(--ml-font-semibold);
-		--ml-progress-half-value-color: var(--ml-color-text);
-		--ml-progress-half-label-font-size: var(--ml-text-xs);
-		--ml-progress-half-label-color: var(--ml-color-text-muted);
-		--ml-progress-half-label-margin-top: var(--ml-space-0-5);
-		--ml-progress-half-center-padding-bottom: var(--ml-space-1);
 	}
 
 	/* ===================== LINEAR ===================== */
@@ -69,31 +73,31 @@ export const progressStyles = () => css`
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
-		margin-bottom: var(--ml-progress-header-margin-bottom);
+		margin-bottom: var(--ml-progress-header-margin-bottom, var(--ml-space-2));
 	}
 
 	.ml-progress__label {
-		font-size: var(--ml-progress-label-font-size);
-		font-weight: var(--ml-progress-label-font-weight);
-		color: var(--ml-progress-label-color);
+		font-size: var(--ml-progress-label-font-size, var(--ml-text-sm));
+		font-weight: var(--ml-progress-label-font-weight, var(--ml-font-medium));
+		color: var(--ml-progress-label-color, var(--ml-color-text));
 	}
 
 	.ml-progress__value {
-		font-size: var(--ml-progress-label-font-size);
-		font-weight: var(--ml-progress-label-font-weight);
-		color: var(--ml-progress-label-color);
+		font-size: var(--ml-progress-label-font-size, var(--ml-text-sm));
+		font-weight: var(--ml-progress-label-font-weight, var(--ml-font-medium));
+		color: var(--ml-progress-label-color, var(--ml-color-text));
 	}
 
 	.ml-progress__value--bottom {
 		display: block;
-		margin-top: var(--ml-progress-value-bottom-margin-top);
+		margin-top: var(--ml-progress-value-bottom-margin-top, var(--ml-space-2));
 	}
 
 	/* Bar row for label-right layout */
 	.ml-progress__bar-row {
 		display: flex;
 		align-items: center;
-		gap: var(--ml-progress-bar-row-gap);
+		gap: var(--ml-progress-bar-row-gap, var(--ml-space-3));
 	}
 
 	.ml-progress__track-wrapper {
@@ -104,28 +108,28 @@ export const progressStyles = () => css`
 
 	.ml-progress__track {
 		width: 100%;
-		background-color: var(--ml-progress-track-color);
-		border-radius: var(--ml-progress-track-radius);
+		background-color: var(--ml-progress-track-color, var(--ml-color-surface-sunken));
+		border-radius: var(--ml-progress-track-radius, var(--ml-radius-full));
 		overflow: hidden;
 	}
 
 	.ml-progress--sm .ml-progress__track {
-		height: var(--ml-progress-sm-height);
+		height: var(--ml-progress-sm-height, 4px);
 	}
 
 	.ml-progress--md .ml-progress__track {
-		height: var(--ml-progress-md-height);
+		height: var(--ml-progress-md-height, 8px);
 	}
 
 	.ml-progress--lg .ml-progress__track {
-		height: var(--ml-progress-lg-height);
+		height: var(--ml-progress-lg-height, 12px);
 	}
 
 	.ml-progress__fill {
 		height: 100%;
-		background-color: var(--ml-progress-fill-color);
-		border-radius: var(--ml-progress-fill-radius);
-		transition: width var(--ml-progress-transition-duration) var(--ml-progress-transition-easing);
+		background-color: var(--ml-progress-fill-color, var(--ml-color-primary));
+		border-radius: var(--ml-progress-fill-radius, var(--ml-radius-full));
+		transition: width var(--ml-progress-transition-duration, var(--ml-duration-300)) var(--ml-progress-transition-easing, var(--ml-ease-out));
 	}
 
 	/* Floating label */
@@ -149,12 +153,12 @@ export const progressStyles = () => css`
 	}
 
 	.ml-progress__floating-value {
-		font-size: var(--ml-progress-floating-font-size);
-		font-weight: var(--ml-progress-floating-font-weight);
-		color: var(--ml-progress-floating-color);
-		background-color: var(--ml-progress-floating-bg);
-		padding: var(--ml-progress-floating-padding-y) var(--ml-progress-floating-padding-x);
-		border-radius: var(--ml-progress-floating-radius);
+		font-size: var(--ml-progress-floating-font-size, var(--ml-text-xs));
+		font-weight: var(--ml-progress-floating-font-weight, var(--ml-font-medium));
+		color: var(--ml-progress-floating-color, var(--ml-color-text-inverse));
+		background-color: var(--ml-progress-floating-bg, var(--ml-color-text));
+		padding: var(--ml-progress-floating-padding-y, var(--ml-space-1)) var(--ml-progress-floating-padding-x, var(--ml-space-2));
+		border-radius: var(--ml-progress-floating-radius, var(--ml-radius-md));
 		white-space: nowrap;
 		line-height: 1;
 	}
@@ -167,11 +171,11 @@ export const progressStyles = () => css`
 	}
 
 	.ml-progress__floating-arrow--down {
-		border-top: 5px solid var(--ml-progress-floating-bg);
+		border-top: 5px solid var(--ml-progress-floating-bg, var(--ml-color-text));
 	}
 
 	.ml-progress__floating-arrow--up {
-		border-bottom: 5px solid var(--ml-progress-floating-bg);
+		border-bottom: 5px solid var(--ml-progress-floating-bg, var(--ml-color-text));
 	}
 
 	/* Linear color variants */
@@ -205,12 +209,12 @@ export const progressStyles = () => css`
 	}
 
 	.ml-progress-circle__track {
-		stroke: var(--ml-progress-circle-track-color);
+		stroke: var(--ml-progress-circle-track-color, var(--ml-color-surface-sunken));
 	}
 
 	.ml-progress-circle__fill {
-		stroke: var(--ml-progress-circle-fill-color);
-		transition: stroke-dashoffset var(--ml-progress-transition-duration) var(--ml-progress-transition-easing);
+		stroke: var(--ml-progress-circle-fill-color, var(--ml-color-primary));
+		transition: stroke-dashoffset var(--ml-progress-transition-duration, var(--ml-duration-300)) var(--ml-progress-transition-easing, var(--ml-ease-out));
 	}
 
 	.ml-progress-circle__center {
@@ -225,29 +229,29 @@ export const progressStyles = () => css`
 
 	.ml-progress-circle--sm .ml-progress-circle__value {
 		font-size: var(--ml-text-sm);
-		font-weight: var(--ml-progress-circle-value-font-weight);
-		color: var(--ml-progress-circle-value-color);
+		font-weight: var(--ml-progress-circle-value-font-weight, var(--ml-font-semibold));
+		color: var(--ml-progress-circle-value-color, var(--ml-color-text));
 		line-height: 1;
 	}
 
 	.ml-progress-circle--md .ml-progress-circle__value {
 		font-size: var(--ml-text-lg);
-		font-weight: var(--ml-progress-circle-value-font-weight);
-		color: var(--ml-progress-circle-value-color);
+		font-weight: var(--ml-progress-circle-value-font-weight, var(--ml-font-semibold));
+		color: var(--ml-progress-circle-value-color, var(--ml-color-text));
 		line-height: 1;
 	}
 
 	.ml-progress-circle--lg .ml-progress-circle__value {
 		font-size: var(--ml-text-2xl);
-		font-weight: var(--ml-progress-circle-value-font-weight);
-		color: var(--ml-progress-circle-value-color);
+		font-weight: var(--ml-progress-circle-value-font-weight, var(--ml-font-semibold));
+		color: var(--ml-progress-circle-value-color, var(--ml-color-text));
 		line-height: 1;
 	}
 
 	.ml-progress-circle__label {
-		font-size: var(--ml-progress-circle-label-font-size);
-		color: var(--ml-progress-circle-label-color);
-		margin-top: var(--ml-progress-circle-label-margin-top);
+		font-size: var(--ml-progress-circle-label-font-size, var(--ml-text-xs));
+		color: var(--ml-progress-circle-label-color, var(--ml-color-text-muted));
+		margin-top: var(--ml-progress-circle-label-margin-top, var(--ml-space-0-5));
 		line-height: 1;
 	}
 
@@ -287,12 +291,12 @@ export const progressStyles = () => css`
 	}
 
 	.ml-progress-half__track {
-		stroke: var(--ml-progress-half-track-color);
+		stroke: var(--ml-progress-half-track-color, var(--ml-color-surface-sunken));
 	}
 
 	.ml-progress-half__fill {
-		stroke: var(--ml-progress-half-fill-color);
-		transition: stroke-dashoffset var(--ml-progress-transition-duration) var(--ml-progress-transition-easing);
+		stroke: var(--ml-progress-half-fill-color, var(--ml-color-primary));
+		transition: stroke-dashoffset var(--ml-progress-transition-duration, var(--ml-duration-300)) var(--ml-progress-transition-easing, var(--ml-ease-out));
 	}
 
 	.ml-progress-half__center {
@@ -303,34 +307,34 @@ export const progressStyles = () => css`
 		align-items: center;
 		justify-content: flex-end;
 		text-align: center;
-		padding-bottom: var(--ml-progress-half-center-padding-bottom);
+		padding-bottom: var(--ml-progress-half-center-padding-bottom, var(--ml-space-1));
 	}
 
 	.ml-progress-half--sm .ml-progress-half__value {
 		font-size: var(--ml-text-sm);
-		font-weight: var(--ml-progress-half-value-font-weight);
-		color: var(--ml-progress-half-value-color);
+		font-weight: var(--ml-progress-half-value-font-weight, var(--ml-font-semibold));
+		color: var(--ml-progress-half-value-color, var(--ml-color-text));
 		line-height: 1;
 	}
 
 	.ml-progress-half--md .ml-progress-half__value {
 		font-size: var(--ml-text-lg);
-		font-weight: var(--ml-progress-half-value-font-weight);
-		color: var(--ml-progress-half-value-color);
+		font-weight: var(--ml-progress-half-value-font-weight, var(--ml-font-semibold));
+		color: var(--ml-progress-half-value-color, var(--ml-color-text));
 		line-height: 1;
 	}
 
 	.ml-progress-half--lg .ml-progress-half__value {
 		font-size: var(--ml-text-2xl);
-		font-weight: var(--ml-progress-half-value-font-weight);
-		color: var(--ml-progress-half-value-color);
+		font-weight: var(--ml-progress-half-value-font-weight, var(--ml-font-semibold));
+		color: var(--ml-progress-half-value-color, var(--ml-color-text));
 		line-height: 1;
 	}
 
 	.ml-progress-half__label {
-		font-size: var(--ml-progress-half-label-font-size);
-		color: var(--ml-progress-half-label-color);
-		margin-top: var(--ml-progress-half-label-margin-top);
+		font-size: var(--ml-progress-half-label-font-size, var(--ml-text-xs));
+		color: var(--ml-progress-half-label-color, var(--ml-color-text-muted));
+		margin-top: var(--ml-progress-half-label-margin-top, var(--ml-space-0-5));
 		line-height: 1;
 	}
 

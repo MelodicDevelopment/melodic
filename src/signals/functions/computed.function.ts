@@ -38,6 +38,29 @@ export interface IComputedOptions {
 	name?: string;
 }
 
+// Depth of `createRenderScopedComputed()` calls in progress. While > 0, a
+// computed created during a render skips the computed-in-render warning:
+// the caller has a cache key and sweeps its entries, so nothing accumulates.
+let renderScopedDepth = 0;
+
+/**
+ * Runs `factory` with the computed-in-render dev warning suppressed.
+ *
+ * Internal. `store.select(key, fn, cacheKey)` creates its per-component
+ * computed through this: the warning exists because bare `computed()` in a
+ * render has no cache key and leaks one copy per render, but the select cache
+ * keys and sweeps its entries — the very pattern the warning recommends. It
+ * must not warn for following its own advice.
+ */
+export function createRenderScopedComputed<T>(factory: () => T): T {
+	renderScopedDepth++;
+	try {
+		return factory();
+	} finally {
+		renderScopedDepth--;
+	}
+}
+
 /**
  * Creates a lazily-evaluated derived signal.
  *
@@ -214,8 +237,10 @@ export function computed<T>(computation: () => T, options: IComputedOptions = {}
 	// A computed created DURING a render is created again on every render and
 	// each copy lives until the component unmounts — 20 updates left 21 live
 	// computeds. `select()` sweeps its render-scoped entries; computed() cannot,
-	// because it has no cache key to recognise the same computed by.
-	if (owner?.isRendering) {
+	// because it has no cache key to recognise the same computed by. Computeds
+	// created through `createRenderScopedComputed()` (the select cache) are
+	// keyed and swept, so they are exempt.
+	if (owner?.isRendering && renderScopedDepth === 0) {
 		devWarn(
 			`computed-in-render:${owner.selector ?? 'component'}${options.name ? `:${options.name}` : ''}`,
 			`computed()${options.name ? ` '${options.name}'` : ''} was created while <${owner.selector ?? 'a component'}> was rendering. ` +

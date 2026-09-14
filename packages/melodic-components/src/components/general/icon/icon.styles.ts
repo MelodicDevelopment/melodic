@@ -1,18 +1,22 @@
 import { css } from '@melodicdev/core';
 
 export const iconStyles = () => css`
+	/*
+	 * Tokens. Rules read each one with its default as the var() fallback,
+	 * so a value set on the element or inherited from any ancestor wins.
+	 *
+	 * Size — default 24px (md)
+	 * --ml-icon-size: 24px
+	 *
+	 * --ml-icon-color: currentColor
+	 */
+
 	:host {
 		display: inline-flex;
 		align-items: center;
 		justify-content: center;
 
-		/* Color — defaults to inherited text color */
-		--ml-icon-color: currentColor;
-
-		/* Size — default 24px (md) */
-		--ml-icon-size: 24px;
-
-		color: var(--ml-icon-color);
+		color: var(--ml-icon-color, currentColor);
 	}
 
 	:host([size='xs']) {
@@ -33,7 +37,7 @@ export const iconStyles = () => css`
 
 	i {
 		font-style: normal;
-		font-size: var(--ml-icon-size);
+		font-size: var(--ml-icon-size, 24px);
 		line-height: 1;
 		speak: never;
 		-webkit-font-smoothing: antialiased;
