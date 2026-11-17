@@ -78,7 +78,9 @@ export function signal<T>(initialValue?: T, options: ISignalOptions = {}): Signa
 		if (subscribers.size > 0) {
 			scheduleNotify(notify);
 		}
-		for (const dependent of [...dependents]) {
+		// Iterated live, no snapshot: invalidation never runs user code, and a
+		// Set tolerates the removals a destroy can cause mid-iteration.
+		for (const dependent of dependents) {
 			dependent.invalidate();
 		}
 

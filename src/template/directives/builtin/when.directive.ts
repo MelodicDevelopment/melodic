@@ -8,14 +8,12 @@
 import type { TemplateResult } from '../../classes/template-result.class';
 import type { RenderedContainer } from '../../interfaces/irendered-container.interface';
 import { disposeContainerParts } from '../../functions/dispose.functions';
-import { clearBetween } from '../../functions/marker-range.functions';
+import { clearBetween, restoreDirectiveContainer } from '../../functions/marker-range.functions';
 import { directive } from '../functions/directive.function';
 import { type IDirectiveResult } from '../interfaces/idirective-result.interface';
 
 interface WhenState {
 	condition: boolean;
-	template: TemplateResult | null;
-	falseTemplate: TemplateResult | null;
 	container: DocumentFragment | null;
 	startMarker: Comment;
 	endMarker: Comment;
@@ -55,8 +53,6 @@ export function when(
 
 			const state: WhenState = {
 				condition: false,
-				template: null,
-				falseTemplate: null,
 				container: null,
 				startMarker,
 				endMarker,
@@ -68,12 +64,19 @@ export function when(
 				}
 			};
 
-			if (condition) {
-				state.template = template();
-				renderContent(state, true);
-			} else if (falseTemplate) {
-				state.falseTemplate = falseTemplate();
-				renderContent(state, false);
+			try {
+				if (condition) {
+					renderContent(state, template());
+				} else if (falseTemplate) {
+					renderContent(state, falseTemplate());
+				}
+			} catch (error) {
+				// The branch threw before any state could be handed back to
+				// the engine — undo the marker setup so the next render can
+				// try again instead of failing forever.
+				state.__dispose();
+				restoreDirectiveContainer(container, startMarker, endMarker);
+				throw error;
 			}
 
 			state.condition = condition;
@@ -89,26 +92,29 @@ export function when(
 		// Condition changed from false to true
 		if (condition && !previousState.condition) {
 			removeContent(previousState);
-			previousState.template = template();
-			renderContent(previousState, true);
+			// Record the flip before running the branch: if it throws, the
+			// old branch is already gone and the next render must not treat
+			// the (empty) range as "still showing the other branch".
+			previousState.condition = condition;
+			renderContent(previousState, template());
 		}
 		// Condition changed from true to false
 		else if (!condition && previousState.condition) {
 			removeContent(previousState);
+			previousState.condition = condition;
 			if (falseTemplate) {
-				previousState.falseTemplate = falseTemplate();
-				renderContent(previousState, false);
+				renderContent(previousState, falseTemplate());
 			}
 		}
 		// Condition still true - update template
 		else if (condition && previousState.condition) {
-			updateContent(previousState, template(), true);
+			updateContent(previousState, template());
 		}
 		// Condition still false - update the false template, or remove a
 		// previously rendered fallback that is no longer provided
 		else if (!condition && !previousState.condition) {
 			if (falseTemplate) {
-				updateContent(previousState, falseTemplate(), false);
+				updateContent(previousState, falseTemplate());
 			} else if (previousState.container) {
 				removeContent(previousState);
 			}
@@ -119,14 +125,11 @@ export function when(
 	}, 'when');
 }
 
-function renderContent(state: WhenState, useTrueTemplate: boolean): void {
+function renderContent(state: WhenState, templateToRender: TemplateResult): void {
 	const parent = state.startMarker.parentNode;
 	if (!parent) {
 		throw new Error('when() directive: markers not in DOM');
 	}
-
-	const templateToRender = useTrueTemplate ? state.template : state.falseTemplate;
-	if (!templateToRender) return;
 
 	const container = document.createDocumentFragment();
 	templateToRender.renderInto(container);
@@ -146,25 +149,14 @@ function renderContent(state: WhenState, useTrueTemplate: boolean): void {
  * container — the old content is disposed and the new template is rendered
  * fresh between the markers.
  */
-function updateContent(state: WhenState, newTemplate: TemplateResult, useTrueTemplate: boolean): void {
+function updateContent(state: WhenState, newTemplate: TemplateResult): void {
 	const container = state.container as RenderedContainer<DocumentFragment> | null;
 
 	if (container && container.__templateKey === newTemplate.templateKey) {
 		newTemplate.renderInto(container);
 	} else {
 		removeContent(state);
-		if (useTrueTemplate) {
-			state.template = newTemplate;
-		} else {
-			state.falseTemplate = newTemplate;
-		}
-		renderContent(state, useTrueTemplate);
-	}
-
-	if (useTrueTemplate) {
-		state.template = newTemplate;
-	} else {
-		state.falseTemplate = newTemplate;
+		renderContent(state, newTemplate);
 	}
 }
 
@@ -180,6 +172,4 @@ function removeContent(state: WhenState): void {
 	// swapped its own nodes since, and those must not outlive the branch.
 	clearBetween(state.startMarker, state.endMarker);
 	state.container = null;
-	state.template = null;
-	state.falseTemplate = null;
 }

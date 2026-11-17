@@ -1,4 +1,4 @@
-import { RouteMatcher } from '../classes/route-matcher.class';
+import { getMatcher } from './match-route-level.function';
 import type { IRoute } from '../interfaces/iroute.interface';
 
 export function buildPathFromRoute(routes: IRoute[], name: string, params: Record<string, string> = {}): string | null {
@@ -7,13 +7,13 @@ export function buildPathFromRoute(routes: IRoute[], name: string, params: Recor
 	function findAndBuildPath(routeList: IRoute[], targetName: string): boolean {
 		for (const route of routeList) {
 			if (route.name === targetName) {
-				const matcher = new RouteMatcher(route.path);
+				const matcher = getMatcher(route);
 				pathParts.push(matcher.stringify(params));
 				return true;
 			}
 
 			if (route.children) {
-				const matcher = new RouteMatcher(route.path);
+				const matcher = getMatcher(route);
 				const segment = matcher.stringify(params);
 
 				if (findAndBuildPath(route.children, targetName)) {

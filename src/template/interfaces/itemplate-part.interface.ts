@@ -120,6 +120,9 @@ export interface ITemplatePart {
 	 * discarded. Unkeyed arrays now own per-item containers through
 	 * `positionalArrayState`; this remains as the disposal hook for any content
 	 * rendered into a flat list of containers.
+	 *
+	 * @deprecated Nothing in the framework assigns this any more. It is still
+	 * honoured on disposal for code that sets it, but new code should not.
 	 */
 	renderedContainers?: DocumentFragment[];
 }

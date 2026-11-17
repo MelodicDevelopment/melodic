@@ -19,7 +19,7 @@ Pin to a specific version and use the minified build in production:
 
 ```html
 <link melodic-styles rel="stylesheet"
-      href="https://unpkg.com/@melodicdev/components@1.2.1/assets/melodic-components.min.css">
+      href="https://unpkg.com/@melodicdev/components@4.0.1/assets/melodic-components.min.css">
 ```
 
 The `melodic-styles` attribute has no special browser meaning. It's a handy selector for finding the element from JS if you need to swap it out at runtime:
@@ -87,6 +87,8 @@ applyTheme('dark');    // sets data-theme="dark"
 applyTheme('system');  // follows OS preference, auto-updates on change
 ```
 
+`'system'` is never written to the DOM: `applyTheme('system')` sets `data-theme` to the resolved `'light'` or `'dark'` and rewrites it when the OS preference changes.
+
 ---
 
 ## Theme API
@@ -102,23 +104,26 @@ import {
   injectTheme,
   createBrandTheme
 } from '@melodicdev/components/theme';
+import type { ThemeMode, BrandThemeMode } from '@melodicdev/components/theme';
 ```
 
 | Function | Description |
 |----------|-------------|
-| `applyTheme(mode)` | Apply `'light'`, `'dark'`, or `'system'` |
-| `getTheme()` | Returns the currently set mode string |
-| `getResolvedTheme()` | Returns `'light'` or `'dark'` (resolves `'system'`) |
-| `toggleTheme()` | Flip between light and dark |
-| `onThemeChange(fn)` | Subscribe to theme changes; returns an unsubscribe function |
-| `createTheme(name, overrides)` | Build a CSS string for a custom theme (does not inject it) |
-| `injectTheme(name, overrides)` | Build and inject the theme into `<head>` automatically |
-| `createBrandTheme(name, options)` | Convenience wrapper for overriding brand colors (supports `mode: 'light' \| 'dark'`) |
+| `applyTheme(mode)` | Apply `'light'`, `'dark'`, or `'system'` (`ThemeMode`) |
+| `getTheme()` | Returns the currently set mode (`'light'`, `'dark'` or `'system'`). Before the first `applyTheme()` call it adopts the document's own `data-theme` (`'light'`/`'dark'`; anything else reads as `'system'`) |
+| `getResolvedTheme()` | Returns `'light'` or `'dark'` (resolves `'system'` against the OS preference) |
+| `toggleTheme()` | Flip between light and dark, based on the resolved theme. Always applies an explicit `'light'` or `'dark'`, so it leaves `'system'` mode |
+| `onThemeChange(fn)` | Subscribe to theme changes; `fn(mode, resolved)` receives the mode and the resolved `'light'`/`'dark'`. Returns an unsubscribe function |
+| `createTheme(name, overrides)` | Build a CSS string (`[data-theme="name"] { … }`) for a custom theme (does not inject it) |
+| `injectTheme(name, overrides)` | Build the theme and append it to `<head>` as `<style id="ml-theme-{name}">`, replacing an earlier one with the same name. Returns the `<style>` element (remove it to unload the theme) |
+| `createBrandTheme(name, options)` | Convenience wrapper for overriding brand colors (supports `mode: 'light' \| 'dark'`, typed `BrandThemeMode`). Returns a CSS string; it does not inject it |
+
+`onThemeChange` listeners run when `applyTheme()` or `toggleTheme()` is called, and when the OS preference changes while in `'system'` mode. Setting `data-theme` yourself does not notify them.
 
 > **Input validation:** theme names must match `^[a-z0-9-]+$`, override keys must be CSS custom
 > properties (`--…`), and override values may not contain `;`, `{`, `}`, `<`, `>`, or control
-> characters. `createTheme`/`injectTheme` throw on invalid input — values are interpolated into a
-> stylesheet, so this prevents CSS-rule injection.
+> characters. `createTheme`/`injectTheme`/`createBrandTheme` throw on invalid input — values are
+> interpolated into a stylesheet, so this prevents CSS-rule injection.
 
 ---
 
@@ -136,12 +141,13 @@ Tokens are split into two layers: **primitive** (raw values) and **semantic** (m
 /* Semantic — use these in component overrides */
 --ml-color-primary:          /* maps to --ml-blue-600    */
 --ml-color-primary-hover:    /* maps to --ml-blue-700    */
+--ml-color-primary-active:   /* maps to --ml-blue-800    */
 --ml-color-primary-subtle:   /* maps to --ml-blue-50     */
---ml-color-secondary:
---ml-color-success:
---ml-color-warning:
---ml-color-danger:
---ml-color-info:
+--ml-color-secondary:        /* also -hover, -active, -subtle */
+--ml-color-success:          /* also -hover, -subtle */
+--ml-color-warning:          /* also -hover, -subtle */
+--ml-color-danger:           /* also -hover, -subtle */
+--ml-color-info:             /* also -hover, -subtle */
 
 /* Surfaces */
 --ml-color-background:
@@ -154,12 +160,15 @@ Tokens are split into two layers: **primitive** (raw values) and **semantic** (m
 --ml-color-text:
 --ml-color-text-secondary:
 --ml-color-text-muted:
+--ml-color-text-subtle:
 --ml-color-text-inverse:
 --ml-color-text-link:
+--ml-color-text-link-hover:
 
 /* Borders */
 --ml-color-border:
 --ml-color-border-strong:
+--ml-color-border-muted:
 --ml-color-border-focus:
 
 /* Focus ring */
@@ -189,34 +198,46 @@ Based on a 4px (0.25rem) scale:
 
 ```css
 --ml-font-sans:        /* system UI font stack */
+--ml-font-serif:       /* serif stack */
 --ml-font-mono:        /* monospace stack */
 
 --ml-text-xs:    0.75rem
 --ml-text-sm:    0.875rem
---ml-text-md:    1rem
+--ml-text-base:  1rem
 --ml-text-lg:    1.125rem
 --ml-text-xl:    1.25rem
 --ml-text-2xl:   1.5rem
+/* ... up to --ml-text-9xl */
 
---ml-font-regular:  400
+--ml-font-normal:   400
 --ml-font-medium:   500
 --ml-font-semibold: 600
 --ml-font-bold:     700
+/* also --ml-font-thin (100), -extralight, -light, -extrabold, -black (900) */
 
---ml-leading-tight:  1.25
---ml-leading-normal: 1.5
+--ml-leading-none:    1
+--ml-leading-tight:   1.25
+--ml-leading-snug:    1.375
+--ml-leading-normal:  1.5
+--ml-leading-relaxed: 1.625
+--ml-leading-loose:   2
+
+--ml-tracking-tighter: -0.05em  /* letter spacing, through --ml-tracking-widest (0.1em) */
 ```
 
 ### Borders & Radius
 
 ```css
---ml-border:       1px solid     /* default border width+style */
+--ml-border:       1px           /* default border width (a width only, no style) */
+/* also --ml-border-0, --ml-border-2 (2px), --ml-border-4, --ml-border-8 */
+
 --ml-radius-sm:    0.375rem
 --ml-radius:       0.5rem        /* default */
---ml-radius-md:    0.625rem
+--ml-radius-md:    0.5rem
 --ml-radius-lg:    0.75rem
 --ml-radius-xl:    1rem
 --ml-radius-full:  9999px
+/* also --ml-radius-none, -xxs (0.125rem), -xs (0.25rem), -2xl, -3xl, -4xl (2rem) */
 ```
 
 ### Shadows
@@ -227,6 +248,8 @@ Based on a 4px (0.25rem) scale:
 --ml-shadow-md:
 --ml-shadow-lg:
 --ml-shadow-xl:
+/* also --ml-shadow-none, --ml-shadow, --ml-shadow-2xl, --ml-shadow-3xl, --ml-shadow-inner,
+   and the focus rings: --ml-shadow-ring, --ml-shadow-focus-ring (+ -error/-success/-warning/-gray) */
 ```
 
 ### Transitions
@@ -239,6 +262,22 @@ Based on a 4px (0.25rem) scale:
 --ml-ease-in-out: cubic-bezier(0.4, 0, 0.2, 1)
 --ml-ease-out:    cubic-bezier(0, 0, 0.2, 1)
 ```
+
+**Reduced motion.** The base theme redefines every `--ml-duration-*` token as `0ms` under
+`@media (prefers-reduced-motion: reduce)`. Component transitions and animations take their
+duration from these tokens, so motion is switched off library-wide for users who ask for
+it — as long as your own overrides keep using the duration tokens rather than literal
+times. (`ml-spinner` keeps spinning: it is the only indication that work is in progress.)
+
+**Forced colors.** In Windows High Contrast / `forced-colors: active`, box-shadow focus
+rings and background highlights are not painted, so components fall back to a real
+`outline` in the system `Highlight` color for keyboard focus.
+
+**Right-to-left.** Label, hint, tag, sidebar, tabs, steps, container and form-control
+spacing use logical properties and follow `dir="rtl"`. Overlays positioned from JavaScript
+(popover, dropdown, tooltip), `ml-drawer` / `ml-app-shell` sides, toast positions,
+`ml-data-grid` pinned columns, `ml-slider`, `ml-toggle`, `ml-progress` and
+`ml-calendar-view` are still physical (left/right).
 
 ---
 
@@ -312,11 +351,11 @@ That's it. Every `ml-*` component on the page now uses your token overrides.
 
 ### Step 4 (optional) — Add dark mode support
 
-If you want your custom theme to respond to the OS dark mode preference, add a `@media` block to your global CSS file:
+If you want your custom theme to respond to the OS dark mode preference, add a `@media` block to your global CSS file. Use `:root[data-theme='brand']`, not the bare attribute selector: `injectTheme` appends its `[data-theme="brand"]` rule to the end of `<head>`, so a selector of equal specificity in your stylesheet would lose to it for any token both declare.
 
 ```css
 @media (prefers-color-scheme: dark) {
-  [data-theme='brand'] {
+  :root[data-theme='brand'] {
     --ml-color-primary:        #a78bfa;
     --ml-color-primary-hover:  #7c3aed;
     --ml-color-primary-subtle: #2e1065;
@@ -363,7 +402,9 @@ document.documentElement.setAttribute('data-theme', 'brand');
 The dark preset activates two ways:
 
 1. **Explicit** — when `data-theme="dark"` is on `<html>`
-2. **Automatic** — via `prefers-color-scheme: dark` (when `data-theme="light"` is NOT set)
+2. **Automatic** — via `prefers-color-scheme: dark`, when `<html>` has no `data-theme` attribute at all
+
+A named custom theme (`data-theme="brand"`) matches neither rule, so it starts from the light values and needs its own dark overrides.
 
 To add dark overrides to your custom theme:
 
@@ -391,10 +432,11 @@ Or use the `onThemeChange` API to reactively swap token values:
 ```ts
 import { onThemeChange } from '@melodicdev/components/theme';
 
-onThemeChange((mode) => {
+// mode is 'light' | 'dark' | 'system'; resolved is always 'light' or 'dark'
+onThemeChange((mode, resolved) => {
   document.documentElement.style.setProperty(
     '--my-custom-var',
-    mode === 'dark' ? '#1a1a2e' : '#ffffff'
+    resolved === 'dark' ? '#1a1a2e' : '#ffffff'
   );
 });
 ```
@@ -416,7 +458,7 @@ ml-button {
   --ml-radius: 999px; /* pill buttons */
 }
 
-/* A specific card */
+/* A specific card (variant="elevated" reads --ml-shadow-md) */
 .my-special-card {
   --ml-shadow-md: 0 8px 32px rgba(0,0,0,0.2);
   --ml-radius-lg: 1.5rem;
@@ -425,7 +467,7 @@ ml-button {
 
 ### Option 2 — Style the host element directly
 
-Components set `display: block` on `:host`. You can override sizing and layout from outside:
+Each component sets its own `display` on `:host` (`ml-card` is `block`, `ml-button` is `inline-block`). You can override sizing and layout from outside:
 
 ```css
 ml-button {
@@ -478,9 +520,10 @@ document.documentElement.setAttribute('data-theme', 'violet');
 ```
 
 ```css
-/* In your global CSS — dark overrides scoped to the violet theme */
+/* In your global CSS — dark overrides scoped to the violet theme.
+   :root[...] outranks the [data-theme="violet"] rule injectTheme appends to <head>. */
 @media (prefers-color-scheme: dark) {
-  [data-theme='violet'] {
+  :root[data-theme='violet'] {
     --ml-color-primary:         #a78bfa;
     --ml-color-primary-hover:   #7c3aed;
     --ml-color-primary-subtle:  #2e1065;
@@ -502,16 +545,16 @@ If you want to layer a custom brand theme on top of the built-in light/dark swit
 ```ts
 import { breakpoints } from '@melodicdev/components/theme';
 
-// { sm: 640, md: 768, lg: 1024, xl: 1280, '2xl': 1536 }
+// { xs: 320, sm: 640, md: 768, lg: 1024, xl: 1280, '2xl': 1536 }
 if (window.innerWidth >= breakpoints.lg) { /* ... */ }
 ```
 
-In CSS:
+In CSS, write the pixel value in the media query. Custom properties cannot be used in a media query condition, so `var(--ml-screen-lg)` does not work there:
 
 ```css
-@media (min-width: var(--ml-screen-lg)) {
+@media (min-width: 1024px) { /* --ml-screen-lg */
   .layout { padding: var(--ml-space-8); }
 }
 ```
 
-Available screen tokens: `--ml-screen-sm`, `--ml-screen-md`, `--ml-screen-lg`, `--ml-screen-xl`, `--ml-screen-2xl`.
+Available screen tokens: `--ml-screen-xs` (320px), `--ml-screen-sm` (640px), `--ml-screen-md` (768px), `--ml-screen-lg` (1024px), `--ml-screen-xl` (1280px), `--ml-screen-2xl` (1536px).

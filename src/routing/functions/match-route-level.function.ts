@@ -18,7 +18,7 @@ function resolveRedirectTarget(redirectTo: string, basePath: string): string {
  */
 const matcherCache = new WeakMap<IRoute, RouteMatcher>();
 
-function getMatcher(route: IRoute): RouteMatcher {
+export function getMatcher(route: IRoute): RouteMatcher {
 	let matcher = matcherCache.get(route);
 
 	if (!matcher) {
@@ -41,7 +41,13 @@ function substituteRedirectParams(redirectTo: string, params: Record<string, str
 
 	return redirectTo.replace(/[:*](\w+)/g, (token, name: string) => {
 		const value = params[name];
-		return value === undefined ? token : encodeURIComponent(value);
+		if (value === undefined) {
+			return token;
+		}
+
+		// A splat (`*rest`) spans segments: encode each one and keep the
+		// slashes, or `/legacy/a/b` redirects to `/docs/a%2Fb`.
+		return token.charAt(0) === '*' ? value.split('/').map(encodeURIComponent).join('/') : encodeURIComponent(value);
 	});
 }
 

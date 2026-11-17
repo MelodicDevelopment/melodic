@@ -126,7 +126,7 @@ export const sidebarStyles = () => css`
 		height: 100%;
 		width: var(--ml-sidebar-width, 280px);
 		background-color: var(--ml-sidebar-bg, var(--ml-color-surface));
-		border-right: var(--ml-sidebar-border-width, var(--ml-border)) solid var(--ml-sidebar-border-color, var(--ml-color-border));
+		border-inline-end: var(--ml-sidebar-border-width, var(--ml-border)) solid var(--ml-sidebar-border-color, var(--ml-color-border));
 		transition: width var(--ml-sidebar-transition, var(--ml-duration-200) var(--ml-ease-in-out));
 	}
 
@@ -258,9 +258,9 @@ export const sidebarStyles = () => css`
 		box-sizing: border-box;
 		width: 100%;
 		padding: var(--ml-sidebar-item-padding-y, var(--ml-space-2)) var(--ml-sidebar-item-padding-x, var(--ml-space-3));
-		padding-left: calc(var(--ml-sidebar-item-padding-x, var(--ml-space-3)) + (var(--level) * var(--ml-space-5)));
+		padding-inline-start: calc(var(--ml-sidebar-item-padding-x, var(--ml-space-3)) + (var(--level) * var(--ml-space-5)));
 		border: none;
-		border-left: var(--ml-sidebar-item-active-indicator-width, 0px) solid transparent;
+		border-inline-start: var(--ml-sidebar-item-active-indicator-width, 0px) solid transparent;
 		border-radius: var(--ml-sidebar-item-radius, var(--ml-radius));
 		background: transparent;
 		color: var(--ml-sidebar-item-color, var(--ml-color-text-secondary));
@@ -268,7 +268,7 @@ export const sidebarStyles = () => css`
 		font-size: var(--ml-sidebar-item-font-size, var(--ml-text-sm));
 		font-weight: var(--ml-sidebar-item-font-weight, var(--ml-font-medium));
 		line-height: var(--ml-sidebar-item-line-height, var(--ml-leading-tight));
-		text-align: left;
+		text-align: start;
 		text-decoration: none;
 		cursor: pointer;
 		transition:
@@ -289,7 +289,7 @@ export const sidebarStyles = () => css`
 	.ml-sidebar__item-link--active {
 		background-color: var(--ml-sidebar-item-active-bg, var(--ml-color-primary));
 		color: var(--ml-sidebar-item-active-color, var(--ml-color-text-inverse));
-		border-left-color: var(--ml-sidebar-item-active-indicator-color, transparent);
+		border-inline-start-color: var(--ml-sidebar-item-active-indicator-color, transparent);
 	}
 
 	.ml-sidebar__item-link--active:hover {

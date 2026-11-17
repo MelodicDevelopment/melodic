@@ -32,6 +32,9 @@
 	"files": [
 		"lib",
 		"assets",
+		"!assets/fonts/**/*.svg",
+		"!assets/fonts/**/*.ttf",
+		"!assets/fonts/**/*.woff",
 		"README.md",
 		"LICENSE"
 	],
@@ -267,16 +270,16 @@
 		"./tooltip": {
 			"types": "./lib/components/overlays/tooltip/index.d.ts",
 			"default": "./lib/components/overlays/tooltip/index.js"
-		}
+		},
+		"./package.json": "./package.json"
 	},
 	"scripts": {
-		"build": "tsc -p tsconfig.build.json && node scripts/generate-css.mjs && vite build --config vite.config.bundle.ts --mode development && vite build --config vite.config.bundle.ts --mode production",
+		"build": "node ../../scripts/clean.mjs lib && tsc -p tsconfig.build.json && node scripts/generate-css.mjs && vite build --config vite.config.bundle.ts --mode development && vite build --config vite.config.bundle.ts --mode production",
 		"build:watch": "tsc -p tsconfig.build.json --watch",
 		"prepublishOnly": "npm run build",
 		"test": "vitest run",
 		"test:watch": "vitest",
-		"docs": "vite --config vite.config.docs.ts",
-		"docs:build": "vite build --config vite.config.docs.ts",
+		"test:coverage": "vitest run --coverage",
 		"generate:icon-map": "node scripts/generate-icon-map.mjs"
 	},
 	"peerDependencies": {

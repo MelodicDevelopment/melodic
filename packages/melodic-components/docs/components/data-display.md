@@ -440,8 +440,23 @@ interface TableColumn {
 | `size` | `'sm'` \| `'md'` | `'md'` | Row height and text size |
 | `table-title` | `string` | `''` | Title shown above the table |
 | `description` | `string` | `''` | Description text below title |
+| `clickable-rows` | `boolean` | `false` | Pointer/hover affordance for rows, and makes each row a tab stop that fires `ml:row-click` on Enter / Space. Set it whenever you listen for `ml:row-click` |
+| `row-key` | `string` \| `(row, index) => unknown` | `null` | Row identity — a property name (attribute or property) or a function (property `rowKey`). See below |
 
 **Slots:** `footer` (pagination, etc.), `header-actions` (buttons next to the title)
+
+**Row identity (`row-key`):** by default rows are keyed by position, so after a sort the DOM of row *N* is reused for whichever record is now at *N*. If a custom `render` cell holds state (an input, a focused control, an open menu), set `row-key` so each record keeps its own row element:
+
+```html
+<ml-table row-key="id" .columns=${columns} .rows=${rows}></ml-table>
+<ml-table .rowKey=${(row) => `${row.tenant}:${row.id}`} .columns=${columns} .rows=${rows}></ml-table>
+```
+
+Keys must be unique within the rendered rows. Selection is still positional and is cleared by a sort.
+
+**Sorting:** numbers sort numerically, `Date` values chronologically, and everything else as text in natural order (`"item 2"` before `"item 10"`). `null` / `undefined` always sort last.
+
+**Keyboard:** sortable headers are tab stops (Enter / Space sorts). With `clickable-rows`, rows are tab stops (Enter / Space fires `ml:row-click`).
 
 **Events:**
 - `ml:sort` `{ key, direction: 'asc' | 'desc' }`
@@ -465,6 +480,7 @@ interface TableColumn {
 | `--ml-table-row-hover-border-left-width` | `0` | Left border width on row hover (bookmark accent) |
 | `--ml-table-row-hover-border-left-color` | `transparent` | Left border color on row hover |
 | `--ml-table-cell-color` | `var(--ml-color-text)` | Cell text color |
+| `--ml-table-row-focus-outline-color` | `var(--ml-color-primary)` | Keyboard focus outline on a clickable row |
 
 ---
 
@@ -525,6 +541,8 @@ interface DataGridColumn {
 | `description` | `string` | `''` | Description in the toolbar |
 | `page-size` | `number` | `50` | Rows per page |
 | `server-side` | `boolean` | `false` | Disables client-side sort/filter/pagination |
+| `clickable-rows` | `boolean` | `false` | Makes each row a tab stop that fires `ml:row-click` on Enter / Space. Set it whenever you listen for `ml:row-click` |
+| `row-key` | `string` \| `(row, index) => unknown` | `null` | Row identity — a property name or a function (property `rowKey`). Keeps each record on its own row element across sort / filter / paging; see `ml-table` |
 
 **Slots:** `toolbar-actions` (buttons placed in the toolbar)
 
@@ -538,6 +556,16 @@ interface DataGridColumn {
 - `ml:page-change` `{ page, pageSize }`
 
 Column interactions: drag headers to reorder, drag resize handles to resize, click column headers to sort.
+
+**Keyboard:** with a column header focused — Enter / Space sorts, Ctrl/Cmd + ←/→ moves the column, Shift + ←/→ resizes it by 16px (respecting `minWidth`, and firing `ml:column-resize`). With `clickable-rows`, Enter / Space on a focused row fires `ml:row-click`.
+
+**Semantics:** the grid is exposed as a table (`role="table"` / `row` / `columnheader` / `cell`, with `aria-rowcount` and `aria-rowindex` so virtualised and paged rows report their real position).
+
+Column `key`s may contain any characters (`user.name`, `first name`); sorting follows the same rules as `ml-table`.
+
+| CSS Custom Property | Default | Description |
+|----------|---------|-------------|
+| `--ml-data-grid-row-focus-outline-color` | `var(--ml-color-primary)` | Keyboard focus outline on a row |
 
 ---
 

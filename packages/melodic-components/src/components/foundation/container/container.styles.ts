@@ -19,9 +19,9 @@ export const containerStyles = () => css`
 	.ml-container {
 		width: 100%;
 		max-width: var(--ml-container-max-width, 1024px);
-		padding-left: var(--ml-container-padding-x, var(--ml-space-4));
-		padding-right: var(--ml-container-padding-x, var(--ml-space-4));
-		margin-left: var(--ml-container-margin-x, auto);
-		margin-right: var(--ml-container-margin-x, auto);
+		padding-inline-start: var(--ml-container-padding-x, var(--ml-space-4));
+		padding-inline-end: var(--ml-container-padding-x, var(--ml-space-4));
+		margin-inline-start: var(--ml-container-margin-x, auto);
+		margin-inline-end: var(--ml-container-margin-x, auto);
 	}
 `;

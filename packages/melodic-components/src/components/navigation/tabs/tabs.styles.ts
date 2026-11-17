@@ -93,9 +93,9 @@ export const tabsStyles = () => css`
 	.ml-tabs--vertical .ml-tabs__list {
 		flex-direction: column;
 		border-bottom: none;
-		border-right: var(--ml-tabs-list-border-width, var(--ml-border)) solid var(--ml-tabs-list-border-color, var(--ml-color-border));
-		padding-right: var(--ml-tabs-vertical-border-padding, var(--ml-space-2));
-		margin-right: var(--ml-tabs-vertical-border-margin, var(--ml-space-4));
+		border-inline-end: var(--ml-tabs-list-border-width, var(--ml-border)) solid var(--ml-tabs-list-border-color, var(--ml-color-border));
+		padding-inline-end: var(--ml-tabs-vertical-border-padding, var(--ml-space-2));
+		margin-inline-end: var(--ml-tabs-vertical-border-margin, var(--ml-space-4));
 	}
 
 	.ml-tabs--vertical .ml-tabs__panels {
@@ -192,21 +192,21 @@ export const tabsStyles = () => css`
 
 	.ml-tabs--line.ml-tabs--vertical .ml-tabs__list {
 		border-bottom: none;
-		border-right: var(--ml-tabs-list-border-width, var(--ml-border)) solid var(--ml-tabs-list-border-color, var(--ml-color-border));
+		border-inline-end: var(--ml-tabs-list-border-width, var(--ml-border)) solid var(--ml-tabs-list-border-color, var(--ml-color-border));
 	}
 
 	.ml-tabs--line.ml-tabs--vertical .ml-tabs__tab {
 		padding-bottom: var(--ml-tabs-tab-padding-y, var(--ml-space-2));
-		padding-right: calc(var(--ml-tabs-tab-padding-x, var(--ml-space-4)) + var(--ml-tabs-line-indicator-height, 2px));
+		padding-inline-end: calc(var(--ml-tabs-tab-padding-x, var(--ml-space-4)) + var(--ml-tabs-line-indicator-height, 2px));
 		margin-bottom: 0;
-		margin-right: -1px;
+		margin-inline-end: -1px;
 	}
 
 	.ml-tabs--line.ml-tabs--vertical .ml-tabs__tab::after {
 		bottom: auto;
-		left: auto;
+		inset-inline-start: auto;
 		top: 0;
-		right: 0;
+		inset-inline-end: 0;
 		width: var(--ml-tabs-line-indicator-height, 2px);
 		height: 100%;
 	}

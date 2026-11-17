@@ -35,6 +35,8 @@ describe('exports-map entry barrels', () => {
 			exports: Record<string, unknown>;
 		};
 		const fromPkg = Object.keys(pkg.exports)
+			// `./package.json` exposes the manifest itself, not a source barrel.
+			.filter((key) => key !== './package.json')
 			.map((key) => (key === '.' ? 'src/index.ts' : `src/${key.slice(2)}/index.ts`))
 			.sort();
 		expect(fromPkg).toEqual([...ENTRY_BARRELS].sort());

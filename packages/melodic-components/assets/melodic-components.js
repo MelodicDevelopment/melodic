@@ -145,6 +145,15 @@ var InjectionEngine = class {
 	constructor() {
 		this._bindings = /* @__PURE__ */ new Map();
 		this._constructionStack = /* @__PURE__ */ new Set();
+		this._teardowns = [];
+	}
+	addTeardown(teardown) {
+		this._teardowns.push(teardown);
+	}
+	takeTeardowns() {
+		const teardowns = this._teardowns;
+		this._teardowns = [];
+		return teardowns;
 	}
 	bind(tokenOrClass, clsOrOptions, maybeOptions) {
 		let token;
@@ -187,6 +196,7 @@ var InjectionEngine = class {
 		const binding = new Binding(key, token, "factory");
 		binding.setFactory(factory);
 		if (options?.singleton !== void 0) binding.setSingleton(options.singleton);
+		this.warnOnRebind(key);
 		this._bindings.set(key, binding);
 		return binding;
 	}
@@ -299,29 +309,31 @@ var hook;
 function createHook() {
 	const listeners = /* @__PURE__ */ new Map();
 	let id = 0;
-	let listening = false;
+	let listenerCount = 0;
 	return {
 		version: "1",
 		components: /* @__PURE__ */ new Map(),
 		get listening() {
-			return listening;
+			return listenerCount > 0;
 		},
 		nextId: () => ++id,
 		emit(event) {
-			if (!listening) return;
+			if (listenerCount === 0) return;
 			for (const listener of listeners.get(event.type) ?? []) listener(event);
 			for (const listener of listeners.get("*") ?? []) listener(event);
 		},
 		on(type, listener) {
-			listening = true;
 			let set = listeners.get(type);
 			if (!set) {
 				set = /* @__PURE__ */ new Set();
 				listeners.set(type, set);
 			}
-			set.add(listener);
+			if (!set.has(listener)) {
+				set.add(listener);
+				listenerCount++;
+			}
 			return () => {
-				set.delete(listener);
+				if (set.delete(listener)) listenerCount--;
 			};
 		}
 	};
@@ -349,6 +361,11 @@ function devtoolsListening() {
 	const active = getHook();
 	return active !== null && active.listening;
 }
+const SIGNAL_MARKER = Symbol("melodic.signal");
+const DEPENDENTS = Symbol("melodic.signal.dependents");
+const isSignal = (value) => {
+	return typeof value === "function" && SIGNAL_MARKER in value;
+};
 function collectInstances(root, selector, found) {
 	for (const element of root.querySelectorAll("*")) {
 		const tag = element.tagName.toLowerCase();
@@ -376,7 +393,7 @@ function createConsoleApi() {
 			for (const key of Object.keys(component)) {
 				if (key.startsWith("_") || key === "elementRef") continue;
 				const value = component[key];
-				if (typeof value === "function" && "__signal" in value) {
+				if (isSignal(value)) {
 					sources.push(key);
 					continue;
 				}
@@ -458,7 +475,8 @@ var RequestManager = class {
 			headers,
 			identity.credentials ?? "",
 			identity.mode ?? "",
-			identity.body === void 0 || identity.body === null ? "" : this.serializeBody(identity.body)
+			identity.body === void 0 || identity.body === null ? "" : this.serializeBody(identity.body),
+			identity.responseType ?? ""
 		]);
 	}
 	serializeParams(params) {
@@ -472,6 +490,7 @@ var RequestManager = class {
 	}
 	addPendingRequest(key, promise, abortController, signal$1) {
 		const pending = {
+			key,
 			promise,
 			abortController,
 			remainingParticipants: 0,
@@ -479,7 +498,7 @@ var RequestManager = class {
 		};
 		this._pendingRequests.set(key, pending);
 		this.registerParticipant(pending, signal$1);
-		promise.then(() => this.removePendingRequest(key), () => this.removePendingRequest(key));
+		promise.then(() => this.removePendingRequest(key, pending), () => this.removePendingRequest(key, pending));
 		return promise;
 	}
 	cancelPendingRequest(key, reason) {
@@ -501,7 +520,10 @@ var RequestManager = class {
 		if (!signal$1) return;
 		const leave = () => {
 			pending.remainingParticipants--;
-			if (pending.remainingParticipants === 0) pending.abortController.abort(signal$1.reason);
+			if (pending.remainingParticipants === 0) {
+				pending.abortController.abort(signal$1.reason);
+				this.removePendingRequest(pending.key, pending);
+			}
 		};
 		if (signal$1.aborted) leave();
 		else {
@@ -509,18 +531,21 @@ var RequestManager = class {
 			pending.cleanups.push(() => signal$1.removeEventListener("abort", leave));
 		}
 	}
-	removePendingRequest(key) {
-		const pending = this._pendingRequests.get(key);
-		if (pending) this.releasePendingRequest(key, pending);
+	removePendingRequest(key, pending) {
+		if (this._pendingRequests.get(key) === pending) this.releasePendingRequest(key, pending);
+		else this.detachParticipants(pending);
 	}
 	releasePendingRequest(key, pending) {
 		this._pendingRequests.delete(key);
+		this.detachParticipants(pending);
+	}
+	detachParticipants(pending) {
 		const cleanups = pending.cleanups;
 		pending.cleanups = [];
 		for (const cleanup of cleanups) cleanup();
 	}
 	serializeBody(body) {
-		if (body instanceof FormData || body instanceof Blob || body instanceof ArrayBuffer || body instanceof ReadableStream) return `opaque:${++this._opaqueCounter}`;
+		if (body instanceof FormData || body instanceof Blob || body instanceof ArrayBuffer || ArrayBuffer.isView(body) || body instanceof ReadableStream) return `opaque:${++this._opaqueCounter}`;
 		let str;
 		if (typeof body === "string") str = body;
 		else if (body instanceof URLSearchParams) str = body.toString();
@@ -530,6 +555,8 @@ var RequestManager = class {
 	}
 };
 var MAX_RETRIES = 3;
+var ABSOLUTE_URL_PATTERN$1 = /^[a-z][a-z\d+\-.]*:\/\//i;
+var JSON_CONTENT_TYPE_PATTERN = /[/+]json\b/i;
 function combineSignals(signals) {
 	if (signals.length === 0) return;
 	if (signals.length === 1) return signals[0];
@@ -553,6 +580,7 @@ function createTimeoutSignal(ms) {
 var HttpClient = class {
 	constructor(config) {
 		this._requestManager = new RequestManager();
+		this._handledErrors = /* @__PURE__ */ new WeakSet();
 		this._interceptors = {
 			request: [],
 			response: []
@@ -645,14 +673,15 @@ var HttpClient = class {
 		if (requestConfig.timeout && requestConfig.timeout > 0) callerSignals.push(createTimeoutSignal(requestConfig.timeout));
 		const callerSignal = combineSignals(callerSignals);
 		try {
-			if (requestConfig.deduplicate === true) return await this.executeDeduplicatedRequest(requestConfig, callerSignal);
+			if (requestConfig.deduplicate === true) return await this.executeDeduplicatedRequest(requestConfig, originalConfig, callerSignal);
 			const response = await this.executeRequest(requestConfig, callerSignal);
 			return await this.executeResponseInterceptors(response, 0);
 		} catch (error) {
+			if (typeof error === "object" && error !== null && this._handledErrors.has(error)) throw error;
 			return this.handleResponseError(error, originalConfig);
 		}
 	}
-	async executeDeduplicatedRequest(config, callerSignal) {
+	async executeDeduplicatedRequest(config, originalConfig, callerSignal) {
 		const requestKey = this._requestManager.generateRequestKey({
 			method: config.method,
 			url: config.url,
@@ -660,12 +689,25 @@ var HttpClient = class {
 			headers: config.headers,
 			credentials: config.credentials,
 			mode: config.mode,
-			body: config.body
+			body: config.body,
+			responseType: config.responseType
 		});
 		let shared = this._requestManager.joinPendingRequest(requestKey, callerSignal);
 		if (!shared) {
 			const sharedController = new AbortController();
-			const promise = this.executeRequest(config, sharedController.signal).then((response) => this.executeResponseInterceptors(response, 0));
+			const sharedConfig = {
+				...originalConfig,
+				signal: sharedController.signal,
+				abortController: void 0,
+				deduplicate: false
+			};
+			const promise = this.executeRequest(config, sharedController.signal).then((response) => this.executeResponseInterceptors(response, 0)).catch((error) => {
+				if (sharedController.signal.aborted) throw error;
+				return this.handleResponseError(error, sharedConfig);
+			}).catch((error) => {
+				if (typeof error === "object" && error !== null) this._handledErrors.add(error);
+				throw error;
+			});
 			shared = this._requestManager.addPendingRequest(requestKey, promise, sharedController, callerSignal);
 		}
 		return this.raceCallerAbort(shared, callerSignal, config);
@@ -725,7 +767,7 @@ var HttpClient = class {
 	shouldDefaultJsonContentType(body) {
 		if (body === null || body === void 0) return false;
 		if (typeof body === "string") return false;
-		if (body instanceof FormData || body instanceof Blob || body instanceof ArrayBuffer || body instanceof URLSearchParams || body instanceof ReadableStream) return false;
+		if (body instanceof FormData || body instanceof Blob || body instanceof ArrayBuffer || ArrayBuffer.isView(body) || body instanceof URLSearchParams || body instanceof ReadableStream) return false;
 		return typeof body === "object";
 	}
 	async executeRequest(config, signal$1) {
@@ -738,7 +780,7 @@ var HttpClient = class {
 			signal: signal$1
 		}).then(async (response) => {
 			const httpResponse = {
-				data: await this.parseResponse(response, config.onProgress),
+				data: await this.parseResponse(response, config.onProgress, config.responseType),
 				status: response.status,
 				statusText: response.statusText,
 				headers: response.headers,
@@ -767,6 +809,16 @@ var HttpClient = class {
 		return response;
 	}
 	mergeConfig(config) {
+		const url = this.buildUrl(config.url ?? "", config.params);
+		if (!this.shouldSendDefaultsTo(url)) {
+			const { defaultHeaders, credentials, ...clientConfig } = this._clientConfig;
+			return {
+				...clientConfig,
+				...config,
+				headers: { ...config.headers },
+				url
+			};
+		}
 		return {
 			...this._clientConfig,
 			...config,
@@ -774,13 +826,27 @@ var HttpClient = class {
 				...this._clientConfig.defaultHeaders,
 				...config.headers
 			},
-			url: this.buildUrl(config.url ?? "", config.params)
+			url
 		};
+	}
+	shouldSendDefaultsTo(url) {
+		if (this._clientConfig.allowCrossOriginDefaults) return true;
+		const isAbsolute = ABSOLUTE_URL_PATTERN$1.test(url) || url.startsWith("//");
+		const pageHref = typeof location !== "undefined" && typeof location.href === "string" ? location.href : void 0;
+		if (!isAbsolute) return true;
+		try {
+			const target = new URL(url, pageHref).origin;
+			const baseUrl = this._clientConfig.baseURL;
+			if (baseUrl && (ABSOLUTE_URL_PATTERN$1.test(baseUrl) || baseUrl.startsWith("//")) && new URL(baseUrl, pageHref).origin === target) return true;
+			return pageHref !== void 0 && new URL(pageHref).origin === target;
+		} catch {
+			return false;
+		}
 	}
 	buildUrl(url, params) {
 		const baseUrl = this._clientConfig.baseURL || "";
 		let fullUrl;
-		if (!baseUrl || /^[a-z][a-z\d+\-.]*:\/\//i.test(url)) fullUrl = url;
+		if (!baseUrl || ABSOLUTE_URL_PATTERN$1.test(url)) fullUrl = url;
 		else fullUrl = `${baseUrl.replace(/\/+$/, "")}/${url.replace(/^\/+/, "")}`;
 		if (params) {
 			const pairs = [];
@@ -798,12 +864,13 @@ var HttpClient = class {
 	}
 	prepareBody(body) {
 		if (body === null || body === void 0) return null;
-		if (body instanceof FormData || body instanceof Blob || body instanceof ArrayBuffer || body instanceof URLSearchParams || body instanceof ReadableStream || typeof body === "string") return body;
+		if (body instanceof FormData || body instanceof Blob || body instanceof ArrayBuffer || ArrayBuffer.isView(body) || body instanceof URLSearchParams || body instanceof ReadableStream || typeof body === "string") return body;
 		return JSON.stringify(body);
 	}
-	async parseResponse(response, onProgress) {
+	async parseResponse(response, onProgress, responseType) {
 		const contentType = response.headers.get("content-type") || "";
 		const contentLength = parseInt(response.headers.get("content-length") || "0", 10);
+		const kind = responseType ?? (JSON_CONTENT_TYPE_PATTERN.test(contentType) ? "json" : contentType.includes("text/") ? "text" : this.isBinaryContentType(contentType) ? "blob" : "text");
 		if (onProgress && response.body && contentLength > 0) {
 			const reader = response.body.getReader();
 			let loaded = 0;
@@ -819,16 +886,20 @@ var HttpClient = class {
 					percentage: loaded / contentLength * 100
 				});
 			}
-			const blob = new Blob(chunks);
-			if (contentType.includes("application/json")) return this.parseJsonText(await blob.text(), response);
-			if (contentType.includes("text/")) return await blob.text();
-			if (this.isBinaryContentType(contentType)) return blob;
-			return await blob.text();
+			const blob = new Blob(chunks, contentType ? { type: contentType } : void 0);
+			switch (kind) {
+				case "json": return this.parseJsonText(await blob.text(), response);
+				case "blob": return blob;
+				case "arrayBuffer": return await blob.arrayBuffer();
+				default: return await blob.text();
+			}
 		}
-		if (contentType.includes("application/json")) return this.parseJsonText(await response.text(), response);
-		if (contentType.includes("text/")) return await response.text();
-		if (this.isBinaryContentType(contentType)) return await response.blob();
-		return await response.text();
+		switch (kind) {
+			case "json": return this.parseJsonText(await response.text(), response);
+			case "blob": return await response.blob();
+			case "arrayBuffer": return await response.arrayBuffer();
+			default: return await response.text();
+		}
 	}
 	parseJsonText(text, response) {
 		if (!text) return null;
@@ -873,8 +944,19 @@ async function bootstrap(config = {}) {
 		errorHandlers.length = 0;
 	};
 	let boundApp = null;
+	let teardowns = [];
+	const runTeardowns = () => {
+		const pending = teardowns;
+		teardowns = [];
+		for (const teardown of pending) try {
+			teardown();
+		} catch (error) {
+			console.error("[Melodic] Provider teardown failed:", error);
+		}
+	};
 	const rollback = () => {
 		removeErrorHandlers();
+		runTeardowns();
 		if (rootElement?.parentNode) rootElement.parentNode.removeChild(rootElement);
 		if (boundApp && Injector.getBinding("IMelodicApp")?.getInstance() === boundApp) Injector.unbind("IMelodicApp");
 	};
@@ -884,7 +966,12 @@ async function bootstrap(config = {}) {
 			await config.onBefore();
 		}
 		if (config.providers) {
-			for (const provider of config.providers) provider(Injector);
+			Injector.takeTeardowns();
+			try {
+				for (const provider of config.providers) provider(Injector);
+			} finally {
+				teardowns = Injector.takeTeardowns();
+			}
 			if (devMode) console.log("[Melodic] Custom providers registered");
 		}
 		if (config.rootComponent && config.target) {
@@ -910,6 +997,7 @@ async function bootstrap(config = {}) {
 				destroyed = true;
 				removeErrorHandlers();
 				if (rootElement?.parentNode) rootElement.parentNode.removeChild(rootElement);
+				runTeardowns();
 				if (Injector.getBinding("IMelodicApp")?.getInstance() === app) Injector.unbind("IMelodicApp");
 				app.rootElement = void 0;
 				if (devMode) console.log("[Melodic] Application destroyed");
@@ -937,11 +1025,6 @@ function attributeTypes(attributes) {
 function render(result, container) {
 	result.renderInto(container);
 }
-const SIGNAL_MARKER = Symbol("melodic.signal");
-const DEPENDENTS = Symbol("melodic.signal.dependents");
-const isSignal = (value) => {
-	return typeof value === "function" && SIGNAL_MARKER in value;
-};
 function disposeDirectiveState(state) {
 	if (state !== null && typeof state === "object" && typeof state.__dispose === "function") try {
 		state.__dispose();
@@ -996,24 +1079,36 @@ function disposeContainerParts(container) {
 var globalStylesAttribute = "melodic-styles";
 var globalStyleSelector = `style[${globalStylesAttribute}], link[rel="stylesheet"][${globalStylesAttribute}]`;
 var cachedCssSheets = [];
+var cachedCssTexts = [];
 var loadingPromise = null;
+var loadSettled = false;
 var pendingRoots = /* @__PURE__ */ new Set();
 const applyGlobalStyles = (root) => {
 	if (hasCachedSheets()) {
 		applyAdoptedSheets(root);
 		return;
 	}
+	if (loadingPromise && loadSettled) {
+		rememberRoot(root);
+		return;
+	}
 	pendingRoots.add(root);
-	if (!loadingPromise) loadingPromise = loadStyles().catch((error) => {
-		devWarn("global-styles-load", "Global styles could not be read. A cross-origin stylesheet cannot be adopted into shadow roots — serve it same-origin or inline it in a <style melodic-styles> element.", error);
-	}).finally(() => {
-		for (const pending of pendingRoots) applyAdoptedSheets(pending);
-		pendingRoots.clear();
-	});
+	if (!loadingPromise) {
+		loadSettled = false;
+		loadingPromise = loadStyles().catch((error) => {
+			devWarn("global-styles-load", "Global styles could not be read. A cross-origin stylesheet cannot be adopted into shadow roots — serve it same-origin or inline it in a <style melodic-styles> element.", error);
+		}).finally(() => {
+			loadSettled = true;
+			for (const pending of pendingRoots) applyAdoptedSheets(pending);
+			pendingRoots.clear();
+		});
+	}
 };
 const refreshGlobalStyles = async () => {
 	cachedCssSheets.length = 0;
+	cachedCssTexts.length = 0;
 	loadingPromise = null;
+	loadSettled = false;
 	await loadStyles().catch(() => void 0);
 	for (const ref of [...adoptedRoots]) {
 		const root = ref.deref();
@@ -1022,6 +1117,17 @@ const refreshGlobalStyles = async () => {
 	}
 };
 var adoptedRoots = /* @__PURE__ */ new Set();
+var rememberedRoots = /* @__PURE__ */ new WeakSet();
+var rootFinalizer = typeof FinalizationRegistry === "undefined" ? null : new FinalizationRegistry((ref) => adoptedRoots.delete(ref));
+var rememberRoot = (root) => {
+	if (rememberedRoots.has(root)) return;
+	rememberedRoots.add(root);
+	const ref = new WeakRef(root);
+	adoptedRoots.add(ref);
+	rootFinalizer?.register(root, ref);
+};
+const getGlobalStyleSheets = () => cachedCssSheets;
+const getGlobalStyleTexts = () => cachedCssTexts;
 var loadStyles = async () => {
 	const globalStyleElements = document.querySelectorAll(globalStyleSelector);
 	if (globalStyleElements.length === 0) return;
@@ -1044,7 +1150,7 @@ var loadStyles = async () => {
 	}
 };
 var applyAdoptedSheets = (root) => {
-	adoptedRoots.add(new WeakRef(root));
+	rememberRoot(root);
 	const adopted = root.adoptedStyleSheets ?? [];
 	const newSheets = cachedCssSheets.filter((sheet) => !adopted.includes(sheet));
 	if (newSheets.length > 0) root.adoptedStyleSheets = [...adopted, ...newSheets];
@@ -1055,1769 +1161,12 @@ var cacheCssSheet = (text) => {
 		const sheet = new CSSStyleSheet();
 		sheet.replaceSync(trimmedText);
 		cachedCssSheets.push(sheet);
+		cachedCssTexts.push(trimmedText);
 	}
 };
 var hasCachedSheets = () => {
 	return cachedCssSheets.length > 0;
 };
-var cssTextCache = /* @__PURE__ */ new WeakMap();
-var sheetCache = /* @__PURE__ */ new Map();
-var constructedSheetsSupported;
-function supportsConstructedStyleSheets() {
-	if (constructedSheetsSupported === void 0) try {
-		constructedSheetsSupported = typeof CSSStyleSheet !== "undefined" && typeof CSSStyleSheet.prototype.replaceSync === "function" && typeof ShadowRoot !== "undefined" && "adoptedStyleSheets" in ShadowRoot.prototype && new CSSStyleSheet() instanceof CSSStyleSheet;
-	} catch {
-		constructedSheetsSupported = false;
-	}
-	return constructedSheetsSupported;
-}
-function getComponentStyleSheet(stylesFactory) {
-	if (!supportsConstructedStyleSheets()) return null;
-	let cssText = cssTextCache.get(stylesFactory);
-	if (cssText === void 0) {
-		cssText = renderStylesToText(stylesFactory());
-		cssTextCache.set(stylesFactory, cssText);
-	}
-	let sheet = sheetCache.get(cssText);
-	if (sheet === void 0) {
-		try {
-			const created = new CSSStyleSheet();
-			created.replaceSync(cssText);
-			sheet = created;
-		} catch {
-			sheet = null;
-		}
-		sheetCache.set(cssText, sheet);
-	}
-	return sheet;
-}
-function renderStylesToText(result) {
-	const host = document.createElement("style");
-	render(result, host);
-	const text = host.textContent ?? "";
-	disposeContainerParts(host);
-	return text;
-}
-var activeEffect = null;
-const setActiveEffect = (effect$1) => {
-	activeEffect = effect$1;
-};
-const getActiveEffect = () => activeEffect;
-var MAX_FLUSH_RUNS = 100;
-var batchDepth = 0;
-var flushing = false;
-var pendingNotifications = /* @__PURE__ */ new Set();
-var pendingEffects = /* @__PURE__ */ new Set();
-var flushRuns = /* @__PURE__ */ new Map();
-function isCoalescingEffects() {
-	return batchDepth > 0 || flushing;
-}
-function scheduleNotify(notify) {
-	pendingNotifications.add(notify);
-}
-function scheduleEffect(effect$1) {
-	pendingEffects.add(effect$1);
-}
-function unscheduleEffect(effect$1) {
-	pendingEffects.delete(effect$1);
-}
-function flush() {
-	if (batchDepth > 0 || flushing) return;
-	flushBatch();
-}
-function circularError() {
-	return /* @__PURE__ */ new Error(`Circular dependency detected in effect: exceeded ${MAX_FLUSH_RUNS} synchronous re-runs. An effect is repeatedly writing to a signal it also reads.`);
-}
-function rethrow(errors) {
-	if (errors.length === 1) throw errors[0];
-	if (errors.length > 1) throw new AggregateError(errors, `${errors.length} signal subscribers threw during flush`);
-}
-function flushBatch() {
-	flushing = true;
-	emitDevtools("flush:start", () => ({
-		notifications: pendingNotifications.size,
-		effects: pendingEffects.size
-	}));
-	const errors = [];
-	try {
-		while (pendingNotifications.size > 0 || pendingEffects.size > 0) {
-			if (pendingNotifications.size > 0) {
-				const notifications = [...pendingNotifications];
-				pendingNotifications.clear();
-				for (const notify of notifications) try {
-					notify();
-				} catch (error) {
-					errors.push(error);
-				}
-			}
-			if (pendingEffects.size > 0) {
-				const effects = [...pendingEffects];
-				pendingEffects.clear();
-				for (const effect$1 of effects) {
-					const runs = (flushRuns.get(effect$1) ?? 0) + 1;
-					if (runs > MAX_FLUSH_RUNS) {
-						pendingNotifications.clear();
-						pendingEffects.clear();
-						throw errors.length > 0 ? new AggregateError([circularError(), ...errors], "Circular dependency detected in effect") : circularError();
-					}
-					flushRuns.set(effect$1, runs);
-					try {
-						effect$1.runNow();
-					} catch (error) {
-						errors.push(error);
-					}
-				}
-			}
-		}
-	} finally {
-		flushing = false;
-		flushRuns.clear();
-		emitDevtools("flush:end");
-	}
-	rethrow(errors);
-}
-function batch(fn) {
-	batchDepth++;
-	try {
-		return fn();
-	} finally {
-		batchDepth--;
-		if (batchDepth === 0) flushBatch();
-	}
-}
-var MAX_EFFECT_ITERATIONS = 100;
-var SignalEffect = class {
-	constructor(execute, options) {
-		this.execute = execute;
-		this._dependencies = /* @__PURE__ */ new Set();
-		this._isRunning = false;
-		this._needsRerun = false;
-		this._destroyed = false;
-		this._hasRun = false;
-		this._onInvalidate = options?.onInvalidate;
-		this.name = options?.name;
-		this.run = () => {
-			if (this._destroyed) return;
-			if (this._hasRun && isCoalescingEffects()) {
-				scheduleEffect(this);
-				return;
-			}
-			this.runNow();
-		};
-	}
-	get hasRun() {
-		return this._hasRun;
-	}
-	get destroyed() {
-		return this._destroyed;
-	}
-	invalidate() {
-		if (this._destroyed) return;
-		if (this._onInvalidate) {
-			this._onInvalidate();
-			return;
-		}
-		scheduleEffect(this);
-	}
-	runNow() {
-		if (this._destroyed) return;
-		if (this._isRunning) {
-			this._needsRerun = true;
-			return;
-		}
-		this._isRunning = true;
-		this._hasRun = true;
-		let iterations = 0;
-		try {
-			do {
-				if (++iterations > MAX_EFFECT_ITERATIONS) {
-					this._needsRerun = false;
-					throw new Error(`Circular dependency detected in effect${this.name ? ` '${this.name}'` : ""}: exceeded ${MAX_EFFECT_ITERATIONS} synchronous re-runs. An effect is repeatedly writing to a signal it also reads.`);
-				}
-				this._needsRerun = false;
-				this.clearDependencies();
-				const prevEffect = getActiveEffect();
-				setActiveEffect(this);
-				try {
-					emitDevtools("effect:run", () => ({ name: this.name }));
-					this.execute();
-				} finally {
-					setActiveEffect(prevEffect);
-				}
-			} while (this._needsRerun && !this._destroyed);
-		} finally {
-			this._isRunning = false;
-		}
-	}
-	addDependency(producer) {
-		this._dependencies.add(producer);
-	}
-	clearDependencies() {
-		this._dependencies.forEach((producer) => {
-			producer[DEPENDENTS].delete(this);
-		});
-		this._dependencies.clear();
-	}
-	destroy() {
-		this._destroyed = true;
-		this._needsRerun = false;
-		this.clearDependencies();
-		unscheduleEffect(this);
-	}
-};
-var destroyedMessage$1 = (name) => `Signal${name ? ` '${name}'` : ""} accessed after destruction. Holding a signal beyond its owning component (e.g. cached on a long-lived service) is a bug — the signal is destroyed when its component disconnects.`;
-function notifyAll(subscribers, value) {
-	const errors = [];
-	for (const subscriber of subscribers) try {
-		subscriber(value);
-	} catch (error) {
-		errors.push(error);
-	}
-	if (errors.length === 1) throw errors[0];
-	if (errors.length > 1) throw new AggregateError(errors, `${errors.length} signal subscribers threw`);
-}
-function signal(initialValue, options = {}) {
-	let value = initialValue;
-	let destroyed = false;
-	const subscribers = /* @__PURE__ */ new Set();
-	const dependents = /* @__PURE__ */ new Set();
-	const notify = () => {
-		notifyAll([...subscribers], value);
-	};
-	const read = (() => {
-		if (destroyed) throw new Error(destroyedMessage$1(options.name));
-		const activeEffect$1 = getActiveEffect();
-		if (activeEffect$1) {
-			activeEffect$1.addDependency(read);
-			dependents.add(activeEffect$1);
-		}
-		return value;
-	});
-	read.set = (newValue) => {
-		if (destroyed) throw new Error(destroyedMessage$1(options.name));
-		if (Object.is(value, newValue)) return;
-		value = newValue;
-		emitDevtools("signal:set", () => ({
-			name: options.name,
-			value: newValue
-		}));
-		if (subscribers.size > 0) scheduleNotify(notify);
-		for (const dependent of [...dependents]) dependent.invalidate();
-		flush();
-	};
-	read.update = (updater) => {
-		if (destroyed) throw new Error(destroyedMessage$1(options.name));
-		read.set(updater(value));
-	};
-	read.subscribe = (subscriber) => {
-		if (destroyed) throw new Error(destroyedMessage$1(options.name));
-		subscribers.add(subscriber);
-		return () => subscribers.delete(subscriber);
-	};
-	read.unsubscribe = (subscriber) => {
-		subscribers.delete(subscriber);
-	};
-	read.destroy = () => {
-		if (destroyed) return;
-		destroyed = true;
-		emitDevtools("signal:destroy", () => ({ name: options.name }));
-		subscribers.clear();
-		dependents.clear();
-	};
-	emitDevtools("signal:create", () => ({
-		name: options.name,
-		value: initialValue
-	}));
-	Object.defineProperty(read, SIGNAL_MARKER, {
-		value: true,
-		enumerable: false,
-		configurable: false
-	});
-	Object.defineProperty(read, DEPENDENTS, {
-		value: dependents,
-		enumerable: false,
-		configurable: false
-	});
-	return read;
-}
-var destroyedMessage = (name) => `Computed signal${name ? ` '${name}'` : ""} accessed after destruction. Holding a signal beyond its owning component (e.g. cached on a long-lived service) is a bug — the signal is destroyed when its component disconnects.`;
-var READ_ONLY_MESSAGE = "Cannot write to a computed signal — its value is derived from its sources. Update the source signal(s) instead.";
-var renderScopedDepth = 0;
-function createRenderScopedComputed(factory) {
-	renderScopedDepth++;
-	try {
-		return factory();
-	} finally {
-		renderScopedDepth--;
-	}
-}
-function computed(computation, options = {}) {
-	let value;
-	let dirty = true;
-	let destroyed = false;
-	const subscribers = /* @__PURE__ */ new Set();
-	const dependents = /* @__PURE__ */ new Set();
-	const recompute = () => {
-		tracker.clearDependencies();
-		const prevEffect = getActiveEffect();
-		setActiveEffect(tracker);
-		try {
-			value = computation();
-			dirty = false;
-			emitDevtools("computed:recompute", () => ({
-				name: options.name,
-				value
-			}));
-		} finally {
-			setActiveEffect(prevEffect);
-		}
-	};
-	const tracker = new SignalEffect(() => {}, { onInvalidate: () => {
-		if (destroyed || dirty) return;
-		dirty = true;
-		for (const dependent of [...dependents]) dependent.invalidate();
-		if (subscribers.size > 0) scheduleEffect(notifier);
-	} });
-	let lastNotified;
-	const notifier = { runNow: () => {
-		if (destroyed) return;
-		if (dirty) recompute();
-		if (!Object.is(lastNotified, value)) {
-			lastNotified = value;
-			notifyAll([...subscribers], value);
-		}
-	} };
-	const read = (() => {
-		if (destroyed) throw new Error(destroyedMessage(options.name));
-		const activeEffect$1 = getActiveEffect();
-		if (activeEffect$1) {
-			activeEffect$1.addDependency(read);
-			dependents.add(activeEffect$1);
-		}
-		if (dirty) recompute();
-		return value;
-	});
-	read.set = () => {
-		throw new Error(READ_ONLY_MESSAGE);
-	};
-	read.update = () => {
-		throw new Error(READ_ONLY_MESSAGE);
-	};
-	read.subscribe = (subscriber) => {
-		if (destroyed) throw new Error(destroyedMessage(options.name));
-		if (dirty) recompute();
-		if (subscribers.size === 0) lastNotified = value;
-		subscribers.add(subscriber);
-		return () => subscribers.delete(subscriber);
-	};
-	read.unsubscribe = (subscriber) => {
-		subscribers.delete(subscriber);
-	};
-	read.destroy = () => {
-		if (destroyed) return;
-		destroyed = true;
-		tracker.destroy();
-		unscheduleEffect(notifier);
-		dependents.clear();
-		subscribers.clear();
-	};
-	Object.defineProperty(read, SIGNAL_MARKER, {
-		value: true,
-		enumerable: false,
-		configurable: false
-	});
-	Object.defineProperty(read, DEPENDENTS, {
-		value: dependents,
-		enumerable: false,
-		configurable: false
-	});
-	const owner = getActiveComponent();
-	owner?.registerDisposable(read);
-	if (owner?.isRendering && renderScopedDepth === 0) devWarn(`computed-in-render:${owner.selector ?? "component"}${options.name ? `:${options.name}` : ""}`, `computed()${options.name ? ` '${options.name}'` : ""} was created while <${owner.selector ?? "a component"}> was rendering. A new one is created on every render and they accumulate for the life of the component. Create it in a field initializer or onInit, or use store.select(key, fn, cacheKey), which is render-scoped.`);
-	return read;
-}
-function effect(fn, options = {}) {
-	let cleanup = null;
-	let destroyed = false;
-	const runCleanup = () => {
-		if (!cleanup) return;
-		const pending = cleanup;
-		cleanup = null;
-		try {
-			pending();
-		} catch (error) {
-			console.error(`[Melodic] Effect${options.name ? ` '${options.name}'` : ""} cleanup failed:`, error);
-		}
-	};
-	const signalEffect = new SignalEffect(() => {
-		runCleanup();
-		const result = fn();
-		cleanup = typeof result === "function" ? result : null;
-	}, options.name !== void 0 ? { name: options.name } : void 0);
-	const ref = {
-		run: () => {
-			if (!destroyed) signalEffect.run();
-		},
-		destroy: () => {
-			if (destroyed) return;
-			destroyed = true;
-			signalEffect.destroy();
-			runCleanup();
-		},
-		get destroyed() {
-			return destroyed;
-		}
-	};
-	getActiveComponent()?.registerDisposable(ref);
-	if (!options.manual) signalEffect.run();
-	return ref;
-}
-function untracked(fn) {
-	const previous = getActiveEffect();
-	setActiveEffect(null);
-	try {
-		return fn();
-	} finally {
-		setActiveEffect(previous);
-	}
-}
-var globalMessages = {};
-function registerDefaultMessages(messages) {
-	for (const code of Object.keys(messages)) globalMessages[code] = messages[code];
-}
-function setDefaultMessage(code, message) {
-	globalMessages[code] = message;
-}
-function getGlobalMessage(code) {
-	return globalMessages[code];
-}
-function resolveMessage(message, params) {
-	if (typeof message === "function") return message(params ?? {});
-	return message;
-}
-var AbstractControl = class {
-	constructor(initialValue, options = {}) {
-		this.parent = null;
-		this._validators = [];
-		this._asyncValidators = [];
-		this._touched = signal(false);
-		this._dirty = signal(false);
-		this._pending = signal(false);
-		this._ownDisabled = signal(false);
-		this._asyncValidationId = 0;
-		this._destroyed = false;
-		this._errorSources = /* @__PURE__ */ new Map();
-		this.value = signal(initialValue);
-		this.errors = signal(null);
-		this._validators = options.validators ?? [];
-		this._asyncValidators = options.asyncValidators ?? [];
-		this._ownDisabled.set(options.disabled ?? false);
-		this.updateOn = options.updateOn ?? "change";
-		this.messages = options.messages ?? {};
-		const consumer = getActiveComponent();
-		if (consumer) consumer.registerDisposable(this);
-	}
-	initializeAggregates() {
-		this.dirty = computed(() => this.computeDirty());
-		this.touched = computed(() => this.computeTouched());
-		this.pending = computed(() => this.computePending());
-		this.disabled = computed(() => this.computeDisabled());
-		this.pristine = computed(() => !this.dirty());
-		this.untouched = computed(() => !this.touched());
-		this.enabled = computed(() => !this.disabled());
-		this.invalid = computed(() => !this.disabled() && (this.errors() !== null || this.hasInvalidChild()));
-		this.valid = computed(() => !this.invalid() && !this.pending());
-		this.state = computed(() => ({
-			dirty: this.dirty(),
-			touched: this.touched(),
-			pristine: !this.dirty(),
-			untouched: !this.touched(),
-			valid: !this.invalid() && !this.pending(),
-			invalid: this.invalid(),
-			pending: this.pending(),
-			disabled: this.disabled(),
-			enabled: !this.disabled()
-		}));
-	}
-	get destroyed() {
-		return this._destroyed;
-	}
-	getRawValue() {
-		return this.value();
-	}
-	markAsTouched() {
-		this._touched.set(true);
-		if (this.updateOn === "blur") this.runValidation();
-	}
-	markAsUntouched() {
-		this._touched.set(false);
-	}
-	markAsDirty() {
-		this._dirty.set(true);
-	}
-	markAsPristine() {
-		this._dirty.set(false);
-	}
-	markAllAsTouched() {
-		this.markAsTouched();
-	}
-	markAllAsUntouched() {
-		this.markAsUntouched();
-	}
-	markAllAsDirty() {
-		this.markAsDirty();
-	}
-	markAllAsPristine() {
-		this.markAsPristine();
-	}
-	disable() {
-		this._ownDisabled.set(true);
-	}
-	enable() {
-		this._ownDisabled.set(false);
-	}
-	setValidators(validators) {
-		this._validators = validators;
-		this.runValidation();
-	}
-	addValidators(validators) {
-		this._validators = [...this._validators, ...validators];
-		this.runValidation();
-	}
-	removeValidators(validators) {
-		this._validators = this._validators.filter((v) => !validators.includes(v));
-		this.runValidation();
-	}
-	setAsyncValidators(validators) {
-		this._asyncValidators = validators;
-		this.runValidation();
-	}
-	async validate() {
-		await this.runValidation();
-	}
-	getError(code) {
-		return this.errors()?.[code] ?? null;
-	}
-	hasError(code) {
-		return this.errors()?.[code] !== void 0;
-	}
-	getErrorMessage(code) {
-		const error = this.getError(code);
-		if (!error) return "";
-		const params = error.params;
-		const localMessage = this.resolveFromChain(code);
-		if (localMessage !== void 0) return resolveMessage(localMessage, params);
-		const validatorMessage = this.resolveFromValidator(code);
-		if (validatorMessage !== void 0) return resolveMessage(validatorMessage, params);
-		const globalMessage = getGlobalMessage(code);
-		if (globalMessage !== void 0) return resolveMessage(globalMessage, params);
-		return code;
-	}
-	getFirstErrorMessage() {
-		const errors = this.errors();
-		if (!errors) return "";
-		const codes = Object.keys(errors);
-		if (codes.length === 0) return "";
-		return this.getErrorMessage(codes[0]);
-	}
-	resolveFromValidator(code) {
-		return this._errorSources.get(code)?.messages?.[code];
-	}
-	resolveFromChain(code) {
-		let control = this;
-		while (control !== null) {
-			if (control.messages[code] !== void 0) return control.messages[code];
-			control = control.parent;
-		}
-	}
-	async runValidation() {
-		const id = ++this._asyncValidationId;
-		const value = this.value();
-		let errors = null;
-		this._errorSources.clear();
-		for (const validator of this._validators) {
-			const result = validator(value);
-			if (result !== null) {
-				for (const code of Object.keys(result)) this._errorSources.set(code, validator);
-				errors = {
-					...errors ?? {},
-					...result
-				};
-			}
-		}
-		if (errors !== null) {
-			this._pending.set(false);
-			this.errors.set(errors);
-			return;
-		}
-		if (this._asyncValidators.length > 0) {
-			this._pending.set(true);
-			try {
-				const results = await Promise.all(this._asyncValidators.map(async (v) => ({
-					validator: v,
-					result: await v(value)
-				})));
-				if (id !== this._asyncValidationId || this._destroyed) return;
-				for (const { validator, result } of results) if (result !== null) {
-					for (const code of Object.keys(result)) this._errorSources.set(code, validator);
-					errors = {
-						...errors ?? {},
-						...result
-					};
-				}
-			} catch (error) {
-				if (id !== this._asyncValidationId || this._destroyed) return;
-				console.error("Async validator failed:", error);
-				errors = {
-					...errors ?? {},
-					asyncValidator: {
-						code: "asyncValidator",
-						params: { message: error instanceof Error ? error.message : String(error) }
-					}
-				};
-			} finally {
-				if (id === this._asyncValidationId && !this._destroyed) this._pending.set(false);
-			}
-		}
-		if (id === this._asyncValidationId && !this._destroyed) this.errors.set(errors);
-	}
-	computeDirty() {
-		return this._dirty();
-	}
-	computeTouched() {
-		return this._touched();
-	}
-	computePending() {
-		return this._pending();
-	}
-	computeDisabled() {
-		return this._ownDisabled();
-	}
-	hasInvalidChild() {
-		return false;
-	}
-	shouldValidateOnChange() {
-		return this.updateOn === "change";
-	}
-	destroySignals() {
-		this.value.destroy();
-		this.errors.destroy();
-		this._touched.destroy();
-		this._dirty.destroy();
-		this._pending.destroy();
-		this._ownDisabled.destroy();
-		this.dirty.destroy();
-		this.touched.destroy();
-		this.pristine.destroy();
-		this.untouched.destroy();
-		this.valid.destroy();
-		this.invalid.destroy();
-		this.pending.destroy();
-		this.disabled.destroy();
-		this.enabled.destroy();
-		this.state.destroy();
-	}
-};
-var MAX_RENDERS_PER_TASK = 25;
-var ComponentBase = class extends HTMLElement {
-	constructor(meta, component, pending) {
-		super();
-		this._renderScheduled = false;
-		this._booleanProperties = /* @__PURE__ */ new Set();
-		this._numberProperties = /* @__PURE__ */ new Set();
-		this._stringProperties = /* @__PURE__ */ new Set();
-		this._rendering = false;
-		this._selectEpoch = 0;
-		this._renderScopedSelects = /* @__PURE__ */ new Map();
-		this._reactiveSourceEntries = [];
-		this._created = false;
-		this._destroyed = false;
-		this._teardownScheduled = false;
-		this._dirty = true;
-		this._renderEffect = null;
-		this._rendersThisTask = 0;
-		this._renderBurstReset = null;
-		this._renderLoopReported = false;
-		this._devtoolsId = 0;
-		this._renderCount = 0;
-		this._meta = meta;
-		this._component = component;
-		this._component.elementRef = this;
-		const declaredTypes = {
-			...attributeTypes(meta.attributes),
-			...component.constructor.propertyTypes ?? {}
-		};
-		for (const [attribute, type] of Object.entries(declaredTypes)) {
-			const prop = attribute.replace(/-([a-z])/g, (_, ch) => ch.toUpperCase());
-			if (type === "boolean") this._booleanProperties.add(prop);
-			else if (type === "number") this._numberProperties.add(prop);
-			else if (type === "string") this._stringProperties.add(prop);
-		}
-		this._disposables = pending?.disposables ?? /* @__PURE__ */ new Set();
-		this._selectCache = pending?.selectCache ?? /* @__PURE__ */ new Map();
-		this._root = this.attachShadow({ mode: "open" });
-		applyGlobalStyles(this._root);
-		this._style = this.renderStyles();
-		const prevActive = getActiveComponent();
-		setActiveComponent(this);
-		try {
-			untracked(() => {
-				this.observe();
-				if (this._component.onInit) this._component.onInit();
-			});
-		} finally {
-			setActiveComponent(prevActive);
-		}
-	}
-	get component() {
-		return this._component;
-	}
-	get isRendering() {
-		return this._rendering;
-	}
-	get selector() {
-		return this._meta.selector;
-	}
-	registerDisposable(d) {
-		this._disposables.add(d);
-	}
-	requestRender() {
-		this.scheduleRender();
-	}
-	getSelectCache() {
-		return this._selectCache;
-	}
-	touchSelectEntry(fullKey) {
-		if (this._renderScopedSelects.has(fullKey)) this._renderScopedSelects.set(fullKey, this._selectEpoch);
-	}
-	trackSelectEntry(fullKey, sig) {
-		if (!this._rendering) return;
-		this._renderScopedSelects.set(fullKey, this._selectEpoch);
-		sig.subscribe(() => this.scheduleRender());
-	}
-	connectedCallback() {
-		this._teardownScheduled = false;
-		emitDevtools("component:connect", () => ({
-			id: this.devtoolsId(),
-			selector: this._meta.selector
-		}));
-		this.subscribeReactiveSources();
-		this.render();
-		const prev = getActiveComponent();
-		setActiveComponent(this);
-		try {
-			untracked(() => {
-				if (!this._created) {
-					this._created = true;
-					this._component.onCreate?.();
-				}
-				this._component.onConnect?.();
-			});
-		} finally {
-			setActiveComponent(prev);
-		}
-	}
-	disconnectedCallback() {
-		emitDevtools("component:disconnect", () => ({
-			id: this.devtoolsId(),
-			selector: this._meta.selector
-		}));
-		for (const entry of this._reactiveSourceEntries) {
-			for (const unsubscribe of entry.unsubscribers) unsubscribe();
-			entry.unsubscribers = [];
-		}
-		try {
-			untracked(() => this._component.onDisconnect?.());
-		} finally {
-			if (!this._teardownScheduled && !this._destroyed) {
-				this._teardownScheduled = true;
-				queueMicrotask(() => {
-					this._teardownScheduled = false;
-					if (!this.isConnected && !this._destroyed) this.teardown();
-				});
-			}
-		}
-	}
-	attributeChangedCallback(attribute, oldVal, newVal) {
-		const prop = attribute.replace(/-([a-z])/g, (_, ch) => ch.toUpperCase());
-		const component = this._component;
-		const current = component[prop];
-		const value = this.coerceAttributeValue(prop, newVal, current);
-		if (!Object.is(current, value)) {
-			component[prop] = value;
-			this.scheduleRender();
-		}
-		if (this._component.onAttributeChange !== void 0) untracked(() => this._component.onAttributeChange(attribute, oldVal, newVal));
-	}
-	coerceAttributeValue(prop, raw, current) {
-		if (this._stringProperties.has(prop)) return raw;
-		if (this._booleanProperties.has(prop) || typeof current === "boolean") return raw !== null && raw !== "false";
-		if (this._numberProperties.has(prop) || typeof current === "number") {
-			if (raw === null || raw.trim() === "") return raw;
-			const parsed = Number(raw);
-			return Number.isNaN(parsed) ? raw : parsed;
-		}
-		if ((current === void 0 || current === null) && (raw === "true" || raw === "false")) return raw === "true";
-		return raw;
-	}
-	teardown() {
-		this._destroyed = true;
-		if (this._devtoolsId !== 0) {
-			emitDevtools("component:destroy", () => ({
-				id: this._devtoolsId,
-				selector: this._meta.selector
-			}));
-			getHook()?.components.delete(this._devtoolsId);
-		}
-		if (this._renderBurstReset !== null) {
-			clearTimeout(this._renderBurstReset);
-			this._renderBurstReset = null;
-		}
-		this._renderEffect?.destroy();
-		this._renderEffect = null;
-		const root = this._root;
-		const parts = root.__parts;
-		if (parts) disposeParts(parts);
-		delete root.__parts;
-		delete root.__templateKey;
-		try {
-			if (this._component.onDestroy !== void 0) untracked(() => this._component.onDestroy());
-		} finally {
-			for (const d of this._disposables) try {
-				d.destroy();
-			} catch (error) {
-				console.error("Disposable cleanup failed:", error);
-			}
-			this._disposables.clear();
-			this._selectCache.clear();
-		}
-	}
-	renderStyles() {
-		if (!this._meta.styles) return null;
-		const sheet = getComponentStyleSheet(this._meta.styles);
-		if (sheet) {
-			this._root.adoptedStyleSheets = [...this._root.adoptedStyleSheets, sheet];
-			return null;
-		}
-		const styleNode = document.createElement("style");
-		render(this._meta.styles(), styleNode);
-		return this._root.appendChild(styleNode);
-	}
-	render() {
-		if (this.enteredRenderLoop()) return;
-		this._dirty = false;
-		if (!this._renderEffect) this._renderEffect = new SignalEffect(() => this.renderTemplate(), {
-			name: this._meta.selector,
-			onInvalidate: () => this.scheduleRender()
-		});
-		if (!devtoolsListening()) {
-			this._renderEffect.runNow();
-			return;
-		}
-		const started = performance.now();
-		this._renderEffect.runNow();
-		const elapsed = performance.now() - started;
-		this._renderCount++;
-		const record = getHook()?.components.get(this.devtoolsId());
-		if (record) {
-			record.renders = this._renderCount;
-			record.lastRenderMs = elapsed;
-		}
-		emitDevtools("component:render", () => ({
-			id: this.devtoolsId(),
-			selector: this._meta.selector,
-			ms: elapsed,
-			renders: this._renderCount
-		}));
-	}
-	devtoolsId() {
-		if (this._devtoolsId === 0) {
-			const hook$1 = getHook();
-			if (!hook$1) return 0;
-			this._devtoolsId = hook$1.nextId();
-			hook$1.components.set(this._devtoolsId, {
-				id: this._devtoolsId,
-				selector: this._meta.selector,
-				host: new WeakRef(this),
-				renders: this._renderCount,
-				lastRenderMs: 0
-			});
-		}
-		return this._devtoolsId;
-	}
-	renderTemplate() {
-		const prev = getActiveComponent();
-		setActiveComponent(this);
-		this._rendering = true;
-		this._selectEpoch++;
-		try {
-			if (this._meta.template) {
-				render(this._meta.template(this._component, this._meta.template.length > 1 ? this.getAttributeValues() : void 0), this._root);
-				if (this._style && this._style.parentNode !== this._root) this._root.appendChild(this._style);
-			}
-			if (this._component.onRender !== void 0) untracked(() => this._component.onRender());
-		} finally {
-			this._rendering = false;
-			setActiveComponent(prev);
-			this.sweepRenderScopedSelects();
-		}
-	}
-	enteredRenderLoop() {
-		if (++this._rendersThisTask <= MAX_RENDERS_PER_TASK) {
-			if (this._renderBurstReset === null) this._renderBurstReset = setTimeout(() => {
-				this._renderBurstReset = null;
-				this._rendersThisTask = 0;
-				this._renderLoopReported = false;
-			}, 0);
-			return false;
-		}
-		if (!this._renderLoopReported) {
-			this._renderLoopReported = true;
-			console.error(`[Melodic] <${this._meta.selector}> rendered ${MAX_RENDERS_PER_TASK} times without yielding and was stopped. A render loop is usually a property or signal written from onRender (or from the template itself), which schedules the render that writes it again.`);
-		}
-		return true;
-	}
-	sweepRenderScopedSelects() {
-		for (const [key, epoch] of this._renderScopedSelects) {
-			if (epoch === this._selectEpoch) continue;
-			const sig = this._selectCache.get(key);
-			this._renderScopedSelects.delete(key);
-			this._selectCache.delete(key);
-			if (sig) {
-				this._disposables.delete(sig);
-				sig.destroy();
-			}
-		}
-	}
-	scheduleRender() {
-		this._dirty = true;
-		if (this._renderScheduled) return;
-		this._renderScheduled = true;
-		queueMicrotask(() => {
-			this._renderScheduled = false;
-			if (this.isConnected && this._dirty) this.render();
-		});
-	}
-	observe() {
-		const properties = [];
-		const seen = /* @__PURE__ */ new Set();
-		let proto = this._component;
-		while (proto && proto !== Object.prototype) {
-			for (const prop of Object.getOwnPropertyNames(proto)) if (!seen.has(prop)) {
-				seen.add(prop);
-				properties.push(prop);
-			}
-			proto = Object.getPrototypeOf(proto);
-		}
-		const getterOnly = [];
-		const sourceProps = [];
-		const filtered = properties.filter((prop) => {
-			if (prop.startsWith("_") || prop === "elementRef" || prop === "constructor") return false;
-			const descriptor = this.getPropertyDescriptor(this._component, prop);
-			const isServiceAccessor = `__service_${prop}` in this._component;
-			if (descriptor && descriptor.get && (!descriptor.set || isServiceAccessor)) {
-				getterOnly.push(prop);
-				return false;
-			}
-			const value = this._component[prop];
-			if (isSignal(value) || value instanceof AbstractControl) {
-				sourceProps.push(prop);
-				return false;
-			}
-			if (typeof value === "function") return false;
-			return true;
-		});
-		for (const prop of sourceProps) this.observeReactiveSource(prop);
-		for (const prop of filtered) {
-			const descriptor = this.getPropertyDescriptor(this._component, prop);
-			const wrapperValue = Object.getOwnPropertyDescriptor(this, prop)?.value;
-			let value = wrapperValue === void 0 ? this._component[prop] : wrapperValue;
-			if (typeof value === "boolean") this._booleanProperties.add(prop);
-			else if (typeof value === "number") this._numberProperties.add(prop);
-			let componentGetter = () => value;
-			let componentSetter = (newVal) => {
-				if (!Object.is(value, newVal)) {
-					this._component.onPropertyChange?.(prop, value, newVal);
-					value = newVal;
-					this.scheduleRender();
-				}
-			};
-			if (descriptor?.get) {
-				const originalGetter = descriptor.get;
-				componentGetter = () => originalGetter.call(this._component);
-			}
-			if (descriptor?.set) {
-				const originalSetter = descriptor.set;
-				const baseSetter = componentSetter;
-				componentSetter = (newVal) => {
-					originalSetter.call(this._component, newVal);
-					baseSetter(newVal);
-				};
-			}
-			Object.defineProperty(this._component, prop, {
-				get: componentGetter,
-				set: componentSetter,
-				enumerable: true,
-				configurable: true
-			});
-			if (prop in HTMLElement.prototype) devWarn(`native-prop:${this._meta.selector}:${prop}`, `<${this._meta.selector}> declares a property "${prop}", which is also a native HTMLElement property. The native behaviour is kept on the element; the component's field is still reactive internally, but \`element.${prop}\` reads the platform value. Rename the field to avoid the collision.`);
-			else Object.defineProperty(this, prop, {
-				get: componentGetter,
-				set: componentSetter,
-				enumerable: true,
-				configurable: true
-			});
-		}
-		for (const prop of getterOnly) {
-			if (Object.prototype.hasOwnProperty.call(this, prop)) continue;
-			Object.defineProperty(this, prop, {
-				get: () => this._component[prop],
-				set: () => {},
-				enumerable: true,
-				configurable: true
-			});
-		}
-	}
-	getPropertyDescriptor(target, prop) {
-		let current = target;
-		while (current && current !== Object.prototype) {
-			const descriptor = Object.getOwnPropertyDescriptor(current, prop);
-			if (descriptor) return descriptor;
-			current = Object.getPrototypeOf(current);
-		}
-	}
-	getAttributeValues() {
-		const attributes = {};
-		this.getAttributeNames().forEach((attrName) => {
-			attributes[attrName] = this.getAttribute(attrName) ?? "";
-		});
-		return attributes;
-	}
-	subscribeReactiveSources() {
-		if (this._destroyed) return;
-		for (const entry of this._reactiveSourceEntries) {
-			for (const unsubscribe of entry.unsubscribers) unsubscribe();
-			entry.unsubscribers = entry.signals.map((signal$1) => signal$1.subscribe(() => this.scheduleRender()));
-		}
-	}
-	collectSourceSignals(value) {
-		if (isSignal(value)) return [value];
-		if (value instanceof AbstractControl) return [value.value, value.state];
-		return [];
-	}
-	observeReactiveSource(prop) {
-		const component = this._component;
-		const entry = {
-			signals: this.collectSourceSignals(component[prop]),
-			unsubscribers: []
-		};
-		this._reactiveSourceEntries.push(entry);
-		const descriptor = this.getPropertyDescriptor(this._component, prop);
-		if (descriptor && (descriptor.get || descriptor.set)) return;
-		let current = component[prop];
-		Object.defineProperty(this._component, prop, {
-			get: () => current,
-			set: (newVal) => {
-				if (Object.is(current, newVal)) return;
-				this._component.onPropertyChange?.(prop, current, newVal);
-				current = newVal;
-				for (const unsubscribe of entry.unsubscribers) unsubscribe();
-				entry.unsubscribers = [];
-				entry.signals = this.collectSourceSignals(newVal);
-				if (this.isConnected && !this._destroyed) entry.unsubscribers = entry.signals.map((signal$1) => signal$1.subscribe(() => this.scheduleRender()));
-				this.scheduleRender();
-			},
-			enumerable: true,
-			configurable: true
-		});
-	}
-};
-var RESERVED_SELECTORS = new Set([
-	"annotation-xml",
-	"color-profile",
-	"font-face",
-	"font-face-src",
-	"font-face-uri",
-	"font-face-format",
-	"font-face-name",
-	"missing-glyph"
-]);
-function assertValidSelector(selector) {
-	if (typeof selector !== "string" || selector.length === 0) throw new Error("@MelodicComponent: \"selector\" is required and must be a non-empty string (e.g. \"app-card\").");
-	if (!selector.includes("-")) throw new Error(`@MelodicComponent: invalid selector "${selector}". Custom element names must contain a hyphen — use a prefixed name such as "app-${selector}".`);
-	if (!/^[a-z]/.test(selector) || /[A-Z]/.test(selector) || /\s/.test(selector)) throw new Error(`@MelodicComponent: invalid selector "${selector}". Custom element names must start with a lowercase letter and must not contain uppercase letters or whitespace.`);
-	if (RESERVED_SELECTORS.has(selector)) throw new Error(`@MelodicComponent: "${selector}" is a reserved name and cannot be used as a custom element selector.`);
-}
-function warnAboutAttributes(meta, component) {
-	if (!isDevMode()) return;
-	for (const name of attributeNames(meta.attributes)) if (/[A-Z]/.test(name)) devWarn(`attr-case:${meta.selector}:${name}`, `<${meta.selector}> observes attribute "${name}", which can never fire — HTML lowercases attribute names. Use "${name.replace(/[A-Z]/g, (ch) => `-${ch.toLowerCase()}`)}" (it maps to the "${name}" property).`);
-	const prototype = component.prototype;
-	if (!prototype) return;
-	for (const name of attributeNames(meta.attributes)) {
-		const prop = name.replace(/-([a-z])/g, (_, ch) => ch.toUpperCase());
-		if (typeof prototype[prop] === "function") devWarn(`attr-method:${meta.selector}:${name}`, `<${meta.selector}> observes attribute "${name}", but "${prop}" is a method. Setting the attribute would replace the method with the attribute string.`);
-	}
-}
-function MelodicComponent(meta) {
-	return function(component) {
-		assertValidSelector(meta.selector);
-		warnAboutAttributes(meta, component);
-		const existing = getComponentDefinition(meta.selector);
-		if (existing && existing.componentClass !== component) devWarn(`duplicate-selector:${meta.selector}`, `Two classes were registered as <${meta.selector}> ('${existing.componentClass?.name ?? "unknown"}' and '${component.name}'). The first registration wins and the second is ignored — custom element names are global.`);
-		if (customElements.get(meta.selector) === void 0) {
-			const webComponent = class extends ComponentBase {
-				constructor() {
-					const dependencies = resolveInjectedParams(component, (token) => Injector.get(token));
-					const disposables = /* @__PURE__ */ new Set();
-					const selectCache = /* @__PURE__ */ new Map();
-					const placeholder = {
-						getSelectCache: () => selectCache,
-						registerDisposable: (d) => {
-							disposables.add(d);
-						}
-					};
-					const prevActive = getActiveComponent();
-					setActiveComponent(placeholder);
-					let userInstance;
-					try {
-						userInstance = untracked(() => Reflect.construct(component, dependencies));
-					} finally {
-						setActiveComponent(prevActive);
-					}
-					super(meta, userInstance, {
-						disposables,
-						selectCache
-					});
-				}
-				static #_ = this.observedAttributes = attributeNames(meta.attributes);
-			};
-			const componentWithSelector = component;
-			componentWithSelector.selector = meta.selector;
-			customElements.define(meta.selector, webComponent);
-		}
-		registerComponentDefinition({
-			selector: meta.selector,
-			componentClass: component,
-			meta
-		});
-		emitDevtools("component:define", () => ({
-			selector: meta.selector,
-			className: component.name
-		}));
-	};
-}
-function emit(host, name, detail, options = {}) {
-	return host.dispatchEvent(new CustomEvent(name, {
-		detail,
-		bubbles: options.bubbles ?? true,
-		composed: options.composed ?? true,
-		cancelable: options.cancelable ?? false
-	}));
-}
-function readEnv() {
-	try {
-		return typeof import.meta !== "undefined" ? {
-			"BASE_URL": "/",
-			"DEV": false,
-			"MODE": "development",
-			"PROD": true,
-			"SSR": false
-		} : void 0;
-	} catch {
-		return;
-	}
-}
-function isEnvironment(value) {
-	return value === "dev" || value === "qa" || value === "prod";
-}
-function resolveEnvironment(env) {
-	if (env && isEnvironment(env.VITE_ENV)) return env.VITE_ENV;
-	const mode = env?.MODE;
-	if (typeof mode === "string") {
-		if (mode === "development") return "dev";
-		if (mode === "production") return "prod";
-		if (isEnvironment(mode)) return mode;
-	}
-	if (env?.PROD) return "prod";
-	return "dev";
-}
-function getEnvironment() {
-	return resolveEnvironment(readEnv());
-}
-const environment = getEnvironment();
-var UNSAFE_MERGE_KEYS = new Set([
-	"__proto__",
-	"constructor",
-	"prototype"
-]);
-function deepMerge(target, source) {
-	const result = { ...target };
-	for (const key of Object.keys(source)) {
-		if (UNSAFE_MERGE_KEYS.has(key)) continue;
-		const targetVal = result[key];
-		const sourceVal = source[key];
-		if (sourceVal !== null && typeof sourceVal === "object" && !Array.isArray(sourceVal) && targetVal !== null && typeof targetVal === "object" && !Array.isArray(targetVal)) result[key] = deepMerge(targetVal, sourceVal);
-		else result[key] = sourceVal;
-	}
-	return result;
-}
-function defineConfig(definition) {
-	const envOverrides = definition[environment];
-	const resolved = envOverrides ? deepMerge(definition.base, envOverrides) : { ...definition.base };
-	if (definition.extends) return deepMerge(definition.extends, resolved);
-	return resolved;
-}
-const APP_CONFIG = createToken("APP_CONFIG");
-function provideConfig(config) {
-	return (injector) => {
-		injector.bindValue(APP_CONFIG, config);
-	};
-}
-var FormControl = class extends AbstractControl {
-	constructor(initialValue, options = {}) {
-		super(initialValue, options);
-		this.initialValue = initialValue;
-		this.initializeAggregates();
-		this.runValidation();
-	}
-	setValue(value, options) {
-		if (this._ownDisabled()) return;
-		this.value.set(value);
-		if (options?.markAsPristine) this._dirty.set(false);
-		this.runValidation();
-	}
-	patchValue(value, options) {
-		const current = this.value();
-		if (typeof current === "object" && current !== null && !Array.isArray(current)) this.setValue({
-			...current,
-			...value
-		}, options);
-		else this.setValue(value, options);
-	}
-	reset(value) {
-		this.value.set(value ?? this.initialValue);
-		this._dirty.set(false);
-		this._touched.set(false);
-		this.runValidation();
-	}
-	destroy() {
-		if (this._destroyed) return;
-		this._destroyed = true;
-		this.destroySignals();
-	}
-};
-var FormGroup = class FormGroup extends AbstractControl {
-	constructor(initialControls, options = {}) {
-		super(FormGroup.computeValue(initialControls), options);
-		this.controls = signal({ ...initialControls });
-		for (const key of Object.keys(initialControls)) initialControls[key].parent = this;
-		this.initializeAggregates();
-		this._childValueEffect = new SignalEffect(() => {
-			const controls = this.controls();
-			for (const key of Object.keys(controls)) controls[key].value();
-			this.value.set(FormGroup.computeValue(controls));
-			if (this.shouldValidateOnChange()) this.runValidation();
-		});
-		this._childValueEffect.run();
-	}
-	get(name) {
-		return this.controls()[name];
-	}
-	contains(name) {
-		return name in this.controls();
-	}
-	addControl(name, control) {
-		control.parent = this;
-		this.controls.update((current) => ({
-			...current,
-			[name]: control
-		}));
-	}
-	removeControl(name) {
-		const control = this.controls()[name];
-		if (!control) return;
-		control.parent = null;
-		this.controls.update((current) => {
-			const next = { ...current };
-			delete next[name];
-			return next;
-		});
-		control.destroy();
-	}
-	setValue(value, options) {
-		batch(() => {
-			if (this._ownDisabled()) return;
-			const controls = this.controls();
-			const controlKeys = Object.keys(controls);
-			const valueKeys = Object.keys(value);
-			for (const key of valueKeys) if (!(key in controls)) throw new Error(`FormGroup.setValue: unknown control name '${key}'. Use patchValue() for partial updates.`);
-			for (const key of controlKeys) if (!(key in value)) throw new Error(`FormGroup.setValue: missing value for control name '${key}'. Use patchValue() for partial updates.`);
-			for (const key of controlKeys) controls[key].setValue(value[key], options);
-			if (options?.markAsPristine) this._dirty.set(false);
-		});
-	}
-	getRawValue() {
-		return FormGroup.computeValue(this.controls(), true);
-	}
-	patchValue(value, options) {
-		batch(() => {
-			if (this._ownDisabled()) return;
-			const controls = this.controls();
-			for (const key of Object.keys(value)) if (value[key] !== void 0) controls[key]?.setValue(value[key], options);
-			if (options?.markAsPristine) this._dirty.set(false);
-		});
-	}
-	reset(value) {
-		batch(() => {
-			const controls = this.controls();
-			for (const key of Object.keys(controls)) {
-				const resetValue = value?.[key];
-				controls[key].reset(resetValue);
-			}
-		});
-	}
-	markAllAsTouched() {
-		batch(() => {
-			this.markAsTouched();
-			const controls = this.controls();
-			for (const key of Object.keys(controls)) controls[key].markAllAsTouched();
-		});
-	}
-	markAllAsUntouched() {
-		batch(() => {
-			this._touched.set(false);
-			const controls = this.controls();
-			for (const key of Object.keys(controls)) controls[key].markAllAsUntouched();
-		});
-	}
-	markAllAsDirty() {
-		batch(() => {
-			this._dirty.set(true);
-			const controls = this.controls();
-			for (const key of Object.keys(controls)) controls[key].markAllAsDirty();
-		});
-	}
-	markAllAsPristine() {
-		batch(() => {
-			this._dirty.set(false);
-			const controls = this.controls();
-			for (const key of Object.keys(controls)) controls[key].markAllAsPristine();
-		});
-	}
-	disable() {
-		batch(() => {
-			this._ownDisabled.set(true);
-			const controls = this.controls();
-			for (const key of Object.keys(controls)) controls[key].disable();
-		});
-	}
-	enable() {
-		batch(() => {
-			this._ownDisabled.set(false);
-			const controls = this.controls();
-			for (const key of Object.keys(controls)) controls[key].enable();
-		});
-	}
-	async validate() {
-		const controls = this.controls();
-		await Promise.all(Object.keys(controls).map((key) => controls[key].validate()));
-		await this.runValidation();
-	}
-	destroy() {
-		if (this._destroyed) return;
-		this._destroyed = true;
-		this._childValueEffect.destroy();
-		const controls = this.controls();
-		for (const key of Object.keys(controls)) controls[key].destroy();
-		this.destroySignals();
-		this.controls.destroy();
-	}
-	computeDirty() {
-		if (this._dirty()) return true;
-		const controls = this.controls();
-		return Object.keys(controls).some((key) => controls[key].dirty());
-	}
-	computeTouched() {
-		if (this._touched()) return true;
-		const controls = this.controls();
-		return Object.keys(controls).some((key) => controls[key].touched());
-	}
-	computePending() {
-		if (this._pending()) return true;
-		const controls = this.controls();
-		return Object.keys(controls).some((key) => {
-			const control = controls[key];
-			return !control.disabled() && control.pending();
-		});
-	}
-	hasInvalidChild() {
-		const controls = this.controls();
-		return Object.keys(controls).some((key) => {
-			const control = controls[key];
-			return !control.disabled() && control.invalid();
-		});
-	}
-	static computeValue(controls, includeDisabled = false) {
-		const result = {};
-		for (const key of Object.keys(controls)) {
-			const control = controls[key];
-			if (!includeDisabled && control.disabled()) continue;
-			result[key] = includeDisabled ? control.getRawValue() : control.value();
-		}
-		return result;
-	}
-};
-var FormArray = class extends AbstractControl {
-	constructor(initialControls, options = {}) {
-		super(initialControls.map((c) => c.value()), options);
-		this.controls = signal([...initialControls]);
-		for (const control of initialControls) control.parent = this;
-		this.initializeAggregates();
-		this._childValueEffect = new SignalEffect(() => {
-			const controls = this.controls();
-			for (const control of controls) control.value();
-			this.value.set(controls.filter((c) => !c.disabled()).map((c) => c.value()));
-			if (this.shouldValidateOnChange()) this.runValidation();
-		});
-		this._childValueEffect.run();
-	}
-	get length() {
-		return this.controls().length;
-	}
-	at(index) {
-		return this.controls()[index];
-	}
-	push(control) {
-		control.parent = this;
-		this.controls.update((current) => [...current, control]);
-	}
-	insert(index, control) {
-		control.parent = this;
-		this.controls.update((current) => {
-			const next = [...current];
-			next.splice(index, 0, control);
-			return next;
-		});
-	}
-	removeAt(index) {
-		const control = this.controls()[index];
-		if (!control) return;
-		control.parent = null;
-		this.controls.update((current) => current.filter((_, i) => i !== index));
-		control.destroy();
-	}
-	clear() {
-		const controls = this.controls();
-		for (const control of controls) control.parent = null;
-		this.controls.set([]);
-		for (const control of controls) control.destroy();
-	}
-	setValue(value, options) {
-		batch(() => {
-			if (this._ownDisabled()) return;
-			const controls = this.controls();
-			if (value.length !== controls.length) throw new Error(`FormArray.setValue: expected ${controls.length} value(s) but received ${value.length}. Use patchValue() for partial updates.`);
-			value.forEach((v, i) => {
-				controls[i].setValue(v, options);
-			});
-			if (options?.markAsPristine) this._dirty.set(false);
-		});
-	}
-	getRawValue() {
-		return this.controls().map((c) => c.getRawValue());
-	}
-	patchValue(value, options) {
-		batch(() => {
-			if (this._ownDisabled()) return;
-			const controls = this.controls();
-			value.forEach((v, i) => {
-				if (v !== void 0) controls[i]?.setValue(v, options);
-			});
-			if (options?.markAsPristine) this._dirty.set(false);
-		});
-	}
-	reset(value) {
-		batch(() => {
-			this.controls().forEach((control, i) => {
-				control.reset(value?.[i]);
-			});
-		});
-	}
-	markAllAsTouched() {
-		batch(() => {
-			this.markAsTouched();
-			for (const control of this.controls()) control.markAllAsTouched();
-		});
-	}
-	markAllAsUntouched() {
-		batch(() => {
-			this._touched.set(false);
-			for (const control of this.controls()) control.markAllAsUntouched();
-		});
-	}
-	markAllAsDirty() {
-		batch(() => {
-			this._dirty.set(true);
-			for (const control of this.controls()) control.markAllAsDirty();
-		});
-	}
-	markAllAsPristine() {
-		batch(() => {
-			this._dirty.set(false);
-			for (const control of this.controls()) control.markAllAsPristine();
-		});
-	}
-	disable() {
-		batch(() => {
-			this._ownDisabled.set(true);
-			for (const control of this.controls()) control.disable();
-		});
-	}
-	enable() {
-		batch(() => {
-			this._ownDisabled.set(false);
-			for (const control of this.controls()) control.enable();
-		});
-	}
-	async validate() {
-		await Promise.all(this.controls().map((c) => c.validate()));
-		await this.runValidation();
-	}
-	destroy() {
-		if (this._destroyed) return;
-		this._destroyed = true;
-		this._childValueEffect.destroy();
-		for (const control of this.controls()) control.destroy();
-		this.destroySignals();
-		this.controls.destroy();
-	}
-	computeDirty() {
-		if (this._dirty()) return true;
-		return this.controls().some((c) => c.dirty());
-	}
-	computeTouched() {
-		if (this._touched()) return true;
-		return this.controls().some((c) => c.touched());
-	}
-	computePending() {
-		if (this._pending()) return true;
-		return this.controls().some((c) => !c.disabled() && c.pending());
-	}
-	hasInvalidChild() {
-		return this.controls().some((c) => !c.disabled() && c.invalid());
-	}
-};
-function createFormControl(initialValue, options) {
-	return new FormControl(initialValue, options);
-}
-function createFormGroup(controls, options) {
-	return new FormGroup(controls, options);
-}
-function createFormArray(controls, options) {
-	return new FormArray(controls, options);
-}
-registerDefaultMessages({
-	required: "This field is required",
-	minLength: (params) => `Minimum length is ${params.min} characters`,
-	maxLength: (params) => `Maximum length is ${params.max} characters`,
-	pattern: "Value does not match required pattern",
-	email: "Please enter a valid email address",
-	min: (params) => `Value must be at least ${params.min}`,
-	max: (params) => `Value must be at most ${params.max}`,
-	range: (params) => `Value must be between ${params.min} and ${params.max}`
-});
-var EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
-function isEmpty(value) {
-	return value === null || value === void 0 || value === "" || Array.isArray(value) && value.length === 0;
-}
-const Validators = {
-	required(value) {
-		return isEmpty(value) ? { required: { code: "required" } } : null;
-	},
-	minLength(min) {
-		return (value) => {
-			if (!value || value.length === 0) return null;
-			return value.length < min ? { minLength: {
-				code: "minLength",
-				params: {
-					min,
-					actual: value.length
-				}
-			} } : null;
-		};
-	},
-	maxLength(max) {
-		return (value) => {
-			if (!value) return null;
-			return value.length > max ? { maxLength: {
-				code: "maxLength",
-				params: {
-					max,
-					actual: value.length
-				}
-			} } : null;
-		};
-	},
-	pattern(regex) {
-		return (value) => {
-			if (!value) return null;
-			return !regex.test(value) ? { pattern: {
-				code: "pattern",
-				params: { pattern: regex.toString() }
-			} } : null;
-		};
-	},
-	email(value) {
-		if (!value) return null;
-		return !EMAIL_REGEX.test(value) ? { email: { code: "email" } } : null;
-	},
-	min(minValue) {
-		return (value) => {
-			if (value === null || value === void 0) return null;
-			return value < minValue ? { min: {
-				code: "min",
-				params: {
-					min: minValue,
-					actual: value
-				}
-			} } : null;
-		};
-	},
-	max(maxValue) {
-		return (value) => {
-			if (value === null || value === void 0) return null;
-			return value > maxValue ? { max: {
-				code: "max",
-				params: {
-					max: maxValue,
-					actual: value
-				}
-			} } : null;
-		};
-	},
-	range(minValue, maxValue) {
-		return (value) => {
-			if (value === null || value === void 0) return null;
-			if (value < minValue || value > maxValue) return { range: {
-				code: "range",
-				params: {
-					min: minValue,
-					max: maxValue,
-					actual: value
-				}
-			} };
-			return null;
-		};
-	},
-	compose(...validators) {
-		return (value) => {
-			let errors = null;
-			for (const validator of validators) {
-				const result = validator(value);
-				if (result !== null) errors = {
-					...errors ?? {},
-					...result
-				};
-			}
-			return errors;
-		};
-	},
-	composeAsync(...validators) {
-		return async (value) => {
-			const results = await Promise.all(validators.map((v) => v(value)));
-			let errors = null;
-			for (const result of results) if (result !== null) errors = {
-				...errors ?? {},
-				...result
-			};
-			return errors;
-		};
-	}
-};
-function createValidator(code, validationFn, defaultMessage, options = {}) {
-	if (defaultMessage !== void 0 && options.global) setDefaultMessage(code, defaultMessage);
-	const validator = ((value) => {
-		if (validationFn(value)) return null;
-		return { [code]: { code } };
-	});
-	if (defaultMessage !== void 0) Object.defineProperty(validator, "messages", {
-		value: { [code]: defaultMessage },
-		enumerable: false
-	});
-	return validator;
-}
-function createAsyncValidator(code, validationFn, defaultMessage, options = {}) {
-	if (defaultMessage !== void 0 && options.global) setDefaultMessage(code, defaultMessage);
-	const validator = (async (value) => {
-		if (await validationFn(value)) return null;
-		return { [code]: { code } };
-	});
-	if (defaultMessage !== void 0) Object.defineProperty(validator, "messages", {
-		value: { [code]: defaultMessage },
-		enumerable: false
-	});
-	return validator;
-}
-var registry = [];
-function registerAdapter(predicate, adapter) {
-	registry.unshift({
-		predicate,
-		adapter
-	});
-}
-function getAdapter(element) {
-	for (const entry of registry) if (entry.predicate(element)) return entry.adapter;
-}
-const textAdapter = {
-	inputEvent: "input",
-	blurEvent: "focusout",
-	getValue(element) {
-		return element.value ?? "";
-	},
-	setValue(element, value) {
-		element.value = value !== null && value !== void 0 ? String(value) : "";
-	},
-	setDisabled(element, disabled) {
-		if (disabled) element.setAttribute("disabled", "");
-		else element.removeAttribute("disabled");
-	}
-};
-const checkboxAdapter = {
-	inputEvent: "change",
-	blurEvent: "focusout",
-	getValue(element) {
-		return element.checked;
-	},
-	setValue(element, value) {
-		element.checked = Boolean(value);
-	},
-	setDisabled(element, disabled) {
-		if (disabled) element.setAttribute("disabled", "");
-		else element.removeAttribute("disabled");
-	}
-};
-const radioAdapter = {
-	inputEvent: "change",
-	blurEvent: "focusout",
-	getValue(element) {
-		const input = element;
-		return input.checked ? input.value : "";
-	},
-	setValue(element, value) {
-		const input = element;
-		input.checked = input.value === value;
-	},
-	setDisabled(element, disabled) {
-		if (disabled) element.setAttribute("disabled", "");
-		else element.removeAttribute("disabled");
-	}
-};
-function registerNativeAdapters() {
-	registerAdapter((el) => el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.tagName === "SELECT", textAdapter);
-	registerAdapter((el) => el.tagName === "INPUT" && el.type === "radio", radioAdapter);
-	registerAdapter((el) => el.tagName === "INPUT" && el.type === "checkbox", checkboxAdapter);
-}
-registerNativeAdapters();
 var directiveRegistry = /* @__PURE__ */ new Map();
 var findAttributeDirective = (name) => {
 	if (directiveRegistry.has(name)) return directiveRegistry.get(name);
@@ -2838,1424 +1187,6 @@ function unregisterAttributeDirective(name) {
 }
 function getRegisteredDirectives() {
 	return Array.from(directiveRegistry.keys());
-}
-function formControlDirective(element, value, _) {
-	if (!(value instanceof AbstractControl)) {
-		console.warn("formControl directive: value must be an AbstractControl");
-		return;
-	}
-	const control = value;
-	const adapter = getAdapter(element);
-	if (!adapter) {
-		console.warn(`formControl directive: no adapter registered for <${element.tagName.toLowerCase()}>`);
-		return;
-	}
-	const cleanupFns = [];
-	const syncElementValue = (val) => {
-		if (control.destroyed) return;
-		adapter.setValue(element, val);
-	};
-	const syncDisabled = (disabled) => {
-		if (control.destroyed) return;
-		adapter.setDisabled?.(element, disabled);
-	};
-	const syncClasses = () => {
-		if (control.destroyed) return;
-		element.classList.toggle("mf-valid", control.valid());
-		element.classList.toggle("mf-invalid", control.invalid());
-		element.classList.toggle("mf-dirty", control.dirty());
-		element.classList.toggle("mf-pristine", control.pristine());
-		element.classList.toggle("mf-touched", control.touched());
-		element.classList.toggle("mf-pending", control.pending());
-		element.classList.toggle("mf-disabled", control.disabled());
-	};
-	const syncError = () => {
-		if (control.destroyed) return;
-		if (!control.touched() || !control.errors()) {
-			element.removeAttribute("error");
-			return;
-		}
-		const message = control.getFirstErrorMessage();
-		if (message) element.setAttribute("error", message);
-		else element.removeAttribute("error");
-	};
-	const writeToModel = () => {
-		if (control.destroyed) return;
-		control.setValue(adapter.getValue(element));
-		control.markAsDirty();
-	};
-	const handleInput = (event) => {
-		const target = event.target;
-		if (target !== element && !element.contains(target)) return;
-		if (control.updateOn === "change") writeToModel();
-	};
-	const handleBlur = () => {
-		if (control.updateOn === "blur") writeToModel();
-		control.markAsTouched();
-	};
-	const handleSubmit = () => {
-		if (control.updateOn === "submit") {
-			writeToModel();
-			control.markAsTouched();
-			control.validate();
-		}
-	};
-	syncElementValue(control.value());
-	syncDisabled(control.disabled());
-	syncClasses();
-	syncError();
-	cleanupFns.push(control.value.subscribe((v) => syncElementValue(v)));
-	cleanupFns.push(control.disabled.subscribe((d) => syncDisabled(d)));
-	cleanupFns.push(control.state.subscribe(() => syncClasses()));
-	cleanupFns.push(control.state.subscribe(() => syncError()));
-	element.addEventListener(adapter.inputEvent, handleInput);
-	element.addEventListener(adapter.blurEvent, handleBlur);
-	const form = control.updateOn === "submit" ? element.closest("form") : null;
-	form?.addEventListener("submit", handleSubmit);
-	element.setAttribute("data-form-control", "");
-	return () => {
-		element.removeEventListener(adapter.inputEvent, handleInput);
-		element.removeEventListener(adapter.blurEvent, handleBlur);
-		form?.removeEventListener("submit", handleSubmit);
-		element.removeAttribute("data-form-control");
-		for (const fn of cleanupFns) fn();
-	};
-}
-registerAttributeDirective("formControl", formControlDirective);
-function modelDirective(element, value, name) {
-	if (!isSignal(value)) {
-		devWarn("model-not-signal", ":model expects a signal — for example `:model=${this.name}` where `name = signal(\"\")`. Received:", value);
-		return;
-	}
-	const model = value;
-	const adapter = getAdapter(element);
-	if (!adapter) {
-		devWarn(`model-no-adapter:${element.tagName}`, `:model has no adapter registered for <${element.tagName.toLowerCase()}>, so it cannot read or write its value.`);
-		return;
-	}
-	let writingBack = false;
-	const pushToElement = (next) => {
-		if (writingBack) return;
-		adapter.setValue(element, next);
-	};
-	const handleInput = (event) => {
-		const target = event.target;
-		if (target !== element && !element.contains(target)) return;
-		writingBack = true;
-		try {
-			model.set(adapter.getValue(element));
-		} finally {
-			writingBack = false;
-		}
-	};
-	pushToElement(model());
-	const unsubscribe = model.subscribe(pushToElement);
-	element.addEventListener(adapter.inputEvent, handleInput);
-	return () => {
-		unsubscribe();
-		element.removeEventListener(adapter.inputEvent, handleInput);
-	};
-}
-registerAttributeDirective("model", modelDirective);
-function provideHttp(httpClientConfig, interceptors) {
-	return (injector) => {
-		const httpClient = new HttpClient(httpClientConfig);
-		injector.bindValue(HttpClient, httpClient);
-		if (interceptors?.request) interceptors.request.forEach((interceptor) => {
-			httpClient.interceptors.request(interceptor);
-		});
-		if (interceptors?.response) interceptors.response.forEach((interceptor) => {
-			httpClient.interceptors.response(interceptor);
-		});
-	};
-}
-function createGuard(fn) {
-	return { canActivate: fn };
-}
-function createDeactivateGuard(fn) {
-	return { canDeactivate: fn };
-}
-function createResolver(fn) {
-	return { resolve: fn };
-}
-var RouteMatcher = class {
-	constructor(route, rules) {
-		this._reEscape = /[-[\]{}()+?.,\\^$|#\s*]/g;
-		this._reToken = /(\*\*)|:(\w+)|\*(\w+)|(\*)/g;
-		this._reParam = /([:*])(\w+)/g;
-		this._names = [];
-		this._isWildcard = false;
-		this._route = route;
-		this._rules = rules;
-		this._isWildcard = route.includes("*");
-		const escapedRoute = this.buildPattern(route);
-		this._routeRegex = /* @__PURE__ */ new RegExp("^" + escapedRoute + "$");
-		this._prefixRegex = /* @__PURE__ */ new RegExp("^" + escapedRoute + "(?:/|$)");
-	}
-	buildPattern(route) {
-		this._reToken.lastIndex = 0;
-		let pattern = "";
-		let lastIndex = 0;
-		let anonCount = 0;
-		let match;
-		while ((match = this._reToken.exec(route)) !== null) {
-			pattern += route.slice(lastIndex, match.index).replace(this._reEscape, "\\$&");
-			if (match[1] || match[4]) {
-				this._names.push(`_wildcard${anonCount++}`);
-				pattern += "(.*)";
-			} else if (match[2]) {
-				this._names.push(match[2]);
-				pattern += "([^/]+)";
-			} else if (match[3]) {
-				this._names.push(match[3]);
-				pattern += "(.*)";
-			}
-			lastIndex = this._reToken.lastIndex;
-		}
-		pattern += route.slice(lastIndex).replace(this._reEscape, "\\$&");
-		return pattern;
-	}
-	decode(value) {
-		try {
-			return decodeURIComponent(value);
-		} catch {
-			return value;
-		}
-	}
-	parse(url) {
-		let i = 0;
-		let param;
-		let value;
-		const params = {};
-		const matches = url.match(this._routeRegex);
-		if (!matches) return null;
-		while (i < this._names.length) {
-			param = this._names[i++];
-			value = this.decode(matches[i]);
-			if (this._rules && param in this._rules && !this.validateRule(this._rules[param], value)) return null;
-			params[param] = value;
-		}
-		return params;
-	}
-	parsePrefix(url) {
-		if (this._route === "") return {
-			params: {},
-			matchedPath: "",
-			remainingPath: url
-		};
-		const matches = url.match(this._prefixRegex);
-		if (!matches) return null;
-		const params = {};
-		for (let i = 0; i < this._names.length; i++) {
-			const name = this._names[i];
-			const value = this.decode(matches[i + 1]);
-			if (this._rules && name in this._rules && !this.validateRule(this._rules[name], value)) return null;
-			params[name] = value;
-		}
-		const matchedPath = this.calculateMatchedPath(url);
-		return {
-			params,
-			matchedPath,
-			remainingPath: url.slice(matchedPath.length).replace(/^\//, "")
-		};
-	}
-	stringify(params) {
-		let re;
-		let result = this._route;
-		for (const param in params) {
-			re = /* @__PURE__ */ new RegExp("[:*]" + param + "\\b");
-			result = result.replace(re, (token) => token.charAt(0) === "*" ? params[param].split("/").map(encodeURIComponent).join("/") : encodeURIComponent(params[param]));
-		}
-		return result.replace(this._reParam, "").replace(/\*+/g, "");
-	}
-	calculateMatchedPath(url) {
-		if (this._isWildcard) return url;
-		const routeSegments = this._route.split("/").filter(Boolean);
-		return url.split("/").filter(Boolean).slice(0, routeSegments.length).join("/");
-	}
-	validateRule(rule, value) {
-		const type = Object.prototype.toString.call(rule).charAt(8);
-		return type === "R" ? rule.test(value) : type === "F" ? rule(value) : rule === value;
-	}
-};
-const ROUTE_CONTEXT_EVENT = "melodic:route-context";
-var RouteContextEvent = class extends CustomEvent {
-	constructor(context) {
-		super(ROUTE_CONTEXT_EVENT, {
-			bubbles: false,
-			composed: true,
-			detail: context
-		});
-	}
-};
-function __decorate(decorators, target, key, desc) {
-	var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
-	if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
-	else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
-	return c > 3 && r && Object.defineProperty(target, key, r), r;
-}
-var RouteContextService = class RouteContextService$1 {
-	constructor() {
-		this._matchStack = [];
-		this._contexts = /* @__PURE__ */ new Map();
-		this._currentMatchResult = null;
-		this._resolvedData = /* @__PURE__ */ new Map();
-	}
-	setMatchResult(result) {
-		this._currentMatchResult = result;
-		this._matchStack = result.matches;
-		this._contexts.clear();
-		let basePath = "";
-		const ancestorMatches = [];
-		const accumulatedParams = {};
-		for (let i = 0; i < result.matches.length; i++) {
-			const match = result.matches[i];
-			ancestorMatches.push(match);
-			Object.assign(accumulatedParams, match.params);
-			const context = {
-				depth: i,
-				routes: match.children ?? [],
-				currentMatch: match,
-				ancestorMatches: [...ancestorMatches],
-				params: { ...accumulatedParams },
-				remainingPath: match.remainingPath,
-				basePath,
-				parent: i > 0 ? this._contexts.get(i - 1) : void 0
-			};
-			this._contexts.set(i, context);
-			basePath = match.fullPath;
-		}
-	}
-	setResolvedData(depth, data) {
-		this._resolvedData.set(depth, data);
-	}
-	clearResolvedData() {
-		this._resolvedData.clear();
-	}
-	getContextForDepth(depth) {
-		return this._contexts.get(depth);
-	}
-	getChildRoutesForDepth(depth) {
-		const parentContext = this._contexts.get(depth - 1);
-		if (depth === 0) return [];
-		return parentContext?.currentMatch?.children ?? [];
-	}
-	getRemainingPathForDepth(depth) {
-		if (depth === 0) return window.location.pathname;
-		return this._contexts.get(depth - 1)?.remainingPath ?? "";
-	}
-	getParamsForDepth(depth) {
-		return this._contexts.get(depth)?.params ?? {};
-	}
-	getCurrentParams() {
-		return this._currentMatchResult?.params ?? {};
-	}
-	getMatchStack() {
-		return [...this._matchStack];
-	}
-	getCurrentMatchResult() {
-		return this._currentMatchResult;
-	}
-	getMergedRouteData(depth) {
-		const maxDepth = depth ?? this._matchStack.length - 1;
-		const merged = {};
-		for (let i = 0; i <= maxDepth && i < this._matchStack.length; i++) {
-			const match = this._matchStack[i];
-			if (match.route.data) Object.assign(merged, match.route.data);
-		}
-		return merged;
-	}
-	getMergedResolvedData(depth) {
-		const maxDepth = depth ?? this._matchStack.length - 1;
-		const merged = {};
-		for (let i = 0; i <= maxDepth; i++) {
-			const data = this._resolvedData.get(i);
-			if (data) Object.assign(merged, data);
-		}
-		return merged;
-	}
-	getResolvedDataForDepth(depth) {
-		return this._resolvedData.get(depth);
-	}
-};
-RouteContextService = __decorate([Injectable()], RouteContextService);
-function resolveRedirectTarget(redirectTo, basePath) {
-	if (redirectTo.startsWith("/")) return redirectTo;
-	return basePath ? `/${basePath}/${redirectTo}` : `/${redirectTo}`;
-}
-var matcherCache = /* @__PURE__ */ new WeakMap();
-function getMatcher(route) {
-	let matcher = matcherCache.get(route);
-	if (!matcher) {
-		matcher = new RouteMatcher(route.path);
-		matcherCache.set(route, matcher);
-	}
-	return matcher;
-}
-function substituteRedirectParams(redirectTo, params) {
-	if (!redirectTo.includes(":") && !redirectTo.includes("*")) return redirectTo;
-	return redirectTo.replace(/[:*](\w+)/g, (token, name) => {
-		const value = params[name];
-		return value === void 0 ? token : encodeURIComponent(value);
-	});
-}
-var MAX_MATCH_DEPTH = 64;
-function matchRouteLevel(routes, remainingPath, basePath, accumulatedMatches, accumulatedParams, depth = 0) {
-	if (depth > MAX_MATCH_DEPTH) throw new Error(`Route tree nesting exceeds ${MAX_MATCH_DEPTH} levels — check for cyclic children definitions`);
-	let partialFallback = null;
-	for (const route of routes) {
-		const matcher = getMatcher(route);
-		const exactMatch = matcher.parse(remainingPath);
-		if (route.redirectTo && exactMatch !== null) {
-			const redirectParams = {
-				...accumulatedParams,
-				...exactMatch
-			};
-			return {
-				matches: accumulatedMatches,
-				params: accumulatedParams,
-				isExactMatch: false,
-				redirectTo: resolveRedirectTarget(substituteRedirectParams(route.redirectTo, redirectParams), basePath)
-			};
-		}
-		if (exactMatch !== null) {
-			const matchedPath = remainingPath;
-			const fullPath = basePath && matchedPath ? `${basePath}/${matchedPath}` : basePath || matchedPath;
-			const match = {
-				route,
-				params: exactMatch,
-				matchedPath,
-				remainingPath: "",
-				fullPath,
-				children: route.children
-			};
-			Object.assign(accumulatedParams, exactMatch);
-			accumulatedMatches.push(match);
-			if (route.children) {
-				const emptyRedirect = route.children.find((child) => child.path === "" && child.redirectTo);
-				if (emptyRedirect && emptyRedirect.redirectTo) return {
-					matches: accumulatedMatches,
-					params: accumulatedParams,
-					isExactMatch: false,
-					redirectTo: resolveRedirectTarget(substituteRedirectParams(emptyRedirect.redirectTo, accumulatedParams), fullPath)
-				};
-				if (route.children.find((child) => child.path === "" && !child.redirectTo)) return matchRouteLevel(route.children, "", fullPath, accumulatedMatches, accumulatedParams, depth + 1);
-			}
-			return {
-				matches: accumulatedMatches,
-				params: accumulatedParams,
-				isExactMatch: true
-			};
-		}
-		if (route.children || route.loadChildren) {
-			const prefixResult = matcher.parsePrefix(remainingPath);
-			if (prefixResult && prefixResult.params !== null) {
-				const fullPath = basePath ? `${basePath}/${prefixResult.matchedPath}` : prefixResult.matchedPath;
-				const match = {
-					route,
-					params: prefixResult.params,
-					matchedPath: prefixResult.matchedPath,
-					remainingPath: prefixResult.remainingPath,
-					fullPath,
-					children: route.children
-				};
-				if (route.children && prefixResult.remainingPath) {
-					const matchesLengthBefore = accumulatedMatches.length;
-					const paramsSnapshot = { ...accumulatedParams };
-					Object.assign(accumulatedParams, prefixResult.params);
-					accumulatedMatches.push(match);
-					const childResult = matchRouteLevel(route.children, prefixResult.remainingPath, fullPath, accumulatedMatches, accumulatedParams, depth + 1);
-					if (childResult.isExactMatch || childResult.redirectTo) return childResult;
-					if (!partialFallback) partialFallback = {
-						matches: [...childResult.matches],
-						params: { ...childResult.params },
-						isExactMatch: false
-					};
-					accumulatedMatches.length = matchesLengthBefore;
-					for (const key of Object.keys(accumulatedParams)) delete accumulatedParams[key];
-					Object.assign(accumulatedParams, paramsSnapshot);
-					continue;
-				}
-				Object.assign(accumulatedParams, prefixResult.params);
-				accumulatedMatches.push(match);
-				return {
-					matches: accumulatedMatches,
-					params: accumulatedParams,
-					isExactMatch: prefixResult.remainingPath === ""
-				};
-			}
-		}
-	}
-	return partialFallback ?? {
-		matches: accumulatedMatches,
-		params: accumulatedParams,
-		isExactMatch: false
-	};
-}
-function matchRouteTree(routes, path, basePath = "") {
-	const result = matchRouteLevel(routes, path.startsWith("/") ? path.slice(1) : path, basePath, [], {});
-	return {
-		matches: result.matches,
-		params: result.params,
-		isExactMatch: result.isExactMatch,
-		redirectTo: result.redirectTo
-	};
-}
-function buildPathFromRoute(routes, name, params = {}) {
-	const pathParts = [];
-	function findAndBuildPath(routeList, targetName) {
-		for (const route of routeList) {
-			if (route.name === targetName) {
-				const matcher = new RouteMatcher(route.path);
-				pathParts.push(matcher.stringify(params));
-				return true;
-			}
-			if (route.children) {
-				const segment = new RouteMatcher(route.path).stringify(params);
-				if (findAndBuildPath(route.children, targetName)) {
-					pathParts.unshift(segment);
-					return true;
-				}
-			}
-		}
-		return false;
-	}
-	if (findAndBuildPath(routes, name)) return "/" + pathParts.join("/").split("/").filter(Boolean).join("/");
-	return null;
-}
-const routerStateEvent = (type, data, title, url) => {
-	return new PopStateEvent("History", { state: {
-		type,
-		data,
-		url,
-		host: window.location.host,
-		hostName: window.location.hostname,
-		href: window.location.href,
-		pathName: window.location.pathname,
-		port: window.location.port,
-		protocol: window.location.protocol,
-		params: new URLSearchParams(window.location.search),
-		title
-	} });
-};
-var historyEventsInstalled = false;
-function installHistoryEvents() {
-	if (historyEventsInstalled) return;
-	historyEventsInstalled = true;
-	const pushState = history.pushState;
-	history.pushState = (data, title, url) => {
-		pushState.apply(history, [
-			data,
-			title,
-			url
-		]);
-		const navigationEvent = new CustomEvent("NavigationEvent", { detail: routerStateEvent("push", data, title, url) });
-		window.dispatchEvent(navigationEvent);
-	};
-	const replaceState = history.replaceState;
-	history.replaceState = (data, title, url) => {
-		replaceState.apply(history, [
-			data,
-			title,
-			url
-		]);
-		const navigationEvent = new CustomEvent("NavigationEvent", { detail: routerStateEvent("replace", data, title, url) });
-		window.dispatchEvent(navigationEvent);
-	};
-}
-function parseUrlParts(url) {
-	const hashIndex = url.indexOf("#");
-	const hash = hashIndex >= 0 ? url.slice(hashIndex) : "";
-	const withoutHash = hashIndex >= 0 ? url.slice(0, hashIndex) : url;
-	const queryIndex = withoutHash.indexOf("?");
-	const search = queryIndex >= 0 ? withoutHash.slice(queryIndex) : "";
-	return {
-		pathname: queryIndex >= 0 ? withoutHash.slice(0, queryIndex) : withoutHash,
-		search,
-		hash
-	};
-}
-function appendQueryParams(url, queryParams) {
-	const serialized = (queryParams instanceof URLSearchParams ? queryParams : new URLSearchParams(queryParams ?? {})).toString();
-	if (!serialized) return url;
-	const { pathname, search, hash } = parseUrlParts(url);
-	return `${pathname}${search ? `${search}&${serialized}` : `?${serialized}`}${hash}`;
-}
-function __decorateMetadata(k, v) {
-	if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
-}
-var childrenLoads = /* @__PURE__ */ new WeakMap();
-var componentLoads = /* @__PURE__ */ new WeakMap();
-var MAX_LAZY_LOADS = 64;
-var MAX_REDIRECTS = 10;
-var HISTORY_INDEX_KEY = "__melodicHistoryIndex";
-function loadRouteChildren(route) {
-	let pending = childrenLoads.get(route);
-	if (!pending) {
-		pending = Promise.resolve().then(() => route.loadChildren());
-		pending.catch(() => childrenLoads.delete(route));
-		childrenLoads.set(route, pending);
-	}
-	return pending;
-}
-function loadRouteComponent(route) {
-	let pending = componentLoads.get(route);
-	if (!pending) {
-		pending = Promise.resolve().then(() => route.loadComponent());
-		pending.catch(() => componentLoads.delete(route));
-		componentLoads.set(route, pending);
-	}
-	return pending;
-}
-var RouterService = class RouterService$1 {
-	constructor() {
-		this._routes = [];
-		this._currentMatches = [];
-		this._currentPath = `${window.location.pathname}${window.location.search}`;
-		this._navigationId = 0;
-		this._pendingTarget = null;
-		this._historyIndex = 0;
-		this._ignorePopStates = 0;
-		this._scrollPositions = /* @__PURE__ */ new Map();
-		this._scrollRestoration = true;
-		this._previousScrollRestoration = null;
-		installHistoryEvents();
-		this._contextService = Injector.has(RouteContextService) ? Injector.get(RouteContextService) : new RouteContextService();
-		this._committedRoute = signal(null);
-		this._params = signal({});
-		this._queryParams = signal(new URLSearchParams(window.location.search));
-		this._resolvedData = signal({});
-		this._events = signal(null);
-		this._historyIndex = this.readHistoryIndex(history.state) ?? 0;
-		this.enableScrollRestoration(true);
-		this._navigationListener = (event) => {
-			this._route = event.detail.state;
-		};
-		window.addEventListener("NavigationEvent", this._navigationListener);
-		this._popStateListener = (event) => {
-			this.handlePopState(event);
-		};
-		window.addEventListener("popstate", this._popStateListener);
-	}
-	get committedRoute() {
-		return this._committedRoute;
-	}
-	get params() {
-		return this._params;
-	}
-	get queryParams() {
-		return this._queryParams;
-	}
-	get resolvedData() {
-		return this._resolvedData;
-	}
-	get events() {
-		return this._events;
-	}
-	destroy() {
-		window.removeEventListener("NavigationEvent", this._navigationListener);
-		window.removeEventListener("popstate", this._popStateListener);
-		if (this._previousScrollRestoration !== null && "scrollRestoration" in history) {
-			history.scrollRestoration = this._previousScrollRestoration;
-			this._previousScrollRestoration = null;
-		}
-	}
-	enableScrollRestoration(enabled) {
-		this._scrollRestoration = enabled;
-		if (!("scrollRestoration" in history)) return;
-		if (enabled) {
-			if (this._previousScrollRestoration === null) this._previousScrollRestoration = history.scrollRestoration;
-			history.scrollRestoration = "manual";
-		} else if (this._previousScrollRestoration !== null) {
-			history.scrollRestoration = this._previousScrollRestoration;
-			this._previousScrollRestoration = null;
-		}
-	}
-	setRoutes(routes) {
-		this._routes = routes;
-	}
-	getRoutes() {
-		return this._routes;
-	}
-	getContextService() {
-		return this._contextService;
-	}
-	getRoute() {
-		return this._route;
-	}
-	getParams() {
-		return this._contextService.getCurrentParams();
-	}
-	getParam(name) {
-		return this._contextService.getCurrentParams()[name];
-	}
-	getQueryParams() {
-		return this.targetQueryParams();
-	}
-	getCurrentMatches() {
-		return [...this._currentMatches];
-	}
-	getRouteData(depth) {
-		return this._contextService.getMergedRouteData(depth);
-	}
-	getResolvedData(depth) {
-		return this._contextService.getMergedResolvedData(depth);
-	}
-	matchPath(path) {
-		return matchRouteTree(this._routes, this.normalizePath(path));
-	}
-	emit(type, id, url, trigger, extra = {}) {
-		this._events.set({
-			type,
-			id,
-			url,
-			trigger,
-			...extra
-		});
-		emitDevtools(`nav:${type}`, () => ({
-			id,
-			url,
-			trigger,
-			...extra
-		}));
-	}
-	async resolveMatch(path, isCurrent) {
-		for (let loads = 0; loads <= MAX_LAZY_LOADS; loads++) {
-			const result = this.matchPath(path);
-			if (result.redirectTo) return { result };
-			const last = result.matches[result.matches.length - 1];
-			if (last && last.route.loadChildren && !last.route.children) {
-				try {
-					const module = await loadRouteChildren(last.route);
-					last.route.children = module.routes;
-				} catch (error) {
-					console.error("Failed to load child routes:", error);
-					return {
-						result,
-						error: `Failed to load child routes: ${error instanceof Error ? error.message : String(error)}`
-					};
-				}
-				if (!isCurrent()) return {
-					result,
-					superseded: true
-				};
-				continue;
-			}
-			const pendingComponents = result.matches.filter((match) => match.route.loadComponent).map((match) => loadRouteComponent(match.route));
-			if (pendingComponents.length > 0) {
-				try {
-					await Promise.all(pendingComponents);
-				} catch (error) {
-					console.error("Failed to load component:", error);
-					return {
-						result,
-						error: `Failed to load component: ${error instanceof Error ? error.message : String(error)}`
-					};
-				}
-				if (!isCurrent()) return {
-					result,
-					superseded: true
-				};
-			}
-			return { result };
-		}
-		return {
-			result: this.matchPath(path),
-			error: `Route '${path}' exceeded ${MAX_LAZY_LOADS} lazy child loads`
-		};
-	}
-	parseUrl(url) {
-		return parseUrlParts(url);
-	}
-	normalizePath(url) {
-		const { pathname } = this.parseUrl(url);
-		return pathname.length > 1 ? pathname.replace(/\/+$/, "") : pathname;
-	}
-	targetPathname() {
-		return this._pendingTarget ? this._pendingTarget.pathname : window.location.pathname;
-	}
-	targetQueryParams() {
-		return new URLSearchParams(this._pendingTarget ? this._pendingTarget.queryParams : window.location.search);
-	}
-	setCurrentMatches(result) {
-		this._currentMatches = result.matches;
-		this._contextService.setMatchResult(result);
-	}
-	commit(result) {
-		this.setCurrentMatches(result);
-		this.publishRouteState(result);
-		this._committedRoute.set(result);
-	}
-	publishRouteState(result) {
-		this._params.set({ ...result.params });
-		this._queryParams.set(this.targetQueryParams());
-		this._resolvedData.set(this._contextService.getMergedResolvedData());
-	}
-	async initialNavigation() {
-		const navId = ++this._navigationId;
-		const currentUrl = `${window.location.pathname}${window.location.search}`;
-		this.emit("start", navId, currentUrl, "initial");
-		const resolved = await this.resolveMatch(window.location.pathname, () => this._navigationId === navId);
-		if (resolved.superseded || this._navigationId !== navId) {
-			this.emit("superseded", navId, currentUrl, "initial");
-			return {
-				success: false,
-				error: "Navigation superseded"
-			};
-		}
-		const matchResult = resolved.result;
-		if (matchResult.redirectTo) {
-			if (this.normalizePath(window.location.pathname) !== this.normalizePath(matchResult.redirectTo)) {
-				this.emit("redirect", navId, currentUrl, "initial", { redirectTo: matchResult.redirectTo });
-				return this.navigateInternal(matchResult.redirectTo, { replace: true }, {
-					chain: [currentUrl],
-					skipDeactivation: true
-				});
-			}
-			const message = `Route '${currentUrl}' redirects to itself`;
-			console.error(`[Melodic] ${message}`);
-			this.emit("error", navId, currentUrl, "initial", { error: message });
-			this.commit({
-				matches: [],
-				params: {},
-				isExactMatch: false
-			});
-			return {
-				success: false,
-				error: message
-			};
-		}
-		if (resolved.error) {
-			this.commit({
-				matches: [],
-				params: {},
-				isExactMatch: false
-			});
-			this.emit("error", navId, currentUrl, "initial", { error: resolved.error });
-			return {
-				success: false,
-				error: resolved.error
-			};
-		}
-		if (matchResult.matches.length > 0) {
-			const guardResult = await this.runGuards(matchResult);
-			if (this._navigationId !== navId) {
-				this.emit("superseded", navId, currentUrl, "initial");
-				return {
-					success: false,
-					error: "Navigation superseded"
-				};
-			}
-			if (guardResult !== true) {
-				if (typeof guardResult === "string") {
-					this.emit("redirect", navId, currentUrl, "initial", { redirectTo: guardResult });
-					return this.navigateInternal(guardResult, { replace: true }, {
-						chain: [currentUrl],
-						skipDeactivation: true
-					});
-				}
-				this.emit("blocked", navId, currentUrl, "initial", { error: "Navigation blocked by guard" });
-				return {
-					success: false,
-					error: "Navigation blocked by guard"
-				};
-			}
-			const resolverResult = await this.runResolvers(matchResult, () => this._navigationId === navId);
-			if (this._navigationId !== navId) {
-				this.emit("superseded", navId, currentUrl, "initial");
-				return {
-					success: false,
-					error: "Navigation superseded"
-				};
-			}
-			if (!resolverResult.success) {
-				this.commit({
-					matches: [],
-					params: {},
-					isExactMatch: false
-				});
-				const error = resolverResult.error ?? "Navigation blocked by resolver";
-				this.emit("error", navId, currentUrl, "initial", { error });
-				return {
-					success: false,
-					error
-				};
-			}
-		}
-		this._currentPath = currentUrl;
-		this.commit(matchResult);
-		this.emit("end", navId, currentUrl, "initial", { result: matchResult });
-		return {
-			success: true,
-			url: currentUrl
-		};
-	}
-	async navigate(path, options = {}) {
-		return this.navigateInternal(path, options, null);
-	}
-	async navigateInternal(path, options, redirect) {
-		const { data, replace = false, queryParams, skipGuards = false, skipResolvers = false, scrollToTop = true, onSameUrlNavigation = "ignore" } = options;
-		const fullPath = appendQueryParams(path, queryParams);
-		const chain = redirect ? redirect.chain : [];
-		const skipDeactivation = skipGuards || (redirect?.skipDeactivation ?? false);
-		const navId = ++this._navigationId;
-		const { pathname, search, hash } = this.parseUrl(fullPath);
-		this._pendingTarget = {
-			pathname,
-			queryParams: new URLSearchParams(search)
-		};
-		this.emit("start", navId, fullPath, "imperative");
-		if (chain.length >= MAX_REDIRECTS) {
-			const error = `Redirect limit (${MAX_REDIRECTS}) exceeded: ${[...chain, fullPath].join(" → ")}`;
-			console.error(`[Melodic] ${error}`);
-			this._pendingTarget = null;
-			this.emit("error", navId, fullPath, "imperative", { error });
-			return {
-				success: false,
-				error
-			};
-		}
-		const superseded = () => {
-			this.emit("superseded", navId, fullPath, "imperative");
-			return {
-				success: false,
-				error: "Navigation superseded"
-			};
-		};
-		const redirectOptions = () => ({
-			replace,
-			scrollToTop,
-			skipResolvers
-		});
-		try {
-			const targetUrl = `${pathname}${search}`;
-			if (onSameUrlNavigation === "ignore" && targetUrl === this._currentPath && this._committedRoute() !== null) {
-				if (hash) {
-					this.pushOrReplace(replace, data, fullPath);
-					this.scrollToHash(hash.slice(1));
-				} else if (scrollToTop) window.scrollTo(0, 0);
-				this.emit("end", navId, fullPath, "imperative", { result: this._committedRoute() ?? void 0 });
-				return {
-					success: true,
-					url: fullPath
-				};
-			}
-			if (!skipDeactivation && this._currentMatches.length > 0) {
-				const deactivateResult = await this.runDeactivationGuards(fullPath);
-				if (this._navigationId !== navId) return superseded();
-				if (deactivateResult !== true) {
-					if (typeof deactivateResult === "string") {
-						this.emit("redirect", navId, fullPath, "imperative", { redirectTo: deactivateResult });
-						return this.navigateInternal(deactivateResult, redirectOptions(), {
-							chain: [...chain, fullPath],
-							skipDeactivation: true
-						});
-					}
-					this.emit("blocked", navId, fullPath, "imperative", { error: "Navigation blocked by guard" });
-					return {
-						success: false,
-						error: "Navigation blocked by guard"
-					};
-				}
-			}
-			const resolved = await this.resolveMatch(path, () => this._navigationId === navId);
-			if (resolved.superseded || this._navigationId !== navId) return superseded();
-			const matchResult = resolved.result;
-			if (matchResult.redirectTo) {
-				this.emit("redirect", navId, fullPath, "imperative", { redirectTo: matchResult.redirectTo });
-				return this.navigateInternal(matchResult.redirectTo, {
-					...options,
-					queryParams: void 0
-				}, {
-					chain: [...chain, fullPath],
-					skipDeactivation: true
-				});
-			}
-			if (resolved.error) {
-				this.emit("error", navId, fullPath, "imperative", { error: resolved.error });
-				return {
-					success: false,
-					error: resolved.error
-				};
-			}
-			if (!skipGuards && matchResult.matches.length > 0) {
-				const guardResult = await this.runGuards(matchResult);
-				if (this._navigationId !== navId) return superseded();
-				if (guardResult !== true) {
-					if (typeof guardResult === "string") {
-						this.emit("redirect", navId, fullPath, "imperative", { redirectTo: guardResult });
-						return this.navigateInternal(guardResult, redirectOptions(), {
-							chain: [...chain, fullPath],
-							skipDeactivation: true
-						});
-					}
-					this.emit("blocked", navId, fullPath, "imperative", { error: "Navigation blocked by guard" });
-					return {
-						success: false,
-						error: "Navigation blocked by guard"
-					};
-				}
-			}
-			if (!skipResolvers && matchResult.matches.length > 0) {
-				const resolverResult = await this.runResolvers(matchResult, () => this._navigationId === navId);
-				if (this._navigationId !== navId) return superseded();
-				if (!resolverResult.success) {
-					const error = resolverResult.error ?? "Navigation blocked by resolver";
-					this.emit("error", navId, fullPath, "imperative", { error });
-					return {
-						success: false,
-						error
-					};
-				}
-			}
-			this.setCurrentMatches(matchResult);
-			this.rememberScrollPosition();
-			this.pushOrReplace(replace, data, fullPath);
-			this._currentPath = targetUrl;
-			this.publishRouteState(matchResult);
-			this._committedRoute.set(matchResult);
-			if (hash) this.scrollToHash(hash.slice(1));
-			else if (scrollToTop) window.scrollTo(0, 0);
-			this.emit("end", navId, fullPath, "imperative", { result: matchResult });
-			return {
-				success: true,
-				url: fullPath
-			};
-		} finally {
-			if (this._navigationId === navId) this._pendingTarget = null;
-		}
-	}
-	async navigateByName(name, params = {}, options = {}) {
-		const path = buildPathFromRoute(this._routes, name, params);
-		if (!path) return {
-			success: false,
-			error: `Route with name '${name}' not found`
-		};
-		return this.navigate(path, options);
-	}
-	replace(path, data) {
-		this.navigate(path, {
-			replace: true,
-			data
-		});
-	}
-	back() {
-		history.back();
-	}
-	forward() {
-		history.forward();
-	}
-	go(delta) {
-		history.go(delta);
-	}
-	async runDeactivationGuards(targetPath) {
-		for (const match of this._currentMatches) {
-			const guards = match.route.canDeactivate ?? [];
-			for (const guard of guards) {
-				const context = this.createGuardContext(match, {
-					matches: this._currentMatches,
-					params: this._contextService.getCurrentParams(),
-					isExactMatch: true
-				});
-				context.targetPath = targetPath;
-				const result = await this.executeGuard(guard, "canDeactivate", context);
-				if (result !== true) return result;
-			}
-		}
-		return true;
-	}
-	async runGuards(matchResult) {
-		for (const match of matchResult.matches) {
-			const guards = match.route.canActivate ?? [];
-			for (const guard of guards) {
-				const context = this.createGuardContext(match, matchResult);
-				const result = await this.executeGuard(guard, "canActivate", context);
-				if (result !== true) return result;
-			}
-		}
-		return true;
-	}
-	async executeGuard(guard, method, context) {
-		const fn = guard[method];
-		if (!fn) return true;
-		try {
-			const result = fn.call(guard, context);
-			return result instanceof Promise ? await result : result;
-		} catch (error) {
-			console.error(`[Melodic] ${method} guard for '${context.targetPath}' threw; treating as blocked:`, error);
-			return false;
-		}
-	}
-	createGuardContext(match, matchResult) {
-		return {
-			route: match,
-			matchedRoutes: matchResult.matches,
-			params: matchResult.params,
-			queryParams: this.targetQueryParams(),
-			targetPath: this.targetPathname(),
-			currentPath: window.location.pathname,
-			data: match.route.data
-		};
-	}
-	async runResolvers(matchResult, isCurrent = () => true) {
-		const collected = [];
-		for (let depth = 0; depth < matchResult.matches.length; depth++) {
-			const match = matchResult.matches[depth];
-			const resolvers = match.route.resolve;
-			if (!resolvers) continue;
-			const context = this.createResolverContext(match, matchResult);
-			const entries = Object.entries(resolvers);
-			const settled = await Promise.all(entries.map(async ([key, resolver]) => {
-				try {
-					return {
-						key,
-						value: await this.executeResolver(resolver, context)
-					};
-				} catch (error) {
-					return {
-						key,
-						error
-					};
-				}
-			}));
-			const failure = settled.find((entry) => "error" in entry);
-			if (failure && "error" in failure) {
-				const error = failure.error;
-				console.error(`[Melodic] Resolver '${failure.key}' for '${match.fullPath}' failed:`, error);
-				return {
-					success: false,
-					error: `Resolver '${failure.key}' failed: ${error instanceof Error ? error.message : String(error)}`
-				};
-			}
-			const resolvedData = {};
-			for (const entry of settled) resolvedData[entry.key] = entry.value;
-			collected.push({
-				depth,
-				data: resolvedData
-			});
-		}
-		if (!isCurrent()) return {
-			success: false,
-			error: "Navigation superseded"
-		};
-		this._contextService.clearResolvedData();
-		for (const { depth, data } of collected) this._contextService.setResolvedData(depth, data);
-		return { success: true };
-	}
-	async handlePopState(event) {
-		if (this._ignorePopStates > 0) {
-			this._ignorePopStates--;
-			this._historyIndex = this.readHistoryIndex(event.state) ?? this._historyIndex;
-			return;
-		}
-		const targetPath = `${window.location.pathname}${window.location.search}`;
-		const previousPath = this._currentPath;
-		const previousIndex = this._historyIndex;
-		const targetIndex = this.readHistoryIndex(event.state);
-		this.rememberScrollPosition(previousIndex);
-		if (targetPath === previousPath && this._committedRoute() !== null) {
-			this._historyIndex = targetIndex ?? this._historyIndex;
-			if (window.location.hash) this.scrollToHash(window.location.hash.slice(1));
-			else this.restoreScrollPosition(this._historyIndex);
-			return;
-		}
-		const navId = ++this._navigationId;
-		this.emit("start", navId, targetPath, "popstate");
-		const revert = () => {
-			if (targetIndex !== null) {
-				this._ignorePopStates++;
-				history.go(previousIndex - targetIndex);
-			} else history.replaceState(event.state, "", previousPath);
-		};
-		const deactivateResult = await this.runDeactivationGuards(targetPath);
-		if (this._navigationId !== navId) {
-			this.emit("superseded", navId, targetPath, "popstate");
-			return;
-		}
-		if (deactivateResult !== true) {
-			if (typeof deactivateResult === "string") {
-				this.emit("redirect", navId, targetPath, "popstate", { redirectTo: deactivateResult });
-				await this.navigateInternal(deactivateResult, { replace: true }, {
-					chain: [targetPath],
-					skipDeactivation: true
-				});
-			} else {
-				this.emit("blocked", navId, targetPath, "popstate", { error: "Navigation blocked by guard" });
-				revert();
-			}
-			return;
-		}
-		this._historyIndex = targetIndex ?? this._historyIndex;
-		const resolved = await this.resolveMatch(window.location.pathname, () => this._navigationId === navId);
-		if (resolved.superseded || this._navigationId !== navId) {
-			this.emit("superseded", navId, targetPath, "popstate");
-			return;
-		}
-		const matchResult = resolved.result;
-		if (matchResult.redirectTo) {
-			this.emit("redirect", navId, targetPath, "popstate", { redirectTo: matchResult.redirectTo });
-			await this.navigateInternal(matchResult.redirectTo, { replace: true }, {
-				chain: [targetPath],
-				skipDeactivation: true
-			});
-			return;
-		}
-		if (resolved.error) {
-			this._currentPath = targetPath;
-			this.commit({
-				matches: [],
-				params: {},
-				isExactMatch: false
-			});
-			this.emit("error", navId, targetPath, "popstate", { error: resolved.error });
-			return;
-		}
-		if (matchResult.matches.length > 0) {
-			const guardResult = await this.runGuards(matchResult);
-			if (this._navigationId !== navId) {
-				this.emit("superseded", navId, targetPath, "popstate");
-				return;
-			}
-			if (guardResult !== true) {
-				if (typeof guardResult === "string") {
-					this.emit("redirect", navId, targetPath, "popstate", { redirectTo: guardResult });
-					await this.navigateInternal(guardResult, { replace: true }, {
-						chain: [targetPath],
-						skipDeactivation: true
-					});
-				} else {
-					this.emit("blocked", navId, targetPath, "popstate", { error: "Navigation blocked by guard" });
-					this._historyIndex = previousIndex;
-					revert();
-				}
-				return;
-			}
-			const resolverResult = await this.runResolvers(matchResult, () => this._navigationId === navId);
-			if (this._navigationId !== navId) {
-				this.emit("superseded", navId, targetPath, "popstate");
-				return;
-			}
-			if (!resolverResult.success) {
-				this._currentPath = targetPath;
-				this.commit({
-					matches: [],
-					params: {},
-					isExactMatch: false
-				});
-				this.emit("error", navId, targetPath, "popstate", { error: resolverResult.error ?? "Navigation blocked by resolver" });
-				return;
-			}
-		}
-		this._currentPath = targetPath;
-		this.commit(matchResult);
-		if (window.location.hash) this.scrollToHash(window.location.hash.slice(1));
-		else this.restoreScrollPosition(this._historyIndex);
-		this.emit("end", navId, targetPath, "popstate", { result: matchResult });
-		const navigationEvent = new CustomEvent("NavigationEvent", { detail: routerStateEvent("push", event.state, "", window.location.pathname) });
-		window.dispatchEvent(navigationEvent);
-	}
-	pushOrReplace(replace, data, fullPath) {
-		const index = replace ? this._historyIndex : this._historyIndex + 1;
-		const state = this.stampHistoryIndex(data, index);
-		if (replace) history.replaceState(state, "", fullPath);
-		else {
-			history.pushState(state, "", fullPath);
-			for (const key of [...this._scrollPositions.keys()]) if (key >= index) this._scrollPositions.delete(key);
-		}
-		this._historyIndex = index;
-	}
-	stampHistoryIndex(data, index) {
-		if (data === null || data === void 0) return { [HISTORY_INDEX_KEY]: index };
-		if (typeof data === "object") return {
-			...data,
-			[HISTORY_INDEX_KEY]: index
-		};
-		return data;
-	}
-	readHistoryIndex(state) {
-		if (state && typeof state === "object") {
-			const value = state[HISTORY_INDEX_KEY];
-			if (typeof value === "number") return value;
-		}
-		return null;
-	}
-	rememberScrollPosition(index = this._historyIndex) {
-		if (!this._scrollRestoration) return;
-		this._scrollPositions.set(index, {
-			x: window.scrollX,
-			y: window.scrollY
-		});
-	}
-	restoreScrollPosition(index) {
-		if (!this._scrollRestoration) return;
-		const position = this._scrollPositions.get(index);
-		this.afterRender(() => window.scrollTo(position?.x ?? 0, position?.y ?? 0));
-	}
-	scrollToHash(id) {
-		if (!id) return;
-		this.afterRender(() => {
-			this.findDeep(document, id)?.scrollIntoView();
-		});
-	}
-	findDeep(root, id) {
-		const direct = typeof root.getElementById === "function" ? root.getElementById(id) : root.querySelector(`[id="${id.replace(/["\\]/g, "\\$&")}"]`);
-		if (direct) return direct;
-		for (const element of root.querySelectorAll("*")) if (element.shadowRoot) {
-			const found = this.findDeep(element.shadowRoot, id);
-			if (found) return found;
-		}
-		return null;
-	}
-	afterRender(fn) {
-		queueMicrotask(() => {
-			if (typeof requestAnimationFrame === "function") requestAnimationFrame(fn);
-			else fn();
-		});
-	}
-	async executeResolver(resolver, context) {
-		const result = resolver.resolve(context);
-		return result instanceof Promise ? await result : result;
-	}
-	createResolverContext(match, matchResult) {
-		return {
-			route: match,
-			matchedRoutes: matchResult.matches,
-			params: matchResult.params,
-			queryParams: this.targetQueryParams(),
-			targetPath: this.targetPathname()
-		};
-	}
-};
-RouterService = __decorate([Injectable(), __decorateMetadata("design:paramtypes", [])], RouterService);
-var SAFE_SCHEMES = new Set(["http", "https"]);
-function isSafeUrl(url) {
-	if (!url) return true;
-	const normalized = url.replace(/[\t\n\r]/g, "").replace(/^[\u0000-\u0020]+/, "");
-	const schemeMatch = /^([a-z][a-z0-9+.-]*):/i.exec(normalized);
-	if (!schemeMatch) return true;
-	return SAFE_SCHEMES.has(schemeMatch[1].toLowerCase());
-}
-var RouterLinkCore = class {
-	constructor(host, getAnchor) {
-		this._options = { href: "" };
-		this._appliedActiveClass = null;
-		this._cleanups = [];
-		this._host = host;
-		this._getAnchor = getAnchor ?? (() => host.tagName.toLowerCase() === "a" ? host : null);
-		this._router = Injector.get(RouterService);
-		const clickHandler = (e) => this.handleClick(e);
-		const auxClickHandler = (e) => this.handleAuxClick(e);
-		const navigationHandler = () => this.updateActiveState();
-		host.addEventListener("click", clickHandler);
-		host.addEventListener("auxclick", auxClickHandler);
-		window.addEventListener("NavigationEvent", navigationHandler);
-		this._cleanups.push(() => host.removeEventListener("click", clickHandler), () => host.removeEventListener("auxclick", auxClickHandler), () => window.removeEventListener("NavigationEvent", navigationHandler));
-	}
-	setOptions(options) {
-		this._options = options;
-		this.applyHref();
-		this.updateActiveState();
-	}
-	destroy() {
-		this._cleanups.forEach((cleanup) => cleanup());
-		this._cleanups = [];
-	}
-	buildFullPath() {
-		let path = this._options.href ?? "";
-		const queryParams = this._options.queryParams;
-		if (queryParams && Object.keys(queryParams).length > 0) {
-			const params = new URLSearchParams(queryParams);
-			path = `${path}${path.includes("?") ? "&" : "?"}${params.toString()}`;
-		}
-		return path;
-	}
-	isSafe() {
-		return isSafeUrl(this._options.href ?? "") && isSafeUrl(this.buildFullPath());
-	}
-	warnUnsafe() {
-		console.warn(`routerLink: blocked unsafe URL '${this._options.href}'. Only http(s), relative, query and hash URLs are allowed.`);
-	}
-	applyHref() {
-		const anchor = this._getAnchor();
-		if (!anchor) return;
-		if (this.isSafe()) anchor.href = this.buildFullPath();
-		else {
-			this.warnUnsafe();
-			anchor.removeAttribute("href");
-		}
-	}
-	handleClick(e) {
-		if (e.defaultPrevented) return;
-		if (e.button !== void 0 && e.button !== 0) return;
-		if (e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) {
-			if (!this._getAnchor()) this.openInNewTab();
-			return;
-		}
-		e.preventDefault();
-		if (!this.isSafe()) {
-			this.warnUnsafe();
-			return;
-		}
-		const { href, data = null, replace = false, queryParams = {} } = this._options;
-		const navOptions = {
-			data,
-			replace,
-			queryParams
-		};
-		this._router.navigate(href, navOptions);
-	}
-	handleAuxClick(e) {
-		if (e.defaultPrevented || e.button !== 1) return;
-		if (this._getAnchor()) return;
-		e.preventDefault();
-		this.openInNewTab();
-	}
-	openInNewTab() {
-		if (!this.isSafe()) {
-			this.warnUnsafe();
-			return;
-		}
-		window.open(this.buildFullPath(), "_blank");
-	}
-	updateActiveState() {
-		const { href = "", activeClass = "active", exactMatch = false } = this._options;
-		const currentPath = window.location.pathname;
-		const linkPath = (href.startsWith("/") ? href : `/${href}`).split(/[?#]/)[0];
-		const normalizedCurrentPath = currentPath.replace(/\/$/, "") || "/";
-		const normalizedLinkPath = linkPath.replace(/\/$/, "") || "/";
-		let isActive;
-		if (exactMatch) isActive = normalizedCurrentPath === normalizedLinkPath;
-		else isActive = normalizedCurrentPath === normalizedLinkPath || normalizedCurrentPath.startsWith(normalizedLinkPath + "/");
-		if (this._appliedActiveClass && this._appliedActiveClass !== activeClass) this._host.classList.remove(this._appliedActiveClass);
-		const ariaTarget = this._getAnchor();
-		if (isActive) {
-			this._host.classList.add(activeClass);
-			this._appliedActiveClass = activeClass;
-			ariaTarget?.setAttribute("aria-current", "page");
-		} else {
-			this._host.classList.remove(activeClass);
-			this._appliedActiveClass = null;
-			ariaTarget?.removeAttribute("aria-current");
-		}
-	}
-};
-function findRouteByName(routes, name) {
-	for (const route of routes) {
-		if (route.name === name) return route;
-		if (route.children) {
-			const found = findRouteByName(route.children, name);
-			if (found) return found;
-		}
-	}
-	return null;
-}
-function provideRouter(routes, options = {}) {
-	return (injector) => {
-		installHistoryEvents();
-		const router = injector.get(RouterService);
-		if (options.scrollRestoration === false) router.enableScrollRestoration(false);
-		if (routes && routes.length > 0) router.setRoutes(routes);
-	};
 }
 function isDirective(value) {
 	return typeof value === "object" && value !== null && value.__directive === true && typeof value.render === "function";
@@ -4292,6 +1223,24 @@ function moveRange(start, end, referenceNode) {
 	}
 	parent.insertBefore(fragment, referenceNode);
 }
+function clearBetweenBulk(start, end) {
+	if (start.nextSibling === end) return;
+	if (typeof document.createRange === "function") try {
+		const range = document.createRange();
+		range.setStartAfter(start);
+		range.setEndBefore(end);
+		range.deleteContents();
+		if (start.nextSibling === end) return;
+	} catch {}
+	clearBetween(start, end);
+}
+function restoreDirectiveContainer(container, startMarker, endMarker) {
+	const parent = startMarker.parentNode;
+	if (!parent) return;
+	clearBetween(startMarker, endMarker);
+	parent.replaceChild(container, startMarker);
+	if (endMarker.parentNode === parent) parent.removeChild(endMarker);
+}
 function renderDetachedItem(template, container, start, end) {
 	const target = container;
 	const structureChanged = target.__parts !== void 0 && target.__templateKey !== template.templateKey;
@@ -4307,6 +1256,23 @@ var ATTRIBUTE_MARKER_PREFIX = `__${MARKER}_`;
 var ATTRIBUTE_MARKER_REGEX = new RegExp(`${ATTRIBUTE_MARKER_PREFIX}(\\d+)__`, "g");
 var createAttributeMarker = (index) => `${ATTRIBUTE_MARKER_PREFIX}${index}__`;
 var templateCache = /* @__PURE__ */ new Map();
+var templateCacheByStrings = /* @__PURE__ */ new WeakMap();
+var URL_ATTRIBUTES = new Set([
+	"href",
+	"src",
+	"action",
+	"formaction",
+	"xlink:href"
+]);
+function warnScriptableAttribute(element, name, value) {
+	if (!isDevMode()) return;
+	const lower = name.toLowerCase();
+	if (URL_ATTRIBUTES.has(lower)) {
+		if (value.replace(/[\u0000-\u0020]/g, "").toLowerCase().startsWith("javascript:")) devWarn(`attr-javascript-url:${lower}`, `An attribute binding wrote a "javascript:" URL to "${name}". If any part of that value comes from user input this is an XSS hole — validate the scheme (http:, https:, mailto:, …) before binding it.`);
+		return;
+	}
+	if (lower.startsWith("on") && lower in element) devWarn(`attr-inline-handler:${lower}`, `An attribute binding wrote a string to the inline event handler "${name}", which the browser compiles and runs as script. Use an event binding instead: @${lower.slice(2)}=\${handler}.`);
+}
 function scanTagState(text, state) {
 	let { inTag, quote } = state;
 	for (let i = 0; i < text.length; i++) {
@@ -4454,7 +1420,7 @@ var TemplateResult = class TemplateResult {
 		const cache = this.getTemplate(templateKey);
 		const clone = cache.element.content.cloneNode(true);
 		const parts = this.prepareParts(clone, cache);
-		this.commit(parts);
+		this.commitFresh(parts);
 		target.appendChild(clone);
 		target.__parts = parts;
 		target.__templateKey = templateKey;
@@ -4472,9 +1438,9 @@ var TemplateResult = class TemplateResult {
 			const cache = this.getTemplate(templateKey);
 			const clone = cache.element.content.cloneNode(true);
 			const parts = this.prepareParts(clone, cache);
+			this.commitFresh(parts);
 			target.__parts = parts;
 			target.__templateKey = templateKey;
-			this.commit(parts);
 			target.textContent = "";
 			target.appendChild(clone);
 			return;
@@ -4482,11 +1448,22 @@ var TemplateResult = class TemplateResult {
 		if (!target.__templateKey) target.__templateKey = templateKey;
 		this.commit(target.__parts);
 	}
+	commitFresh(parts) {
+		try {
+			this.commit(parts);
+		} catch (error) {
+			disposeParts(parts);
+			throw error;
+		}
+	}
 	getTemplate(key) {
+		const byStrings = templateCacheByStrings.get(this.strings);
+		if (byStrings) return byStrings;
 		let cached$1 = templateCache.get(key);
 		if (cached$1) {
 			templateCache.delete(key);
 			templateCache.set(key, cached$1);
+			templateCacheByStrings.set(this.strings, cached$1);
 			return cached$1;
 		}
 		const parts = [];
@@ -4586,7 +1563,7 @@ var TemplateResult = class TemplateResult {
 				}
 			} else if (node.nodeType === Node.ELEMENT_NODE) {
 				const el = node;
-				for (let i = el.attributes.length - 1; i >= 0; i--) {
+				for (let i = 0; i < el.attributes.length; i++) {
 					const attr = el.attributes[i];
 					if (attr.name.startsWith("__event-")) {
 						const index = parseInt(attr.name.match(/__event-(\d+)__/)?.[1] || "0");
@@ -4656,11 +1633,13 @@ var TemplateResult = class TemplateResult {
 		};
 		walkTemplate(element.content, []);
 		if (!hasUnsupportedBinding) warnLeakedBindings(partPaths, this.strings.length - 1, html$1);
+		this.stripMarkers(element.content, partPaths);
 		cached$1 = {
 			element,
 			parts,
 			partPaths
 		};
+		templateCacheByStrings.set(this.strings, cached$1);
 		if (templateCache.size >= 500) {
 			const oldestKey = templateCache.keys().next().value;
 			if (oldestKey) templateCache.delete(oldestKey);
@@ -4692,7 +1671,10 @@ var TemplateResult = class TemplateResult {
 		}
 		if (part.previousValue !== composed) {
 			if (composed === "" && directiveSegments.length === 0 && strings.every((segment) => segment === "")) element.removeAttribute(name);
-			else element.setAttribute(name, composed);
+			else {
+				element.setAttribute(name, composed);
+				warnScriptableAttribute(element, name, composed);
+			}
 			part.previousValue = composed;
 			if (part.segmentDirectiveStates) {
 				for (const entry of part.segmentDirectiveStates.values()) disposeDirectiveState(entry.state);
@@ -4748,9 +1730,6 @@ var TemplateResult = class TemplateResult {
 				});
 				return html$1.slice(0, -(match?.[0].length ?? 0)) + `__bool-${index}__=""`;
 			},
-			"__": (index, html$1, _) => {
-				return html$1 + createAttributeMarker(index);
-			},
 			"___": (index, html$1) => {
 				parts.push({
 					type: "node",
@@ -4760,69 +1739,75 @@ var TemplateResult = class TemplateResult {
 			}
 		};
 	}
-	prepareParts(clone, cache) {
-		const parts = [];
-		const { partPaths } = cache;
+	stripMarkers(content, partPaths) {
 		for (const partPath of partPaths) {
+			let node = content;
+			for (const index of partPath.path) node = node.childNodes[index];
+			switch (partPath.type) {
+				case "node":
+					if (node.nodeType === Node.COMMENT_NODE) node.parentNode.replaceChild(document.createTextNode(""), node);
+					break;
+				case "event":
+					node.removeAttribute(`__event-${partPath.index}__`);
+					break;
+				case "property":
+					node.removeAttribute(`__prop-${partPath.index}__`);
+					break;
+				case "action":
+					node.removeAttribute(partPath.index >= 0 ? `__action-${partPath.index}__` : `:${partPath.name}`);
+					break;
+				case "boolean-attribute":
+					node.removeAttribute(`__bool-${partPath.index}__`);
+					break;
+				case "attribute":
+					node.removeAttribute(partPath.name);
+					break;
+				default: break;
+			}
+		}
+	}
+	prepareParts(clone, cache) {
+		const { partPaths } = cache;
+		const parts = new Array(partPaths.length);
+		for (let p = 0; p < partPaths.length; p++) {
+			const partPath = partPaths[p];
 			let node = clone;
 			for (const index of partPath.path) node = node.childNodes[index];
-			if (partPath.type === "node") {
-				const textNode = document.createTextNode("");
-				node.parentNode.replaceChild(textNode, node);
-				parts.push({
-					type: "node",
-					index: partPath.index,
-					node: textNode
-				});
-			} else if (partPath.type === "event") {
-				const element = node;
-				element.removeAttribute(`__event-${partPath.index}__`);
-				parts.push({
-					type: "event",
-					index: partPath.index,
-					name: partPath.name,
-					node: element
-				});
-			} else if (partPath.type === "property") {
-				const element = node;
-				element.removeAttribute(`__prop-${partPath.index}__`);
-				parts.push({
-					type: "property",
-					index: partPath.index,
-					name: partPath.name,
-					node: element
-				});
-			} else if (partPath.type === "action") {
-				const element = node;
-				if (partPath.index >= 0) element.removeAttribute(`__action-${partPath.index}__`);
-				else element.removeAttribute(`:${partPath.name}`);
-				parts.push({
-					type: "action",
-					index: partPath.index,
-					name: partPath.name,
-					node: element,
-					staticValue: partPath.staticValue
-				});
-			} else if (partPath.type === "boolean-attribute") {
-				const element = node;
-				element.removeAttribute(`__bool-${partPath.index}__`);
-				parts.push({
-					type: "boolean-attribute",
-					index: partPath.index,
-					name: partPath.name,
-					node: element
-				});
-			} else if (partPath.type === "attribute") {
-				const element = node;
-				element.removeAttribute(partPath.name);
-				parts.push({
-					type: "attribute",
-					index: partPath.index,
-					name: partPath.name,
-					node: element,
-					attributeStrings: partPath.attributeStrings,
-					attributeIndices: partPath.attributeIndices
-				});
+			switch (partPath.type) {
+				case "node":
+					parts[p] = {
+						type: "node",
+						index: partPath.index,
+						node
+					};
+					break;
+				case "action":
+					parts[p] = {
+						type: "action",
+						index: partPath.index,
+						name: partPath.name,
+						node,
+						staticValue: partPath.staticValue
+					};
+					break;
+				case "attribute":
+					parts[p] = {
+						type: "attribute",
+						index: partPath.index,
+						name: partPath.name,
+						node,
+						attributeStrings: partPath.attributeStrings,
+						attributeIndices: partPath.attributeIndices
+					};
+					break;
+				default:
+					parts[p] = {
+						type: partPath.type,
+						index: partPath.index,
+						name: partPath.name,
+						node
+					};
+					break;
 			}
 		}
 		return parts;
@@ -5123,7 +2108,11 @@ var TemplateResult = class TemplateResult {
 						} else if (typeof value === "boolean" && part.name.startsWith("aria-")) element.setAttribute(part.name, String(value));
 						else if (value === null || value === void 0 || value === false) element.removeAttribute(part.name);
 						else if (value === true) element.setAttribute(part.name, "");
-						else element.setAttribute(part.name, String(value));
+						else {
+							const text = String(value);
+							element.setAttribute(part.name, text);
+							warnScriptableAttribute(element, part.name, text);
+						}
 					}
 					break;
 				case "boolean-attribute":
@@ -5180,12 +2169,3494 @@ var TemplateResult = class TemplateResult {
 		}
 	}
 };
+var CssResult = class extends TemplateResult {
+	get cssText() {
+		const strings = this.strings;
+		let text = strings[0] ?? strings.raw[0];
+		for (let i = 0; i < this.values.length; i++) {
+			const piece = cssValueToText(this.values[i]);
+			if (piece === null) return null;
+			text += piece + (strings[i + 1] ?? strings.raw[i + 1]);
+		}
+		return text;
+	}
+};
+function cssValueToText(value) {
+	if (value === null || value === void 0) return "";
+	if (value instanceof CssResult) return value.cssText;
+	if (Array.isArray(value)) {
+		let joined = "";
+		for (const item of value) {
+			const piece = cssValueToText(item);
+			if (piece === null) return null;
+			joined += piece;
+		}
+		return joined;
+	}
+	if (value instanceof TemplateResult || isDirective(value) || typeof Node !== "undefined" && value instanceof Node) return null;
+	return String(value);
+}
+var cssTextCache = /* @__PURE__ */ new WeakMap();
+var sheetCache = /* @__PURE__ */ new Map();
+var constructedSheetsSupported;
+function supportsConstructedStyleSheets() {
+	if (constructedSheetsSupported === void 0) try {
+		constructedSheetsSupported = typeof CSSStyleSheet !== "undefined" && typeof CSSStyleSheet.prototype.replaceSync === "function" && typeof ShadowRoot !== "undefined" && "adoptedStyleSheets" in ShadowRoot.prototype && new CSSStyleSheet() instanceof CSSStyleSheet;
+	} catch {
+		constructedSheetsSupported = false;
+	}
+	return constructedSheetsSupported;
+}
+function getComponentStyleSheet(stylesFactory) {
+	if (!supportsConstructedStyleSheets()) return null;
+	const cssText = getComponentStyleText(stylesFactory);
+	let sheet = sheetCache.get(cssText);
+	if (sheet === void 0) {
+		try {
+			const created = new CSSStyleSheet();
+			created.replaceSync(cssText);
+			sheet = created;
+		} catch {
+			sheet = null;
+		}
+		sheetCache.set(cssText, sheet);
+	}
+	return sheet;
+}
+function getComponentStyleText(stylesFactory) {
+	let cssText = cssTextCache.get(stylesFactory);
+	if (cssText === void 0) {
+		cssText = renderStylesToText(stylesFactory());
+		cssTextCache.set(stylesFactory, cssText);
+	}
+	return cssText;
+}
+var foreignSheets = /* @__PURE__ */ new WeakMap();
+function getStyleSheetsForDocument(ownerDocument, cssTexts) {
+	const SheetConstructor = ownerDocument.defaultView?.CSSStyleSheet;
+	if (!SheetConstructor || typeof SheetConstructor.prototype.replaceSync !== "function") return null;
+	let cache = foreignSheets.get(ownerDocument);
+	if (!cache) {
+		cache = /* @__PURE__ */ new Map();
+		foreignSheets.set(ownerDocument, cache);
+	}
+	const sheets = [];
+	try {
+		for (const cssText of cssTexts) {
+			let sheet = cache.get(cssText);
+			if (!sheet) {
+				sheet = new SheetConstructor();
+				sheet.replaceSync(cssText);
+				cache.set(cssText, sheet);
+			}
+			sheets.push(sheet);
+		}
+	} catch {
+		return null;
+	}
+	return sheets;
+}
+function renderStylesToText(result) {
+	if (result instanceof CssResult) {
+		const cssText = result.cssText;
+		if (cssText !== null) return cssText;
+	}
+	const host = document.createElement("style");
+	render(result, host);
+	const text = host.textContent ?? "";
+	disposeContainerParts(host);
+	return text;
+}
+var activeEffect = null;
+const setActiveEffect = (effect$1) => {
+	activeEffect = effect$1;
+};
+const getActiveEffect = () => activeEffect;
+var MAX_FLUSH_RUNS = 100;
+var batchDepth = 0;
+var flushing = false;
+var pendingNotifications = /* @__PURE__ */ new Set();
+var pendingEffects = /* @__PURE__ */ new Set();
+var flushRuns = /* @__PURE__ */ new Map();
+function isCoalescingEffects() {
+	return batchDepth > 0 || flushing;
+}
+function scheduleNotify(notify) {
+	pendingNotifications.add(notify);
+}
+function scheduleEffect(effect$1) {
+	pendingEffects.add(effect$1);
+}
+function unscheduleEffect(effect$1) {
+	pendingEffects.delete(effect$1);
+}
+function flush() {
+	if (batchDepth > 0 || flushing) return;
+	flushBatch();
+}
+function circularError() {
+	return /* @__PURE__ */ new Error(`Circular dependency detected in effect: exceeded ${MAX_FLUSH_RUNS} synchronous re-runs. An effect is repeatedly writing to a signal it also reads.`);
+}
+function rethrow(errors) {
+	if (errors.length === 1) throw errors[0];
+	if (errors.length > 1) throw new AggregateError(errors, `${errors.length} signal subscribers threw during flush`);
+}
+function flushBatch() {
+	flushing = true;
+	emitDevtools("flush:start", () => ({
+		notifications: pendingNotifications.size,
+		effects: pendingEffects.size
+	}));
+	const errors = [];
+	try {
+		while (pendingNotifications.size > 0 || pendingEffects.size > 0) {
+			if (pendingNotifications.size > 0) {
+				const notifications = [...pendingNotifications];
+				pendingNotifications.clear();
+				for (const notify of notifications) try {
+					notify();
+				} catch (error) {
+					errors.push(error);
+				}
+			}
+			if (pendingEffects.size > 0) {
+				const effects = [...pendingEffects];
+				pendingEffects.clear();
+				for (const effect$1 of effects) {
+					const runs = (flushRuns.get(effect$1) ?? 0) + 1;
+					if (runs > MAX_FLUSH_RUNS) {
+						pendingNotifications.clear();
+						pendingEffects.clear();
+						throw errors.length > 0 ? new AggregateError([circularError(), ...errors], "Circular dependency detected in effect") : circularError();
+					}
+					flushRuns.set(effect$1, runs);
+					try {
+						effect$1.runNow();
+					} catch (error) {
+						errors.push(error);
+					}
+				}
+			}
+		}
+	} finally {
+		flushing = false;
+		flushRuns.clear();
+		emitDevtools("flush:end");
+	}
+	rethrow(errors);
+}
+function batch(fn) {
+	batchDepth++;
+	try {
+		return fn();
+	} finally {
+		batchDepth--;
+		flush();
+	}
+}
+var MAX_EFFECT_ITERATIONS = 100;
+var SignalEffect = class {
+	constructor(execute, options) {
+		this.execute = execute;
+		this._dependencies = /* @__PURE__ */ new Set();
+		this._isRunning = false;
+		this._needsRerun = false;
+		this._destroyed = false;
+		this._hasRun = false;
+		this._onInvalidate = options?.onInvalidate;
+		this.name = options?.name;
+		this.run = () => {
+			if (this._destroyed) return;
+			if (this._hasRun && isCoalescingEffects()) {
+				scheduleEffect(this);
+				return;
+			}
+			this.runNow();
+		};
+	}
+	get hasRun() {
+		return this._hasRun;
+	}
+	get destroyed() {
+		return this._destroyed;
+	}
+	invalidate() {
+		if (this._destroyed) return;
+		if (this._onInvalidate) {
+			this._onInvalidate();
+			return;
+		}
+		scheduleEffect(this);
+	}
+	runNow() {
+		if (this._destroyed) return;
+		if (this._isRunning) {
+			this._needsRerun = true;
+			return;
+		}
+		this._isRunning = true;
+		this._hasRun = true;
+		let iterations = 0;
+		try {
+			do {
+				if (++iterations > MAX_EFFECT_ITERATIONS) {
+					this._needsRerun = false;
+					throw new Error(`Circular dependency detected in effect${this.name ? ` '${this.name}'` : ""}: exceeded ${MAX_EFFECT_ITERATIONS} synchronous re-runs. An effect is repeatedly writing to a signal it also reads.`);
+				}
+				this._needsRerun = false;
+				this.clearDependencies();
+				const prevEffect = getActiveEffect();
+				setActiveEffect(this);
+				try {
+					emitDevtools("effect:run", () => ({ name: this.name }));
+					this.execute();
+				} finally {
+					setActiveEffect(prevEffect);
+				}
+			} while (this._needsRerun && !this._destroyed);
+		} finally {
+			this._isRunning = false;
+		}
+	}
+	addDependency(producer) {
+		this._dependencies.add(producer);
+	}
+	clearDependencies() {
+		this._dependencies.forEach((producer) => {
+			producer[DEPENDENTS].delete(this);
+		});
+		this._dependencies.clear();
+	}
+	destroy() {
+		this._destroyed = true;
+		this._needsRerun = false;
+		this.clearDependencies();
+		unscheduleEffect(this);
+	}
+};
+var destroyedMessage$1 = (name) => `Signal${name ? ` '${name}'` : ""} accessed after destruction. Holding a signal beyond its owning component (e.g. cached on a long-lived service) is a bug — the signal is destroyed when its component disconnects.`;
+function notifyAll(subscribers, value) {
+	const errors = [];
+	for (const subscriber of subscribers) try {
+		subscriber(value);
+	} catch (error) {
+		errors.push(error);
+	}
+	if (errors.length === 1) throw errors[0];
+	if (errors.length > 1) throw new AggregateError(errors, `${errors.length} signal subscribers threw`);
+}
+function signal(initialValue, options = {}) {
+	let value = initialValue;
+	let destroyed = false;
+	const subscribers = /* @__PURE__ */ new Set();
+	const dependents = /* @__PURE__ */ new Set();
+	const notify = () => {
+		notifyAll([...subscribers], value);
+	};
+	const read = (() => {
+		if (destroyed) throw new Error(destroyedMessage$1(options.name));
+		const activeEffect$1 = getActiveEffect();
+		if (activeEffect$1) {
+			activeEffect$1.addDependency(read);
+			dependents.add(activeEffect$1);
+		}
+		return value;
+	});
+	read.set = (newValue) => {
+		if (destroyed) throw new Error(destroyedMessage$1(options.name));
+		if (Object.is(value, newValue)) return;
+		value = newValue;
+		emitDevtools("signal:set", () => ({
+			name: options.name,
+			value: newValue
+		}));
+		if (subscribers.size > 0) scheduleNotify(notify);
+		for (const dependent of dependents) dependent.invalidate();
+		flush();
+	};
+	read.update = (updater) => {
+		if (destroyed) throw new Error(destroyedMessage$1(options.name));
+		read.set(updater(value));
+	};
+	read.subscribe = (subscriber) => {
+		if (destroyed) throw new Error(destroyedMessage$1(options.name));
+		subscribers.add(subscriber);
+		return () => subscribers.delete(subscriber);
+	};
+	read.unsubscribe = (subscriber) => {
+		subscribers.delete(subscriber);
+	};
+	read.destroy = () => {
+		if (destroyed) return;
+		destroyed = true;
+		emitDevtools("signal:destroy", () => ({ name: options.name }));
+		subscribers.clear();
+		dependents.clear();
+	};
+	emitDevtools("signal:create", () => ({
+		name: options.name,
+		value: initialValue
+	}));
+	Object.defineProperty(read, SIGNAL_MARKER, {
+		value: true,
+		enumerable: false,
+		configurable: false
+	});
+	Object.defineProperty(read, DEPENDENTS, {
+		value: dependents,
+		enumerable: false,
+		configurable: false
+	});
+	return read;
+}
+var destroyedMessage = (name) => `Computed signal${name ? ` '${name}'` : ""} accessed after destruction. Holding a signal beyond its owning component (e.g. cached on a long-lived service) is a bug — the signal is destroyed when its component disconnects.`;
+var READ_ONLY_MESSAGE = "Cannot write to a computed signal — its value is derived from its sources. Update the source signal(s) instead.";
+var renderScopedDepth = 0;
+function createRenderScopedComputed(factory) {
+	renderScopedDepth++;
+	try {
+		return factory();
+	} finally {
+		renderScopedDepth--;
+	}
+}
+function computed(computation, options = {}) {
+	let value;
+	let dirty = true;
+	let destroyed = false;
+	let computing = false;
+	let failed = false;
+	const subscribers = /* @__PURE__ */ new Set();
+	const dependents = /* @__PURE__ */ new Set();
+	const recompute = () => {
+		if (computing) throw new Error(`Circular dependency detected in computed${options.name ? ` '${options.name}'` : ""}: its computation reads the computed itself (directly or through another computed).`);
+		tracker.clearDependencies();
+		const prevEffect = getActiveEffect();
+		setActiveEffect(tracker);
+		computing = true;
+		let succeeded = false;
+		try {
+			value = computation();
+			dirty = false;
+			succeeded = true;
+			emitDevtools("computed:recompute", () => ({
+				name: options.name,
+				value
+			}));
+		} finally {
+			computing = false;
+			failed = !succeeded;
+			setActiveEffect(prevEffect);
+		}
+	};
+	const tracker = new SignalEffect(() => {}, { onInvalidate: () => {
+		if (destroyed || dirty && !failed) return;
+		dirty = true;
+		failed = false;
+		for (const dependent of dependents) dependent.invalidate();
+		if (subscribers.size > 0) scheduleEffect(notifier);
+	} });
+	let lastNotified;
+	const notifier = { runNow: () => {
+		if (destroyed) return;
+		if (dirty) recompute();
+		if (!Object.is(lastNotified, value)) {
+			lastNotified = value;
+			notifyAll([...subscribers], value);
+		}
+	} };
+	const read = (() => {
+		if (destroyed) throw new Error(destroyedMessage(options.name));
+		const activeEffect$1 = getActiveEffect();
+		if (activeEffect$1) {
+			activeEffect$1.addDependency(read);
+			dependents.add(activeEffect$1);
+		}
+		if (dirty) recompute();
+		return value;
+	});
+	read.set = () => {
+		throw new Error(READ_ONLY_MESSAGE);
+	};
+	read.update = () => {
+		throw new Error(READ_ONLY_MESSAGE);
+	};
+	read.subscribe = (subscriber) => {
+		if (destroyed) throw new Error(destroyedMessage(options.name));
+		if (dirty) recompute();
+		if (subscribers.size === 0) lastNotified = value;
+		subscribers.add(subscriber);
+		return () => subscribers.delete(subscriber);
+	};
+	read.unsubscribe = (subscriber) => {
+		subscribers.delete(subscriber);
+	};
+	read.destroy = () => {
+		if (destroyed) return;
+		destroyed = true;
+		tracker.destroy();
+		unscheduleEffect(notifier);
+		dependents.clear();
+		subscribers.clear();
+	};
+	Object.defineProperty(read, SIGNAL_MARKER, {
+		value: true,
+		enumerable: false,
+		configurable: false
+	});
+	Object.defineProperty(read, DEPENDENTS, {
+		value: dependents,
+		enumerable: false,
+		configurable: false
+	});
+	const owner = getActiveComponent();
+	owner?.registerDisposable(read);
+	if (owner?.isRendering && renderScopedDepth === 0) devWarn(`computed-in-render:${owner.selector ?? "component"}${options.name ? `:${options.name}` : ""}`, `computed()${options.name ? ` '${options.name}'` : ""} was created while <${owner.selector ?? "a component"}> was rendering. A new one is created on every render and they accumulate for the life of the component. Create it in a field initializer or onInit, or use store.select(key, fn, cacheKey), which is render-scoped.`);
+	return read;
+}
+function effect(fn, options = {}) {
+	let cleanup = null;
+	let destroyed = false;
+	const runCleanup = () => {
+		if (!cleanup) return;
+		const pending = cleanup;
+		cleanup = null;
+		try {
+			pending();
+		} catch (error) {
+			console.error(`[Melodic] Effect${options.name ? ` '${options.name}'` : ""} cleanup failed:`, error);
+		}
+	};
+	const signalEffect = new SignalEffect(() => {
+		runCleanup();
+		const result = fn();
+		cleanup = typeof result === "function" ? result : null;
+	}, options.name !== void 0 ? { name: options.name } : void 0);
+	const ref = {
+		run: () => {
+			if (!destroyed) signalEffect.run();
+		},
+		destroy: () => {
+			if (destroyed) return;
+			destroyed = true;
+			signalEffect.destroy();
+			runCleanup();
+		},
+		get destroyed() {
+			return destroyed;
+		}
+	};
+	getActiveComponent()?.registerDisposable(ref);
+	if (!options.manual) signalEffect.run();
+	return ref;
+}
+function untracked(fn) {
+	const previous = getActiveEffect();
+	setActiveEffect(null);
+	try {
+		return fn();
+	} finally {
+		setActiveEffect(previous);
+	}
+}
+var globalMessages = {};
+function registerDefaultMessages(messages) {
+	for (const code of Object.keys(messages)) globalMessages[code] = messages[code];
+}
+function setDefaultMessage(code, message) {
+	globalMessages[code] = message;
+}
+function getGlobalMessage(code) {
+	return globalMessages[code];
+}
+function resolveMessage(message, params) {
+	if (typeof message === "function") return message(params ?? {});
+	return message;
+}
+var AbstractControl = class {
+	constructor(initialValue, options = {}) {
+		this.parent = null;
+		this._validators = [];
+		this._asyncValidators = [];
+		this._touched = signal(false);
+		this._dirty = signal(false);
+		this._pending = signal(false);
+		this._ownDisabled = signal(false);
+		this._asyncValidationId = 0;
+		this._destroyed = false;
+		this._errorSources = /* @__PURE__ */ new Map();
+		this.value = signal(initialValue);
+		this.errors = signal(null);
+		this._validators = options.validators ?? [];
+		this._asyncValidators = options.asyncValidators ?? [];
+		this._ownDisabled.set(options.disabled ?? false);
+		this.updateOn = options.updateOn ?? "change";
+		this.messages = options.messages ?? {};
+		const consumer = getActiveComponent();
+		if (consumer) consumer.registerDisposable(this);
+	}
+	initializeAggregates() {
+		this.dirty = computed(() => this.computeDirty());
+		this.touched = computed(() => this.computeTouched());
+		this.pending = computed(() => this.computePending());
+		this.disabled = computed(() => this.computeDisabled());
+		this.pristine = computed(() => !this.dirty());
+		this.untouched = computed(() => !this.touched());
+		this.enabled = computed(() => !this.disabled());
+		this.invalid = computed(() => !this.disabled() && (this.errors() !== null || this.hasInvalidChild()));
+		this.valid = computed(() => !this.invalid() && !this.pending());
+		this.state = computed(() => ({
+			dirty: this.dirty(),
+			touched: this.touched(),
+			pristine: !this.dirty(),
+			untouched: !this.touched(),
+			valid: !this.invalid() && !this.pending(),
+			invalid: this.invalid(),
+			pending: this.pending(),
+			disabled: this.disabled(),
+			enabled: !this.disabled()
+		}));
+	}
+	get destroyed() {
+		return this._destroyed;
+	}
+	getRawValue() {
+		return this.value();
+	}
+	markAsTouched() {
+		this._touched.set(true);
+		if (this.updateOn === "blur") this.runValidation();
+	}
+	markAsUntouched() {
+		this._touched.set(false);
+	}
+	markAsDirty() {
+		this._dirty.set(true);
+	}
+	markAsPristine() {
+		this._dirty.set(false);
+	}
+	markAllAsTouched() {
+		this.markAsTouched();
+	}
+	markAllAsUntouched() {
+		this.markAsUntouched();
+	}
+	markAllAsDirty() {
+		this.markAsDirty();
+	}
+	markAllAsPristine() {
+		this.markAsPristine();
+	}
+	disable() {
+		this._ownDisabled.set(true);
+	}
+	enable() {
+		this._ownDisabled.set(false);
+	}
+	setValidators(validators) {
+		this._validators = validators;
+		this.runValidation();
+	}
+	addValidators(validators) {
+		this._validators = [...this._validators, ...validators];
+		this.runValidation();
+	}
+	removeValidators(validators) {
+		this._validators = this._validators.filter((v) => !validators.includes(v));
+		this.runValidation();
+	}
+	setAsyncValidators(validators) {
+		this._asyncValidators = validators;
+		this.runValidation();
+	}
+	async validate() {
+		await this.runValidation();
+	}
+	getError(code) {
+		return this.errors()?.[code] ?? null;
+	}
+	hasError(code) {
+		return this.errors()?.[code] !== void 0;
+	}
+	getErrorMessage(code) {
+		const error = this.getError(code);
+		if (!error) return "";
+		const params = error.params;
+		const localMessage = this.resolveFromChain(code);
+		if (localMessage !== void 0) return resolveMessage(localMessage, params);
+		const validatorMessage = this.resolveFromValidator(code);
+		if (validatorMessage !== void 0) return resolveMessage(validatorMessage, params);
+		const globalMessage = getGlobalMessage(code);
+		if (globalMessage !== void 0) return resolveMessage(globalMessage, params);
+		return code;
+	}
+	getFirstErrorMessage() {
+		const errors = this.errors();
+		if (!errors) return "";
+		const codes = Object.keys(errors);
+		if (codes.length === 0) return "";
+		return this.getErrorMessage(codes[0]);
+	}
+	resolveFromValidator(code) {
+		return this._errorSources.get(code)?.messages?.[code];
+	}
+	resolveFromChain(code) {
+		let control = this;
+		while (control !== null) {
+			if (control.messages[code] !== void 0) return control.messages[code];
+			control = control.parent;
+		}
+	}
+	async runValidation() {
+		const id = ++this._asyncValidationId;
+		const value = this.value();
+		let errors = null;
+		this._errorSources.clear();
+		for (const validator of this._validators) {
+			const result = validator(value);
+			if (result !== null) {
+				for (const code of Object.keys(result)) this._errorSources.set(code, validator);
+				errors = {
+					...errors ?? {},
+					...result
+				};
+			}
+		}
+		if (errors !== null) {
+			this._pending.set(false);
+			this.errors.set(errors);
+			return;
+		}
+		if (this._asyncValidators.length > 0) {
+			if (this.errors() !== null) this.errors.set(null);
+			this._pending.set(true);
+			try {
+				const results = await Promise.all(this._asyncValidators.map(async (v) => ({
+					validator: v,
+					result: await v(value)
+				})));
+				if (id !== this._asyncValidationId || this._destroyed) return;
+				for (const { validator, result } of results) if (result !== null) {
+					for (const code of Object.keys(result)) this._errorSources.set(code, validator);
+					errors = {
+						...errors ?? {},
+						...result
+					};
+				}
+			} catch (error) {
+				if (id !== this._asyncValidationId || this._destroyed) return;
+				console.error("Async validator failed:", error);
+				errors = {
+					...errors ?? {},
+					asyncValidator: {
+						code: "asyncValidator",
+						params: { message: error instanceof Error ? error.message : String(error) }
+					}
+				};
+			} finally {
+				if (id === this._asyncValidationId && !this._destroyed) this._pending.set(false);
+			}
+		}
+		if (id === this._asyncValidationId && !this._destroyed) this.errors.set(errors);
+	}
+	computeDirty() {
+		return this._dirty();
+	}
+	computeTouched() {
+		return this._touched();
+	}
+	computePending() {
+		return this._pending();
+	}
+	computeDisabled() {
+		return this._ownDisabled();
+	}
+	hasInvalidChild() {
+		return false;
+	}
+	shouldValidateOnChange() {
+		return this.updateOn === "change";
+	}
+	destroySignals() {
+		this.value.destroy();
+		this.errors.destroy();
+		this._touched.destroy();
+		this._dirty.destroy();
+		this._pending.destroy();
+		this._ownDisabled.destroy();
+		this.dirty.destroy();
+		this.touched.destroy();
+		this.pristine.destroy();
+		this.untouched.destroy();
+		this.valid.destroy();
+		this.invalid.destroy();
+		this.pending.destroy();
+		this.disabled.destroy();
+		this.enabled.destroy();
+		this.state.destroy();
+	}
+};
+var MAX_RENDERS_PER_TASK = 25;
+var renderTaskEpoch = 0;
+var renderTaskEpochArmed = false;
+function currentRenderTaskEpoch() {
+	if (!renderTaskEpochArmed) {
+		renderTaskEpochArmed = true;
+		setTimeout(() => {
+			renderTaskEpochArmed = false;
+			renderTaskEpoch++;
+		}, 0);
+	}
+	return renderTaskEpoch;
+}
+var attributePropertyNames = /* @__PURE__ */ new Map();
+function attributeToProperty(attribute) {
+	let prop = attributePropertyNames.get(attribute);
+	if (prop === void 0) {
+		prop = attribute.replace(/-([a-z])/g, (_, ch) => ch.toUpperCase());
+		attributePropertyNames.set(attribute, prop);
+	}
+	return prop;
+}
+var declaredTypeCache = /* @__PURE__ */ new WeakMap();
+var nativePropertyNames = /* @__PURE__ */ new Map();
+function isNativeElementProperty(prop) {
+	let native = nativePropertyNames.get(prop);
+	if (native === void 0) {
+		native = prop in HTMLElement.prototype;
+		nativePropertyNames.set(prop, native);
+	}
+	return native;
+}
+var ComponentBase = class ComponentBase extends HTMLElement {
+	constructor(meta, component, pending) {
+		super();
+		this._renderScheduled = false;
+		this._booleanProperties = /* @__PURE__ */ new Set();
+		this._numberProperties = /* @__PURE__ */ new Set();
+		this._stringProperties = /* @__PURE__ */ new Set();
+		this._rendering = false;
+		this._selectEpoch = 0;
+		this._renderScopedSelects = /* @__PURE__ */ new Map();
+		this._reactiveSourceEntries = [];
+		this._created = false;
+		this._destroyed = false;
+		this._teardownScheduled = false;
+		this._dirty = true;
+		this._renderEffect = null;
+		this._rendersThisTask = 0;
+		this._renderTaskEpoch = -1;
+		this._renderBurstReset = null;
+		this._renderLoopReported = false;
+		this._renderCatchingUp = false;
+		this._ownedResourcesDestroyed = false;
+		this._onDestroyRan = false;
+		this._devtoolsId = 0;
+		this._renderCount = 0;
+		this._meta = meta;
+		this._component = component;
+		this._component.elementRef = this;
+		let declaredTypes = declaredTypeCache.get(meta);
+		if (!declaredTypes) {
+			declaredTypes = Object.entries({
+				...attributeTypes(meta.attributes),
+				...component.constructor.propertyTypes ?? {}
+			}).map(([attribute, type]) => [attributeToProperty(attribute), type]);
+			declaredTypeCache.set(meta, declaredTypes);
+		}
+		for (const [prop, type] of declaredTypes) if (type === "boolean") this._booleanProperties.add(prop);
+		else if (type === "number") this._numberProperties.add(prop);
+		else if (type === "string") this._stringProperties.add(prop);
+		this._disposables = pending?.disposables ?? /* @__PURE__ */ new Set();
+		this._selectCache = pending?.selectCache ?? /* @__PURE__ */ new Map();
+		this._root = this.attachShadow({ mode: "open" });
+		applyGlobalStyles(this._root);
+		this._style = this.renderStyles();
+		const prevActive = getActiveComponent();
+		setActiveComponent(this);
+		try {
+			untracked(() => {
+				this.observe();
+				if (this._component.onInit) this._component.onInit();
+			});
+		} finally {
+			setActiveComponent(prevActive);
+		}
+	}
+	get component() {
+		return this._component;
+	}
+	get isRendering() {
+		return this._rendering;
+	}
+	get selector() {
+		return this._meta.selector;
+	}
+	registerDisposable(d) {
+		this._disposables.add(d);
+	}
+	requestRender() {
+		this.scheduleRender();
+	}
+	getSelectCache() {
+		return this._selectCache;
+	}
+	touchSelectEntry(fullKey) {
+		if (this._renderScopedSelects.has(fullKey)) this._renderScopedSelects.set(fullKey, this._selectEpoch);
+	}
+	trackSelectEntry(fullKey, sig) {
+		if (!this._rendering) return;
+		this._renderScopedSelects.set(fullKey, this._selectEpoch);
+		sig.subscribe(() => this.scheduleRender());
+	}
+	connectedCallback() {
+		this._teardownScheduled = false;
+		if (this._destroyed) {
+			this._destroyed = false;
+			if (this._ownedResourcesDestroyed) devWarn(`reconnect-after-destroy:${this._meta.selector}`, `<${this._meta.selector}> was attached again after it had been destroyed. Its template and handlers are restored, but the computeds, effects, forms and store selections it owned were destroyed with it and cannot be recreated — reading one now throws. Keep the element attached (moving it within the same task is fine), or create a new element instead of re-using this one.`);
+		}
+		emitDevtools("component:connect", () => ({
+			id: this.devtoolsId(),
+			selector: this._meta.selector
+		}));
+		this.subscribeReactiveSources();
+		this.render();
+		const prev = getActiveComponent();
+		setActiveComponent(this);
+		try {
+			untracked(() => {
+				if (!this._created) {
+					this._created = true;
+					this._component.onCreate?.();
+				}
+				this._component.onConnect?.();
+			});
+		} finally {
+			setActiveComponent(prev);
+		}
+	}
+	disconnectedCallback() {
+		emitDevtools("component:disconnect", () => ({
+			id: this.devtoolsId(),
+			selector: this._meta.selector
+		}));
+		for (const entry of this._reactiveSourceEntries) {
+			for (const unsubscribe of entry.unsubscribers) unsubscribe();
+			entry.unsubscribers = [];
+		}
+		try {
+			untracked(() => this._component.onDisconnect?.());
+		} finally {
+			if (!this._teardownScheduled && !this._destroyed) {
+				this._teardownScheduled = true;
+				queueMicrotask(() => {
+					this._teardownScheduled = false;
+					if (!this.isConnected && !this._destroyed) this.teardown();
+				});
+			}
+		}
+	}
+	attributeChangedCallback(attribute, oldVal, newVal) {
+		const prop = attributeToProperty(attribute);
+		const component = this._component;
+		const current = component[prop];
+		const value = this.coerceAttributeValue(prop, newVal, current);
+		if (!Object.is(current, value)) {
+			component[prop] = value;
+			this.scheduleRender();
+		}
+		if (this._component.onAttributeChange !== void 0) untracked(() => this._component.onAttributeChange(attribute, oldVal, newVal));
+	}
+	coerceAttributeValue(prop, raw, current) {
+		if (this._stringProperties.has(prop)) return raw;
+		if (this._booleanProperties.has(prop) || typeof current === "boolean") return raw !== null && raw !== "false";
+		if (this._numberProperties.has(prop) || typeof current === "number") {
+			if (raw === null || raw.trim() === "") return raw;
+			const parsed = Number(raw);
+			return Number.isNaN(parsed) ? raw : parsed;
+		}
+		if ((current === void 0 || current === null) && (raw === "true" || raw === "false")) return raw === "true";
+		return raw;
+	}
+	teardown() {
+		this._destroyed = true;
+		if (this._devtoolsId !== 0) {
+			emitDevtools("component:destroy", () => ({
+				id: this._devtoolsId,
+				selector: this._meta.selector
+			}));
+			getHook()?.components.delete(this._devtoolsId);
+		}
+		if (this._renderBurstReset !== null) {
+			clearTimeout(this._renderBurstReset);
+			this._renderBurstReset = null;
+		}
+		this._renderCatchingUp = false;
+		this._renderLoopReported = false;
+		this._renderEffect?.destroy();
+		this._renderEffect = null;
+		const root = this._root;
+		const parts = root.__parts;
+		if (parts) disposeParts(parts);
+		delete root.__parts;
+		delete root.__templateKey;
+		try {
+			if (this._component.onDestroy !== void 0 && !this._onDestroyRan) {
+				this._onDestroyRan = true;
+				untracked(() => this._component.onDestroy());
+			}
+		} finally {
+			if (this._disposables.size > 0) this._ownedResourcesDestroyed = true;
+			for (const d of this._disposables) try {
+				d.destroy();
+			} catch (error) {
+				console.error("Disposable cleanup failed:", error);
+			}
+			this._disposables.clear();
+			this._selectCache.clear();
+		}
+	}
+	renderStyles() {
+		if (!this._meta.styles) return null;
+		const sheet = getComponentStyleSheet(this._meta.styles);
+		if (sheet) {
+			this._root.adoptedStyleSheets = [...this._root.adoptedStyleSheets, sheet];
+			return null;
+		}
+		const styleNode = document.createElement("style");
+		styleNode.textContent = getComponentStyleText(this._meta.styles);
+		return this._root.appendChild(styleNode);
+	}
+	adoptedCallback() {
+		const componentStyles = this._meta.styles;
+		const atHome = this.ownerDocument === document;
+		let sheets = null;
+		const texts = [...getGlobalStyleTexts()];
+		if (componentStyles) texts.push(getComponentStyleText(componentStyles));
+		if (texts.length === 0) return;
+		if (atHome) {
+			const componentSheet = componentStyles ? getComponentStyleSheet(componentStyles) : null;
+			if (!componentStyles || componentSheet) {
+				sheets = [...getGlobalStyleSheets()];
+				if (componentSheet) sheets.push(componentSheet);
+			}
+		} else sheets = getStyleSheetsForDocument(this.ownerDocument, texts);
+		if (sheets) try {
+			this._root.adoptedStyleSheets = sheets;
+			if (this._style && supportsConstructedStyleSheets()) {
+				this._style.remove();
+				this._style = null;
+			}
+			return;
+		} catch {}
+		if (!this._style) this._style = this.ownerDocument.createElement("style");
+		this._style.textContent = texts.join("\n");
+		if (this._style.parentNode !== this._root) this._root.appendChild(this._style);
+	}
+	render() {
+		if (this.enteredRenderLoop()) return;
+		this._dirty = false;
+		if (!this._renderEffect) this._renderEffect = new SignalEffect(() => this.renderTemplate(), {
+			name: this._meta.selector,
+			onInvalidate: () => this.scheduleRender()
+		});
+		if (!devtoolsListening()) {
+			this._renderEffect.runNow();
+			return;
+		}
+		const started = performance.now();
+		this._renderEffect.runNow();
+		const elapsed = performance.now() - started;
+		this._renderCount++;
+		const record = getHook()?.components.get(this.devtoolsId());
+		if (record) {
+			record.renders = this._renderCount;
+			record.lastRenderMs = elapsed;
+		}
+		emitDevtools("component:render", () => ({
+			id: this.devtoolsId(),
+			selector: this._meta.selector,
+			ms: elapsed,
+			renders: this._renderCount
+		}));
+	}
+	devtoolsId() {
+		if (this._devtoolsId === 0) {
+			const hook$1 = getHook();
+			if (!hook$1) return 0;
+			this._devtoolsId = hook$1.nextId();
+			hook$1.components.set(this._devtoolsId, {
+				id: this._devtoolsId,
+				selector: this._meta.selector,
+				host: new WeakRef(this),
+				renders: this._renderCount,
+				lastRenderMs: 0
+			});
+		}
+		return this._devtoolsId;
+	}
+	renderTemplate() {
+		const prev = getActiveComponent();
+		setActiveComponent(this);
+		this._rendering = true;
+		this._selectEpoch++;
+		try {
+			if (this._meta.template) {
+				render(this._meta.template(this._component, this._meta.template.length > 1 ? this.getAttributeValues() : void 0), this._root);
+				if (this._style && this._style.parentNode !== this._root) this._root.appendChild(this._style);
+			}
+			if (this._component.onRender !== void 0) untracked(() => this._component.onRender());
+		} finally {
+			this._rendering = false;
+			setActiveComponent(prev);
+			this.sweepRenderScopedSelects();
+		}
+	}
+	enteredRenderLoop() {
+		const epoch = currentRenderTaskEpoch();
+		if (epoch !== this._renderTaskEpoch) {
+			this._renderTaskEpoch = epoch;
+			this._rendersThisTask = 0;
+		}
+		if (++this._rendersThisTask <= MAX_RENDERS_PER_TASK) return false;
+		if (!this._renderLoopReported) {
+			this._renderLoopReported = true;
+			console.error(`[Melodic] <${this._meta.selector}> rendered ${MAX_RENDERS_PER_TASK} times without yielding and was stopped. A render loop is usually a property or signal written from onRender (or from the template itself), which schedules the render that writes it again.`);
+		}
+		if (this._renderBurstReset === null && !this._renderCatchingUp) this._renderBurstReset = setTimeout(() => {
+			this._renderBurstReset = null;
+			if (!this._dirty || !this.isConnected || this._destroyed) {
+				this._renderLoopReported = false;
+				return;
+			}
+			this._renderCatchingUp = true;
+			this.scheduleRender();
+			this._renderBurstReset = setTimeout(() => {
+				this._renderBurstReset = null;
+				this._renderCatchingUp = false;
+				this._renderLoopReported = false;
+			}, 0);
+		}, 0);
+		return true;
+	}
+	sweepRenderScopedSelects() {
+		for (const [key, epoch] of this._renderScopedSelects) {
+			if (epoch === this._selectEpoch) continue;
+			const sig = this._selectCache.get(key);
+			this._renderScopedSelects.delete(key);
+			this._selectCache.delete(key);
+			if (sig) {
+				this._disposables.delete(sig);
+				sig.destroy();
+			}
+		}
+	}
+	scheduleRender() {
+		this._dirty = true;
+		if (this._renderScheduled) return;
+		this._renderScheduled = true;
+		queueMicrotask(() => {
+			this._renderScheduled = false;
+			if (this.isConnected && this._dirty) this.render();
+		});
+	}
+	observe() {
+		const properties = [];
+		const seen = /* @__PURE__ */ new Set();
+		let proto = this._component;
+		while (proto && proto !== Object.prototype) {
+			for (const prop of Object.getOwnPropertyNames(proto)) if (!seen.has(prop)) {
+				seen.add(prop);
+				properties.push(prop);
+			}
+			proto = Object.getPrototypeOf(proto);
+		}
+		const getterOnly = [];
+		const sourceProps = [];
+		const functionFields = [];
+		const dataProps = [];
+		for (const prop of properties) {
+			if (prop.startsWith("_") || prop === "elementRef" || prop === "constructor") continue;
+			const descriptor = this.getPropertyDescriptor(this._component, prop);
+			const isServiceAccessor = `__service_${prop}` in this._component;
+			if (descriptor && descriptor.get && (!descriptor.set || isServiceAccessor)) {
+				getterOnly.push(prop);
+				continue;
+			}
+			const value = this._component[prop];
+			if (isSignal(value) || value instanceof AbstractControl) {
+				sourceProps.push(prop);
+				continue;
+			}
+			if (typeof value === "function") {
+				if (Object.prototype.hasOwnProperty.call(this._component, prop)) functionFields.push(prop);
+				continue;
+			}
+			dataProps.push([prop, descriptor]);
+		}
+		for (const prop of sourceProps) this.observeReactiveSource(prop);
+		for (const [prop, descriptor] of dataProps) {
+			const wrapperValue = Object.getOwnPropertyDescriptor(this, prop)?.value;
+			let value = wrapperValue === void 0 ? this._component[prop] : wrapperValue;
+			if (typeof value === "boolean") this._booleanProperties.add(prop);
+			else if (typeof value === "number") this._numberProperties.add(prop);
+			let componentGetter = () => value;
+			let componentSetter = (newVal) => {
+				if (!Object.is(value, newVal)) {
+					untracked(() => this._component.onPropertyChange?.(prop, value, newVal));
+					value = newVal;
+					this.scheduleRender();
+				}
+			};
+			if (descriptor?.get) {
+				const originalGetter = descriptor.get;
+				componentGetter = () => originalGetter.call(this._component);
+			}
+			if (descriptor?.set) {
+				const originalSetter = descriptor.set;
+				const baseSetter = componentSetter;
+				componentSetter = (newVal) => {
+					originalSetter.call(this._component, newVal);
+					baseSetter(newVal);
+				};
+			}
+			Object.defineProperty(this._component, prop, {
+				get: componentGetter,
+				set: componentSetter,
+				enumerable: true,
+				configurable: true
+			});
+			if (isNativeElementProperty(prop)) devWarn(`native-prop:${this._meta.selector}:${prop}`, `<${this._meta.selector}> declares a property "${prop}", which is also a native HTMLElement property. The native behaviour is kept on the element; the component's field is still reactive internally, but \`element.${prop}\` reads the platform value. Rename the field to avoid the collision.`);
+			else Object.defineProperty(this, prop, {
+				get: componentGetter,
+				set: componentSetter,
+				enumerable: true,
+				configurable: true
+			});
+		}
+		for (const prop of getterOnly) {
+			if (Object.prototype.hasOwnProperty.call(this, prop)) continue;
+			Object.defineProperty(this, prop, {
+				get: () => this._component[prop],
+				set: () => {},
+				enumerable: true,
+				configurable: true
+			});
+		}
+		for (const prop of functionFields) this.exposePassthrough(prop);
+		for (const prop of sourceProps) this.exposePassthrough(prop);
+		for (const attribute of attributeNames(this._meta.attributes)) {
+			const prop = attributeToProperty(attribute);
+			if (!seen.has(prop) || typeof this._component[prop] !== "function" || Object.prototype.hasOwnProperty.call(this._component, prop)) this.exposePassthrough(prop);
+		}
+		this.warnAboutUnknownHostProperties();
+	}
+	exposePassthrough(prop) {
+		if (prop in ComponentBase.prototype) return;
+		let pending;
+		const own = Object.getOwnPropertyDescriptor(this, prop);
+		if (own) {
+			if (own.get || own.set || !own.configurable) return;
+			pending = own.value;
+			delete this[prop];
+		}
+		const elementClass = Object.getPrototypeOf(this);
+		if (!Object.prototype.hasOwnProperty.call(elementClass, prop)) Object.defineProperty(elementClass, prop, {
+			get() {
+				return this._component[prop];
+			},
+			set(value) {
+				this.writeFromHost(prop, value);
+			},
+			enumerable: true,
+			configurable: true
+		});
+		if (pending !== void 0) this.writeFromHost(prop, pending);
+	}
+	writeFromHost(prop, value) {
+		const component = this._component;
+		const current = component[prop];
+		if (Object.is(current, value)) return;
+		if (isSignal(current) && !isSignal(value)) {
+			try {
+				current.set(value);
+			} catch (error) {
+				devWarn(`host-write-readonly:${this._meta.selector}:${prop}`, `<${this._meta.selector}>.${prop} holds a read-only signal, so the value bound to it was ignored.`, error);
+			}
+			return;
+		}
+		if (current instanceof AbstractControl && !(value instanceof AbstractControl)) {
+			devWarn(`host-write-control:${this._meta.selector}:${prop}`, `<${this._meta.selector}>.${prop} holds a form control; bind a control to it (or bind the value to the control), not a plain value. The write was ignored.`);
+			return;
+		}
+		component[prop] = value;
+		this.scheduleRender();
+	}
+	warnAboutUnknownHostProperties() {
+		if (!isDevMode()) return;
+		for (const prop of Object.keys(this)) {
+			if (prop.startsWith("_")) continue;
+			const descriptor = Object.getOwnPropertyDescriptor(this, prop);
+			if (!descriptor || descriptor.get || descriptor.set) continue;
+			devWarn(`unknown-prop:${this._meta.selector}:${prop}`, `A value was bound to <${this._meta.selector}>.${prop}, but the component declares no "${prop}" property, so it was ignored. Give the field an initializer (\`${prop} = undefined\` is enough) or list it in the component's \`attributes\`.`);
+		}
+	}
+	getPropertyDescriptor(target, prop) {
+		let current = target;
+		while (current && current !== Object.prototype) {
+			const descriptor = Object.getOwnPropertyDescriptor(current, prop);
+			if (descriptor) return descriptor;
+			current = Object.getPrototypeOf(current);
+		}
+	}
+	getAttributeValues() {
+		const attributes = {};
+		this.getAttributeNames().forEach((attrName) => {
+			attributes[attrName] = this.getAttribute(attrName) ?? "";
+		});
+		return attributes;
+	}
+	subscribeReactiveSources() {
+		if (this._destroyed) return;
+		for (const entry of this._reactiveSourceEntries) {
+			for (const unsubscribe of entry.unsubscribers) unsubscribe();
+			entry.unsubscribers = this.subscribeSources(entry.signals);
+		}
+	}
+	subscribeSources(signals) {
+		const unsubscribers = [];
+		for (const source of signals) try {
+			unsubscribers.push(source.subscribe(() => this.scheduleRender()));
+		} catch {}
+		return unsubscribers;
+	}
+	collectSourceSignals(value) {
+		if (isSignal(value)) return [value];
+		if (value instanceof AbstractControl) return [value.value, value.state];
+		return [];
+	}
+	observeReactiveSource(prop) {
+		const component = this._component;
+		const entry = {
+			signals: this.collectSourceSignals(component[prop]),
+			unsubscribers: []
+		};
+		this._reactiveSourceEntries.push(entry);
+		const descriptor = this.getPropertyDescriptor(this._component, prop);
+		if (descriptor && (descriptor.get || descriptor.set)) return;
+		let current = component[prop];
+		Object.defineProperty(this._component, prop, {
+			get: () => current,
+			set: (newVal) => {
+				if (Object.is(current, newVal)) return;
+				untracked(() => this._component.onPropertyChange?.(prop, current, newVal));
+				current = newVal;
+				for (const unsubscribe of entry.unsubscribers) unsubscribe();
+				entry.unsubscribers = [];
+				entry.signals = this.collectSourceSignals(newVal);
+				if (this.isConnected && !this._destroyed) entry.unsubscribers = this.subscribeSources(entry.signals);
+				this.scheduleRender();
+			},
+			enumerable: true,
+			configurable: true
+		});
+	}
+};
+var RESERVED_SELECTORS = new Set([
+	"annotation-xml",
+	"color-profile",
+	"font-face",
+	"font-face-src",
+	"font-face-uri",
+	"font-face-format",
+	"font-face-name",
+	"missing-glyph"
+]);
+function assertValidSelector(selector) {
+	if (typeof selector !== "string" || selector.length === 0) throw new Error("@MelodicComponent: \"selector\" is required and must be a non-empty string (e.g. \"app-card\").");
+	if (!selector.includes("-")) throw new Error(`@MelodicComponent: invalid selector "${selector}". Custom element names must contain a hyphen — use a prefixed name such as "app-${selector}".`);
+	if (!/^[a-z]/.test(selector) || /[A-Z]/.test(selector) || /\s/.test(selector)) throw new Error(`@MelodicComponent: invalid selector "${selector}". Custom element names must start with a lowercase letter and must not contain uppercase letters or whitespace.`);
+	if (RESERVED_SELECTORS.has(selector)) throw new Error(`@MelodicComponent: "${selector}" is a reserved name and cannot be used as a custom element selector.`);
+}
+function warnAboutAttributes(meta, component) {
+	if (!isDevMode()) return;
+	for (const name of attributeNames(meta.attributes)) if (/[A-Z]/.test(name)) devWarn(`attr-case:${meta.selector}:${name}`, `<${meta.selector}> observes attribute "${name}", which can never fire — HTML lowercases attribute names. Use "${name.replace(/[A-Z]/g, (ch) => `-${ch.toLowerCase()}`)}" (it maps to the "${name}" property).`);
+	const prototype = component.prototype;
+	if (!prototype) return;
+	for (const name of attributeNames(meta.attributes)) {
+		const prop = name.replace(/-([a-z])/g, (_, ch) => ch.toUpperCase());
+		if (typeof prototype[prop] === "function") devWarn(`attr-method:${meta.selector}:${name}`, `<${meta.selector}> observes attribute "${name}", but "${prop}" is a method. Setting the attribute would replace the method with the attribute string.`);
+	}
+}
+function MelodicComponent(meta) {
+	return function(component) {
+		assertValidSelector(meta.selector);
+		warnAboutAttributes(meta, component);
+		const existing = getComponentDefinition(meta.selector);
+		if (existing && existing.componentClass !== component) devWarn(`duplicate-selector:${meta.selector}`, `Two classes were registered as <${meta.selector}> ('${existing.componentClass?.name ?? "unknown"}' and '${component.name}'). The first registration wins and the second is ignored — custom element names are global.`);
+		if (customElements.get(meta.selector) === void 0) {
+			const webComponent = class extends ComponentBase {
+				constructor() {
+					const dependencies = resolveInjectedParams(component, (token) => Injector.get(token));
+					const disposables = /* @__PURE__ */ new Set();
+					const selectCache = /* @__PURE__ */ new Map();
+					const placeholder = {
+						getSelectCache: () => selectCache,
+						registerDisposable: (d) => {
+							disposables.add(d);
+						}
+					};
+					const prevActive = getActiveComponent();
+					setActiveComponent(placeholder);
+					let userInstance;
+					try {
+						userInstance = untracked(() => Reflect.construct(component, dependencies));
+					} finally {
+						setActiveComponent(prevActive);
+					}
+					super(meta, userInstance, {
+						disposables,
+						selectCache
+					});
+				}
+				static #_ = this.observedAttributes = attributeNames(meta.attributes);
+			};
+			const componentWithSelector = component;
+			componentWithSelector.selector = meta.selector;
+			customElements.define(meta.selector, webComponent);
+		}
+		registerComponentDefinition({
+			selector: meta.selector,
+			componentClass: component,
+			meta
+		});
+		emitDevtools("component:define", () => ({
+			selector: meta.selector,
+			className: component.name
+		}));
+	};
+}
+function emit(host, name, detail, options = {}) {
+	return host.dispatchEvent(new CustomEvent(name, {
+		detail,
+		bubbles: options.bubbles ?? true,
+		composed: options.composed ?? true,
+		cancelable: options.cancelable ?? false
+	}));
+}
+function readEnv() {
+	try {
+		return typeof import.meta !== "undefined" ? {
+			"BASE_URL": "/",
+			"DEV": false,
+			"MODE": "development",
+			"PROD": true,
+			"SSR": false
+		} : void 0;
+	} catch {
+		return;
+	}
+}
+function isEnvironment(value) {
+	return value === "dev" || value === "qa" || value === "prod";
+}
+function resolveEnvironment(env) {
+	if (env && isEnvironment(env.VITE_ENV)) return env.VITE_ENV;
+	const mode = env?.MODE;
+	if (typeof mode === "string") {
+		if (mode === "development") return "dev";
+		if (mode === "production") return "prod";
+		if (isEnvironment(mode)) return mode;
+	}
+	if (env?.PROD) return "prod";
+	return "dev";
+}
+function getEnvironment() {
+	return resolveEnvironment(readEnv());
+}
+const environment = getEnvironment();
+var UNSAFE_MERGE_KEYS = new Set([
+	"__proto__",
+	"constructor",
+	"prototype"
+]);
+function deepMerge(target, source) {
+	const result = { ...target };
+	for (const key of Object.keys(source)) {
+		if (UNSAFE_MERGE_KEYS.has(key)) continue;
+		const targetVal = result[key];
+		const sourceVal = source[key];
+		if (sourceVal !== null && typeof sourceVal === "object" && !Array.isArray(sourceVal) && targetVal !== null && typeof targetVal === "object" && !Array.isArray(targetVal)) result[key] = deepMerge(targetVal, sourceVal);
+		else result[key] = sourceVal;
+	}
+	return result;
+}
+function defineConfig(definition) {
+	const envOverrides = definition[environment];
+	const resolved = envOverrides ? deepMerge(definition.base, envOverrides) : { ...definition.base };
+	if (definition.extends) return deepMerge(definition.extends, resolved);
+	return resolved;
+}
+const APP_CONFIG = createToken("APP_CONFIG");
+function provideConfig(config) {
+	return (injector) => {
+		injector.bindValue(APP_CONFIG, config);
+	};
+}
+var FormControl = class extends AbstractControl {
+	constructor(initialValue, options = {}) {
+		super(initialValue, options);
+		this.initialValue = initialValue;
+		this.initializeAggregates();
+		this.runValidation();
+	}
+	setValue(value, options) {
+		this.value.set(value);
+		if (options?.markAsPristine) this._dirty.set(false);
+		this.runValidation();
+	}
+	patchValue(value, options) {
+		const current = this.value();
+		if (typeof current === "object" && current !== null && !Array.isArray(current)) this.setValue({
+			...current,
+			...value
+		}, options);
+		else this.setValue(value, options);
+	}
+	reset(value) {
+		this.value.set(value ?? this.initialValue);
+		this._dirty.set(false);
+		this._touched.set(false);
+		this.runValidation();
+	}
+	destroy() {
+		if (this._destroyed) return;
+		this._destroyed = true;
+		this.destroySignals();
+	}
+};
+var FormGroup = class FormGroup extends AbstractControl {
+	constructor(initialControls, options = {}) {
+		super(FormGroup.computeValue(initialControls), options);
+		this.controls = signal({ ...initialControls });
+		for (const key of Object.keys(initialControls)) initialControls[key].parent = this;
+		this.initializeAggregates();
+		this._childValueEffect = new SignalEffect(() => {
+			const controls = this.controls();
+			for (const key of Object.keys(controls)) controls[key].value();
+			this.value.set(FormGroup.computeValue(controls));
+			if (this.shouldValidateOnChange()) this.runValidation();
+		});
+		this._childValueEffect.run();
+	}
+	get(name) {
+		return this.controls()[name];
+	}
+	contains(name) {
+		return name in this.controls();
+	}
+	addControl(name, control) {
+		control.parent = this;
+		this.controls.update((current) => ({
+			...current,
+			[name]: control
+		}));
+	}
+	removeControl(name) {
+		const control = this.controls()[name];
+		if (!control) return;
+		control.parent = null;
+		this.controls.update((current) => {
+			const next = { ...current };
+			delete next[name];
+			return next;
+		});
+		control.destroy();
+	}
+	setValue(value, options) {
+		batch(() => {
+			const controls = this.controls();
+			const controlKeys = Object.keys(controls);
+			const valueKeys = Object.keys(value);
+			for (const key of valueKeys) if (!(key in controls)) throw new Error(`FormGroup.setValue: unknown control name '${key}'. Use patchValue() for partial updates.`);
+			for (const key of controlKeys) if (!(key in value)) throw new Error(`FormGroup.setValue: missing value for control name '${key}'. Use patchValue() for partial updates.`);
+			for (const key of controlKeys) controls[key].setValue(value[key], options);
+			if (options?.markAsPristine) this._dirty.set(false);
+		});
+	}
+	getRawValue() {
+		return FormGroup.computeValue(this.controls(), true);
+	}
+	patchValue(value, options) {
+		batch(() => {
+			const controls = this.controls();
+			for (const key of Object.keys(value)) if (value[key] !== void 0) controls[key]?.setValue(value[key], options);
+			if (options?.markAsPristine) this._dirty.set(false);
+		});
+	}
+	reset(value) {
+		batch(() => {
+			const controls = this.controls();
+			for (const key of Object.keys(controls)) {
+				const resetValue = value?.[key];
+				controls[key].reset(resetValue);
+			}
+		});
+	}
+	markAllAsTouched() {
+		batch(() => {
+			this.markAsTouched();
+			const controls = this.controls();
+			for (const key of Object.keys(controls)) controls[key].markAllAsTouched();
+		});
+	}
+	markAllAsUntouched() {
+		batch(() => {
+			this._touched.set(false);
+			const controls = this.controls();
+			for (const key of Object.keys(controls)) controls[key].markAllAsUntouched();
+		});
+	}
+	markAllAsDirty() {
+		batch(() => {
+			this._dirty.set(true);
+			const controls = this.controls();
+			for (const key of Object.keys(controls)) controls[key].markAllAsDirty();
+		});
+	}
+	markAllAsPristine() {
+		batch(() => {
+			this._dirty.set(false);
+			const controls = this.controls();
+			for (const key of Object.keys(controls)) controls[key].markAllAsPristine();
+		});
+	}
+	disable() {
+		batch(() => {
+			this._ownDisabled.set(true);
+			const controls = this.controls();
+			for (const key of Object.keys(controls)) controls[key].disable();
+		});
+	}
+	enable() {
+		batch(() => {
+			this._ownDisabled.set(false);
+			const controls = this.controls();
+			for (const key of Object.keys(controls)) controls[key].enable();
+		});
+	}
+	async validate() {
+		const controls = this.controls();
+		await Promise.all(Object.keys(controls).map((key) => controls[key].validate()));
+		await this.runValidation();
+	}
+	destroy() {
+		if (this._destroyed) return;
+		this._destroyed = true;
+		this._childValueEffect.destroy();
+		const controls = this.controls();
+		for (const key of Object.keys(controls)) controls[key].destroy();
+		this.destroySignals();
+		this.controls.destroy();
+	}
+	computeDirty() {
+		if (this._dirty()) return true;
+		const controls = this.controls();
+		return Object.keys(controls).some((key) => controls[key].dirty());
+	}
+	computeTouched() {
+		if (this._touched()) return true;
+		const controls = this.controls();
+		return Object.keys(controls).some((key) => controls[key].touched());
+	}
+	computePending() {
+		if (this._pending()) return true;
+		const controls = this.controls();
+		return Object.keys(controls).some((key) => {
+			const control = controls[key];
+			return !control.disabled() && control.pending();
+		});
+	}
+	hasInvalidChild() {
+		const controls = this.controls();
+		return Object.keys(controls).some((key) => {
+			const control = controls[key];
+			return !control.disabled() && control.invalid();
+		});
+	}
+	static computeValue(controls, includeDisabled = false) {
+		const result = {};
+		for (const key of Object.keys(controls)) {
+			const control = controls[key];
+			if (!includeDisabled && control.disabled()) continue;
+			result[key] = includeDisabled ? control.getRawValue() : control.value();
+		}
+		return result;
+	}
+};
+var FormArray = class extends AbstractControl {
+	constructor(initialControls, options = {}) {
+		super(initialControls.map((c) => c.value()), options);
+		this.controls = signal([...initialControls]);
+		for (const control of initialControls) control.parent = this;
+		this.initializeAggregates();
+		this._childValueEffect = new SignalEffect(() => {
+			const controls = this.controls();
+			for (const control of controls) control.value();
+			this.value.set(controls.filter((c) => !c.disabled()).map((c) => c.value()));
+			if (this.shouldValidateOnChange()) this.runValidation();
+		});
+		this._childValueEffect.run();
+	}
+	get length() {
+		return this.controls().length;
+	}
+	at(index) {
+		return this.controls()[index];
+	}
+	push(control) {
+		control.parent = this;
+		this.controls.update((current) => [...current, control]);
+	}
+	insert(index, control) {
+		control.parent = this;
+		this.controls.update((current) => {
+			const next = [...current];
+			next.splice(index, 0, control);
+			return next;
+		});
+	}
+	removeAt(index) {
+		const control = this.controls()[index];
+		if (!control) return;
+		control.parent = null;
+		this.controls.update((current) => current.filter((_, i) => i !== index));
+		control.destroy();
+	}
+	clear() {
+		const controls = this.controls();
+		for (const control of controls) control.parent = null;
+		this.controls.set([]);
+		for (const control of controls) control.destroy();
+	}
+	setValue(value, options) {
+		batch(() => {
+			const controls = this.controls();
+			if (value.length !== controls.length) throw new Error(`FormArray.setValue: expected ${controls.length} value(s) but received ${value.length}. Use patchValue() for partial updates.`);
+			value.forEach((v, i) => {
+				controls[i].setValue(v, options);
+			});
+			if (options?.markAsPristine) this._dirty.set(false);
+		});
+	}
+	getRawValue() {
+		return this.controls().map((c) => c.getRawValue());
+	}
+	patchValue(value, options) {
+		batch(() => {
+			const controls = this.controls();
+			value.forEach((v, i) => {
+				if (v !== void 0) controls[i]?.setValue(v, options);
+			});
+			if (options?.markAsPristine) this._dirty.set(false);
+		});
+	}
+	reset(value) {
+		batch(() => {
+			this.controls().forEach((control, i) => {
+				control.reset(value?.[i]);
+			});
+		});
+	}
+	markAllAsTouched() {
+		batch(() => {
+			this.markAsTouched();
+			for (const control of this.controls()) control.markAllAsTouched();
+		});
+	}
+	markAllAsUntouched() {
+		batch(() => {
+			this._touched.set(false);
+			for (const control of this.controls()) control.markAllAsUntouched();
+		});
+	}
+	markAllAsDirty() {
+		batch(() => {
+			this._dirty.set(true);
+			for (const control of this.controls()) control.markAllAsDirty();
+		});
+	}
+	markAllAsPristine() {
+		batch(() => {
+			this._dirty.set(false);
+			for (const control of this.controls()) control.markAllAsPristine();
+		});
+	}
+	disable() {
+		batch(() => {
+			this._ownDisabled.set(true);
+			for (const control of this.controls()) control.disable();
+		});
+	}
+	enable() {
+		batch(() => {
+			this._ownDisabled.set(false);
+			for (const control of this.controls()) control.enable();
+		});
+	}
+	async validate() {
+		await Promise.all(this.controls().map((c) => c.validate()));
+		await this.runValidation();
+	}
+	destroy() {
+		if (this._destroyed) return;
+		this._destroyed = true;
+		this._childValueEffect.destroy();
+		for (const control of this.controls()) control.destroy();
+		this.destroySignals();
+		this.controls.destroy();
+	}
+	computeDirty() {
+		if (this._dirty()) return true;
+		return this.controls().some((c) => c.dirty());
+	}
+	computeTouched() {
+		if (this._touched()) return true;
+		return this.controls().some((c) => c.touched());
+	}
+	computePending() {
+		if (this._pending()) return true;
+		return this.controls().some((c) => !c.disabled() && c.pending());
+	}
+	hasInvalidChild() {
+		return this.controls().some((c) => !c.disabled() && c.invalid());
+	}
+};
+function createFormControl(initialValue, options) {
+	return new FormControl(initialValue, options);
+}
+function createFormGroup(controls, options) {
+	return new FormGroup(controls, options);
+}
+function createFormArray(controls, options) {
+	return new FormArray(controls, options);
+}
+registerDefaultMessages({
+	required: "This field is required",
+	minLength: (params) => `Minimum length is ${params.min} characters`,
+	maxLength: (params) => `Maximum length is ${params.max} characters`,
+	pattern: "Value does not match required pattern",
+	email: "Please enter a valid email address",
+	min: (params) => `Value must be at least ${params.min}`,
+	max: (params) => `Value must be at most ${params.max}`,
+	range: (params) => `Value must be between ${params.min} and ${params.max}`
+});
+var EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+function isEmpty(value) {
+	return value === null || value === void 0 || value === "" || Array.isArray(value) && value.length === 0;
+}
+const Validators = {
+	required(value) {
+		return isEmpty(value) ? { required: { code: "required" } } : null;
+	},
+	minLength(min) {
+		return (value) => {
+			if (!value || value.length === 0) return null;
+			return value.length < min ? { minLength: {
+				code: "minLength",
+				params: {
+					min,
+					actual: value.length
+				}
+			} } : null;
+		};
+	},
+	maxLength(max) {
+		return (value) => {
+			if (!value) return null;
+			return value.length > max ? { maxLength: {
+				code: "maxLength",
+				params: {
+					max,
+					actual: value.length
+				}
+			} } : null;
+		};
+	},
+	pattern(regex) {
+		return (value) => {
+			if (!value) return null;
+			regex.lastIndex = 0;
+			return !regex.test(value) ? { pattern: {
+				code: "pattern",
+				params: { pattern: regex.toString() }
+			} } : null;
+		};
+	},
+	email(value) {
+		if (!value) return null;
+		return !EMAIL_REGEX.test(value) ? { email: { code: "email" } } : null;
+	},
+	min(minValue) {
+		return (value) => {
+			if (value === null || value === void 0) return null;
+			return value < minValue ? { min: {
+				code: "min",
+				params: {
+					min: minValue,
+					actual: value
+				}
+			} } : null;
+		};
+	},
+	max(maxValue) {
+		return (value) => {
+			if (value === null || value === void 0) return null;
+			return value > maxValue ? { max: {
+				code: "max",
+				params: {
+					max: maxValue,
+					actual: value
+				}
+			} } : null;
+		};
+	},
+	range(minValue, maxValue) {
+		return (value) => {
+			if (value === null || value === void 0) return null;
+			if (value < minValue || value > maxValue) return { range: {
+				code: "range",
+				params: {
+					min: minValue,
+					max: maxValue,
+					actual: value
+				}
+			} };
+			return null;
+		};
+	},
+	compose(...validators) {
+		return (value) => {
+			let errors = null;
+			for (const validator of validators) {
+				const result = validator(value);
+				if (result !== null) errors = {
+					...errors ?? {},
+					...result
+				};
+			}
+			return errors;
+		};
+	},
+	composeAsync(...validators) {
+		return async (value) => {
+			const results = await Promise.all(validators.map((v) => v(value)));
+			let errors = null;
+			for (const result of results) if (result !== null) errors = {
+				...errors ?? {},
+				...result
+			};
+			return errors;
+		};
+	}
+};
+function createValidator(code, validationFn, defaultMessage, options = {}) {
+	if (defaultMessage !== void 0 && options.global) setDefaultMessage(code, defaultMessage);
+	const validator = ((value) => {
+		if (validationFn(value)) return null;
+		return { [code]: { code } };
+	});
+	if (defaultMessage !== void 0) Object.defineProperty(validator, "messages", {
+		value: { [code]: defaultMessage },
+		enumerable: false
+	});
+	return validator;
+}
+function createAsyncValidator(code, validationFn, defaultMessage, options = {}) {
+	if (defaultMessage !== void 0 && options.global) setDefaultMessage(code, defaultMessage);
+	const validator = (async (value) => {
+		if (await validationFn(value)) return null;
+		return { [code]: { code } };
+	});
+	if (defaultMessage !== void 0) Object.defineProperty(validator, "messages", {
+		value: { [code]: defaultMessage },
+		enumerable: false
+	});
+	return validator;
+}
+var registry = [];
+function registerAdapter(predicate, adapter) {
+	registry.unshift({
+		predicate,
+		adapter
+	});
+}
+function getAdapter(element) {
+	for (const entry of registry) if (entry.predicate(element)) return entry.adapter;
+}
+const textAdapter = {
+	inputEvent: "input",
+	blurEvent: "focusout",
+	getValue(element) {
+		return element.value ?? "";
+	},
+	setValue(element, value) {
+		element.value = value !== null && value !== void 0 ? String(value) : "";
+	},
+	setDisabled(element, disabled) {
+		if (disabled) element.setAttribute("disabled", "");
+		else element.removeAttribute("disabled");
+	}
+};
+const checkboxAdapter = {
+	inputEvent: "change",
+	blurEvent: "focusout",
+	getValue(element) {
+		return element.checked;
+	},
+	setValue(element, value) {
+		element.checked = Boolean(value);
+	},
+	setDisabled(element, disabled) {
+		if (disabled) element.setAttribute("disabled", "");
+		else element.removeAttribute("disabled");
+	}
+};
+const radioAdapter = {
+	inputEvent: "change",
+	blurEvent: "focusout",
+	getValue(element) {
+		const input = element;
+		return input.checked ? input.value : "";
+	},
+	setValue(element, value) {
+		const input = element;
+		input.checked = input.value === value;
+	},
+	setDisabled(element, disabled) {
+		if (disabled) element.setAttribute("disabled", "");
+		else element.removeAttribute("disabled");
+	}
+};
+function registerNativeAdapters() {
+	registerAdapter((el) => el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.tagName === "SELECT", textAdapter);
+	registerAdapter((el) => el.tagName === "INPUT" && el.type === "radio", radioAdapter);
+	registerAdapter((el) => el.tagName === "INPUT" && el.type === "checkbox", checkboxAdapter);
+}
+registerNativeAdapters();
+function formControlDirective(element, value, _) {
+	if (!(value instanceof AbstractControl)) {
+		console.warn("formControl directive: value must be an AbstractControl");
+		return;
+	}
+	const control = value;
+	const adapter = getAdapter(element);
+	if (!adapter) {
+		console.warn(`formControl directive: no adapter registered for <${element.tagName.toLowerCase()}>`);
+		return;
+	}
+	const cleanupFns = [];
+	const syncElementValue = (val) => {
+		if (control.destroyed) return;
+		adapter.setValue(element, val);
+	};
+	const syncDisabled = (disabled) => {
+		if (control.destroyed) return;
+		adapter.setDisabled?.(element, disabled);
+	};
+	const syncClasses = () => {
+		if (control.destroyed) return;
+		element.classList.toggle("mf-valid", control.valid());
+		element.classList.toggle("mf-invalid", control.invalid());
+		element.classList.toggle("mf-dirty", control.dirty());
+		element.classList.toggle("mf-pristine", control.pristine());
+		element.classList.toggle("mf-touched", control.touched());
+		element.classList.toggle("mf-pending", control.pending());
+		element.classList.toggle("mf-disabled", control.disabled());
+	};
+	const syncError = () => {
+		if (control.destroyed) return;
+		if (!control.touched() || !control.errors()) {
+			element.removeAttribute("error");
+			return;
+		}
+		const message = control.getFirstErrorMessage();
+		if (message) element.setAttribute("error", message);
+		else element.removeAttribute("error");
+	};
+	const writeToModel = (onlyIfChanged = false) => {
+		if (control.destroyed) return;
+		const next = adapter.getValue(element);
+		if (onlyIfChanged && Object.is(next, control.value())) return;
+		control.setValue(next);
+		control.markAsDirty();
+	};
+	const handleInput = (event) => {
+		const target = event.target;
+		if (target !== element && !element.contains(target)) return;
+		if (control.updateOn === "change") writeToModel();
+	};
+	const handleBlur = () => {
+		if (control.updateOn === "blur") writeToModel(true);
+		control.markAsTouched();
+	};
+	const handleSubmit = () => {
+		if (control.updateOn === "submit") {
+			writeToModel(true);
+			control.markAsTouched();
+			control.validate();
+		}
+	};
+	syncElementValue(control.value());
+	syncDisabled(control.disabled());
+	syncClasses();
+	syncError();
+	cleanupFns.push(control.value.subscribe((v) => syncElementValue(v)));
+	cleanupFns.push(control.disabled.subscribe((d) => syncDisabled(d)));
+	cleanupFns.push(control.state.subscribe(() => syncClasses()));
+	cleanupFns.push(control.state.subscribe(() => syncError()));
+	element.addEventListener(adapter.inputEvent, handleInput);
+	element.addEventListener(adapter.blurEvent, handleBlur);
+	let form = null;
+	let disposed = false;
+	if (control.updateOn === "submit") {
+		form = element.closest("form");
+		if (form) form.addEventListener("submit", handleSubmit);
+		else queueMicrotask(() => {
+			if (disposed) return;
+			form = element.closest("form");
+			form?.addEventListener("submit", handleSubmit);
+		});
+	}
+	element.setAttribute("data-form-control", "");
+	return () => {
+		disposed = true;
+		element.removeEventListener(adapter.inputEvent, handleInput);
+		element.removeEventListener(adapter.blurEvent, handleBlur);
+		form?.removeEventListener("submit", handleSubmit);
+		element.removeAttribute("data-form-control");
+		for (const fn of cleanupFns) fn();
+	};
+}
+registerAttributeDirective("formControl", formControlDirective);
+function modelDirective(element, value, name) {
+	if (!isSignal(value)) {
+		devWarn("model-not-signal", ":model expects a signal — for example `:model=${this.name}` where `name = signal(\"\")`. Received:", value);
+		return;
+	}
+	const model = value;
+	const adapter = getAdapter(element);
+	if (!adapter) {
+		devWarn(`model-no-adapter:${element.tagName}`, `:model has no adapter registered for <${element.tagName.toLowerCase()}>, so it cannot read or write its value.`);
+		return;
+	}
+	let writingBack = false;
+	const pushToElement = (next) => {
+		if (writingBack) return;
+		adapter.setValue(element, next);
+	};
+	const handleInput = (event) => {
+		const target = event.target;
+		if (target !== element && !element.contains(target)) return;
+		writingBack = true;
+		try {
+			model.set(adapter.getValue(element));
+		} finally {
+			writingBack = false;
+		}
+	};
+	pushToElement(model());
+	const unsubscribe = model.subscribe(pushToElement);
+	element.addEventListener(adapter.inputEvent, handleInput);
+	return () => {
+		unsubscribe();
+		element.removeEventListener(adapter.inputEvent, handleInput);
+	};
+}
+registerAttributeDirective("model", modelDirective);
+function provideHttp(httpClientConfig, interceptors) {
+	return (injector) => {
+		const httpClient = new HttpClient(httpClientConfig);
+		injector.bindValue(HttpClient, httpClient);
+		if (interceptors?.request) interceptors.request.forEach((interceptor) => {
+			httpClient.interceptors.request(interceptor);
+		});
+		if (interceptors?.response) interceptors.response.forEach((interceptor) => {
+			httpClient.interceptors.response(interceptor);
+		});
+	};
+}
+function createGuard(fn) {
+	return { canActivate: fn };
+}
+function createDeactivateGuard(fn) {
+	return { canDeactivate: fn };
+}
+function createResolver(fn) {
+	return { resolve: fn };
+}
+var RouteMatcher = class {
+	constructor(route, rules) {
+		this._reEscape = /[-[\]{}()+?.,\\^$|#\s*]/g;
+		this._reToken = /(\*\*)|:(\w+)|\*(\w+)|(\*)/g;
+		this._reParam = /([:*])(\w+)/g;
+		this._names = [];
+		this._isWildcard = false;
+		this._route = route;
+		this._rules = rules;
+		this._isWildcard = route.includes("*");
+		const escapedRoute = this.buildPattern(route);
+		this._routeRegex = /* @__PURE__ */ new RegExp("^" + escapedRoute + "$");
+		this._prefixRegex = /* @__PURE__ */ new RegExp("^" + escapedRoute + "(?:/|$)");
+	}
+	buildPattern(route) {
+		this._reToken.lastIndex = 0;
+		let pattern = "";
+		let lastIndex = 0;
+		let anonCount = 0;
+		let match;
+		while ((match = this._reToken.exec(route)) !== null) {
+			pattern += route.slice(lastIndex, match.index).replace(this._reEscape, "\\$&");
+			if (match[1] || match[4]) {
+				this._names.push(`_wildcard${anonCount++}`);
+				pattern += "(.*)";
+			} else if (match[2]) {
+				this._names.push(match[2]);
+				pattern += "([^/]+)";
+			} else if (match[3]) {
+				this._names.push(match[3]);
+				pattern += "(.*)";
+			}
+			lastIndex = this._reToken.lastIndex;
+		}
+		pattern += route.slice(lastIndex).replace(this._reEscape, "\\$&");
+		return pattern;
+	}
+	decode(value) {
+		try {
+			return decodeURIComponent(value);
+		} catch {
+			return value;
+		}
+	}
+	parse(url) {
+		let i = 0;
+		let param;
+		let value;
+		const params = {};
+		const matches = url.match(this._routeRegex);
+		if (!matches) return null;
+		while (i < this._names.length) {
+			param = this._names[i++];
+			value = this.decode(matches[i]);
+			if (this._rules && param in this._rules && !this.validateRule(this._rules[param], value)) return null;
+			params[param] = value;
+		}
+		return params;
+	}
+	parsePrefix(url) {
+		if (this._route === "") return {
+			params: {},
+			matchedPath: "",
+			remainingPath: url
+		};
+		const matches = url.match(this._prefixRegex);
+		if (!matches) return null;
+		const params = {};
+		for (let i = 0; i < this._names.length; i++) {
+			const name = this._names[i];
+			const value = this.decode(matches[i + 1]);
+			if (this._rules && name in this._rules && !this.validateRule(this._rules[name], value)) return null;
+			params[name] = value;
+		}
+		const matchedPath = this.calculateMatchedPath(url);
+		return {
+			params,
+			matchedPath,
+			remainingPath: url.slice(matchedPath.length).replace(/^\//, "")
+		};
+	}
+	stringify(params) {
+		let re;
+		let result = this._route;
+		for (const param in params) {
+			re = /* @__PURE__ */ new RegExp("[:*]" + param + "\\b");
+			result = result.replace(re, (token) => token.charAt(0) === "*" ? params[param].split("/").map(encodeURIComponent).join("/") : encodeURIComponent(params[param]));
+		}
+		return result.replace(this._reParam, "").replace(/\*+/g, "");
+	}
+	calculateMatchedPath(url) {
+		if (this._isWildcard) return url;
+		const routeSegments = this._route.split("/").filter(Boolean);
+		return url.split("/").filter(Boolean).slice(0, routeSegments.length).join("/");
+	}
+	validateRule(rule, value) {
+		const type = Object.prototype.toString.call(rule).charAt(8);
+		return type === "R" ? rule.test(value) : type === "F" ? rule(value) : rule === value;
+	}
+};
+const ROUTE_CONTEXT_EVENT = "melodic:route-context";
+var RouteContextEvent = class extends CustomEvent {
+	constructor(context) {
+		super(ROUTE_CONTEXT_EVENT, {
+			bubbles: false,
+			composed: true,
+			detail: context
+		});
+	}
+};
+function __decorate(decorators, target, key, desc) {
+	var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
+	if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
+	else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
+	return c > 3 && r && Object.defineProperty(target, key, r), r;
+}
+var RouteContextService = class RouteContextService$1 {
+	constructor() {
+		this._matchStack = [];
+		this._contexts = /* @__PURE__ */ new Map();
+		this._currentMatchResult = null;
+		this._resolvedData = /* @__PURE__ */ new Map();
+	}
+	setMatchResult(result) {
+		this._currentMatchResult = result;
+		this._matchStack = result.matches;
+		this._contexts.clear();
+		let basePath = "";
+		const ancestorMatches = [];
+		const accumulatedParams = {};
+		for (let i = 0; i < result.matches.length; i++) {
+			const match = result.matches[i];
+			ancestorMatches.push(match);
+			Object.assign(accumulatedParams, match.params);
+			const context = {
+				depth: i,
+				routes: match.children ?? [],
+				currentMatch: match,
+				ancestorMatches: [...ancestorMatches],
+				params: { ...accumulatedParams },
+				remainingPath: match.remainingPath,
+				basePath,
+				parent: i > 0 ? this._contexts.get(i - 1) : void 0
+			};
+			this._contexts.set(i, context);
+			basePath = match.fullPath;
+		}
+	}
+	setResolvedData(depth, data) {
+		this._resolvedData.set(depth, data);
+	}
+	clearResolvedData() {
+		this._resolvedData.clear();
+	}
+	getContextForDepth(depth) {
+		return this._contexts.get(depth);
+	}
+	getChildRoutesForDepth(depth) {
+		const parentContext = this._contexts.get(depth - 1);
+		if (depth === 0) return [];
+		return parentContext?.currentMatch?.children ?? [];
+	}
+	getRemainingPathForDepth(depth) {
+		if (depth === 0) return window.location.pathname;
+		return this._contexts.get(depth - 1)?.remainingPath ?? "";
+	}
+	getParamsForDepth(depth) {
+		return this._contexts.get(depth)?.params ?? {};
+	}
+	getCurrentParams() {
+		return this._currentMatchResult?.params ?? {};
+	}
+	getMatchStack() {
+		return [...this._matchStack];
+	}
+	getCurrentMatchResult() {
+		return this._currentMatchResult;
+	}
+	getMergedRouteData(depth) {
+		const maxDepth = depth ?? this._matchStack.length - 1;
+		const merged = {};
+		for (let i = 0; i <= maxDepth && i < this._matchStack.length; i++) {
+			const match = this._matchStack[i];
+			if (match.route.data) Object.assign(merged, match.route.data);
+		}
+		return merged;
+	}
+	getMergedResolvedData(depth) {
+		const maxDepth = depth ?? this._matchStack.length - 1;
+		const merged = {};
+		for (let i = 0; i <= maxDepth; i++) {
+			const data = this._resolvedData.get(i);
+			if (data) Object.assign(merged, data);
+		}
+		return merged;
+	}
+	getResolvedDataForDepth(depth) {
+		return this._resolvedData.get(depth);
+	}
+};
+RouteContextService = __decorate([Injectable()], RouteContextService);
+function resolveRedirectTarget(redirectTo, basePath) {
+	if (redirectTo.startsWith("/")) return redirectTo;
+	return basePath ? `/${basePath}/${redirectTo}` : `/${redirectTo}`;
+}
+var matcherCache = /* @__PURE__ */ new WeakMap();
+function getMatcher(route) {
+	let matcher = matcherCache.get(route);
+	if (!matcher) {
+		matcher = new RouteMatcher(route.path);
+		matcherCache.set(route, matcher);
+	}
+	return matcher;
+}
+function substituteRedirectParams(redirectTo, params) {
+	if (!redirectTo.includes(":") && !redirectTo.includes("*")) return redirectTo;
+	return redirectTo.replace(/[:*](\w+)/g, (token, name) => {
+		const value = params[name];
+		if (value === void 0) return token;
+		return token.charAt(0) === "*" ? value.split("/").map(encodeURIComponent).join("/") : encodeURIComponent(value);
+	});
+}
+var MAX_MATCH_DEPTH = 64;
+function matchRouteLevel(routes, remainingPath, basePath, accumulatedMatches, accumulatedParams, depth = 0) {
+	if (depth > MAX_MATCH_DEPTH) throw new Error(`Route tree nesting exceeds ${MAX_MATCH_DEPTH} levels — check for cyclic children definitions`);
+	let partialFallback = null;
+	for (const route of routes) {
+		const matcher = getMatcher(route);
+		const exactMatch = matcher.parse(remainingPath);
+		if (route.redirectTo && exactMatch !== null) {
+			const redirectParams = {
+				...accumulatedParams,
+				...exactMatch
+			};
+			return {
+				matches: accumulatedMatches,
+				params: accumulatedParams,
+				isExactMatch: false,
+				redirectTo: resolveRedirectTarget(substituteRedirectParams(route.redirectTo, redirectParams), basePath)
+			};
+		}
+		if (exactMatch !== null) {
+			const matchedPath = remainingPath;
+			const fullPath = basePath && matchedPath ? `${basePath}/${matchedPath}` : basePath || matchedPath;
+			const match = {
+				route,
+				params: exactMatch,
+				matchedPath,
+				remainingPath: "",
+				fullPath,
+				children: route.children
+			};
+			Object.assign(accumulatedParams, exactMatch);
+			accumulatedMatches.push(match);
+			if (route.children) {
+				const emptyRedirect = route.children.find((child) => child.path === "" && child.redirectTo);
+				if (emptyRedirect && emptyRedirect.redirectTo) return {
+					matches: accumulatedMatches,
+					params: accumulatedParams,
+					isExactMatch: false,
+					redirectTo: resolveRedirectTarget(substituteRedirectParams(emptyRedirect.redirectTo, accumulatedParams), fullPath)
+				};
+				if (route.children.find((child) => child.path === "" && !child.redirectTo)) return matchRouteLevel(route.children, "", fullPath, accumulatedMatches, accumulatedParams, depth + 1);
+			}
+			return {
+				matches: accumulatedMatches,
+				params: accumulatedParams,
+				isExactMatch: true
+			};
+		}
+		if (route.children || route.loadChildren) {
+			const prefixResult = matcher.parsePrefix(remainingPath);
+			if (prefixResult && prefixResult.params !== null) {
+				const fullPath = basePath ? `${basePath}/${prefixResult.matchedPath}` : prefixResult.matchedPath;
+				const match = {
+					route,
+					params: prefixResult.params,
+					matchedPath: prefixResult.matchedPath,
+					remainingPath: prefixResult.remainingPath,
+					fullPath,
+					children: route.children
+				};
+				if (route.children && prefixResult.remainingPath) {
+					const matchesLengthBefore = accumulatedMatches.length;
+					const paramsSnapshot = { ...accumulatedParams };
+					Object.assign(accumulatedParams, prefixResult.params);
+					accumulatedMatches.push(match);
+					const childResult = matchRouteLevel(route.children, prefixResult.remainingPath, fullPath, accumulatedMatches, accumulatedParams, depth + 1);
+					if (childResult.isExactMatch || childResult.redirectTo) return childResult;
+					if (!partialFallback) partialFallback = {
+						matches: [...childResult.matches],
+						params: { ...childResult.params },
+						isExactMatch: false
+					};
+					accumulatedMatches.length = matchesLengthBefore;
+					for (const key of Object.keys(accumulatedParams)) delete accumulatedParams[key];
+					Object.assign(accumulatedParams, paramsSnapshot);
+					continue;
+				}
+				Object.assign(accumulatedParams, prefixResult.params);
+				accumulatedMatches.push(match);
+				return {
+					matches: accumulatedMatches,
+					params: accumulatedParams,
+					isExactMatch: prefixResult.remainingPath === ""
+				};
+			}
+		}
+	}
+	return partialFallback ?? {
+		matches: accumulatedMatches,
+		params: accumulatedParams,
+		isExactMatch: false
+	};
+}
+function matchRouteTree(routes, path, basePath = "") {
+	const result = matchRouteLevel(routes, path.startsWith("/") ? path.slice(1) : path, basePath, [], {});
+	return {
+		matches: result.matches,
+		params: result.params,
+		isExactMatch: result.isExactMatch,
+		redirectTo: result.redirectTo
+	};
+}
+function buildPathFromRoute(routes, name, params = {}) {
+	const pathParts = [];
+	function findAndBuildPath(routeList, targetName) {
+		for (const route of routeList) {
+			if (route.name === targetName) {
+				const matcher = getMatcher(route);
+				pathParts.push(matcher.stringify(params));
+				return true;
+			}
+			if (route.children) {
+				const segment = getMatcher(route).stringify(params);
+				if (findAndBuildPath(route.children, targetName)) {
+					pathParts.unshift(segment);
+					return true;
+				}
+			}
+		}
+		return false;
+	}
+	if (findAndBuildPath(routes, name)) return "/" + pathParts.join("/").split("/").filter(Boolean).join("/");
+	return null;
+}
+const routerStateEvent = (type, data, title, url) => {
+	return new PopStateEvent("History", { state: {
+		type,
+		data,
+		url,
+		host: window.location.host,
+		hostName: window.location.hostname,
+		href: window.location.href,
+		pathName: window.location.pathname,
+		port: window.location.port,
+		protocol: window.location.protocol,
+		params: new URLSearchParams(window.location.search),
+		title
+	} });
+};
+var historyEventsInstalled = false;
+function installHistoryEvents() {
+	if (historyEventsInstalled) return;
+	historyEventsInstalled = true;
+	const pushState = history.pushState;
+	history.pushState = (data, title, url) => {
+		pushState.apply(history, [
+			data,
+			title,
+			url
+		]);
+		const navigationEvent = new CustomEvent("NavigationEvent", { detail: routerStateEvent("push", data, title, url) });
+		window.dispatchEvent(navigationEvent);
+	};
+	const replaceState = history.replaceState;
+	history.replaceState = (data, title, url) => {
+		replaceState.apply(history, [
+			data,
+			title,
+			url
+		]);
+		const navigationEvent = new CustomEvent("NavigationEvent", { detail: routerStateEvent("replace", data, title, url) });
+		window.dispatchEvent(navigationEvent);
+	};
+}
+function parseUrlParts(url) {
+	const hashIndex = url.indexOf("#");
+	const hash = hashIndex >= 0 ? url.slice(hashIndex) : "";
+	const withoutHash = hashIndex >= 0 ? url.slice(0, hashIndex) : url;
+	const queryIndex = withoutHash.indexOf("?");
+	const search = queryIndex >= 0 ? withoutHash.slice(queryIndex) : "";
+	return {
+		pathname: queryIndex >= 0 ? withoutHash.slice(0, queryIndex) : withoutHash,
+		search,
+		hash
+	};
+}
+function appendQueryParams(url, queryParams) {
+	const serialized = (queryParams instanceof URLSearchParams ? queryParams : new URLSearchParams(queryParams ?? {})).toString();
+	if (!serialized) return url;
+	const { pathname, search, hash } = parseUrlParts(url);
+	return `${pathname}${search ? `${search}&${serialized}` : `?${serialized}`}${hash}`;
+}
+function carryQueryAndHash(target, search, hash) {
+	const parts = parseUrlParts(target);
+	return `${parts.pathname}${parts.search || search}${parts.hash || hash}`;
+}
+var ABSOLUTE_URL_PATTERN = /^[a-z][a-z\d+\-.]*:\/\//i;
+function toRootRelative(path) {
+	if (path === "" || path.startsWith("?") || path.startsWith("#")) return path;
+	if (ABSOLUTE_URL_PATTERN.test(path) || path.startsWith("//")) try {
+		const url = new URL(path, window.location.href);
+		if (url.origin !== window.location.origin) return null;
+		return `${url.pathname}${url.search}${url.hash}`;
+	} catch {
+		return null;
+	}
+	return path.startsWith("/") ? path : `/${path}`;
+}
+function __decorateMetadata(k, v) {
+	if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
+}
+var childrenLoads = /* @__PURE__ */ new WeakMap();
+var componentLoads = /* @__PURE__ */ new WeakMap();
+var MAX_LAZY_LOADS = 64;
+var MAX_REDIRECTS = 10;
+var HISTORY_INDEX_KEY = "__melodicHistoryIndex";
+function loadRouteChildren(route) {
+	let pending = childrenLoads.get(route);
+	if (!pending) {
+		pending = Promise.resolve().then(() => route.loadChildren());
+		pending.catch(() => childrenLoads.delete(route));
+		childrenLoads.set(route, pending);
+	}
+	return pending;
+}
+function loadRouteComponent(route) {
+	let pending = componentLoads.get(route);
+	if (!pending) {
+		pending = Promise.resolve().then(() => route.loadComponent());
+		pending.catch(() => componentLoads.delete(route));
+		componentLoads.set(route, pending);
+	}
+	return pending;
+}
+var RouterService = class RouterService$1 {
+	constructor() {
+		this._routes = [];
+		this._currentMatches = [];
+		this._currentPath = `${window.location.pathname}${window.location.search}`;
+		this._navigationId = 0;
+		this._pendingTarget = null;
+		this._historyIndex = 0;
+		this._ignorePopStates = 0;
+		this._scrollPositions = /* @__PURE__ */ new Map();
+		this._scrollRestoration = true;
+		this._previousScrollRestoration = null;
+		installHistoryEvents();
+		this._contextService = Injector.has(RouteContextService) ? Injector.get(RouteContextService) : new RouteContextService();
+		this._committedRoute = signal(null);
+		this._params = signal({});
+		this._queryParams = signal(new URLSearchParams(window.location.search));
+		this._resolvedData = signal({});
+		this._events = signal(null);
+		this._historyIndex = this.readHistoryIndex(history.state) ?? 0;
+		this.ensureHistoryStamp();
+		this.enableScrollRestoration(true);
+		this._navigationListener = (event) => {
+			this._route = event.detail.state;
+		};
+		window.addEventListener("NavigationEvent", this._navigationListener);
+		this._popStateListener = (event) => {
+			this.handlePopState(event);
+		};
+		window.addEventListener("popstate", this._popStateListener);
+	}
+	get committedRoute() {
+		return this._committedRoute;
+	}
+	get params() {
+		return this._params;
+	}
+	get queryParams() {
+		return this._queryParams;
+	}
+	get resolvedData() {
+		return this._resolvedData;
+	}
+	get events() {
+		return this._events;
+	}
+	destroy() {
+		window.removeEventListener("NavigationEvent", this._navigationListener);
+		window.removeEventListener("popstate", this._popStateListener);
+		if (this._previousScrollRestoration !== null && "scrollRestoration" in history) {
+			history.scrollRestoration = this._previousScrollRestoration;
+			this._previousScrollRestoration = null;
+		}
+	}
+	enableScrollRestoration(enabled) {
+		this._scrollRestoration = enabled;
+		if (!("scrollRestoration" in history)) return;
+		if (enabled) {
+			if (this._previousScrollRestoration === null) this._previousScrollRestoration = history.scrollRestoration;
+			history.scrollRestoration = "manual";
+		} else if (this._previousScrollRestoration !== null) {
+			history.scrollRestoration = this._previousScrollRestoration;
+			this._previousScrollRestoration = null;
+		}
+	}
+	setRoutes(routes) {
+		this._routes = routes;
+	}
+	getRoutes() {
+		return this._routes;
+	}
+	getContextService() {
+		return this._contextService;
+	}
+	getRoute() {
+		return this._route;
+	}
+	getParams() {
+		return this._contextService.getCurrentParams();
+	}
+	getParam(name) {
+		return this._contextService.getCurrentParams()[name];
+	}
+	getQueryParams() {
+		return this.targetQueryParams();
+	}
+	getCurrentMatches() {
+		return [...this._currentMatches];
+	}
+	getRouteData(depth) {
+		return this._contextService.getMergedRouteData(depth);
+	}
+	getResolvedData(depth) {
+		return this._contextService.getMergedResolvedData(depth);
+	}
+	matchPath(path) {
+		return matchRouteTree(this._routes, this.normalizePath(path));
+	}
+	emit(type, id, url, trigger, extra = {}) {
+		this._events.set({
+			type,
+			id,
+			url,
+			trigger,
+			...extra
+		});
+		emitDevtools(`nav:${type}`, () => ({
+			id,
+			url,
+			trigger,
+			...extra
+		}));
+	}
+	async resolveMatch(path, isCurrent) {
+		for (let loads = 0; loads <= MAX_LAZY_LOADS; loads++) {
+			const result = this.matchPath(path);
+			if (result.redirectTo) return { result };
+			const last = result.matches[result.matches.length - 1];
+			if (last && last.route.loadChildren && !last.route.children) {
+				try {
+					const module = await loadRouteChildren(last.route);
+					last.route.children = module.routes;
+				} catch (error) {
+					console.error("Failed to load child routes:", error);
+					return {
+						result,
+						error: `Failed to load child routes: ${error instanceof Error ? error.message : String(error)}`
+					};
+				}
+				if (!isCurrent()) return {
+					result,
+					superseded: true
+				};
+				continue;
+			}
+			const pendingComponents = result.matches.filter((match) => match.route.loadComponent).map((match) => loadRouteComponent(match.route));
+			if (pendingComponents.length > 0) {
+				try {
+					await Promise.all(pendingComponents);
+				} catch (error) {
+					console.error("Failed to load component:", error);
+					return {
+						result,
+						error: `Failed to load component: ${error instanceof Error ? error.message : String(error)}`
+					};
+				}
+				if (!isCurrent()) return {
+					result,
+					superseded: true
+				};
+			}
+			return { result };
+		}
+		return {
+			result: this.matchPath(path),
+			error: `Route '${path}' exceeded ${MAX_LAZY_LOADS} lazy child loads`
+		};
+	}
+	parseUrl(url) {
+		return parseUrlParts(url);
+	}
+	normalizePath(url) {
+		const { pathname } = this.parseUrl(url);
+		return pathname.length > 1 ? pathname.replace(/\/+$/, "") : pathname;
+	}
+	targetPathname() {
+		return this._pendingTarget ? this._pendingTarget.pathname : window.location.pathname;
+	}
+	targetQueryParams() {
+		return new URLSearchParams(this._pendingTarget ? this._pendingTarget.queryParams : window.location.search);
+	}
+	setCurrentMatches(result) {
+		this._currentMatches = result.matches;
+		this._contextService.setMatchResult(result);
+	}
+	commit(result) {
+		this.setCurrentMatches(result);
+		this.publishRouteState(result);
+		this._committedRoute.set(result);
+	}
+	publishRouteState(result) {
+		this._params.set({ ...result.params });
+		this._queryParams.set(this.targetQueryParams());
+		this._resolvedData.set(this._contextService.getMergedResolvedData());
+	}
+	async initialNavigation() {
+		const navId = ++this._navigationId;
+		this._pendingTarget = null;
+		const currentUrl = `${window.location.pathname}${window.location.search}`;
+		this.emit("start", navId, currentUrl, "initial");
+		const resolved = await this.resolveMatch(window.location.pathname, () => this._navigationId === navId);
+		if (resolved.superseded || this._navigationId !== navId) {
+			this.emit("superseded", navId, currentUrl, "initial");
+			return {
+				success: false,
+				error: "Navigation superseded"
+			};
+		}
+		const matchResult = resolved.result;
+		if (matchResult.redirectTo) {
+			if (this.normalizePath(window.location.pathname) !== this.normalizePath(matchResult.redirectTo)) {
+				const redirectTarget = carryQueryAndHash(matchResult.redirectTo, window.location.search, window.location.hash);
+				this.emit("redirect", navId, currentUrl, "initial", { redirectTo: redirectTarget });
+				return this.navigateInternal(redirectTarget, { replace: true }, {
+					chain: [currentUrl],
+					skipDeactivation: true
+				});
+			}
+			const message = `Route '${currentUrl}' redirects to itself`;
+			console.error(`[Melodic] ${message}`);
+			this.emit("error", navId, currentUrl, "initial", { error: message });
+			this.commit({
+				matches: [],
+				params: {},
+				isExactMatch: false
+			});
+			return {
+				success: false,
+				error: message
+			};
+		}
+		if (resolved.error) {
+			this.commit({
+				matches: [],
+				params: {},
+				isExactMatch: false
+			});
+			this.emit("error", navId, currentUrl, "initial", { error: resolved.error });
+			return {
+				success: false,
+				error: resolved.error
+			};
+		}
+		if (matchResult.matches.length > 0) {
+			const guardResult = await this.runGuards(matchResult);
+			if (this._navigationId !== navId) {
+				this.emit("superseded", navId, currentUrl, "initial");
+				return {
+					success: false,
+					error: "Navigation superseded"
+				};
+			}
+			if (guardResult !== true) {
+				if (typeof guardResult === "string") {
+					this.emit("redirect", navId, currentUrl, "initial", { redirectTo: guardResult });
+					return this.navigateInternal(guardResult, { replace: true }, {
+						chain: [currentUrl],
+						skipDeactivation: true
+					});
+				}
+				this.emit("blocked", navId, currentUrl, "initial", { error: "Navigation blocked by guard" });
+				return {
+					success: false,
+					error: "Navigation blocked by guard"
+				};
+			}
+			const resolverResult = await this.runResolvers(matchResult, () => this._navigationId === navId);
+			if (this._navigationId !== navId) {
+				this.emit("superseded", navId, currentUrl, "initial");
+				return {
+					success: false,
+					error: "Navigation superseded"
+				};
+			}
+			if (!resolverResult.success) {
+				this.commit({
+					matches: [],
+					params: {},
+					isExactMatch: false
+				});
+				const error = resolverResult.error ?? "Navigation blocked by resolver";
+				this.emit("error", navId, currentUrl, "initial", { error });
+				return {
+					success: false,
+					error
+				};
+			}
+		}
+		this._currentPath = currentUrl;
+		this.ensureHistoryStamp();
+		this.commit(matchResult);
+		this.emit("end", navId, currentUrl, "initial", { result: matchResult });
+		return {
+			success: true,
+			url: currentUrl
+		};
+	}
+	async navigate(path, options = {}) {
+		return this.navigateInternal(path, options, null);
+	}
+	async navigateInternal(path, options, redirect) {
+		const { data, replace = false, queryParams, skipGuards = false, skipResolvers = false, scrollToTop = true, onSameUrlNavigation = "ignore" } = options;
+		const local = toRootRelative(path);
+		if (local === null) {
+			const error = `Cannot navigate to external URL '${path}'. The router only handles same-origin paths; use window.location for external navigation.`;
+			console.error(`[Melodic] ${error}`);
+			return {
+				success: false,
+				error
+			};
+		}
+		path = local;
+		const fullPath = appendQueryParams(path, queryParams);
+		const chain = redirect ? redirect.chain : [];
+		const skipDeactivation = skipGuards || (redirect?.skipDeactivation ?? false);
+		const navId = ++this._navigationId;
+		const { pathname, search, hash } = this.parseUrl(fullPath);
+		this._pendingTarget = {
+			pathname,
+			queryParams: new URLSearchParams(search)
+		};
+		this.emit("start", navId, fullPath, "imperative");
+		if (chain.length >= MAX_REDIRECTS) {
+			const error = `Redirect limit (${MAX_REDIRECTS}) exceeded: ${[...chain, fullPath].join(" → ")}`;
+			console.error(`[Melodic] ${error}`);
+			this._pendingTarget = null;
+			this.emit("error", navId, fullPath, "imperative", { error });
+			return {
+				success: false,
+				error
+			};
+		}
+		const superseded = () => {
+			this.emit("superseded", navId, fullPath, "imperative");
+			return {
+				success: false,
+				error: "Navigation superseded"
+			};
+		};
+		const redirectOptions = () => ({
+			replace,
+			scrollToTop,
+			skipResolvers
+		});
+		try {
+			const targetUrl = `${pathname}${search}`;
+			if (onSameUrlNavigation === "ignore" && targetUrl === this._currentPath && this._committedRoute() !== null) {
+				if (hash) {
+					this.pushOrReplace(replace, data, fullPath);
+					this.scrollToHash(hash.slice(1));
+				} else if (scrollToTop) window.scrollTo(0, 0);
+				this.emit("end", navId, fullPath, "imperative", { result: this._committedRoute() ?? void 0 });
+				return {
+					success: true,
+					url: fullPath
+				};
+			}
+			if (!skipDeactivation && this._currentMatches.length > 0) {
+				const deactivateResult = await this.runDeactivationGuards(fullPath);
+				if (this._navigationId !== navId) return superseded();
+				if (deactivateResult !== true) {
+					if (typeof deactivateResult === "string") {
+						this.emit("redirect", navId, fullPath, "imperative", { redirectTo: deactivateResult });
+						return this.navigateInternal(deactivateResult, redirectOptions(), {
+							chain: [...chain, fullPath],
+							skipDeactivation: true
+						});
+					}
+					this.emit("blocked", navId, fullPath, "imperative", { error: "Navigation blocked by guard" });
+					return {
+						success: false,
+						error: "Navigation blocked by guard"
+					};
+				}
+			}
+			const resolved = await this.resolveMatch(path, () => this._navigationId === navId);
+			if (resolved.superseded || this._navigationId !== navId) return superseded();
+			const matchResult = resolved.result;
+			if (matchResult.redirectTo) {
+				const redirectTarget = carryQueryAndHash(matchResult.redirectTo, search, hash);
+				this.emit("redirect", navId, fullPath, "imperative", { redirectTo: redirectTarget });
+				return this.navigateInternal(redirectTarget, {
+					...options,
+					queryParams: void 0
+				}, {
+					chain: [...chain, fullPath],
+					skipDeactivation: true
+				});
+			}
+			if (resolved.error) {
+				this.emit("error", navId, fullPath, "imperative", { error: resolved.error });
+				return {
+					success: false,
+					error: resolved.error
+				};
+			}
+			if (!skipGuards && matchResult.matches.length > 0) {
+				const guardResult = await this.runGuards(matchResult);
+				if (this._navigationId !== navId) return superseded();
+				if (guardResult !== true) {
+					if (typeof guardResult === "string") {
+						this.emit("redirect", navId, fullPath, "imperative", { redirectTo: guardResult });
+						return this.navigateInternal(guardResult, redirectOptions(), {
+							chain: [...chain, fullPath],
+							skipDeactivation: true
+						});
+					}
+					this.emit("blocked", navId, fullPath, "imperative", { error: "Navigation blocked by guard" });
+					return {
+						success: false,
+						error: "Navigation blocked by guard"
+					};
+				}
+			}
+			if (!skipResolvers && matchResult.matches.length > 0) {
+				const resolverResult = await this.runResolvers(matchResult, () => this._navigationId === navId);
+				if (this._navigationId !== navId) return superseded();
+				if (!resolverResult.success) {
+					const error = resolverResult.error ?? "Navigation blocked by resolver";
+					this.emit("error", navId, fullPath, "imperative", { error });
+					return {
+						success: false,
+						error
+					};
+				}
+			}
+			this.setCurrentMatches(matchResult);
+			this.rememberScrollPosition();
+			this.pushOrReplace(replace, data, fullPath);
+			this._currentPath = targetUrl;
+			this.publishRouteState(matchResult);
+			this._committedRoute.set(matchResult);
+			if (hash) this.scrollToHash(hash.slice(1));
+			else if (scrollToTop) window.scrollTo(0, 0);
+			this.emit("end", navId, fullPath, "imperative", { result: matchResult });
+			return {
+				success: true,
+				url: fullPath
+			};
+		} finally {
+			if (this._navigationId === navId) this._pendingTarget = null;
+		}
+	}
+	async navigateByName(name, params = {}, options = {}) {
+		const path = buildPathFromRoute(this._routes, name, params);
+		if (!path) return {
+			success: false,
+			error: `Route with name '${name}' not found`
+		};
+		return this.navigate(path, options);
+	}
+	replace(path, data) {
+		this.navigate(path, {
+			replace: true,
+			data
+		});
+	}
+	back() {
+		history.back();
+	}
+	forward() {
+		history.forward();
+	}
+	go(delta) {
+		history.go(delta);
+	}
+	async runDeactivationGuards(targetPath) {
+		for (const match of this._currentMatches) {
+			const guards = match.route.canDeactivate ?? [];
+			for (const guard of guards) {
+				const context = this.createGuardContext(match, {
+					matches: this._currentMatches,
+					params: this._contextService.getCurrentParams(),
+					isExactMatch: true
+				});
+				context.targetPath = targetPath;
+				const result = await this.executeGuard(guard, "canDeactivate", context);
+				if (result !== true) return result;
+			}
+		}
+		return true;
+	}
+	async runGuards(matchResult) {
+		for (const match of matchResult.matches) {
+			const guards = match.route.canActivate ?? [];
+			for (const guard of guards) {
+				const context = this.createGuardContext(match, matchResult);
+				const result = await this.executeGuard(guard, "canActivate", context);
+				if (result !== true) return result;
+			}
+		}
+		return true;
+	}
+	async executeGuard(guard, method, context) {
+		const fn = guard[method];
+		if (!fn) return true;
+		try {
+			const result = fn.call(guard, context);
+			return result instanceof Promise ? await result : result;
+		} catch (error) {
+			console.error(`[Melodic] ${method} guard for '${context.targetPath}' threw; treating as blocked:`, error);
+			return false;
+		}
+	}
+	createGuardContext(match, matchResult) {
+		return {
+			route: match,
+			matchedRoutes: matchResult.matches,
+			params: matchResult.params,
+			queryParams: this.targetQueryParams(),
+			targetPath: this.targetPathname(),
+			currentPath: window.location.pathname,
+			data: match.route.data
+		};
+	}
+	async runResolvers(matchResult, isCurrent = () => true) {
+		const collected = [];
+		for (let depth = 0; depth < matchResult.matches.length; depth++) {
+			const match = matchResult.matches[depth];
+			const resolvers = match.route.resolve;
+			if (!resolvers) continue;
+			const context = this.createResolverContext(match, matchResult);
+			const entries = Object.entries(resolvers);
+			const settled = await Promise.all(entries.map(async ([key, resolver]) => {
+				try {
+					return {
+						key,
+						value: await this.executeResolver(resolver, context)
+					};
+				} catch (error) {
+					return {
+						key,
+						error
+					};
+				}
+			}));
+			const failure = settled.find((entry) => "error" in entry);
+			if (failure && "error" in failure) {
+				const error = failure.error;
+				console.error(`[Melodic] Resolver '${failure.key}' for '${match.fullPath}' failed:`, error);
+				return {
+					success: false,
+					error: `Resolver '${failure.key}' failed: ${error instanceof Error ? error.message : String(error)}`
+				};
+			}
+			const resolvedData = {};
+			for (const entry of settled) resolvedData[entry.key] = entry.value;
+			collected.push({
+				depth,
+				data: resolvedData
+			});
+		}
+		if (!isCurrent()) return {
+			success: false,
+			error: "Navigation superseded"
+		};
+		this._contextService.clearResolvedData();
+		for (const { depth, data } of collected) this._contextService.setResolvedData(depth, data);
+		return { success: true };
+	}
+	async handlePopState(event) {
+		if (this._ignorePopStates > 0) {
+			this._ignorePopStates--;
+			this._historyIndex = this.readHistoryIndex(event.state) ?? this._historyIndex;
+			return;
+		}
+		const targetPath = `${window.location.pathname}${window.location.search}`;
+		const previousPath = this._currentPath;
+		const previousIndex = this._historyIndex;
+		const targetIndex = this.readHistoryIndex(event.state);
+		this.rememberScrollPosition(previousIndex);
+		if (targetPath === previousPath && this._committedRoute() !== null) {
+			this._historyIndex = targetIndex ?? this._historyIndex;
+			if (window.location.hash) this.scrollToHash(window.location.hash.slice(1));
+			else this.restoreScrollPosition(this._historyIndex);
+			return;
+		}
+		const navId = ++this._navigationId;
+		this._pendingTarget = null;
+		this.emit("start", navId, targetPath, "popstate");
+		const revert = () => {
+			if (targetIndex !== null) {
+				this._ignorePopStates++;
+				history.go(previousIndex - targetIndex);
+			} else history.replaceState(event.state, "", previousPath);
+		};
+		const deactivateResult = await this.runDeactivationGuards(targetPath);
+		if (this._navigationId !== navId) {
+			this.emit("superseded", navId, targetPath, "popstate");
+			return;
+		}
+		if (deactivateResult !== true) {
+			if (typeof deactivateResult === "string") {
+				this.emit("redirect", navId, targetPath, "popstate", { redirectTo: deactivateResult });
+				this._historyIndex = targetIndex ?? this._historyIndex;
+				await this.navigateInternal(deactivateResult, { replace: true }, {
+					chain: [targetPath],
+					skipDeactivation: true
+				});
+			} else {
+				this.emit("blocked", navId, targetPath, "popstate", { error: "Navigation blocked by guard" });
+				revert();
+			}
+			return;
+		}
+		this._historyIndex = targetIndex ?? this._historyIndex;
+		const resolved = await this.resolveMatch(window.location.pathname, () => this._navigationId === navId);
+		if (resolved.superseded || this._navigationId !== navId) {
+			this.emit("superseded", navId, targetPath, "popstate");
+			return;
+		}
+		const matchResult = resolved.result;
+		if (matchResult.redirectTo) {
+			const redirectTarget = carryQueryAndHash(matchResult.redirectTo, window.location.search, window.location.hash);
+			this.emit("redirect", navId, targetPath, "popstate", { redirectTo: redirectTarget });
+			await this.navigateInternal(redirectTarget, { replace: true }, {
+				chain: [targetPath],
+				skipDeactivation: true
+			});
+			return;
+		}
+		if (resolved.error) {
+			this._currentPath = targetPath;
+			this.commit({
+				matches: [],
+				params: {},
+				isExactMatch: false
+			});
+			this.emit("error", navId, targetPath, "popstate", { error: resolved.error });
+			return;
+		}
+		if (matchResult.matches.length > 0) {
+			const guardResult = await this.runGuards(matchResult);
+			if (this._navigationId !== navId) {
+				this.emit("superseded", navId, targetPath, "popstate");
+				return;
+			}
+			if (guardResult !== true) {
+				if (typeof guardResult === "string") {
+					this.emit("redirect", navId, targetPath, "popstate", { redirectTo: guardResult });
+					await this.navigateInternal(guardResult, { replace: true }, {
+						chain: [targetPath],
+						skipDeactivation: true
+					});
+				} else {
+					this.emit("blocked", navId, targetPath, "popstate", { error: "Navigation blocked by guard" });
+					this._historyIndex = previousIndex;
+					revert();
+				}
+				return;
+			}
+			const resolverResult = await this.runResolvers(matchResult, () => this._navigationId === navId);
+			if (this._navigationId !== navId) {
+				this.emit("superseded", navId, targetPath, "popstate");
+				return;
+			}
+			if (!resolverResult.success) {
+				this._currentPath = targetPath;
+				this.commit({
+					matches: [],
+					params: {},
+					isExactMatch: false
+				});
+				this.emit("error", navId, targetPath, "popstate", { error: resolverResult.error ?? "Navigation blocked by resolver" });
+				return;
+			}
+		}
+		this._currentPath = targetPath;
+		this.commit(matchResult);
+		if (window.location.hash) this.scrollToHash(window.location.hash.slice(1));
+		else this.restoreScrollPosition(this._historyIndex);
+		this.emit("end", navId, targetPath, "popstate", { result: matchResult });
+		const navigationEvent = new CustomEvent("NavigationEvent", { detail: routerStateEvent("push", event.state, "", window.location.pathname) });
+		window.dispatchEvent(navigationEvent);
+	}
+	pushOrReplace(replace, data, fullPath) {
+		const index = replace ? this._historyIndex : this._historyIndex + 1;
+		const state = this.stampHistoryIndex(data, index);
+		if (replace) history.replaceState(state, "", fullPath);
+		else {
+			history.pushState(state, "", fullPath);
+			for (const key of [...this._scrollPositions.keys()]) if (key >= index) this._scrollPositions.delete(key);
+		}
+		this._historyIndex = index;
+	}
+	stampHistoryIndex(data, index) {
+		if (data === null || data === void 0) return { [HISTORY_INDEX_KEY]: index };
+		if (typeof data === "object") return {
+			...data,
+			[HISTORY_INDEX_KEY]: index
+		};
+		return data;
+	}
+	ensureHistoryStamp() {
+		const state = history.state;
+		if (this.readHistoryIndex(state) !== null) return;
+		const stamped = this.stampHistoryIndex(state, this._historyIndex);
+		if (stamped === state) return;
+		history.replaceState(stamped, "", `${window.location.pathname}${window.location.search}${window.location.hash}`);
+	}
+	readHistoryIndex(state) {
+		if (state && typeof state === "object") {
+			const value = state[HISTORY_INDEX_KEY];
+			if (typeof value === "number") return value;
+		}
+		return null;
+	}
+	rememberScrollPosition(index = this._historyIndex) {
+		if (!this._scrollRestoration) return;
+		this._scrollPositions.set(index, {
+			x: window.scrollX,
+			y: window.scrollY
+		});
+	}
+	restoreScrollPosition(index) {
+		if (!this._scrollRestoration) return;
+		const position = this._scrollPositions.get(index);
+		this.afterRender(() => window.scrollTo(position?.x ?? 0, position?.y ?? 0));
+	}
+	scrollToHash(id) {
+		if (!id) return;
+		this.afterRender(() => {
+			this.findDeep(document, id)?.scrollIntoView();
+		});
+	}
+	findDeep(root, id) {
+		const direct = typeof root.getElementById === "function" ? root.getElementById(id) : root.querySelector(`[id="${id.replace(/["\\]/g, "\\$&")}"]`);
+		if (direct) return direct;
+		const walker = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT);
+		let node = walker.nextNode();
+		while (node) {
+			if (node.shadowRoot) {
+				const found = this.findDeep(node.shadowRoot, id);
+				if (found) return found;
+			}
+			node = walker.nextNode();
+		}
+		return null;
+	}
+	afterRender(fn) {
+		queueMicrotask(() => {
+			if (typeof requestAnimationFrame === "function") requestAnimationFrame(fn);
+			else fn();
+		});
+	}
+	async executeResolver(resolver, context) {
+		const result = resolver.resolve(context);
+		return result instanceof Promise ? await result : result;
+	}
+	createResolverContext(match, matchResult) {
+		return {
+			route: match,
+			matchedRoutes: matchResult.matches,
+			params: matchResult.params,
+			queryParams: this.targetQueryParams(),
+			targetPath: this.targetPathname()
+		};
+	}
+};
+RouterService = __decorate([Injectable(), __decorateMetadata("design:paramtypes", [])], RouterService);
+var SAFE_SCHEMES = new Set(["http", "https"]);
+function isSafeUrl(url) {
+	if (!url) return true;
+	const normalized = url.replace(/[\t\n\r]/g, "").replace(/^[\u0000-\u0020]+/, "");
+	const schemeMatch = /^([a-z][a-z0-9+.-]*):/i.exec(normalized);
+	if (!schemeMatch) return true;
+	return SAFE_SCHEMES.has(schemeMatch[1].toLowerCase());
+}
+var RouterLinkCore = class {
+	constructor(host, getAnchor) {
+		this._options = { href: "" };
+		this._appliedActiveClass = null;
+		this._cleanups = [];
+		this._host = host;
+		this._getAnchor = getAnchor ?? (() => host.tagName.toLowerCase() === "a" ? host : null);
+		this._router = Injector.get(RouterService);
+		const clickHandler = (e) => this.handleClick(e);
+		const auxClickHandler = (e) => this.handleAuxClick(e);
+		const navigationHandler = () => this.updateActiveState();
+		host.addEventListener("click", clickHandler);
+		host.addEventListener("auxclick", auxClickHandler);
+		window.addEventListener("NavigationEvent", navigationHandler);
+		this._cleanups.push(() => host.removeEventListener("click", clickHandler), () => host.removeEventListener("auxclick", auxClickHandler), () => window.removeEventListener("NavigationEvent", navigationHandler));
+	}
+	setOptions(options) {
+		this._options = options;
+		this.applyHref();
+		this.updateActiveState();
+	}
+	destroy() {
+		this._cleanups.forEach((cleanup) => cleanup());
+		this._cleanups = [];
+	}
+	buildFullPath() {
+		const href = this._options.href ?? "";
+		let path = toRootRelative(href) ?? href;
+		const queryParams = this._options.queryParams;
+		if (queryParams && Object.keys(queryParams).length > 0) {
+			const params = new URLSearchParams(queryParams);
+			path = `${path}${path.includes("?") ? "&" : "?"}${params.toString()}`;
+		}
+		return path;
+	}
+	isExternal() {
+		return toRootRelative(this._options.href ?? "") === null;
+	}
+	isSafe() {
+		return isSafeUrl(this._options.href ?? "") && isSafeUrl(this.buildFullPath());
+	}
+	warnUnsafe() {
+		console.warn(`routerLink: blocked unsafe URL '${this._options.href}'. Only http(s), relative, query and hash URLs are allowed.`);
+	}
+	applyHref() {
+		const anchor = this._getAnchor();
+		if (!anchor) return;
+		if (this.isSafe()) anchor.href = this.buildFullPath();
+		else {
+			this.warnUnsafe();
+			anchor.removeAttribute("href");
+		}
+	}
+	handleClick(e) {
+		if (e.defaultPrevented) return;
+		if (e.button !== void 0 && e.button !== 0) return;
+		if (e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) {
+			if (!this._getAnchor()) this.openInNewTab();
+			return;
+		}
+		if (this.isSafe() && this.isExternal()) {
+			if (!this._getAnchor()) {
+				e.preventDefault();
+				window.location.assign(this.buildFullPath());
+			}
+			return;
+		}
+		e.preventDefault();
+		if (!this.isSafe()) {
+			this.warnUnsafe();
+			return;
+		}
+		const { href, data = null, replace = false, queryParams = {} } = this._options;
+		const navOptions = {
+			data,
+			replace,
+			queryParams
+		};
+		this._router.navigate(href, navOptions);
+	}
+	handleAuxClick(e) {
+		if (e.defaultPrevented || e.button !== 1) return;
+		if (this._getAnchor()) return;
+		e.preventDefault();
+		this.openInNewTab();
+	}
+	openInNewTab() {
+		if (!this.isSafe()) {
+			this.warnUnsafe();
+			return;
+		}
+		window.open(this.buildFullPath(), "_blank");
+	}
+	updateActiveState() {
+		const { href = "", activeClass = "active", exactMatch = false } = this._options;
+		const currentPath = window.location.pathname;
+		const linkPath = (href.startsWith("/") ? href : `/${href}`).split(/[?#]/)[0];
+		const normalizedCurrentPath = currentPath.replace(/\/$/, "") || "/";
+		const normalizedLinkPath = linkPath.replace(/\/$/, "") || "/";
+		let isActive;
+		if (exactMatch) isActive = normalizedCurrentPath === normalizedLinkPath;
+		else isActive = normalizedCurrentPath === normalizedLinkPath || normalizedCurrentPath.startsWith(normalizedLinkPath + "/");
+		if (this._appliedActiveClass && this._appliedActiveClass !== activeClass) this._host.classList.remove(this._appliedActiveClass);
+		const ariaTarget = this._getAnchor();
+		if (isActive) {
+			this._host.classList.add(activeClass);
+			this._appliedActiveClass = activeClass;
+			ariaTarget?.setAttribute("aria-current", "page");
+		} else {
+			this._host.classList.remove(activeClass);
+			this._appliedActiveClass = null;
+			ariaTarget?.removeAttribute("aria-current");
+		}
+	}
+};
+function findRouteByName(routes, name) {
+	for (const route of routes) {
+		if (route.name === name) return route;
+		if (route.children) {
+			const found = findRouteByName(route.children, name);
+			if (found) return found;
+		}
+	}
+	return null;
+}
+function provideRouter(routes, options = {}) {
+	return (injector) => {
+		installHistoryEvents();
+		const router = injector.get(RouterService);
+		if (options.scrollRestoration === false) router.enableScrollRestoration(false);
+		if (routes && routes.length > 0) router.setRoutes(routes);
+		injector.addTeardown(() => {
+			router.destroy();
+			const binding = injector.getBinding(RouterService);
+			if (binding?.getInstance() === router) binding.clearInstance();
+		});
+	};
+}
 function html(strings, ...values) {
 	return new TemplateResult(strings, values);
 }
-const css = html;
+function css(strings, ...values) {
+	return new CssResult(strings, values);
+}
 var _ref$1;
 var OUTLET_REGISTER_EVENT = "melodic:outlet-register";
+var resolvedDataIds = /* @__PURE__ */ new WeakMap();
+var nextResolvedDataId = 0;
+function resolvedDataId(data) {
+	if (!data) return 0;
+	let id = resolvedDataIds.get(data);
+	if (id === void 0) {
+		id = ++nextResolvedDataId;
+		resolvedDataIds.set(data, id);
+	}
+	return id;
+}
 var RouterOutletComponent = class RouterOutletComponent$1 {
 	constructor() {
 		this._depth = 0;
@@ -5347,7 +5818,9 @@ var RouterOutletComponent = class RouterOutletComponent$1 {
 		} else await this.render404();
 	}
 	matchSignature(match) {
-		return `${match.fullPath}|${JSON.stringify(match.params)}`;
+		const query = this._router.getQueryParams().toString();
+		const resolved = resolvedDataId(this._router.getContextService().getResolvedDataForDepth(this._depth));
+		return `${match.fullPath}|${JSON.stringify(match.params)}|${query}|${resolved}`;
 	}
 	async renderMatch(match) {
 		const route = match.route;
@@ -5414,9 +5887,14 @@ var RouterOutletComponent = class RouterOutletComponent$1 {
 	}
 	async render404() {
 		this._renderGeneration++;
-		const notFoundRoute = this.routes.find((r) => r.path === "404" || r.path === "**");
+		const notFoundRoute = (this._depth === 0 && this.routes.length === 0 ? this._router.getRoutes() : this.routes).find((r) => r.path === "404" || r.path === "**");
 		if (notFoundRoute?.component) await this.renderComponent(notFoundRoute.component);
 		else if (this._depth === 0 && window.location.pathname !== "/404") this._router.navigate("/404", { replace: true });
+		else {
+			this.clearCurrentElement();
+			this._currentComponent = null;
+			this._currentSignature = null;
+		}
 	}
 };
 __decorate([Service(RouterService), __decorateMetadata("design:type", typeof (_ref$1 = typeof RouterService !== "undefined" && RouterService) === "function" ? _ref$1 : Object)], RouterOutletComponent.prototype, "_router", void 0);
@@ -5597,9 +6075,9 @@ var ComponentStateBaseService = class extends EffectsBase {
 			console.log(`[ComponentState] Payload:`, action.payload);
 			console.log(`[ComponentState] Before:`, this._state());
 		}
-		const reducer = this._reducerConfig.reducers.find((r) => r.action.type === action.type);
-		if (reducer) {
-			this._state.update((state) => reducer.reducer(state, action));
+		const reducers = this._reducerConfig.reducers.filter((r) => r.action.type === action.type);
+		if (reducers.length > 0) {
+			this._state.update((state) => reducers.reduce((current, r) => r.reducer(current, action), state));
 			if (this._debug) console.log(`[ComponentState] After:`, this._state());
 		}
 		this.executeEffects(action);
@@ -5759,11 +6237,7 @@ function provideRX(initState, actionReducers, effects, debug = false) {
 		injector.bindValue(RX_ACTION_PROVIDERS, actionReducers);
 		injector.bindValue(RX_EFFECTS_PROVIDERS, effects);
 		injector.bindValue(RX_STATE_DEBUG, debug);
-		injector.bind(SignalStoreService, SignalStoreService, { dependencies: [
-			RX_INIT_STATE,
-			RX_ACTION_PROVIDERS,
-			RX_EFFECTS_PROVIDERS
-		] });
+		injector.bind(SignalStoreService, SignalStoreService);
 	};
 }
 function directive(renderFn, type) {
@@ -5791,7 +6265,13 @@ function repeat(items, keyFn, template) {
 					state.items = [];
 				}
 			};
-			updateList$1(items, keyFn, template, state);
+			try {
+				updateList$1(items, keyFn, template, state);
+			} catch (error) {
+				state.__dispose();
+				restoreDirectiveContainer(container, startMarker, endMarker);
+				throw error;
+			}
 			return state;
 		}
 		updateList$1(items, keyFn, template, previousState);
@@ -5800,99 +6280,122 @@ function repeat(items, keyFn, template) {
 }
 function updateList$1(newItems, keyFn, template, state) {
 	const oldItems = state.items;
-	const newKeyToIndex = /* @__PURE__ */ new Map();
-	const newEntries = [];
 	const newKeys = new Array(newItems.length);
-	let duplicateKey;
-	let hasDuplicate = false;
-	for (let i = 0; i < newItems.length; i++) {
-		const key = keyFn(newItems[i], i);
-		newKeys[i] = key;
-		if (!hasDuplicate && newKeyToIndex.has(key)) {
-			hasDuplicate = true;
-			duplicateKey = key;
-		}
-		newKeyToIndex.set(key, i);
-	}
-	if (hasDuplicate) devWarn("repeat-duplicate-key", `repeat() received a duplicate key (${String(duplicateKey)}). Keys must be unique — with a repeated key one item shadows the other, leaving orphaned DOM behind on every update. Use a key that is unique per item (an id, not an index into a filtered list).`);
+	for (let i$1 = 0; i$1 < newItems.length; i$1++) newKeys[i$1] = keyFn(newItems[i$1], i$1);
 	if (oldItems.length === newItems.length) {
 		let allKeysMatch = true;
-		for (let i = 0; i < newItems.length; i++) if (oldItems[i].key !== newKeys[i]) {
+		for (let i$1 = 0; i$1 < newItems.length; i$1++) if (oldItems[i$1].key !== newKeys[i$1]) {
 			allKeysMatch = false;
 			break;
 		}
 		if (allKeysMatch) {
-			for (let i = 0; i < newItems.length; i++) renderDetachedItem(template(newItems[i], i), oldItems[i].container, oldItems[i].start, oldItems[i].end);
+			for (let i$1 = 0; i$1 < newItems.length; i$1++) renderDetachedItem(template(newItems[i$1], i$1), oldItems[i$1].container, oldItems[i$1].start, oldItems[i$1].end);
 			return;
 		}
 	}
+	if (isDevMode()) warnAboutDuplicateKeys(newKeys);
+	if (newItems.length === 0) {
+		removeAllItems(state);
+		return;
+	}
 	const oldItemsByKey = /* @__PURE__ */ new Map();
 	const oldIndexByKey = /* @__PURE__ */ new Map();
-	for (let i = 0; i < oldItems.length; i++) {
-		const oldItem = oldItems[i];
+	for (let i$1 = 0; i$1 < oldItems.length; i$1++) {
+		const oldItem = oldItems[i$1];
 		const bucket = oldItemsByKey.get(oldItem.key);
 		if (bucket) bucket.push(oldItem);
 		else {
 			oldItemsByKey.set(oldItem.key, [oldItem]);
-			oldIndexByKey.set(oldItem.key, i);
+			oldIndexByKey.set(oldItem.key, i$1);
 		}
 	}
-	for (let i = 0; i < newItems.length; i++) {
-		const item = newItems[i];
-		const key = newKeys[i];
-		const bucket = oldItemsByKey.get(key);
-		if (bucket && bucket.length > 0) {
-			const oldItem = bucket.shift();
-			if (bucket.length === 0) oldItemsByKey.delete(key);
-			renderDetachedItem(template(item, i), oldItem.container, oldItem.start, oldItem.end);
-			newEntries.push({
-				item: oldItem,
-				oldIndex: oldIndexByKey.get(key) ?? -1,
-				isNew: false
-			});
-		} else {
-			const repeatItem = createRepeatItem(item, i, key, template);
-			newEntries.push({
-				item: repeatItem,
-				oldIndex: -1,
-				isNew: true
-			});
+	const newEntries = [];
+	let reused = 0;
+	try {
+		for (let i$1 = 0; i$1 < newItems.length; i$1++) {
+			const item = newItems[i$1];
+			const key = newKeys[i$1];
+			const bucket = oldItemsByKey.get(key);
+			if (bucket && bucket.length > 0) {
+				const oldItem = bucket.shift();
+				if (bucket.length === 0) oldItemsByKey.delete(key);
+				renderDetachedItem(template(item, i$1), oldItem.container, oldItem.start, oldItem.end);
+				newEntries.push({
+					item: oldItem,
+					oldIndex: oldIndexByKey.get(key) ?? -1,
+					isNew: false
+				});
+				reused++;
+			} else {
+				const repeatItem = createRepeatItem(item, i$1, key, template);
+				newEntries.push({
+					item: repeatItem,
+					oldIndex: -1,
+					isNew: true
+				});
+			}
 		}
+	} catch (error) {
+		for (const entry of newEntries) if (entry.isNew) disposeContainerParts(entry.item.container);
+		throw error;
 	}
-	for (const bucket of oldItemsByKey.values()) for (const oldItem of bucket) removeItemRange(oldItem);
-	if (newEntries.length === 0) {
-		state.items = [];
-		return;
-	}
-	const lisPositions = getLisPositions(newEntries);
+	if (reused === 0 && oldItems.length > 0) removeAllItems(state);
+	else for (const bucket of oldItemsByKey.values()) for (const oldItem of bucket) removeItemRange(oldItem);
+	const lisPositions = reused > 0 ? getLisPositions(newEntries) : null;
 	const parent = state.startMarker.parentNode;
 	let nextSibling = state.endMarker;
-	for (let i = newEntries.length - 1; i >= 0; i--) {
+	let i = newEntries.length - 1;
+	while (i >= 0) {
 		const entry = newEntries[i];
-		if (entry.isNew) insertItemRange(entry.item, parent, nextSibling);
-		else if (!lisPositions.has(i)) moveItemRange(entry.item, nextSibling);
-		nextSibling = entry.item.start;
+		if (!entry.isNew) {
+			if (!lisPositions.has(i)) moveItemRange(entry.item, nextSibling);
+			nextSibling = entry.item.start;
+			i--;
+			continue;
+		}
+		let runStart = i;
+		while (runStart > 0 && newEntries[runStart - 1].isNew) runStart--;
+		const fragment = document.createDocumentFragment();
+		for (let j = runStart; j <= i; j++) {
+			const item = newEntries[j].item;
+			fragment.appendChild(item.start);
+			fragment.appendChild(item.container);
+			fragment.appendChild(item.end);
+		}
+		parent.insertBefore(fragment, nextSibling);
+		nextSibling = newEntries[runStart].item.start;
+		i = runStart - 1;
 	}
-	state.items = newEntries.map((entry) => entry.item);
+	const nextItems = new Array(newEntries.length);
+	for (let j = 0; j < newEntries.length; j++) nextItems[j] = newEntries[j].item;
+	state.items = nextItems;
+}
+function warnAboutDuplicateKeys(keys) {
+	const seen = /* @__PURE__ */ new Set();
+	for (const key of keys) {
+		if (seen.has(key)) {
+			devWarn("repeat-duplicate-key", `repeat() received a duplicate key (${String(key)}). Keys must be unique — with a repeated key one item shadows the other, leaving orphaned DOM behind on every update. Use a key that is unique per item (an id, not an index into a filtered list).`);
+			return;
+		}
+		seen.add(key);
+	}
 }
 function createRepeatItem(item, index, key, template) {
 	const templateResult = template(item, index);
 	const container = document.createDocumentFragment();
+	templateResult.renderInto(container);
 	return {
 		key,
 		container,
-		nodes: templateResult.renderOnce(container),
+		nodes: [],
 		start: document.createComment("repeat-item-start"),
 		end: document.createComment("repeat-item-end")
 	};
 }
-function insertItemRange(item, parent, referenceNode) {
-	const fragment = document.createDocumentFragment();
-	fragment.appendChild(item.start);
-	for (const node of item.nodes) fragment.appendChild(node);
-	fragment.appendChild(item.end);
-	parent.insertBefore(fragment, referenceNode);
-	item.nodes = [];
+function removeAllItems(state) {
+	for (const item of state.items) disposeContainerParts(item.container);
+	clearBetweenBulk(state.startMarker, state.endMarker);
+	state.items = [];
 }
 function moveItemRange(item, referenceNode) {
 	const parent = referenceNode.parentNode;
@@ -6067,8 +6570,6 @@ function when(condition, template, falseTemplate) {
 			parent.insertBefore(endMarker, startMarker.nextSibling);
 			const state = {
 				condition: false,
-				template: null,
-				falseTemplate: null,
 				container: null,
 				startMarker,
 				endMarker,
@@ -6079,12 +6580,13 @@ function when(condition, template, falseTemplate) {
 					}
 				}
 			};
-			if (condition) {
-				state.template = template();
-				renderContent(state, true);
-			} else if (falseTemplate) {
-				state.falseTemplate = falseTemplate();
-				renderContent(state, false);
+			try {
+				if (condition) renderContent(state, template());
+				else if (falseTemplate) renderContent(state, falseTemplate());
+			} catch (error) {
+				state.__dispose();
+				restoreDirectiveContainer(container, startMarker, endMarker);
+				throw error;
 			}
 			state.condition = condition;
 			return state;
@@ -6092,51 +6594,41 @@ function when(condition, template, falseTemplate) {
 		if (!previousState.startMarker.parentNode) throw new Error("when() directive: markers were removed from DOM");
 		if (condition && !previousState.condition) {
 			removeContent(previousState);
-			previousState.template = template();
-			renderContent(previousState, true);
+			previousState.condition = condition;
+			renderContent(previousState, template());
 		} else if (!condition && previousState.condition) {
 			removeContent(previousState);
-			if (falseTemplate) {
-				previousState.falseTemplate = falseTemplate();
-				renderContent(previousState, false);
-			}
-		} else if (condition && previousState.condition) updateContent(previousState, template(), true);
+			previousState.condition = condition;
+			if (falseTemplate) renderContent(previousState, falseTemplate());
+		} else if (condition && previousState.condition) updateContent(previousState, template());
 		else if (!condition && !previousState.condition) {
-			if (falseTemplate) updateContent(previousState, falseTemplate(), false);
+			if (falseTemplate) updateContent(previousState, falseTemplate());
 			else if (previousState.container) removeContent(previousState);
 		}
 		previousState.condition = condition;
 		return previousState;
 	}, "when");
 }
-function renderContent(state, useTrueTemplate) {
+function renderContent(state, templateToRender) {
 	const parent = state.startMarker.parentNode;
 	if (!parent) throw new Error("when() directive: markers not in DOM");
-	const templateToRender = useTrueTemplate ? state.template : state.falseTemplate;
-	if (!templateToRender) return;
 	const container = document.createDocumentFragment();
 	templateToRender.renderInto(container);
 	state.container = container;
 	parent.insertBefore(container, state.endMarker);
 }
-function updateContent(state, newTemplate, useTrueTemplate) {
+function updateContent(state, newTemplate) {
 	const container = state.container;
 	if (container && container.__templateKey === newTemplate.templateKey) newTemplate.renderInto(container);
 	else {
 		removeContent(state);
-		if (useTrueTemplate) state.template = newTemplate;
-		else state.falseTemplate = newTemplate;
-		renderContent(state, useTrueTemplate);
+		renderContent(state, newTemplate);
 	}
-	if (useTrueTemplate) state.template = newTemplate;
-	else state.falseTemplate = newTemplate;
 }
 function removeContent(state) {
 	if (state.container) disposeContainerParts(state.container);
 	clearBetween(state.startMarker, state.endMarker);
 	state.container = null;
-	state.template = null;
-	state.falseTemplate = null;
 }
 function classMap(classes) {
 	return directive((container, previousClasses) => {
@@ -6161,16 +6653,19 @@ function live(value) {
 		element[property] = value;
 	}, "live");
 }
+function cssPropertyName(property) {
+	return property.startsWith("--") ? property : property.replace(/([A-Z])/g, "-$1").toLowerCase();
+}
 function styleMap(styles) {
 	return directive((container, previousStyles) => {
 		const element = container;
 		const currentStyles = /* @__PURE__ */ new Set();
 		for (const [property, value] of Object.entries(styles)) if (value !== void 0) {
-			element.style.setProperty(property.replace(/([A-Z])/g, "-$1").toLowerCase(), String(value));
+			element.style.setProperty(cssPropertyName(property), String(value));
 			currentStyles.add(property);
 		}
 		if (previousStyles) {
-			for (const property of previousStyles) if (!currentStyles.has(property)) element.style.removeProperty(property.replace(/([A-Z])/g, "-$1").toLowerCase());
+			for (const property of previousStyles) if (!currentStyles.has(property)) element.style.removeProperty(cssPropertyName(property));
 		}
 		return currentStyles;
 	}, "styleMap");
@@ -6190,7 +6685,12 @@ function unsafeHTML(html$1) {
 				endMarker,
 				nodes: []
 			};
-			renderHTML(html$1, state);
+			try {
+				renderHTML(html$1, state);
+			} catch (error) {
+				restoreDirectiveContainer(container, startMarker, endMarker);
+				throw error;
+			}
 			return state;
 		}
 		if (previousState.html === html$1) return previousState;
@@ -6697,11 +7197,18 @@ const darkThemeCss = `[data-theme="dark"] {
 		color-scheme: dark;
 	}
 }`;
+var reducedMotionDurations = Object.keys(transitionTokens).filter((name) => name.startsWith("--ml-duration-") && name !== "--ml-duration-0").map((name) => `${name}: 0ms;`).join("\n		");
 const baseThemeCss = `:root {
 	${tokensToCss(allTokens)}
 
 	/* Default to light color scheme */
 	color-scheme: light;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	:root {
+		${reducedMotionDurations}
+	}
 }`;
 var currentTheme = null;
 var themeListeners = /* @__PURE__ */ new Set();
@@ -7057,7 +7564,7 @@ function flip(options = {}) {
 			const fallbacks = options.fallbackPlacements ?? [oppositePlacement];
 			for (const fallback of fallbacks) {
 				const newSide = getSide(fallback);
-				let newPos = getBasePlacementForFlip(rects.reference, rects.floating, fallback);
+				let newPos = getBasePlacement(rects.reference, rects.floating, fallback);
 				if (offsetData) newPos = applyOffsetToPosition(newPos, newSide, offsetData);
 				if (!hasOverflow(detectOverflow(newPos.x, newPos.y, rects.floating, padding), newSide)) return {
 					x: newPos.x,
@@ -7066,48 +7573,6 @@ function flip(options = {}) {
 				};
 			}
 		}
-	};
-}
-function getBasePlacementForFlip(reference, floating, placement) {
-	const [side, alignment = "center"] = placement.split("-");
-	let x = 0;
-	let y = 0;
-	switch (side) {
-		case "top":
-			y = reference.top - floating.height;
-			break;
-		case "bottom":
-			y = reference.bottom;
-			break;
-		case "left":
-			x = reference.left - floating.width;
-			break;
-		case "right":
-			x = reference.right;
-			break;
-		default: break;
-	}
-	if (side === "top" || side === "bottom") switch (alignment) {
-		case "start":
-			x = reference.left;
-			break;
-		case "end":
-			x = reference.right - floating.width;
-			break;
-		default: x = reference.left + (reference.width - floating.width) / 2;
-	}
-	else switch (alignment) {
-		case "start":
-			y = reference.top;
-			break;
-		case "end":
-			y = reference.bottom - floating.height;
-			break;
-		default: y = reference.top + (reference.height - floating.height) / 2;
-	}
-	return {
-		x,
-		y
 	};
 }
 function shift(options = {}) {
@@ -7187,12 +7652,32 @@ var FOCUSABLE_SELECTOR = [
 	"[contenteditable]",
 	"[tabindex]:not([tabindex=\"-1\"])"
 ].join(", ");
-function getFocusableElements(container) {
-	return Array.from(container.querySelectorAll(FOCUSABLE_SELECTOR)).filter((element) => {
-		if (element.offsetParent === null && element.style.position !== "fixed") return false;
-		if (getComputedStyle(element).visibility === "hidden") return false;
-		return true;
-	});
+function isVisiblyFocusable(element) {
+	if (element.offsetParent === null && element.style.position !== "fixed") return false;
+	return getComputedStyle(element).visibility !== "hidden";
+}
+function collectDeep(root, out) {
+	for (const child of Array.from(root.children)) {
+		if (child instanceof HTMLSlotElement) {
+			const assigned = child.assignedElements({ flatten: true });
+			if (assigned.length > 0) for (const element of assigned) visitDeep(element, out);
+			else collectDeep(child, out);
+			continue;
+		}
+		visitDeep(child, out);
+	}
+}
+function visitDeep(element, out) {
+	if (element instanceof HTMLElement && element.matches(FOCUSABLE_SELECTOR) && isVisiblyFocusable(element)) out.push(element);
+	collectDeep(element.shadowRoot ?? element, out);
+}
+function getFocusableElements(container, options = {}) {
+	if (options.deep) {
+		const focusables = [];
+		collectDeep(container.shadowRoot ?? container, focusables);
+		return focusables;
+	}
+	return Array.from(container.querySelectorAll(FOCUSABLE_SELECTOR)).filter(isVisiblyFocusable);
 }
 function getFirstFocusable(container) {
 	return getFocusableElements(container)[0] ?? null;
@@ -7231,14 +7716,7 @@ function isDeepFocusWithin(container) {
 	return false;
 }
 function collectFocusables(container) {
-	const slots = Array.from(container.querySelectorAll("slot"));
-	if (slots.length === 0) return getFocusableElements(container);
-	const focusables = getFocusableElements(container);
-	for (const slot of slots) for (const assigned of slot.assignedElements({ flatten: true })) if (assigned instanceof HTMLElement) {
-		focusables.push(...getFocusableElements(assigned));
-		if (assigned.matches("a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex=\"-1\"])")) focusables.push(assigned);
-	}
-	return focusables;
+	return getFocusableElements(container, { deep: true });
 }
 function createFocusTrap(container, options = {}) {
 	const { initialFocus = null, returnFocus = null, autoFocus = true } = options;
@@ -7409,26 +7887,48 @@ function createLiveRegion(options = {}) {
 function supportsAriaElementReferences() {
 	return typeof Element !== "undefined" && "ariaDescribedByElements" in Element.prototype;
 }
+function canReferenceElement(from, to) {
+	const targetRoot = to.getRootNode();
+	let root = from.getRootNode();
+	while (root) {
+		if (root === targetRoot) return true;
+		root = root instanceof ShadowRoot ? root.host.getRootNode() : null;
+	}
+	return false;
+}
+function canReferenceAll(from, elements) {
+	return elements.every((element) => canReferenceElement(from, element));
+}
+function joinedText(elements, separator) {
+	return elements.map((element) => element.textContent?.replace(/\s+/g, " ").trim() ?? "").filter(Boolean).join(separator);
+}
 function setCrossRootDescription(target, describers) {
 	const reflected = target;
-	if ("ariaDescribedByElements" in reflected) {
-		reflected.ariaDescribedByElements = describers.length > 0 ? describers : null;
+	const supportsReferences = "ariaDescribedByElements" in reflected;
+	if (supportsReferences && describers.length > 0 && canReferenceAll(target, describers)) {
+		reflected.ariaDescribedByElements = describers;
 		target.removeAttribute("aria-description");
 		return;
 	}
-	const text = describers.map((element) => element.textContent?.trim() ?? "").filter(Boolean).join(". ");
-	if (text) target.setAttribute("aria-description", text);
-	else target.removeAttribute("aria-description");
+	if (supportsReferences && reflected.ariaDescribedByElements?.length && !target.getAttribute("aria-describedby")) reflected.ariaDescribedByElements = null;
+	const text = joinedText(describers, ". ");
+	if (text) {
+		if (target.getAttribute("aria-description") !== text) target.setAttribute("aria-description", text);
+	} else target.removeAttribute("aria-description");
 }
 function setCrossRootLabel(target, labels) {
 	const reflected = target;
-	if ("ariaLabelledByElements" in reflected) {
-		reflected.ariaLabelledByElements = labels.length > 0 ? labels : null;
+	const supportsReferences = "ariaLabelledByElements" in reflected;
+	if (supportsReferences && labels.length > 0 && canReferenceAll(target, labels)) {
+		reflected.ariaLabelledByElements = labels;
+		target.removeAttribute("aria-label");
 		return;
 	}
-	const text = labels.map((element) => element.textContent?.trim() ?? "").filter(Boolean).join(" ");
-	if (text) target.setAttribute("aria-label", text);
-	else target.removeAttribute("aria-label");
+	if (supportsReferences && reflected.ariaLabelledByElements?.length && !target.getAttribute("aria-labelledby")) reflected.ariaLabelledByElements = null;
+	const text = joinedText(labels, " ");
+	if (text) {
+		if (target.getAttribute("aria-label") !== text) target.setAttribute("aria-label", text);
+	} else target.removeAttribute("aria-label");
 }
 function setCrossRootActiveDescendant(target, active) {
 	const reflected = target;
@@ -7913,6 +8413,9 @@ var TooltipComponent = class TooltipComponent$1 {
 		this.elementRef.shadowRoot?.addEventListener("slotchange", this.syncTriggerAria);
 		this.syncTriggerAria();
 	}
+	onRender() {
+		this.syncTriggerAria();
+	}
 	onDestroy() {
 		if (this._showTimeout) clearTimeout(this._showTimeout);
 		if (this._hideTimeout) clearTimeout(this._hideTimeout);
@@ -8001,14 +8504,23 @@ function describeWhenReady(element, tooltip, state) {
 		if (!done) setTimeout(attach, 0);
 	});
 }
+function redescribeAfterRender(element, state) {
+	if (!state.ownsDescribedBy) return;
+	const refresh = () => {
+		const content = state.tooltip.shadowRoot?.querySelector(".ml-tooltip__content");
+		if (content && !state.pendingRemoval && state.ownsDescribedBy) setCrossRootDescription(element, [content]);
+	};
+	Promise.resolve().then(refresh);
+	setTimeout(refresh, 0);
+}
 function destroyState(element, state) {
 	element.removeEventListener("mouseenter", state.show);
 	element.removeEventListener("mouseleave", state.hide);
 	element.removeEventListener("focusin", state.show);
 	element.removeEventListener("focusout", state.hide);
 	if (state.ownsDescribedBy) {
+		state.ownsDescribedBy = false;
 		clearCrossRootDescription(element);
-		element.removeAttribute("aria-describedby");
 	}
 	state.tooltip.anchorEl = null;
 	state.tooltip.remove();
@@ -8024,7 +8536,10 @@ function tooltipDirective(element, value) {
 		state = createState$1(element);
 		tooltipStates.set(element, state);
 	}
-	if (state.tooltip.getAttribute("content") !== content) state.tooltip.setAttribute("content", content);
+	if (state.tooltip.getAttribute("content") !== content) {
+		state.tooltip.setAttribute("content", content);
+		redescribeAfterRender(element, state);
+	}
 	const resolvedPlacement = placement ?? "top";
 	if (state.tooltip.getAttribute("placement") !== resolvedPlacement) state.tooltip.setAttribute("placement", resolvedPlacement);
 	ensureInserted(element, state.tooltip);
@@ -8461,6 +8976,17 @@ const buttonStyles = () => css`
 	::slotted(ml-icon) {
 		--ml-icon-size: 1.125em;
 	}
+
+	/*
+	 * Forced colors (Windows High Contrast): box-shadow rings and background
+	 * highlights are not painted there, so focus falls back to a real outline.
+	 */
+	@media (forced-colors: active) {
+		.ml-button:focus-visible {
+			outline: 2px solid Highlight;
+			outline-offset: 2px;
+		}
+	}
 `;
 var ButtonComponent = class ButtonComponent$1 {
 	constructor() {
@@ -8606,11 +9132,11 @@ const buttonGroupStyles = () => css`
 	}
 
 	::slotted(ml-button-group-item) {
-		margin-left: var(--ml-button-group-item-offset, -1px);
+		margin-inline-start: var(--ml-button-group-item-offset, -1px);
 	}
 
 	::slotted(ml-button-group-item:first-child) {
-		margin-left: 0;
+		margin-inline-start: 0;
 	}
 `;
 registerAdapter((el) => el.tagName === "ML-BUTTON-GROUP", {
@@ -8819,6 +9345,17 @@ const buttonGroupItemStyles = () => css`
 		opacity: 0.5;
 		cursor: not-allowed;
 	}
+
+	/*
+	 * Forced colors (Windows High Contrast): box-shadow rings and background
+	 * highlights are not painted there, so focus falls back to a real outline.
+	 */
+	@media (forced-colors: active) {
+		.ml-button-group-item:focus-visible {
+			outline: 2px solid Highlight;
+			outline-offset: 2px;
+		}
+	}
 `;
 var ButtonGroupItemComponent = class ButtonGroupItemComponent$1 {
 	constructor() {
@@ -8986,7 +9523,7 @@ const inputStyles = () => css`
 
 	.ml-input__required {
 		color: var(--ml-input-required-color, var(--ml-color-danger));
-		margin-left: var(--ml-space-0-5);
+		margin-inline-start: var(--ml-space-0-5);
 	}
 
 	.ml-input__wrapper {
@@ -9094,6 +9631,17 @@ const inputStyles = () => css`
 		align-items: center;
 		color: var(--ml-input-addon-color, var(--ml-color-text-muted));
 		flex-shrink: 0;
+	}
+
+	/*
+	 * Forced colors (Windows High Contrast): box-shadow rings and background
+	 * highlights are not painted there, so focus falls back to a real outline.
+	 */
+	@media (forced-colors: active) {
+		.ml-input--focused .ml-input__wrapper {
+			outline: 2px solid Highlight;
+			outline-offset: 2px;
+		}
 	}
 `;
 registerAdapter((el) => el.tagName === "ML-INPUT", {
@@ -9314,7 +9862,7 @@ const textareaStyles = () => css`
 
 	.ml-textarea__required {
 		color: var(--ml-textarea-required-color, var(--ml-color-danger));
-		margin-left: var(--ml-space-0-5);
+		margin-inline-start: var(--ml-space-0-5);
 	}
 
 	.ml-textarea__field {
@@ -9380,7 +9928,7 @@ const textareaStyles = () => css`
 	.ml-textarea__counter {
 		font-size: var(--ml-textarea-counter-font-size, var(--ml-text-xs));
 		color: var(--ml-textarea-counter-color, var(--ml-color-text-muted));
-		margin-left: auto;
+		margin-inline-start: auto;
 	}
 
 	.ml-textarea--resize .ml-textarea__field {
@@ -9404,6 +9952,17 @@ const textareaStyles = () => css`
 	.ml-textarea--lg .ml-textarea__field {
 		padding: var(--ml-space-3-5) var(--ml-space-4);
 		font-size: var(--ml-text-base);
+	}
+
+	/*
+	 * Forced colors (Windows High Contrast): box-shadow rings and background
+	 * highlights are not painted there, so focus falls back to a real outline.
+	 */
+	@media (forced-colors: active) {
+		.ml-textarea__field:focus {
+			outline: 2px solid Highlight;
+			outline-offset: 2px;
+		}
 	}
 `;
 registerAdapter((el) => el.tagName === "ML-TEXTAREA", {
@@ -9645,7 +10204,7 @@ const checkboxStyles = () => css`
 	.ml-checkbox__hint {
 		display: block;
 		margin-top: var(--ml-space-0-5);
-		margin-left: calc(var(--ml-checkbox-box-size, 1.25rem) + var(--ml-checkbox-gap, var(--ml-space-3)));
+		margin-inline-start: calc(var(--ml-checkbox-box-size, 1.25rem) + var(--ml-checkbox-gap, var(--ml-space-3)));
 		font-size: var(--ml-checkbox-hint-font-size, var(--ml-text-sm));
 		color: var(--ml-checkbox-hint-color, var(--ml-color-text-muted));
 		line-height: var(--ml-leading-tight);
@@ -9654,7 +10213,7 @@ const checkboxStyles = () => css`
 	.ml-checkbox__error {
 		display: block;
 		margin-top: var(--ml-checkbox-error-margin-top, var(--ml-space-0-5));
-		margin-left: calc(var(--ml-checkbox-box-size, 1.25rem) + var(--ml-checkbox-gap, var(--ml-space-3)));
+		margin-inline-start: calc(var(--ml-checkbox-box-size, 1.25rem) + var(--ml-checkbox-gap, var(--ml-space-3)));
 		font-size: var(--ml-checkbox-hint-font-size, var(--ml-text-sm));
 		color: var(--ml-checkbox-error-color, var(--ml-color-danger));
 		line-height: var(--ml-checkbox-error-line-height, var(--ml-leading-tight));
@@ -9699,6 +10258,17 @@ const checkboxStyles = () => css`
 		--ml-checkbox-box-size: 1.5rem;
 		--ml-checkbox-label-font-size: var(--ml-text-base);
 		--ml-checkbox-label-line-height: 1.5rem;
+	}
+
+	/*
+	 * Forced colors (Windows High Contrast): box-shadow rings and background
+	 * highlights are not painted there, so focus falls back to a real outline.
+	 */
+	@media (forced-colors: active) {
+		.ml-checkbox__input:focus-visible + .ml-checkbox__box {
+			outline: 2px solid Highlight;
+			outline-offset: 2px;
+		}
 	}
 `;
 registerAdapter((el) => el.tagName === "ML-CHECKBOX", {
@@ -9939,10 +10509,21 @@ const radioStyles = () => css`
 	.ml-radio__hint {
 		display: block;
 		margin-top: var(--ml-space-0-5);
-		margin-left: calc(var(--ml-radio-circle-size, 1.25rem) + var(--ml-radio-gap, var(--ml-space-3)));
+		margin-inline-start: calc(var(--ml-radio-circle-size, 1.25rem) + var(--ml-radio-gap, var(--ml-space-3)));
 		font-size: var(--ml-radio-hint-font-size, var(--ml-text-sm));
 		color: var(--ml-radio-hint-color, var(--ml-color-text-muted));
 		line-height: var(--ml-leading-tight);
+	}
+
+	/*
+	 * Forced colors (Windows High Contrast): box-shadow rings and background
+	 * highlights are not painted there, so focus falls back to a real outline.
+	 */
+	@media (forced-colors: active) {
+		.ml-radio__input:focus-visible + .ml-radio__circle {
+			outline: 2px solid Highlight;
+			outline-offset: 2px;
+		}
 	}
 `;
 var RadioComponent = class RadioComponent$1 {
@@ -10030,7 +10611,7 @@ const radioGroupStyles = () => css`
 
 	.ml-radio-group__required {
 		color: var(--ml-color-danger);
-		margin-left: var(--ml-space-0-5);
+		margin-inline-start: var(--ml-space-0-5);
 	}
 
 	.ml-radio-group__options {
@@ -10259,7 +10840,7 @@ const radioCardGroupStyles = () => css`
 
 	.ml-radio-card-group__required {
 		color: var(--ml-radio-card-group-required-color, var(--ml-color-danger));
-		margin-left: var(--ml-space-0-5);
+		margin-inline-start: var(--ml-space-0-5);
 	}
 
 	.ml-radio-card-group__options {
@@ -10648,6 +11229,17 @@ const radioCardStyles = () => css`
 		line-height: var(--ml-radio-card-detail-line-height, var(--ml-leading-tight));
 		padding-top: var(--ml-space-0-5);
 	}
+
+	/*
+	 * Forced colors (Windows High Contrast): box-shadow rings and background
+	 * highlights are not painted there, so focus falls back to a real outline.
+	 */
+	@media (forced-colors: active) {
+		.ml-radio-card:focus-visible {
+			outline: 2px solid Highlight;
+			outline-offset: 2px;
+		}
+	}
 `;
 var RadioCardComponent = class RadioCardComponent$1 {
 	constructor() {
@@ -10881,7 +11473,7 @@ const toggleStyles = () => css`
 	.ml-toggle__hint {
 		display: block;
 		margin-top: var(--ml-space-1);
-		margin-left: calc(var(--ml-toggle-track-width, 2.75rem) + var(--ml-toggle-gap, var(--ml-space-3)));
+		margin-inline-start: calc(var(--ml-toggle-track-width, 2.75rem) + var(--ml-toggle-gap, var(--ml-space-3)));
 		font-size: var(--ml-toggle-hint-font-size, var(--ml-text-sm));
 		color: var(--ml-toggle-hint-color, var(--ml-color-text-muted));
 		line-height: var(--ml-leading-tight);
@@ -10890,7 +11482,7 @@ const toggleStyles = () => css`
 	.ml-toggle__error {
 		display: block;
 		margin-top: var(--ml-toggle-error-margin-top, var(--ml-space-1));
-		margin-left: calc(var(--ml-toggle-track-width, 2.75rem) + var(--ml-toggle-gap, var(--ml-space-3)));
+		margin-inline-start: calc(var(--ml-toggle-track-width, 2.75rem) + var(--ml-toggle-gap, var(--ml-space-3)));
 		font-size: var(--ml-toggle-hint-font-size, var(--ml-text-sm));
 		color: var(--ml-toggle-error-color, var(--ml-color-danger));
 		line-height: var(--ml-toggle-error-line-height, var(--ml-leading-tight));
@@ -10898,6 +11490,17 @@ const toggleStyles = () => css`
 
 	.ml-toggle--error.ml-toggle--checked .ml-toggle__track {
 		background-color: var(--ml-toggle-error-track-bg, var(--ml-color-danger));
+	}
+
+	/*
+	 * Forced colors (Windows High Contrast): box-shadow rings and background
+	 * highlights are not painted there, so focus falls back to a real outline.
+	 */
+	@media (forced-colors: active) {
+		.ml-toggle__input:focus-visible + .ml-toggle__track {
+			outline: 2px solid Highlight;
+			outline-offset: 2px;
+		}
 	}
 `;
 registerAdapter((el) => el.tagName === "ML-TOGGLE", {
@@ -10946,6 +11549,109 @@ ToggleComponent = __decorate([MelodicComponent({
 		"disabled"
 	]
 })], ToggleComponent);
+function registerListboxAdapter(tagName) {
+	registerAdapter((el) => el.tagName === tagName, {
+		inputEvent: "ml:change",
+		blurEvent: "focusout",
+		getValue: (el) => {
+			const e = el;
+			return e.multiple ? e.values ?? [] : e.value ?? "";
+		},
+		setValue: (el, value) => {
+			const e = el;
+			if (Array.isArray(value)) e.values = value;
+			else e.value = value !== null && value !== void 0 ? String(value) : "";
+		},
+		setDisabled: (el, disabled) => {
+			el.disabled = disabled;
+		}
+	});
+}
+function areValuesEqual(left, right) {
+	if (left.length !== right.length) return false;
+	for (let i = 0; i < left.length; i++) if (left[i] !== right[i]) return false;
+	return true;
+}
+function normalizeValues(raw) {
+	let normalized = [];
+	if (typeof raw === "string") normalized = raw.split(",").map((value) => value.trim()).filter((value) => value.length > 0);
+	else if (Array.isArray(raw)) normalized = raw.filter((value) => typeof value === "string");
+	return Array.from(new Set(normalized));
+}
+var ListboxValueSync = class {
+	constructor(_host) {
+		this._host = _host;
+		this._syncing = false;
+	}
+	handlePropertyChange(name, newValue) {
+		if (this._syncing) return;
+		if (name === "multiple") {
+			this.handleMultipleChange(!!newValue);
+			return;
+		}
+		if (name === "values") {
+			this.handleValuesChange(newValue);
+			return;
+		}
+		if (name === "value" && this._host.multiple && newValue) {
+			const next = Array.from(new Set([...normalizeValues(this._host.values), String(newValue)]));
+			if (!areValuesEqual(this._host.values, next)) this.write(() => {
+				this._host.values = next;
+			});
+		}
+	}
+	handleMultipleChange(multiple) {
+		const host = this._host;
+		const values = normalizeValues(host.values);
+		this.write(() => {
+			if (multiple) {
+				if (!values.length && host.value) host.values = [host.value];
+				return;
+			}
+			if (values.length) host.value = values[0] ?? "";
+			host.values = [];
+			host.search = "";
+		});
+	}
+	handleValuesChange(raw) {
+		const host = this._host;
+		const normalized = normalizeValues(raw);
+		if (!Array.isArray(raw) || !areValuesEqual(raw, normalized)) queueMicrotask(() => {
+			if (host.values === raw) this.write(() => {
+				host.values = normalized;
+			});
+		});
+		if (!host.multiple && normalized.length) this.write(() => {
+			host.value = normalized[0];
+		});
+	}
+	write(fn) {
+		this._syncing = true;
+		try {
+			fn();
+		} finally {
+			this._syncing = false;
+		}
+	}
+};
+function findNextEnabledIndex(options, from) {
+	for (let index = from + 1; index < options.length; index++) if (!options[index].disabled) return index;
+	return -1;
+}
+function findPreviousEnabledIndex(options, from) {
+	for (let index = from - 1; index >= 0; index--) if (!options[index].disabled) return index;
+	return -1;
+}
+function findFirstEnabledIndex(options) {
+	return options.findIndex((option) => !option.disabled);
+}
+function findLastEnabledIndex(options) {
+	return findPreviousEnabledIndex(options, options.length);
+}
+function scrollOptionIntoView(root, id) {
+	const optionEl = root?.getElementById(id);
+	if (optionEl && typeof optionEl.scrollIntoView === "function") optionEl.scrollIntoView({ block: "nearest" });
+}
 function selectTemplate(c) {
 	return html`
 		<div
@@ -10969,13 +11675,17 @@ function selectTemplate(c) {
 			<div class="ml-select__control">
 				<div
 					class="ml-select__trigger"
-					role="combobox"
-					tabindex=${c.disabled ? "-1" : "0"}
-					aria-haspopup="listbox"
-					aria-expanded=${c.isOpen}
-					aria-controls=${c.listboxId}
-					aria-activedescendant=${c.activeDescendant}
-					aria-labelledby=${c.label ? c.labelId : void 0}
+					role=${c.multiple ? void 0 : "combobox"}
+					tabindex=${c.multiple ? void 0 : c.disabled ? "-1" : "0"}
+					aria-haspopup=${c.multiple ? void 0 : "listbox"}
+					aria-expanded=${c.multiple ? void 0 : String(c.isOpen)}
+					aria-controls=${c.multiple ? void 0 : c.listboxId}
+					aria-activedescendant=${c.multiple ? void 0 : c.activeDescendant}
+					aria-labelledby=${!c.multiple && c.label ? c.labelId : void 0}
+					aria-describedby=${c.multiple ? void 0 : c.describedBy}
+					aria-invalid=${!c.multiple && c.error ? "true" : void 0}
+					aria-required=${!c.multiple && c.required ? "true" : void 0}
+					aria-disabled=${!c.multiple && c.disabled ? "true" : void 0}
 					@click=${c.toggle}
 				>
 					<span class="ml-select__value">
@@ -10995,7 +11705,7 @@ function selectTemplate(c) {
 				</div>
 			</div>
 
-			${when(!!c.error, () => html`<span class="ml-select__error">${c.error}</span>`, () => html`${when(!!c.hint, () => html`<span class="ml-select__hint">${c.hint}</span>`)}`)}
+			${when(!!c.error, () => html`<span id=${c.errorId} class="ml-select__error">${c.error}</span>`, () => html`${when(!!c.hint, () => html`<span id=${c.hintId} class="ml-select__hint">${c.hint}</span>`)}`)}
 		</div>
 	`;
 }
@@ -11022,8 +11732,20 @@ function renderMultiValue(c) {
 		<input
 			class="ml-select__search"
 			type="text"
+			role="combobox"
+			aria-haspopup="listbox"
+			aria-autocomplete="list"
+			aria-expanded=${String(c.isOpen)}
+			aria-controls=${c.listboxId}
+			aria-activedescendant=${c.activeDescendant}
+			aria-labelledby=${c.label ? c.labelId : void 0}
+			aria-describedby=${c.describedBy}
+			aria-invalid=${c.error ? "true" : void 0}
+			aria-required=${c.required ? "true" : void 0}
 			placeholder=${c.values.length ? "" : c.placeholder}
-			aria-label=${c.placeholder || "Search"}
+			aria-label=${c.label ? void 0 : c.placeholder || "Search"}
+			aria-disabled=${c.disabled ? "true" : void 0}
+			tabindex=${c.disabled ? "-1" : void 0}
 			.value=${c.search}
 			@input=${c.handleSearchInput}
 			@click=${c.handleSearchClick}
@@ -11174,7 +11896,7 @@ const selectStyles = () => css`
 
 	.ml-select__required {
 		color: var(--ml-select-required-color, var(--ml-color-danger));
-		margin-left: var(--ml-space-0-5);
+		margin-inline-start: var(--ml-space-0-5);
 	}
 
 	.ml-select__trigger {
@@ -11194,7 +11916,7 @@ const selectStyles = () => css`
 		font-family: var(--ml-select-font-family, var(--ml-font-sans));
 		font-size: var(--ml-select-font-size, var(--ml-text-sm));
 		cursor: pointer;
-		text-align: left;
+		text-align: start;
 		transition:
 			border-color var(--ml-select-transition-duration, var(--ml-duration-150)) var(--ml-select-transition-easing, var(--ml-ease-in-out)),
 			box-shadow var(--ml-select-transition-duration, var(--ml-duration-150)) var(--ml-select-transition-easing, var(--ml-ease-in-out));
@@ -11312,15 +12034,15 @@ const selectStyles = () => css`
 		height: 14px;
 		border-radius: var(--ml-select-tag-border-radius, var(--ml-radius-full));
 		object-fit: cover;
-		margin-left: -2px;
+		margin-inline-start: -2px;
 	}
 
 	.ml-select__tag-remove {
 		border: none;
 		background: transparent;
 		padding: 2px;
-		margin-left: var(--ml-space-0-5);
-		margin-right: -4px;
+		margin-inline-start: var(--ml-space-0-5);
+		margin-inline-end: -4px;
 		color: var(--ml-select-tag-remove-color, var(--ml-color-text-secondary));
 		cursor: pointer;
 		display: inline-flex;
@@ -11442,7 +12164,7 @@ const selectStyles = () => css`
 	.ml-select__option-check {
 		flex-shrink: 0;
 		color: var(--ml-select-option-check-color, var(--ml-color-primary));
-		margin-left: auto;
+		margin-inline-start: auto;
 	}
 
 	.ml-select__hint,
@@ -11487,23 +12209,25 @@ const selectStyles = () => css`
 	.ml-select--disabled {
 		pointer-events: none;
 	}
-`;
-registerAdapter((el) => el.tagName === "ML-SELECT", {
-	inputEvent: "ml:change",
-	blurEvent: "focusout",
-	getValue: (el) => {
-		const e = el;
-		return e.multiple ? e.values ?? [] : e.value ?? "";
-	},
-	setValue: (el, value) => {
-		const e = el;
-		if (Array.isArray(value)) e.values = value;
-		else e.value = value !== null && value !== void 0 ? String(value) : "";
-	},
-	setDisabled: (el, disabled) => {
-		el.disabled = disabled;
+
+	/*
+	 * Forced colors (Windows High Contrast): box-shadow rings and background
+	 * highlights are not painted there, so focus falls back to a real outline.
+	 */
+	@media (forced-colors: active) {
+		.ml-select__trigger:focus,
+		.ml-select__trigger:focus-within {
+			outline: 2px solid Highlight;
+			outline-offset: 2px;
+		}
+
+		.ml-select__option--focused {
+			outline: 2px solid Highlight;
+			outline-offset: -2px;
+		}
 	}
-});
+`;
+registerListboxAdapter("ML-SELECT");
 var TYPEAHEAD_RESET_MS = 700;
 var SelectComponent = class SelectComponent$1 {
 	constructor() {
@@ -11530,7 +12254,7 @@ var SelectComponent = class SelectComponent$1 {
 			matchTriggerWidth: true
 		}));
 		this._lastCloseTime = 0;
-		this._syncingValues = false;
+		this._valueSync = new ListboxValueSync(this);
 		this._typeaheadBuffer = "";
 		this._typeaheadLastTime = 0;
 		this.optionId = (index) => {
@@ -11540,6 +12264,7 @@ var SelectComponent = class SelectComponent$1 {
 			if (this.disabled) return;
 			if (this.isOpen) this.close();
 			else if (Date.now() - this._lastCloseTime > 150) this.open();
+			if (this.multiple) (this.elementRef.shadowRoot?.querySelector(".ml-select__search"))?.focus();
 		};
 		this.open = () => {
 			if (this.disabled || this.isOpen) return;
@@ -11603,37 +12328,8 @@ var SelectComponent = class SelectComponent$1 {
 		this.stopPositioning();
 		this.getDropdownEl()?.removeEventListener("toggle", this._handlePopoverToggle);
 	}
-	onPropertyChange(name) {
-		if (this._syncingValues) return;
-		if (name === "multiple") {
-			if (this.multiple) {
-				if (!this.values.length && this.value) this.updateValues([this.value]);
-				return;
-			}
-			if (this.values.length) this.value = this.values[0] ?? "";
-			this.updateValues([]);
-			this.search = "";
-			return;
-		}
-		if (name === "values") {
-			const rawValues = this.values;
-			let normalized = [];
-			if (typeof rawValues === "string") normalized = rawValues.split(",").map((value) => value.trim()).filter((value) => value.length > 0);
-			else if (Array.isArray(rawValues)) normalized = rawValues.filter((value) => typeof value === "string");
-			normalized = Array.from(new Set(normalized));
-			if (!this.areValuesEqual(this.values, normalized)) this.updateValues(normalized);
-			if (!this.multiple) {
-				this.value = normalized[0] ?? "";
-				this.updateValues([]);
-			}
-			return;
-		}
-		if (name === "value" && this.multiple) {
-			if (this.value) {
-				const nextValues = Array.from(new Set([...this.values, this.value]));
-				if (!this.areValuesEqual(this.values, nextValues)) this.updateValues(nextValues);
-			}
-		}
+	onPropertyChange(name, _, newValue) {
+		this._valueSync.handlePropertyChange(name, newValue);
 	}
 	get selectedOption() {
 		return this.options.find((opt) => opt.value === this.value);
@@ -11660,6 +12356,16 @@ var SelectComponent = class SelectComponent$1 {
 	}
 	get labelId() {
 		return `ml-select-label-${this._uid}`;
+	}
+	get errorId() {
+		return `ml-select-error-${this._uid}`;
+	}
+	get hintId() {
+		return `ml-select-hint-${this._uid}`;
+	}
+	get describedBy() {
+		if (this.error) return this.errorId;
+		if (this.hint) return this.hintId;
 	}
 	get listboxId() {
 		return `ml-select-listbox-${this._uid}`;
@@ -11793,39 +12499,27 @@ var SelectComponent = class SelectComponent$1 {
 	}
 	scrollFocusedOptionIntoView() {
 		if (this.focusedIndex < 0) return;
-		(this.elementRef.shadowRoot?.getElementById(this.optionId(this.focusedIndex)))?.scrollIntoView({ block: "nearest" });
+		scrollOptionIntoView(this.elementRef.shadowRoot, this.optionId(this.focusedIndex));
 	}
 	focusNextOption() {
-		let index = this.focusedIndex + 1;
-		const options = this.getActiveOptions();
-		while (index < options.length) {
-			if (!options[index].disabled) {
-				this.focusedIndex = index;
-				this.scrollFocusedOptionIntoView();
-				return;
-			}
-			index++;
+		const index = findNextEnabledIndex(this.getActiveOptions(), this.focusedIndex);
+		if (index >= 0) {
+			this.focusedIndex = index;
+			this.scrollFocusedOptionIntoView();
 		}
 	}
 	focusPreviousOption() {
-		let index = this.focusedIndex - 1;
-		const options = this.getActiveOptions();
-		while (index >= 0) {
-			if (!options[index].disabled) {
-				this.focusedIndex = index;
-				this.scrollFocusedOptionIntoView();
-				return;
-			}
-			index--;
+		const index = findPreviousEnabledIndex(this.getActiveOptions(), this.focusedIndex);
+		if (index >= 0) {
+			this.focusedIndex = index;
+			this.scrollFocusedOptionIntoView();
 		}
 	}
 	findFirstEnabledIndex() {
-		return this.getActiveOptions().findIndex((opt) => !opt.disabled);
+		return findFirstEnabledIndex(this.getActiveOptions());
 	}
 	findLastEnabledIndex() {
-		const options = this.getActiveOptions();
-		for (let i = options.length - 1; i >= 0; i--) if (!options[i].disabled) return i;
-		return -1;
+		return findLastEnabledIndex(this.getActiveOptions());
 	}
 	getInitialFocusIndex() {
 		const options = this.getActiveOptions();
@@ -11841,16 +12535,6 @@ var SelectComponent = class SelectComponent$1 {
 	}
 	getActiveOptions() {
 		return this.filteredOptions;
-	}
-	updateValues(values) {
-		this._syncingValues = true;
-		this.values = values;
-		this._syncingValues = false;
-	}
-	areValuesEqual(left, right) {
-		if (left.length !== right.length) return false;
-		for (let i = 0; i < left.length; i++) if (left[i] !== right[i]) return false;
-		return true;
 	}
 };
 SelectComponent = __decorate([MelodicComponent({
@@ -11893,10 +12577,10 @@ function sliderTemplate(c) {
 				<input
 					class="ml-slider__input"
 					type="range"
-					.value=${String(c.value)}
 					min=${c.min}
 					max=${c.max}
 					step=${c.step}
+					.value=${String(c.value)}
 					disabled=${c.disabled}
 					aria-label=${c.label || "Slider"}
 					@input=${c.handleInput}
@@ -12120,6 +12804,17 @@ const sliderStyles = () => css`
 		font-size: var(--ml-slider-hint-font-size, var(--ml-text-sm));
 		color: var(--ml-slider-error-color, var(--ml-color-danger));
 	}
+
+	/*
+	 * Forced colors (Windows High Contrast): box-shadow rings and background
+	 * highlights are not painted there, so focus falls back to a real outline.
+	 */
+	@media (forced-colors: active) {
+		.ml-slider__input:focus-visible::-webkit-slider-thumb {
+			outline: 2px solid Highlight;
+			outline-offset: 2px;
+		}
+	}
 `;
 registerAdapter((el) => el.tagName === "ML-SLIDER", {
 	inputEvent: "ml:input",
@@ -12290,7 +12985,7 @@ const formFieldStyles = () => css`
 		grid-column: 1;
 		grid-row: 1;
 		padding-top: var(--ml-form-field-horizontal-label-padding-top, var(--ml-space-2-5));
-		text-align: right;
+		text-align: end;
 	}
 
 	.ml-form-field--horizontal .ml-form-field__control {
@@ -12314,7 +13009,7 @@ const formFieldStyles = () => css`
 
 	.ml-form-field__required {
 		color: var(--ml-form-field-required-color, var(--ml-color-danger));
-		margin-left: var(--ml-space-0-5);
+		margin-inline-start: var(--ml-space-0-5);
 	}
 
 	/* Control wrapper */
@@ -12438,6 +13133,19 @@ const formFieldStyles = () => css`
 	.ml-form-field--horizontal.ml-form-field--lg .ml-form-field__label {
 		padding-top: var(--ml-space-3-5);
 	}
+
+	/*
+	 * Forced colors (Windows High Contrast): box-shadow rings and background
+	 * highlights are not painted there, so focus falls back to a real outline.
+	 */
+	@media (forced-colors: active) {
+		::slotted(input:focus),
+		::slotted(select:focus),
+		::slotted(textarea:focus) {
+			outline: 2px solid Highlight;
+			outline-offset: 2px;
+		}
+	}
 `;
 var FormFieldComponent = class FormFieldComponent$1 {
 	constructor() {
@@ -12455,6 +13163,8 @@ var FormFieldComponent = class FormFieldComponent$1 {
 		};
 		this._control = null;
 		this._controlResolved = false;
+		this._innerOwned = /* @__PURE__ */ new Set();
+		this._innerControl = null;
 		this.handleLabelClick = (event) => {
 			event.preventDefault();
 			this._control?.focus();
@@ -12495,20 +13205,39 @@ var FormFieldComponent = class FormFieldComponent$1 {
 		this.syncDescription(control);
 		this.syncAttribute(control, "aria-invalid", this.error ? "true" : null);
 		this.syncAttribute(control, "aria-required", this.required ? "true" : null);
+		this.syncInnerControl(control);
 		if ("disabled" in control) control.disabled = this.disabled;
 		else this.syncAttribute(control, "aria-disabled", this.disabled ? "true" : null);
 	}
-	syncDescription(control) {
+	getDescribers() {
 		const root = this.elementRef.shadowRoot;
-		const describers = [this.error ? root?.getElementById(this.errorId) : null, this.hint ? root?.getElementById(this.hintId) : null].filter((element) => element !== null && element !== void 0);
-		const reflected = control;
-		if ("ariaDescribedByElements" in reflected) {
-			reflected.ariaDescribedByElements = describers.length > 0 ? describers : null;
-			this.syncAttribute(control, "aria-description", null);
-			return;
+		return [this.error ? root?.getElementById(this.errorId) : null, this.hint ? root?.getElementById(this.hintId) : null].filter((element) => element !== null && element !== void 0);
+	}
+	syncDescription(control) {
+		setCrossRootDescription(control, this.getDescribers());
+	}
+	syncInnerControl(control) {
+		const inner = getFocusableControl(control);
+		const target = inner !== control ? inner : null;
+		if (this._innerControl && this._innerControl !== target) {
+			for (const name of this._innerOwned) this._innerControl.removeAttribute(name);
+			this._innerOwned.clear();
 		}
-		const description = describers.map((element) => element.textContent?.trim() ?? "").filter(Boolean).join(". ");
-		this.syncAttribute(control, "aria-description", description || null);
+		this._innerControl = target;
+		if (!target) return;
+		const description = this.getDescribers().map((element) => element.textContent?.replace(/\s+/g, " ").trim() ?? "").filter(Boolean).join(". ");
+		this.syncOwnedAttribute(target, "aria-description", description || null);
+		this.syncOwnedAttribute(target, "aria-invalid", this.error ? "true" : null);
+		this.syncOwnedAttribute(target, "aria-required", this.required ? "true" : null);
+	}
+	syncOwnedAttribute(target, name, value) {
+		if (value !== null) {
+			if (target.getAttribute(name) !== value) target.setAttribute(name, value);
+			this._innerOwned.add(name);
+		} else if (this._innerOwned.has(name)) {
+			target.removeAttribute(name);
+			this._innerOwned.delete(name);
+		}
 	}
 	syncAttribute(el, name, value) {
 		if (value === null) el.removeAttribute(name);
@@ -13044,6 +13773,25 @@ const calendarStyles = () => css`
 		outline: none;
 		box-shadow: var(--ml-calendar-focus-shadow, var(--ml-shadow-focus-ring));
 	}
+
+	/*
+	 * Forced colors (Windows High Contrast): box-shadow rings and background
+	 * highlights are not painted there, so focus falls back to a real outline.
+	 */
+	@media (forced-colors: active) {
+		.ml-calendar__title-btn:focus-visible,
+		.ml-calendar__nav:focus-visible,
+		.ml-calendar__today-btn:focus-visible {
+			outline: 2px solid Highlight;
+			outline-offset: 2px;
+		}
+
+		.ml-calendar__cell:focus-visible,
+		.ml-calendar__day:focus-visible {
+			outline: 2px solid Highlight;
+			outline-offset: -2px;
+		}
+	}
 `;
 var MONTH_NAMES = [
 	"January",
@@ -13205,11 +13953,13 @@ var CalendarComponent = class CalendarComponent$1 {
 			}
 		};
 		this.rovingKey = "";
+		this._pendingFocusKey = "";
 		this.handleGridKeyDown = (event) => {
 			const key = event.key;
-			if (key !== "ArrowLeft" && key !== "ArrowRight" && key !== "ArrowUp" && key !== "ArrowDown" && key !== "Home" && key !== "End") return;
 			const target = event.target;
 			if (!target || target.tagName !== "BUTTON") return;
+			if (this.view === "day" && this.handleDayGridKey(event, target.dataset.key ?? "")) return;
+			if (key !== "ArrowLeft" && key !== "ArrowRight" && key !== "ArrowUp" && key !== "ArrowDown" && key !== "Home" && key !== "End") return;
 			const grid = target.closest(".ml-calendar__grid, .ml-calendar__cell-grid");
 			if (!grid) return;
 			const cells = Array.from(grid.querySelectorAll("button:not([disabled])"));
@@ -13251,12 +14001,6 @@ var CalendarComponent = class CalendarComponent$1 {
 	onInit() {
 		this.navigateToValue();
 		this.yearPageStart = this.computeYearPageStart(this.viewYear);
-	}
-	onAttributeChange(name, _, newVal) {
-		if (name === "value" && newVal) {
-			this.navigateToValue();
-			this.yearPageStart = this.computeYearPageStart(this.viewYear);
-		}
 	}
 	onPropertyChange(name, _, newValue) {
 		if (name !== "value" || !newValue) return;
@@ -13411,6 +14155,61 @@ var CalendarComponent = class CalendarComponent$1 {
 		const roving = Number.parseInt(this.rovingKey, 10);
 		if (!Number.isNaN(roving) && candidates.some((year) => year.year === roving)) return roving;
 		return (candidates.find((year) => year.isSelected) ?? candidates.find((year) => year.isCurrent) ?? candidates[0]).year;
+	}
+	onRender() {
+		if (!this._pendingFocusKey) return;
+		const key = this._pendingFocusKey;
+		this._pendingFocusKey = "";
+		const cell = this.elementRef.shadowRoot?.querySelector(`.ml-calendar__grid button[data-key="${key}"]`);
+		if (cell && !cell.disabled) cell.focus();
+	}
+	handleDayGridKey(event, fromIso) {
+		const parts = fromIso.split("-").map((part) => Number.parseInt(part, 10));
+		if (parts.length !== 3 || parts.some((part) => Number.isNaN(part))) return false;
+		const [year, month, day] = parts;
+		const from = new Date(year, month - 1, day);
+		let target;
+		switch (event.key) {
+			case "ArrowLeft":
+				target = new Date(year, month - 1, day - 1);
+				break;
+			case "ArrowRight":
+				target = new Date(year, month - 1, day + 1);
+				break;
+			case "ArrowUp":
+				target = new Date(year, month - 1, day - 7);
+				break;
+			case "ArrowDown":
+				target = new Date(year, month - 1, day + 7);
+				break;
+			case "Home":
+				target = new Date(year, month - 1, day - from.getDay());
+				break;
+			case "End":
+				target = new Date(year, month - 1, day + (6 - from.getDay()));
+				break;
+			case "PageUp":
+			case "PageDown": {
+				const step = (event.key === "PageUp" ? -1 : 1) * (event.shiftKey ? 12 : 1);
+				const first = new Date(year, month - 1 + step, 1);
+				const lastDay = new Date(first.getFullYear(), first.getMonth() + 1, 0).getDate();
+				target = new Date(first.getFullYear(), first.getMonth(), Math.min(day, lastDay));
+				break;
+			}
+			default: return false;
+		}
+		event.preventDefault();
+		const iso = toIso(target.getFullYear(), target.getMonth(), target.getDate());
+		if (this.isDisabled(iso)) return true;
+		this.rovingKey = iso;
+		if (target.getMonth() !== this.viewMonth || target.getFullYear() !== this.viewYear) {
+			this.viewMonth = target.getMonth();
+			this.viewYear = target.getFullYear();
+			this._pendingFocusKey = iso;
+			return true;
+		}
+		this.elementRef.shadowRoot?.querySelector(`.ml-calendar__grid button[data-key="${iso}"]`)?.focus();
+		return true;
 	}
 	computeYearPageStart(year) {
 		const minY = this.resolvedMinYear;
@@ -13591,7 +14390,7 @@ const datePickerStyles = () => css`
 
 	.ml-date-picker__required {
 		color: var(--ml-date-picker-required-color, var(--ml-color-danger));
-		margin-left: var(--ml-space-0-5);
+		margin-inline-start: var(--ml-space-0-5);
 	}
 
 	/* Trigger wrapper */
@@ -13743,6 +14542,17 @@ const datePickerStyles = () => css`
 	.ml-date-picker__error {
 		color: var(--ml-date-picker-error-color, var(--ml-color-danger));
 	}
+
+	/*
+	 * Forced colors (Windows High Contrast): box-shadow rings and background
+	 * highlights are not painted there, so focus falls back to a real outline.
+	 */
+	@media (forced-colors: active) {
+		.ml-date-picker__trigger:focus-within {
+			outline: 2px solid Highlight;
+			outline-offset: 2px;
+		}
+	}
 `;
 registerAdapter((el) => el.tagName === "ML-DATE-PICKER", {
 	inputEvent: "ml:change",
@@ -13759,32 +14569,47 @@ function formatDisplayDate(iso, locale) {
 	const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso ?? "");
 	if (!match) return iso ?? "";
 	const date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
-	return new Intl.DateTimeFormat(locale || void 0, {
+	return dateFormatter(locale).format(date);
+}
+function dateFormatter(locale) {
+	const options = {
 		year: "numeric",
 		month: "2-digit",
 		day: "2-digit"
-	}).format(date);
+	};
+	try {
+		return new Intl.DateTimeFormat(locale || void 0, options);
+	} catch {
+		return new Intl.DateTimeFormat(void 0, options);
+	}
 }
 function localeDateOrder(locale) {
-	return new Intl.DateTimeFormat(locale || void 0, {
-		year: "numeric",
-		month: "2-digit",
-		day: "2-digit"
-	}).formatToParts(new Date(2001, 1, 3)).filter((part) => part.type === "year" || part.type === "month" || part.type === "day").map((part) => part.type);
+	return dateFormatter(locale).formatToParts(new Date(2001, 1, 3)).filter((part) => part.type === "year" || part.type === "month" || part.type === "day").map((part) => part.type);
+}
+function normalizeDateText(text) {
+	return text.replace(/[\u200e\u200f\u061c]/g, "").replace(/\p{Nd}/gu, (digit) => {
+		if (digit >= "0" && digit <= "9") return digit;
+		const code = digit.codePointAt(0);
+		for (let zero = code; zero > code - 10; zero--) if (!/\p{Nd}/u.test(String.fromCodePoint(zero - 1))) return String(code - zero);
+		return digit;
+	}).trim();
 }
 function parseDateInput(text, locale) {
-	const trimmed = text.trim();
+	const trimmed = normalizeDateText(text);
 	let year;
 	let month;
 	let day;
-	let match = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(trimmed);
-	if (match) {
-		year = Number(match[1]);
-		month = Number(match[2]);
-		day = Number(match[3]);
+	const iso = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(trimmed);
+	if (iso) {
+		year = Number(iso[1]);
+		month = Number(iso[2]);
+		day = Number(iso[3]);
 	} else {
-		match = /^(\d{1,4})[/.-](\d{1,2})[/.-](\d{1,4})$/.exec(trimmed);
-		if (!match) return null;
+		const groups = trimmed.match(/\d+/g);
+		if (!groups || groups.length !== 3 || groups.some((group) => group.length > 4)) return null;
+		const literalChars = /* @__PURE__ */ new Set();
+		for (const part of dateFormatter(locale).formatToParts(new Date(2001, 1, 3))) if (part.type === "literal") for (const char of normalizeDateText(part.value)) literalChars.add(char);
+		for (const char of trimmed.replace(/\d+/g, "")) if (!/[\s./,-]/.test(char) && !literalChars.has(char)) return null;
 		const order = localeDateOrder(locale);
 		const values = {
 			year: 0,
@@ -13792,7 +14617,7 @@ function parseDateInput(text, locale) {
 			day: 0
 		};
 		order.forEach((part, index) => {
-			values[part] = Number(match[index + 1]);
+			values[part] = Number(groups[index]);
 		});
 		year = values.year;
 		month = values.month;
@@ -14140,6 +14965,17 @@ const alertStyles = () => css`
 		outline: none;
 		opacity: var(--ml-alert-dismiss-hover-opacity, 1);
 	}
+
+	/*
+	 * Forced colors (Windows High Contrast): box-shadow rings and background
+	 * highlights are not painted there, so focus falls back to a real outline.
+	 */
+	@media (forced-colors: active) {
+		.ml-alert__dismiss:focus-visible {
+			outline: 2px solid Highlight;
+			outline-offset: 2px;
+		}
+	}
 `;
 var AlertComponent = class AlertComponent$1 {
 	constructor() {
@@ -14206,6 +15042,7 @@ var ToastService = class ToastService$1 {
 		if (config.dismissible === false) toast.setAttribute("dismissible", "false");
 		toast.setAttribute("role", config.variant === "error" ? "alert" : "status");
 		container.appendChild(toast);
+		this.raiseContainer(container);
 		this._active.push(toast);
 		toast.addEventListener("ml:dismiss", () => this.forget(toast), { once: true });
 		this.enforceMaxVisible();
@@ -14264,6 +15101,18 @@ var ToastService = class ToastService$1 {
 		document.body.appendChild(this._containerEl);
 		return this._containerEl;
 	}
+	raiseContainer(container) {
+		if (typeof container.showPopover !== "function") return;
+		if (container.getAttribute("popover") !== "manual") container.setAttribute("popover", "manual");
+		if (!container.contains(document.activeElement)) try {
+			container.hidePopover();
+		} catch {}
+		try {
+			container.showPopover();
+		} catch {
+			container.removeAttribute("popover");
+		}
+	}
 };
 ToastService = __decorate([Injectable()], ToastService);
 function toastTemplate(c) {
@@ -14273,7 +15122,7 @@ function toastTemplate(c) {
 		"ml-toast": true,
 		[`ml-toast--${c.variant}`]: true
 	})}
-			role=${c.variant === "error" ? "alert" : "status"}
+			role=${c.innerRole}
 		>
 			<div class="ml-toast__icon">
 				${c.renderIcon()}
@@ -14355,6 +15204,12 @@ const toastStyles = () => css`
 		min-width: var(--ml-toast-min-width, 320px);
 		max-width: var(--ml-toast-max-width, 420px);
 		animation: ml-toast-in var(--ml-toast-animation-duration, var(--ml-duration-300)) var(--ml-toast-animation-easing, var(--ml-ease-out));
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.ml-toast {
+			animation: none;
+		}
 	}
 
 	@keyframes ml-toast-in {
@@ -14439,11 +15294,26 @@ var ToastComponent = class ToastComponent$1 {
 		this.duration = 5e3;
 		this.dismissible = true;
 		this._timer = null;
+		this._remaining = 0;
+		this._startedAt = 0;
+		this._hovered = false;
+		this._focused = false;
+		this.handleHoldStart = (event) => {
+			if (event.type === "mouseenter") this._hovered = true;
+			else this._focused = true;
+			if (!this._timer) return;
+			this.clearTimer();
+			this._remaining = Math.max(0, this._remaining - (Date.now() - this._startedAt));
+		};
+		this.handleHoldEnd = (event) => {
+			if (event.type === "mouseleave") this._hovered = false;
+			else this._focused = false;
+			if (this._hovered || this._focused || this._timer || this._remaining <= 0) return;
+			this.startTimer(this._remaining);
+		};
 		this.dismiss = () => {
-			if (this._timer) {
-				clearTimeout(this._timer);
-				this._timer = null;
-			}
+			this.clearTimer();
+			this._remaining = 0;
 			this.elementRef.dispatchEvent(new CustomEvent("ml:dismiss", {
 				bubbles: true,
 				composed: true
@@ -14467,9 +15337,31 @@ var ToastComponent = class ToastComponent$1 {
 		this.toastTitle = value;
 	}
 	onCreate() {
-		if (this.duration > 0) this._timer = setTimeout(() => this.dismiss(), this.duration);
+		this.elementRef.addEventListener("mouseenter", this.handleHoldStart);
+		this.elementRef.addEventListener("mouseleave", this.handleHoldEnd);
+		this.elementRef.addEventListener("focusin", this.handleHoldStart);
+		this.elementRef.addEventListener("focusout", this.handleHoldEnd);
+		if (this.duration > 0) this.startTimer(this.duration);
 	}
 	onDestroy() {
+		this.clearTimer();
+		this._remaining = 0;
+		this.elementRef.removeEventListener("mouseenter", this.handleHoldStart);
+		this.elementRef.removeEventListener("mouseleave", this.handleHoldEnd);
+		this.elementRef.removeEventListener("focusin", this.handleHoldStart);
+		this.elementRef.removeEventListener("focusout", this.handleHoldEnd);
+	}
+	get innerRole() {
+		if (this.elementRef?.hasAttribute("role")) return;
+		return this.variant === "error" ? "alert" : "status";
+	}
+	startTimer(ms) {
+		this.clearTimer();
+		this._remaining = ms;
+		this._startedAt = Date.now();
+		this._timer = setTimeout(() => this.dismiss(), ms);
+	}
+	clearTimer() {
 		if (this._timer) {
 			clearTimeout(this._timer);
 			this._timer = null;
@@ -14508,6 +15400,26 @@ function toastContainerTemplate(c) {
 const toastContainerStyles = () => css`
 	:host {
 		display: block;
+	}
+
+	/*
+	 * ToastService shows the container as a manual popover so it renders in
+	 * the top layer (above modal dialogs). Undo the UA popover box so the
+	 * host stays what it always was: an unstyled, click-through wrapper
+	 * around the fixed-position stack.
+	 */
+	:host([popover]) {
+		position: fixed;
+		inset: 0;
+		width: auto;
+		height: auto;
+		margin: 0;
+		padding: 0;
+		border: 0;
+		background: transparent;
+		color: inherit;
+		overflow: visible;
+		pointer-events: none;
 	}
 
 	.ml-toast-container {
@@ -15295,6 +16207,17 @@ const cardStyles = () => css`
 	.ml-card__footer--hidden {
 		display: none;
 	}
+
+	/*
+	 * Forced colors (Windows High Contrast): box-shadow rings and background
+	 * highlights are not painted there, so focus falls back to a real outline.
+	 */
+	@media (forced-colors: active) {
+		.ml-card--clickable:focus-visible {
+			outline: 2px solid Highlight;
+			outline-offset: 2px;
+		}
+	}
 `;
 var CardComponent = class CardComponent$1 {
 	constructor() {
@@ -15567,10 +16490,10 @@ const containerStyles = () => css`
 	.ml-container {
 		width: 100%;
 		max-width: var(--ml-container-max-width, 1024px);
-		padding-left: var(--ml-container-padding-x, var(--ml-space-4));
-		padding-right: var(--ml-container-padding-x, var(--ml-space-4));
-		margin-left: var(--ml-container-margin-x, auto);
-		margin-right: var(--ml-container-margin-x, auto);
+		padding-inline-start: var(--ml-container-padding-x, var(--ml-space-4));
+		padding-inline-end: var(--ml-container-padding-x, var(--ml-space-4));
+		margin-inline-start: var(--ml-container-margin-x, auto);
+		margin-inline-end: var(--ml-container-margin-x, auto);
 	}
 `;
 var ContainerComponent = class ContainerComponent$1 {
@@ -16319,7 +17242,7 @@ const tagStyles = () => css`
 		border-radius: var(--ml-radius-full);
 		object-fit: cover;
 		flex-shrink: 0;
-		margin-left: calc(var(--ml-space-0-5) * -1);
+		margin-inline-start: calc(var(--ml-space-0-5) * -1);
 	}
 
 	.ml-tag--sm .ml-tag__avatar {
@@ -16335,7 +17258,7 @@ const tagStyles = () => css`
 	/* Icon */
 	.ml-tag__icon {
 		flex-shrink: 0;
-		margin-left: calc(var(--ml-space-0-5) * -1);
+		margin-inline-start: calc(var(--ml-space-0-5) * -1);
 	}
 
 	/* Content */
@@ -16361,7 +17284,7 @@ const tagStyles = () => css`
 		justify-content: center;
 		padding: 0;
 		margin: 0;
-		margin-right: calc(var(--ml-space-1) * -1);
+		margin-inline-end: calc(var(--ml-space-1) * -1);
 		border: none;
 		background: none;
 		color: var(--ml-tag-close-color, var(--ml-color-text-muted));
@@ -16388,7 +17311,7 @@ const tagStyles = () => css`
 		height: 1rem;
 		padding: 0;
 		margin: 0;
-		margin-left: calc(var(--ml-space-0-5) * -1);
+		margin-inline-start: calc(var(--ml-space-0-5) * -1);
 		border: var(--ml-tag-border-width, var(--ml-border)) solid var(--ml-tag-checkbox-border, var(--ml-color-border-strong));
 		border-radius: var(--ml-radius-sm);
 		background: var(--ml-tag-checkbox-bg, var(--ml-color-surface));
@@ -16431,6 +17354,13 @@ const tagStyles = () => css`
 	.ml-tag--disabled {
 		opacity: var(--ml-tag-disabled-opacity, 0.5);
 		pointer-events: none;
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.ml-tag__close,
+		.ml-tag__checkbox {
+			transition: none;
+		}
 	}
 `;
 var TagComponent = class TagComponent$1 {
@@ -16680,7 +17610,7 @@ const listItemStyles = () => css`
 		display: flex;
 		align-items: center;
 		flex-shrink: 0;
-		margin-left: auto;
+		margin-inline-start: auto;
 	}
 `;
 var ListItemComponent = class ListItemComponent$1 {
@@ -17081,6 +18011,18 @@ defineLegacyAliases(ActivityFeedItemComponent.prototype, "ml-activity-feed-item"
 	"avatar-size": "avatarSize",
 	"indicator-color": "indicatorColor"
 });
+function resolveRowKey(rowKey, row, index) {
+	if (typeof rowKey === "function") return rowKey(row, index) ?? index;
+	if (typeof rowKey === "string" && rowKey) return row[rowKey] ?? index;
+	return index;
+}
+var naturalCollator = new Intl.Collator(void 0, { numeric: true });
+function compareValues(aVal, bVal) {
+	if (typeof aVal === "number" && typeof bVal === "number") return aVal - bVal;
+	if (aVal instanceof Date && bVal instanceof Date) return aVal.getTime() - bVal.getTime();
+	if (typeof aVal === "bigint" && typeof bVal === "bigint") return aVal < bVal ? -1 : aVal > bVal ? 1 : 0;
+	return naturalCollator.compare(String(aVal), String(bVal));
+}
 function renderCell(column, row, index) {
 	if (column.render) return column.render(row[column.key], row, index);
 	return row[column.key] ?? "";
@@ -17101,8 +18043,7 @@ var TableCore = class {
 			const bVal = b[key];
 			if (aVal == null) return bVal == null ? 0 : 1;
 			if (bVal == null) return -1;
-			if (typeof aVal === "number" && typeof bVal === "number") return (aVal - bVal) * dir;
-			return String(aVal).localeCompare(String(bVal)) * dir;
+			return compareValues(aVal, bVal) * dir;
 		});
 	}
 	handleSortClick(column, beforeDispatch) {
@@ -17265,7 +18206,7 @@ function tableTemplate(c) {
 			`)}
 
 			<div class="ml-table__wrapper">
-				<table role="grid">
+				<table>
 					<thead>
 						<tr>
 							${when(c.selectable, () => html`
@@ -17291,10 +18232,10 @@ function tableTemplate(c) {
 	})}
 									style=${col.width ? `width: ${col.width}` : ""}
 									tabindex=${col.sortable ? "0" : ""}
-									role=${col.sortable ? "columnheader button" : ""}
+									role=${col.sortable ? "columnheader" : void 0}
 									@click=${() => c.handleSort(col)}
 									@keydown=${(e) => c.handleHeaderKeyDown(col, e)}
-									aria-sort=${c.sortKey === col.key ? c.sortDirection === "asc" ? "ascending" : "descending" : "none"}
+									aria-sort=${col.sortable ? c.sortKey === col.key ? c.sortDirection === "asc" ? "ascending" : "descending" : "none" : void 0}
 								>
 									<span class="ml-table__th-content">
 										${col.label}
@@ -17310,11 +18251,11 @@ function tableTemplate(c) {
 					</thead>
 					<tbody>
 						${when(c.virtual && c.topSpacerHeight > 0, () => html`
-							<tr class="ml-table__spacer">
+							<tr class="ml-table__spacer" aria-hidden="true">
 								<td colspan="${c.colCount}" style="height: ${c.topSpacerHeight}px"></td>
 							</tr>
 						`)}
-						${repeat(c.visibleRows, (_, i) => c.startIndex + i, (row, i) => {
+						${repeat(c.visibleRows, (row, i) => c.getRowKey(row, c.startIndex + i), (row, i) => {
 		const absoluteIndex = c.startIndex + i;
 		return html`
 								<tr
@@ -17323,7 +18264,9 @@ function tableTemplate(c) {
 			"ml-table__row": true,
 			"ml-table__row--selected": c.isRowSelected(absoluteIndex)
 		})}
+									tabindex=${c.clickableRows ? "0" : void 0}
 									@click=${() => c.handleRowClick(row, absoluteIndex)}
+									@keydown=${(e) => c.handleRowKeyDown(row, absoluteIndex, e)}
 								>
 									${when(c.selectable, () => html`
 										<td class="ml-table__check-cell">
@@ -17352,7 +18295,7 @@ function tableTemplate(c) {
 							`;
 	})}
 						${when(c.virtual && c.bottomSpacerHeight > 0, () => html`
-							<tr class="ml-table__spacer">
+							<tr class="ml-table__spacer" aria-hidden="true">
 								<td colspan="${c.colCount}" style="height: ${c.bottomSpacerHeight}px"></td>
 							</tr>
 						`)}
@@ -17412,6 +18355,7 @@ const tableStyles = () => css`
 	 * --ml-table-row-hover-border-left-width: 0
 	 * --ml-table-row-hover-border-left-color: transparent
 	 * --ml-table-row-selected-bg: var(--ml-color-primary-subtle, rgba(99, 102, 241, 0.04))
+	 * --ml-table-row-focus-outline-color: var(--ml-color-primary)
 	 * --ml-table-row-selected-hover-bg: var(--ml-color-primary-subtle, rgba(99, 102, 241, 0.06))
 	 * --ml-table-row-striped-bg: var(--ml-color-surface-sunken)
 	 * --ml-table-row-striped-hover-bg: var(--ml-color-surface-raised)
@@ -17509,7 +18453,7 @@ const tableStyles = () => css`
 		color: var(--ml-table-header-color, var(--ml-color-text-muted));
 		text-transform: uppercase;
 		letter-spacing: 0.05em;
-		text-align: left;
+		text-align: start;
 		white-space: nowrap;
 		user-select: none;
 	}
@@ -17575,6 +18519,11 @@ const tableStyles = () => css`
 
 	.ml-table--row-clickable .ml-table__row {
 		cursor: pointer;
+	}
+
+	.ml-table--row-clickable .ml-table__row:focus-visible {
+		outline: 2px solid var(--ml-table-row-focus-outline-color, var(--ml-color-primary));
+		outline-offset: -2px;
 	}
 
 	.ml-table__row--selected {
@@ -17698,6 +18647,7 @@ var TableComponent = class TableComponent$1 {
 		this.virtual = false;
 		this.manualSort = false;
 		this.columns = [];
+		this.rowKey = null;
 		this.rows = [];
 		this.sortKey = "";
 		this.sortDirection = "asc";
@@ -17711,6 +18661,9 @@ var TableComponent = class TableComponent$1 {
 		this._sortedRowsMemo = memoOn();
 		this.isRowSelected = (index) => {
 			return this._core.isRowSelected(index);
+		};
+		this.getRowKey = (row, index) => {
+			return resolveRowKey(this.rowKey, row, index);
 		};
 		this.handleHeaderKeyDown = (column, event) => {
 			if (!column.sortable || event.key !== "Enter" && event.key !== " ") return;
@@ -17727,6 +18680,12 @@ var TableComponent = class TableComponent$1 {
 			this._core.toggleSelectRow(index, event);
 		};
 		this.handleRowClick = (row, index) => {
+			this._core.emitRowClick(row, index);
+		};
+		this.handleRowKeyDown = (row, index, event) => {
+			if (!this.clickableRows || event.target !== event.currentTarget) return;
+			if (event.key !== "Enter" && event.key !== " ") return;
+			event.preventDefault();
 			this._core.emitRowClick(row, index);
 		};
 	}
@@ -17793,7 +18752,8 @@ TableComponent = __decorate([MelodicComponent({
 		"sticky-header",
 		"virtual",
 		"manual-sort",
-		"clickable-rows"
+		"clickable-rows",
+		"row-key"
 	]
 })], TableComponent);
 function pinStyle(c, col) {
@@ -17825,12 +18785,12 @@ function dataGridTemplate(c) {
 			`)}
 
 			<div class="ml-data-grid__viewport">
-				<div class="ml-data-grid__inner" style="min-width: ${totalW}px">
+				<div class="ml-data-grid__inner" style="min-width: ${totalW}px" role="table" aria-rowcount=${c.totalRows + 1}>
 
 					<!-- Header row -->
-					<div class="ml-data-grid__header-row" style="grid-template-columns: ${gtc}">
+					<div class="ml-data-grid__header-row" style="grid-template-columns: ${gtc}" role="row" aria-rowindex="1">
 						${when(c.selectable, () => html`
-							<div class="ml-data-grid__th ml-data-grid__check-cell">
+							<div class="ml-data-grid__th ml-data-grid__check-cell" role="columnheader">
 								<input
 									type="checkbox"
 									class="ml-data-grid__checkbox"
@@ -17864,7 +18824,7 @@ function dataGridTemplate(c) {
 								@drop=${() => c.handleDrop(col.key)}
 								@click=${() => c.handleSort(col)}
 								@keydown=${(e) => c.handleHeaderKeyDown(col, e)}
-								tabindex=${col.sortable || col.reorderable !== false ? "0" : ""}
+								tabindex=${col.sortable || col.reorderable !== false || col.resizable !== false ? "0" : ""}
 								role="columnheader"
 								aria-sort=${c.sortKey === col.key ? c.sortDirection === "asc" ? "ascending" : "descending" : "none"}
 							>
@@ -17882,6 +18842,8 @@ function dataGridTemplate(c) {
 										@pointerdown=${(e) => c.handleResizeStart(col.key, e)}
 										@pointermove=${(e) => c.handleResizeMove(col.key, e)}
 										@pointerup=${c.handleResizeEnd}
+										@pointercancel=${c.handleResizeCancel}
+										@lostpointercapture=${c.handleResizeCancel}
 										@click=${(e) => e.stopPropagation()}
 									></div>
 								`)}
@@ -17891,9 +18853,9 @@ function dataGridTemplate(c) {
 
 					<!-- Filter row -->
 					${when(c.showFilterRow, () => html`
-						<div class="ml-data-grid__filter-row" style="grid-template-columns: ${gtc}">
+						<div class="ml-data-grid__filter-row" style="grid-template-columns: ${gtc}" role="row">
 							${when(c.selectable, () => html`
-								<div class="ml-data-grid__filter-cell ml-data-grid__check-cell"></div>
+								<div class="ml-data-grid__filter-cell ml-data-grid__check-cell" role="cell"></div>
 							`)}
 							${repeat(c.orderedColumns, (col) => col.key, (col) => html`
 								<div
@@ -17903,12 +18865,14 @@ function dataGridTemplate(c) {
 		"ml-data-grid__filter-cell--pinned-right": col.pinned === "right"
 	})}
 									style=${pinStyle(c, col)}
+									role="cell"
 								>
 									${when(!!col.filterable, () => html`
 										<input
 											type="text"
 											class="ml-data-grid__filter-input"
 											placeholder="Filter..."
+											aria-label=${`Filter ${col.label}`}
 											.value=${c.filters[col.key] ?? ""}
 											@input=${(e) => c.handleFilterInput(col.key, e)}
 										/>
@@ -17920,11 +18884,11 @@ function dataGridTemplate(c) {
 
 					<!-- Virtual top spacer -->
 					${when(c.virtual && c.topSpacerHeight > 0, () => html`
-						<div class="ml-data-grid__top-spacer" style="height: ${c.topSpacerHeight}px"></div>
+						<div class="ml-data-grid__top-spacer" style="height: ${c.topSpacerHeight}px" aria-hidden="true"></div>
 					`)}
 
 					<!-- Data rows -->
-					${repeat(c.visibleRows, (_, i) => c.startIndex + i, (row, i) => html`
+					${repeat(c.visibleRows, (row, i) => c.getRowKey(row, c.startIndex + i), (row, i) => html`
 							<div
 								class=${classMap({
 		"ml-data-grid__row": true,
@@ -17932,10 +18896,14 @@ function dataGridTemplate(c) {
 		"ml-data-grid__row--even": (c.startIndex + i) % 2 === 1
 	})}
 								style="grid-template-columns: ${gtc}"
+								role="row"
+								aria-rowindex=${c.rowAriaIndex(c.startIndex + i)}
+								tabindex=${c.clickableRows ? "0" : void 0}
 								@click=${() => c.handleRowClick(row, c.startIndex + i)}
+								@keydown=${(e) => c.handleRowKeyDown(row, c.startIndex + i, e)}
 							>
 								${when(c.selectable, () => html`
-									<div class="ml-data-grid__td ml-data-grid__check-cell">
+									<div class="ml-data-grid__td ml-data-grid__check-cell" role="cell">
 										<input
 											type="checkbox"
 											class="ml-data-grid__checkbox"
@@ -17957,6 +18925,7 @@ function dataGridTemplate(c) {
 		"ml-data-grid__td--pinned-right-edge": col.key === c.firstRightPinnedKey
 	})}
 										style=${pinStyle(c, col)}
+										role="cell"
 									>
 										${renderCell(col, row, c.startIndex + i)}
 									</div>
@@ -17966,7 +18935,7 @@ function dataGridTemplate(c) {
 
 					<!-- Virtual bottom spacer -->
 					${when(c.virtual && c.bottomSpacerHeight > 0, () => html`
-						<div class="ml-data-grid__bottom-spacer" style="height: ${c.bottomSpacerHeight}px"></div>
+						<div class="ml-data-grid__bottom-spacer" style="height: ${c.bottomSpacerHeight}px" aria-hidden="true"></div>
 					`)}
 
 				</div>
@@ -18039,6 +19008,7 @@ const dataGridStyles = () => css`
 	 * --ml-data-grid-row-selected-hover-bg: var(--ml-color-primary-subtle, rgba(99, 102, 241, 0.07))
 	 * --ml-data-grid-row-striped-bg: var(--ml-color-surface-sunken)
 	 * --ml-data-grid-row-striped-hover-bg: var(--ml-color-surface-raised)
+	 * --ml-data-grid-row-focus-outline-color: var(--ml-color-primary)
 	 *
 	 * Data Grid: cells
 	 * --ml-data-grid-cell-color: var(--ml-color-text)
@@ -18325,6 +19295,11 @@ const dataGridStyles = () => css`
 		border-bottom: none;
 	}
 
+	.ml-data-grid__row:focus-visible {
+		outline: 2px solid var(--ml-data-grid-row-focus-outline-color, var(--ml-color-primary));
+		outline-offset: -2px;
+	}
+
 	.ml-data-grid--hoverable .ml-data-grid__row:hover {
 		background-color: var(--ml-data-grid-row-hover-bg, var(--ml-color-surface-sunken));
 	}
@@ -18564,7 +19539,22 @@ const dataGridStyles = () => css`
 		opacity: 0.4;
 		cursor: not-allowed;
 	}
+
+	/*
+	 * Forced colors (Windows High Contrast): box-shadow rings and background
+	 * highlights are not painted there, so focus falls back to a real outline.
+	 */
+	@media (forced-colors: active) {
+		.ml-data-grid__filter-input:focus {
+			outline: 2px solid Highlight;
+			outline-offset: -2px;
+		}
+	}
 `;
+var KEYBOARD_RESIZE_STEP = 16;
+function columnWidthVar(key) {
+	return `--ml-grid-col-${/^[a-zA-Z0-9_-]+$/.test(key) ? key : key.replace(/[^a-zA-Z0-9_-]/g, (char) => `_${char.codePointAt(0).toString(16)}_`)}`;
+}
 var DataGridComponent = class DataGridComponent$1 {
 	constructor() {
 		this.selectable = false;
@@ -18577,8 +19567,10 @@ var DataGridComponent = class DataGridComponent$1 {
 		this.pageSize = 50;
 		this.virtual = true;
 		this.showFilterRow = false;
+		this.clickableRows = false;
 		this.columns = [];
 		this.rows = [];
+		this.rowKey = null;
 		this.sortKey = "";
 		this.sortDirection = "asc";
 		this.filters = {};
@@ -18602,6 +19594,10 @@ var DataGridComponent = class DataGridComponent$1 {
 		this._sortedRowsMemo = memoOn();
 		this._pagedRowsMemo = memoOn();
 		this.isRowSelected = (index) => this._core.isRowSelected(index);
+		this.rowAriaIndex = (pageIndex) => {
+			return (this.serverSide ? 0 : (this.currentPage - 1) * this.pageSize) + pageIndex + 2;
+		};
+		this.getRowKey = (row, index) => resolveRowKey(this.rowKey, row, index);
 		this.handleSort = (col) => {
 			this._core.handleSortClick(col, () => {
 				this.currentPage = 1;
@@ -18632,6 +19628,12 @@ var DataGridComponent = class DataGridComponent$1 {
 		this.handleRowClick = (row, index) => {
 			this._core.emitRowClick(row, index);
 		};
+		this.handleRowKeyDown = (row, index, event) => {
+			if (!this.clickableRows || event.target !== event.currentTarget) return;
+			if (event.key !== "Enter" && event.key !== " ") return;
+			event.preventDefault();
+			this._core.emitRowClick(row, index);
+		};
 		this.handleResizeStart = (key, e) => {
 			this.resizingKey = key;
 			this._resizeStartX = e.clientX;
@@ -18646,7 +19648,7 @@ var DataGridComponent = class DataGridComponent$1 {
 			const minW = this.columns.find((c) => c.key === key)?.minWidth ?? 80;
 			const width = Math.max(minW, this._resizeStartWidth + delta);
 			this._pendingResizeWidth = width;
-			this.elementRef.style.setProperty(`--ml-grid-col-${key}`, `${width}px`);
+			this.elementRef.style.setProperty(columnWidthVar(key), `${width}px`);
 		};
 		this._pendingResizeWidth = null;
 		this.handleResizeEnd = () => {
@@ -18656,7 +19658,7 @@ var DataGridComponent = class DataGridComponent$1 {
 					...this.colWidths,
 					[this.resizingKey]: this._pendingResizeWidth
 				};
-				this.elementRef.style.removeProperty(`--ml-grid-col-${this.resizingKey}`);
+				this.elementRef.style.removeProperty(columnWidthVar(this.resizingKey));
 				this._pendingResizeWidth = null;
 			}
 			this.elementRef.dispatchEvent(new CustomEvent("ml:column-resize", {
@@ -18669,7 +19671,38 @@ var DataGridComponent = class DataGridComponent$1 {
 			}));
 			this.resizingKey = null;
 		};
+		this.handleResizeCancel = () => {
+			if (!this.resizingKey) return;
+			this.elementRef.style.removeProperty(columnWidthVar(this.resizingKey));
+			this._pendingResizeWidth = null;
+			this.resizingKey = null;
+		};
+		this.resizeColumnBy = (key, delta) => {
+			const col = this.columns.find((c) => c.key === key);
+			if (!col || col.resizable === false) return;
+			const minW = col.minWidth ?? 80;
+			const width = Math.max(minW, (this.columnWidths[key] ?? 150) + delta);
+			if (width === this.columnWidths[key]) return;
+			this.colWidths = {
+				...this.colWidths,
+				[key]: width
+			};
+			this.elementRef.dispatchEvent(new CustomEvent("ml:column-resize", {
+				bubbles: true,
+				composed: true,
+				detail: {
+					key,
+					width
+				}
+			}));
+		};
 		this.handleHeaderKeyDown = (col, event) => {
+			if (event.shiftKey && !event.ctrlKey && !event.metaKey && (event.key === "ArrowLeft" || event.key === "ArrowRight")) {
+				if (col.resizable === false) return;
+				event.preventDefault();
+				this.resizeColumnBy(col.key, event.key === "ArrowLeft" ? -KEYBOARD_RESIZE_STEP : KEYBOARD_RESIZE_STEP);
+				return;
+			}
 			if ((event.ctrlKey || event.metaKey) && (event.key === "ArrowLeft" || event.key === "ArrowRight")) {
 				if (col.reorderable === false) return;
 				event.preventDefault();
@@ -18844,7 +19877,7 @@ var DataGridComponent = class DataGridComponent$1 {
 		return this.orderedColumns.reduce((sum, col) => sum + (this.columnWidths[col.key] ?? 150), 0) + (this.selectable ? 44 : 0);
 	}
 	get gridTemplateColumns() {
-		const cols = this.orderedColumns.map((col) => `var(--ml-grid-col-${col.key}, ${this.columnWidths[col.key] ?? 150}px)`).join(" ");
+		const cols = this.orderedColumns.map((col) => `var(${columnWidthVar(col.key)}, ${this.columnWidths[col.key] ?? 150}px)`).join(" ");
 		return this.selectable ? `44px ${cols}` : cols;
 	}
 	getPinnedLeftOffset(key) {
@@ -18900,7 +19933,9 @@ DataGridComponent = __decorate([MelodicComponent({
 		"server-side",
 		"page-size",
 		"virtual",
-		"show-filter-row"
+		"show-filter-row",
+		"clickable-rows",
+		"row-key"
 	]
 })], DataGridComponent);
 var activeLocale;
@@ -20462,6 +21497,20 @@ const calendarViewStyles = () => css`
 		color: var(--ml-calendar-view-weekday-color, var(--ml-color-text-muted));
 		text-align: center;
 		padding: var(--ml-space-6) 0;
+	}
+
+	/*
+	 * Forced colors (Windows High Contrast): box-shadow rings and background
+	 * highlights are not painted there, so focus falls back to a real outline.
+	 */
+	@media (forced-colors: active) {
+		.ml-cv__nav-btn:focus-visible,
+		.ml-cv__today-btn:focus-visible,
+		.ml-cv__view-trigger:focus-visible,
+		.ml-cv__add-btn:focus-visible {
+			outline: 2px solid Highlight;
+			outline-offset: 2px;
+		}
 	}
 `;
 var CalendarViewComponent = class CalendarViewComponent$1 {
@@ -22472,9 +23521,9 @@ const tabsStyles = () => css`
 	.ml-tabs--vertical .ml-tabs__list {
 		flex-direction: column;
 		border-bottom: none;
-		border-right: var(--ml-tabs-list-border-width, var(--ml-border)) solid var(--ml-tabs-list-border-color, var(--ml-color-border));
-		padding-right: var(--ml-tabs-vertical-border-padding, var(--ml-space-2));
-		margin-right: var(--ml-tabs-vertical-border-margin, var(--ml-space-4));
+		border-inline-end: var(--ml-tabs-list-border-width, var(--ml-border)) solid var(--ml-tabs-list-border-color, var(--ml-color-border));
+		padding-inline-end: var(--ml-tabs-vertical-border-padding, var(--ml-space-2));
+		margin-inline-end: var(--ml-tabs-vertical-border-margin, var(--ml-space-4));
 	}
 
 	.ml-tabs--vertical .ml-tabs__panels {
@@ -22571,21 +23620,21 @@ const tabsStyles = () => css`
 
 	.ml-tabs--line.ml-tabs--vertical .ml-tabs__list {
 		border-bottom: none;
-		border-right: var(--ml-tabs-list-border-width, var(--ml-border)) solid var(--ml-tabs-list-border-color, var(--ml-color-border));
+		border-inline-end: var(--ml-tabs-list-border-width, var(--ml-border)) solid var(--ml-tabs-list-border-color, var(--ml-color-border));
 	}
 
 	.ml-tabs--line.ml-tabs--vertical .ml-tabs__tab {
 		padding-bottom: var(--ml-tabs-tab-padding-y, var(--ml-space-2));
-		padding-right: calc(var(--ml-tabs-tab-padding-x, var(--ml-space-4)) + var(--ml-tabs-line-indicator-height, 2px));
+		padding-inline-end: calc(var(--ml-tabs-tab-padding-x, var(--ml-space-4)) + var(--ml-tabs-line-indicator-height, 2px));
 		margin-bottom: 0;
-		margin-right: -1px;
+		margin-inline-end: -1px;
 	}
 
 	.ml-tabs--line.ml-tabs--vertical .ml-tabs__tab::after {
 		bottom: auto;
-		left: auto;
+		inset-inline-start: auto;
 		top: 0;
-		right: 0;
+		inset-inline-end: 0;
 		width: var(--ml-tabs-line-indicator-height, 2px);
 		height: 100%;
 	}
@@ -22843,7 +23892,7 @@ var TabsComponent = class TabsComponent$1 {
 	updatePanelVisibility() {
 		if (this.routed) return;
 		const tabs = this.getAllTabs();
-		this.elementRef.querySelectorAll("ml-tab-panel").forEach((panel) => {
+		Array.from(this.elementRef.querySelectorAll("ml-tab-panel")).filter((panel) => panel.closest("ml-tabs") === this.elementRef).forEach((panel) => {
 			const value = panel.getAttribute("value");
 			panel.hidden = !(value === this.value);
 			const label = tabs.find((t) => t.value === value)?.label;
@@ -23606,8 +24655,8 @@ function renderNavItem(c, item, level) {
 					<a
 						class=${linkClasses}
 						href=${item.href}
-						?target=${item.external ? "_blank" : null}
-						?rel=${item.external ? "noopener noreferrer" : null}
+						target=${item.external ? "_blank" : null}
+						rel=${item.external ? "noopener noreferrer" : null}
 						@click=${(event) => {
 		routeAnchorClick(event, item.href ?? "", { external: item.external });
 		handleClick(event);
@@ -23759,7 +24808,7 @@ const sidebarStyles = () => css`
 		height: 100%;
 		width: var(--ml-sidebar-width, 280px);
 		background-color: var(--ml-sidebar-bg, var(--ml-color-surface));
-		border-right: var(--ml-sidebar-border-width, var(--ml-border)) solid var(--ml-sidebar-border-color, var(--ml-color-border));
+		border-inline-end: var(--ml-sidebar-border-width, var(--ml-border)) solid var(--ml-sidebar-border-color, var(--ml-color-border));
 		transition: width var(--ml-sidebar-transition, var(--ml-duration-200) var(--ml-ease-in-out));
 	}
 
@@ -23891,9 +24940,9 @@ const sidebarStyles = () => css`
 		box-sizing: border-box;
 		width: 100%;
 		padding: var(--ml-sidebar-item-padding-y, var(--ml-space-2)) var(--ml-sidebar-item-padding-x, var(--ml-space-3));
-		padding-left: calc(var(--ml-sidebar-item-padding-x, var(--ml-space-3)) + (var(--level) * var(--ml-space-5)));
+		padding-inline-start: calc(var(--ml-sidebar-item-padding-x, var(--ml-space-3)) + (var(--level) * var(--ml-space-5)));
 		border: none;
-		border-left: var(--ml-sidebar-item-active-indicator-width, 0px) solid transparent;
+		border-inline-start: var(--ml-sidebar-item-active-indicator-width, 0px) solid transparent;
 		border-radius: var(--ml-sidebar-item-radius, var(--ml-radius));
 		background: transparent;
 		color: var(--ml-sidebar-item-color, var(--ml-color-text-secondary));
@@ -23901,7 +24950,7 @@ const sidebarStyles = () => css`
 		font-size: var(--ml-sidebar-item-font-size, var(--ml-text-sm));
 		font-weight: var(--ml-sidebar-item-font-weight, var(--ml-font-medium));
 		line-height: var(--ml-sidebar-item-line-height, var(--ml-leading-tight));
-		text-align: left;
+		text-align: start;
 		text-decoration: none;
 		cursor: pointer;
 		transition:
@@ -23922,7 +24971,7 @@ const sidebarStyles = () => css`
 	.ml-sidebar__item-link--active {
 		background-color: var(--ml-sidebar-item-active-bg, var(--ml-color-primary));
 		color: var(--ml-sidebar-item-active-color, var(--ml-color-text-inverse));
-		border-left-color: var(--ml-sidebar-item-active-indicator-color, transparent);
+		border-inline-start-color: var(--ml-sidebar-item-active-indicator-color, transparent);
 	}
 
 	.ml-sidebar__item-link--active:hover {
@@ -24323,8 +25372,8 @@ function sidebarItemTemplate(c) {
 					<a
 						class=${linkClasses}
 						href=${c.href}
-						?target=${c.external ? "_blank" : null}
-						?rel=${c.external ? "noopener noreferrer" : null}
+						target=${c.external ? "_blank" : null}
+						rel=${c.external ? "noopener noreferrer" : null}
 						@click=${(event) => {
 		routeAnchorClick(event, c.href, { external: c.external });
 		c.handleClick(event);
@@ -24435,9 +25484,9 @@ const sidebarItemStyles = () => css`
 		box-sizing: border-box;
 		width: 100%;
 		padding: var(--ml-sidebar-item-padding-y, var(--ml-space-2)) var(--ml-sidebar-item-padding-x, var(--ml-space-3));
-		padding-left: calc(var(--ml-sidebar-item-padding-x, var(--ml-space-3)) + (var(--level) * var(--ml-space-5)));
+		padding-inline-start: calc(var(--ml-sidebar-item-padding-x, var(--ml-space-3)) + (var(--level) * var(--ml-space-5)));
 		border: none;
-		border-left: var(--ml-sidebar-item-active-indicator-width, 0px) solid transparent;
+		border-inline-start: var(--ml-sidebar-item-active-indicator-width, 0px) solid transparent;
 		border-radius: var(--ml-sidebar-item-radius, var(--ml-radius));
 		background: transparent;
 		color: var(--ml-sidebar-item-color, var(--ml-color-text-secondary));
@@ -24445,7 +25494,7 @@ const sidebarItemStyles = () => css`
 		font-size: var(--ml-sidebar-item-font-size, var(--ml-text-sm));
 		font-weight: var(--ml-sidebar-item-font-weight, var(--ml-font-medium));
 		line-height: var(--ml-sidebar-item-line-height, var(--ml-leading-tight));
-		text-align: left;
+		text-align: start;
 		text-decoration: none;
 		cursor: pointer;
 		transition:
@@ -24466,7 +25515,7 @@ const sidebarItemStyles = () => css`
 	.ml-sidebar-item__link--active {
 		background-color: var(--ml-sidebar-item-active-bg, var(--ml-color-primary));
 		color: var(--ml-sidebar-item-active-color, var(--ml-color-text-inverse));
-		border-left-color: var(--ml-sidebar-item-active-indicator-color, transparent);
+		border-inline-start-color: var(--ml-sidebar-item-active-indicator-color, transparent);
 	}
 
 	.ml-sidebar-item__link--active:hover {
@@ -24964,14 +26013,14 @@ const stepsStyles = () => css`
 	.ml-step--vertical {
 		flex-direction: row;
 		align-items: stretch;
-		text-align: left;
+		text-align: start;
 	}
 
 	.ml-step--vertical .ml-step__track {
 		display: flex;
 		flex-direction: column;
 		align-items: center;
-		margin-right: var(--ml-steps-track-gap, var(--ml-space-3));
+		margin-inline-end: var(--ml-steps-track-gap, var(--ml-space-3));
 	}
 
 	.ml-step--vertical .ml-step__connector-before,
@@ -25299,7 +26348,7 @@ const stepsStyles = () => css`
 		height: auto;
 		min-height: 40px;
 		margin-bottom: 0;
-		margin-right: var(--ml-steps-track-gap, var(--ml-space-3));
+		margin-inline-end: var(--ml-steps-track-gap, var(--ml-space-3));
 	}
 
 	.ml-step--bar.ml-step--vertical .ml-step__content {
@@ -25813,14 +26862,14 @@ const stepStyles = () => css`
 	.ml-step--vertical {
 		flex-direction: row;
 		align-items: stretch;
-		text-align: left;
+		text-align: start;
 	}
 
 	.ml-step--vertical .ml-step__track {
 		display: flex;
 		flex-direction: column;
 		align-items: center;
-		margin-right: var(--ml-step-track-gap, var(--ml-space-3));
+		margin-inline-end: var(--ml-step-track-gap, var(--ml-space-3));
 	}
 
 	.ml-step--vertical .ml-step__connector-before,
@@ -26178,7 +27227,7 @@ const stepStyles = () => css`
 		height: auto;
 		min-height: 40px;
 		margin-bottom: 0;
-		margin-right: var(--ml-step-track-gap, var(--ml-space-3));
+		margin-inline-end: var(--ml-step-track-gap, var(--ml-space-3));
 	}
 
 	.ml-step--bar.ml-step--vertical .ml-step__content {
@@ -26769,11 +27818,28 @@ DialogService = __decorate([Injectable()], DialogService);
 var _ref;
 var DialogComponent = class DialogComponent$1 {
 	constructor() {
+		this.label = "";
 		this._dialogID = newID();
 		this._registered = false;
+		this.syncAccessibleName = () => {
+			const root = this.elementRef.shadowRoot;
+			const dialogEl = root?.querySelector("dialog");
+			if (!root || !dialogEl) return;
+			if (this.label) {
+				setCrossRootLabel(dialogEl, []);
+				dialogEl.setAttribute("aria-label", this.label);
+				return;
+			}
+			setCrossRootLabel(dialogEl, root.querySelector("slot[name=\"dialog-header\"]")?.assignedElements({ flatten: true }) ?? []);
+		};
 	}
 	onCreate() {
 		this.registerDialog();
+		this.elementRef.shadowRoot?.addEventListener("slotchange", this.syncAccessibleName);
+		this.syncAccessibleName();
+	}
+	onRender() {
+		this.syncAccessibleName();
 	}
 	registerDialog() {
 		if (this._registered) return;
@@ -26786,6 +27852,7 @@ var DialogComponent = class DialogComponent$1 {
 		this._registered = true;
 	}
 	onDestroy() {
+		this.elementRef.shadowRoot?.removeEventListener("slotchange", this.syncAccessibleName);
 		if (!this._registered) return;
 		this._dialogService.removeDialog(this._dialogID, this._dialogEl);
 	}
@@ -26795,6 +27862,7 @@ var DialogComponent = class DialogComponent$1 {
 			console.warn("[ml-dialog] Cannot open: dialog element is not rendered yet.");
 			return;
 		}
+		this.syncAccessibleName();
 		this._dialogRef.open();
 	}
 	close(result) {
@@ -26809,7 +27877,7 @@ DialogComponent = __decorate([MelodicComponent({
 	selector: "ml-dialog",
 	template: dialogTemplate,
 	styles: dialogStyles,
-	attributes: []
+	attributes: ["label"]
 })], DialogComponent);
 function drawerTemplate(c) {
 	const side = c.side === "left" ? "left" : "right";
@@ -27074,20 +28142,33 @@ var DrawerComponent = class DrawerComponent$1 {
 		this.side = "right";
 		this.size = "md";
 		this.showClose = true;
+		this.label = "";
+		this._closing = false;
+		this.syncAccessibleName = () => {
+			const root = this.elementRef.shadowRoot;
+			const dialogEl = root?.querySelector("dialog");
+			if (!root || !dialogEl) return;
+			if (this.label) {
+				setCrossRootLabel(dialogEl, []);
+				dialogEl.setAttribute("aria-label", this.label);
+				return;
+			}
+			setCrossRootLabel(dialogEl, root.querySelector("slot[name=\"drawer-header\"]")?.assignedElements({ flatten: true }) ?? []);
+		};
 		this.close = () => {
-			if (!this._dialogEl?.open) return;
+			if (!this._dialogEl?.open || this._closing) return;
 			this.cancelAnimations();
-			const prop = this._positionProp;
-			const width = this._panelEl.offsetWidth;
+			this._closing = true;
 			const { duration, easing } = this.getAnimationTiming();
-			const anim = this._panelEl.animate([{ [prop]: "0px" }, { [prop]: `${-width}px` }], {
+			const anim = this._panelEl.animate([{ transform: "translateX(0)" }, { transform: this._offscreen }], {
 				duration,
 				easing,
 				fill: "forwards"
 			});
 			anim.onfinish = () => {
-				this._panelEl.style[prop] = "";
+				this._closing = false;
 				this._dialogEl.close();
+				anim.cancel();
 				this.elementRef.dispatchEvent(new CustomEvent("ml:closed", {
 					bubbles: true,
 					composed: true
@@ -27106,8 +28187,8 @@ var DrawerComponent = class DrawerComponent$1 {
 			this.close();
 		};
 	}
-	get _positionProp() {
-		return this.side === "left" ? "left" : "right";
+	get _offscreen() {
+		return this.side === "left" ? "translateX(-100%)" : "translateX(100%)";
 	}
 	getAnimationTiming() {
 		const styles = getComputedStyle(this._panelEl);
@@ -27117,6 +28198,7 @@ var DrawerComponent = class DrawerComponent$1 {
 		if (rawDuration.endsWith("ms")) duration = Number.parseFloat(rawDuration);
 		else if (rawDuration.endsWith("s")) duration = Number.parseFloat(rawDuration) * 1e3;
 		if (!Number.isFinite(duration)) duration = 300;
+		if (typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches) duration = 0;
 		return {
 			duration,
 			easing: rawEasing || "cubic-bezier(0.16, 1, 0.3, 1)"
@@ -27130,27 +28212,31 @@ var DrawerComponent = class DrawerComponent$1 {
 		this._panelEl = this._dialogEl?.querySelector(".ml-drawer__panel");
 		this._dialogEl?.addEventListener("click", this.handleBackdropClick);
 		this._dialogEl?.addEventListener("cancel", this.handleDialogCancel);
+		this.elementRef.shadowRoot?.addEventListener("slotchange", this.syncAccessibleName);
+		this.syncAccessibleName();
+	}
+	onRender() {
+		this.syncAccessibleName();
 	}
 	onDestroy() {
 		this._dialogEl?.removeEventListener("click", this.handleBackdropClick);
 		this._dialogEl?.removeEventListener("cancel", this.handleDialogCancel);
+		this.elementRef.shadowRoot?.removeEventListener("slotchange", this.syncAccessibleName);
 	}
 	open() {
-		if (this._dialogEl?.open) return;
+		if (this._dialogEl?.open && !this._closing) return;
+		this._closing = false;
 		this.cancelAnimations();
-		this._dialogEl.showModal();
-		const prop = this._positionProp;
-		const width = this._panelEl.offsetWidth;
+		this.syncAccessibleName();
+		if (!this._dialogEl.open) this._dialogEl.showModal();
 		const { duration, easing } = this.getAnimationTiming();
-		this._panelEl.style[prop] = `${-width}px`;
-		this._panelEl.getBoundingClientRect();
-		const anim = this._panelEl.animate([{ [prop]: `${-width}px` }, { [prop]: "0px" }], {
+		const anim = this._panelEl.animate([{ transform: this._offscreen }, { transform: "translateX(0)" }], {
 			duration,
 			easing,
 			fill: "forwards"
 		});
 		anim.onfinish = () => {
-			this._panelEl.style[prop] = "0px";
+			anim.cancel();
 			this.elementRef.dispatchEvent(new CustomEvent("ml:opened", {
 				bubbles: true,
 				composed: true
@@ -27169,7 +28255,8 @@ DrawerComponent = __decorate([MelodicComponent({
 	attributes: [
 		"side",
 		"size",
-		"show-close"
+		"show-close",
+		"label"
 	]
 })], DrawerComponent);
 function dropdownTemplate(c) {
@@ -27632,6 +28719,18 @@ const dropdownItemStyles = () => css`
 		font-size: var(--ml-dropdown-item-addon-font-size, 12px);
 		color: var(--ml-dropdown-item-addon-color, var(--ml-color-text-tertiary));
 	}
+
+	/*
+	 * Forced colors (Windows High Contrast): box-shadow rings and background
+	 * highlights are not painted there, so focus falls back to a real outline.
+	 */
+	@media (forced-colors: active) {
+		.ml-dropdown-item--focused,
+		.ml-dropdown-item--destructive.ml-dropdown-item--focused {
+			outline: 2px solid Highlight;
+			outline-offset: -2px;
+		}
+	}
 `;
 var DropdownItemComponent = class DropdownItemComponent$1 {
 	constructor() {
@@ -27738,6 +28837,8 @@ function popoverTemplate(c) {
 			<div
 				class="ml-popover__content"
 				popover=${c.manual ? "manual" : "auto"}
+				role="dialog"
+				aria-label=${c.label || void 0}
 			>
 				<slot></slot>
 				${when(c.arrow, () => html`<div class="ml-popover__arrow"></div>`)}
@@ -27852,6 +28953,7 @@ var PopoverComponent = class PopoverComponent$1 {
 		this.offset = 8;
 		this.manual = false;
 		this.arrow = false;
+		this.label = "";
 		this.isOpen = false;
 		this._positioner = new OverlayPositioner(() => ({
 			placement: this.placement,
@@ -27861,6 +28963,13 @@ var PopoverComponent = class PopoverComponent$1 {
 		}));
 		this._focusTrap = null;
 		this._dismissGuard = new ToggleDismissGuard();
+		this.syncTriggerAria = () => {
+			const trigger = (this.elementRef.shadowRoot?.querySelector("slot[name=\"trigger\"]"))?.assignedElements()[0];
+			if (!trigger) return;
+			const control = getFocusableControl(trigger);
+			if (!control.hasAttribute("aria-haspopup")) control.setAttribute("aria-haspopup", "dialog");
+			control.setAttribute("aria-expanded", String(this.isOpen));
+		};
 		this.handleKeyDown = (event) => {
 			if (event.key !== "Escape" || !this.isOpen || !this.manual) return;
 			event.preventDefault();
@@ -27892,6 +29001,7 @@ var PopoverComponent = class PopoverComponent$1 {
 					composed: true
 				}));
 			}
+			this.syncTriggerAria();
 		};
 	}
 	onCreate() {
@@ -27900,6 +29010,8 @@ var PopoverComponent = class PopoverComponent$1 {
 			popoverEl.addEventListener("toggle", this.handleToggle);
 			popoverEl.addEventListener("keydown", this.handleKeyDown);
 		}
+		this.elementRef.shadowRoot?.addEventListener("slotchange", this.syncTriggerAria);
+		this.syncTriggerAria();
 	}
 	onDestroy() {
 		this._positioner.stop();
@@ -27910,6 +29022,7 @@ var PopoverComponent = class PopoverComponent$1 {
 			popoverEl.removeEventListener("toggle", this.handleToggle);
 			popoverEl.removeEventListener("keydown", this.handleKeyDown);
 		}
+		this.elementRef.shadowRoot?.removeEventListener("slotchange", this.syncTriggerAria);
 	}
 	open() {
 		const popoverEl = this.getPopoverEl();
@@ -27947,7 +29060,8 @@ PopoverComponent = __decorate([MelodicComponent({
 		"placement",
 		"offset",
 		"manual",
-		"arrow"
+		"arrow",
+		"label"
 	]
 })], PopoverComponent);
 function appShellTemplate(c) {
@@ -28176,7 +29290,7 @@ const appShellStyles = () => css`
 		flex-shrink: 0;
 		width: var(--ml-app-shell-menu-btn-size, 36px);
 		height: var(--ml-app-shell-menu-btn-size, 36px);
-		margin-left: var(--ml-app-shell-menu-btn-margin, var(--ml-space-3));
+		margin-inline-start: var(--ml-app-shell-menu-btn-margin, var(--ml-space-3));
 		padding: 0;
 		border: none;
 		border-radius: var(--ml-app-shell-menu-btn-radius, var(--ml-radius));
@@ -29669,6 +30783,6 @@ DashboardPageComponent = __decorate([MelodicComponent({
 		"layout"
 	]
 })], DashboardPageComponent);
-export { APP_CONFIG, AbortError, AbstractControl, ActivityFeedComponent, ActivityFeedItemComponent, AlertComponent, AppShellComponent, AvatarComponent, BadgeComponent, BadgeGroupComponent, Binding, BreadcrumbComponent, BreadcrumbItemComponent, ButtonComponent, ButtonGroupComponent, ButtonGroupItemComponent, CalendarComponent, CalendarViewComponent, CardComponent, CheckboxComponent, ComponentBase, ComponentStateBaseService, ContainerComponent, DashboardPageComponent, DatePickerComponent, DialogComponent, DialogRef, DialogService, Directive, DividerComponent, DrawerComponent, DropdownComponent, DropdownGroupComponent, DropdownItemComponent, DropdownSeparatorComponent, EffectsBase, FormArray, FormControl, FormFieldComponent, FormGroup, HeroSectionComponent, HttpBaseError, HttpClient, HttpError, IconComponent, Inject, Injectable, InjectionEngine, Injector, InputComponent, ListComponent, ListItemComponent, LoginPageComponent, MelodicComponent, NetworkError, PageHeaderComponent, PaginationComponent, PopoverComponent, ProgressComponent, ROUTE_CONTEXT_EVENT, RX_ACTION_PROVIDERS, RX_EFFECTS_PROVIDERS, RX_INIT_STATE, RX_STATE_DEBUG, RadioCardComponent, RadioCardGroupComponent, RadioComponent, RadioGroupComponent, RouteContextEvent, RouteContextService, RouteMatcher, RouterLinkComponent, RouterLinkCore, RouterOutletComponent, RouterService, SIGNAL_MARKER, SelectComponent, Service, SidebarComponent, SidebarGroupComponent, SidebarItemComponent, SignalEffect, SignalStoreService, SignupPageComponent, SliderComponent, SpinnerComponent, StackComponent, StepComponent, StepPanelComponent, StepsComponent, TabComponent, TabPanelComponent, TableComponent, TabsComponent, TagComponent, TemplateResult, TextareaComponent, ToastComponent, ToastContainerComponent, ToastService, ToggleComponent, TooltipComponent, Validators, VirtualScroller, activityFeedItemStyles, activityFeedItemTemplate, activityFeedStyles, activityFeedTemplate, allTokens, announce, appShellStyles, appShellTemplate, appendQueryParams, applyGlobalStyles, applyTheme, arrow, attributeNames, attributeTypes, autoUpdate, baseThemeCss, batch, bootstrap, borderTokens, breadcrumbItemStyles, breadcrumbItemTemplate, breadcrumbStyles, breadcrumbTemplate, breakpointTokens, breakpoints, buildPathFromRoute, calendarViewStyles, calendarViewTemplate, checkboxAdapter, classMap, clearCrossRootDescription, clickOutside, colorTokens, componentBaseStyles, computePosition, computed, containerStyles, containerTemplate, createAction, createAsyncValidator, createBrandTheme, createDeactivateGuard, createFocusTrap, createFormArray, createFormControl, createFormGroup, createGuard, createLiveRegion, createReducer, createResolver, createState, createTheme, createToken, createValidator, css, darkTheme, darkThemeCss, dashboardPageStyles, dashboardPageTemplate, defineConfig, defineLegacyAliases, describeToken, devWarn, directive, disposeContainerParts, disposeDirectiveState, disposePart, disposeParts, drawerStyles, drawerTemplate, dropdownGroupStyles, dropdownGroupTemplate, dropdownItemStyles, dropdownItemTemplate, dropdownSeparatorStyles, dropdownSeparatorTemplate, dropdownStyles, dropdownTemplate, effect, emit, environment, findRouteByName, flip, focusFirst, focusLast, focusTrap, focusVisible, formControlDirective, formFieldStyles, formFieldTemplate, getActiveComponent, getActiveEffect, getAdapter, getAttributeDirective, getComponentDefinition, getComponentDefinitions, getDeepActiveElement, getEnvironment, getFirstFocusable, getFocusableControl, getFocusableElements, getGlobalMessage, getLastFocusable, getRegisteredDirectives, getResolvedTheme, getTheme, getTokenKey, hasAttributeDirective, hasLightSlot, heroSectionStyles, heroSectionTemplate, html, inject, injectOptional, injectTheme, installConsoleApi, installHistoryEvents, isDeepFocusWithin, isDevMode, isDirective, isFocusVisible, isSafeUrl, isSignal, lightTheme, lightThemeCss, listItemStyles, listItemTemplate, listStyles, listTemplate, live, loginPageStyles, loginPageTemplate, matchRouteTree, modelDirective, newID, offset, onAction, onThemeChange, pageHeaderStyles, pageHeaderTemplate, paginationStyles, paginationTemplate, parseUrlParts, portalDirective, primitiveColors, progressStyles, progressTemplate, props, provideConfig, provideHttp, provideRX, provideRouter, radioAdapter, refreshGlobalStyles, registerAdapter, registerAttributeDirective, registerDefaultMessages, render, repeat, repeatRaw, resetDevWarnings, resetStyles, resolveEnvironment, resolveMessage, routerLinkDirective, selectStyles, selectTemplate, setActiveComponent, setActiveEffect, setCrossRootActiveDescendant, setCrossRootDescription, setCrossRootLabel, setDefaultMessage, setDevMode, shadowTokens, shift, sidebarGroupStyles, sidebarGroupTemplate, sidebarItemStyles, sidebarItemTemplate, sidebarStyles, sidebarTemplate, signal, signupPageStyles, signupPageTemplate, sliderStyles, sliderTemplate, spacingTokens, stepPanelStyles, stepPanelTemplate, stepStyles, stepTemplate, stepsStyles, stepsTemplate, styleMap, supportsAriaElementReferences, tabPanelStyles, tabPanelTemplate, tabStyles, tabTemplate, tableStyles, tableTemplate, tabsStyles, tabsTemplate, textAdapter, toastContainerStyles, toastContainerTemplate, toastStyles, toastTemplate, toggleTheme, tokensToCss, tooltipDirective, transitionTokens, typographyTokens, unregisterAttributeDirective, unsafeHTML, untracked, visuallyHiddenStyles, warnDeprecatedOnce, warnDeprecatedTitleOnce, watchLightSlots, watchSlotPresence, when };
+export { APP_CONFIG, AbortError, AbstractControl, ActivityFeedComponent, ActivityFeedItemComponent, AlertComponent, AppShellComponent, AvatarComponent, BadgeComponent, BadgeGroupComponent, Binding, BreadcrumbComponent, BreadcrumbItemComponent, ButtonComponent, ButtonGroupComponent, ButtonGroupItemComponent, CalendarComponent, CalendarViewComponent, CardComponent, CheckboxComponent, ComponentBase, ComponentStateBaseService, ContainerComponent, DashboardPageComponent, DatePickerComponent, DialogComponent, DialogRef, DialogService, Directive, DividerComponent, DrawerComponent, DropdownComponent, DropdownGroupComponent, DropdownItemComponent, DropdownSeparatorComponent, EffectsBase, FormArray, FormControl, FormFieldComponent, FormGroup, HeroSectionComponent, HttpBaseError, HttpClient, HttpError, IconComponent, Inject, Injectable, InjectionEngine, Injector, InputComponent, ListComponent, ListItemComponent, LoginPageComponent, MelodicComponent, NetworkError, PageHeaderComponent, PaginationComponent, PopoverComponent, ProgressComponent, ROUTE_CONTEXT_EVENT, RX_ACTION_PROVIDERS, RX_EFFECTS_PROVIDERS, RX_INIT_STATE, RX_STATE_DEBUG, RadioCardComponent, RadioCardGroupComponent, RadioComponent, RadioGroupComponent, RouteContextEvent, RouteContextService, RouteMatcher, RouterLinkComponent, RouterLinkCore, RouterOutletComponent, RouterService, SIGNAL_MARKER, SelectComponent, Service, SidebarComponent, SidebarGroupComponent, SidebarItemComponent, SignalEffect, SignalStoreService, SignupPageComponent, SliderComponent, SpinnerComponent, StackComponent, StepComponent, StepPanelComponent, StepsComponent, TabComponent, TabPanelComponent, TableComponent, TabsComponent, TagComponent, TemplateResult, TextareaComponent, ToastComponent, ToastContainerComponent, ToastService, ToggleComponent, TooltipComponent, Validators, VirtualScroller, activityFeedItemStyles, activityFeedItemTemplate, activityFeedStyles, activityFeedTemplate, allTokens, announce, appShellStyles, appShellTemplate, appendQueryParams, applyGlobalStyles, applyTheme, arrow, attributeNames, attributeTypes, autoUpdate, baseThemeCss, batch, bootstrap, borderTokens, breadcrumbItemStyles, breadcrumbItemTemplate, breadcrumbStyles, breadcrumbTemplate, breakpointTokens, breakpoints, buildPathFromRoute, calendarViewStyles, calendarViewTemplate, canReferenceElement, checkboxAdapter, classMap, clearCrossRootDescription, clickOutside, colorTokens, componentBaseStyles, computePosition, computed, containerStyles, containerTemplate, createAction, createAsyncValidator, createBrandTheme, createDeactivateGuard, createFocusTrap, createFormArray, createFormControl, createFormGroup, createGuard, createLiveRegion, createReducer, createResolver, createState, createTheme, createToken, createValidator, css, darkTheme, darkThemeCss, dashboardPageStyles, dashboardPageTemplate, defineConfig, defineLegacyAliases, describeToken, devWarn, directive, disposeContainerParts, disposeDirectiveState, disposePart, disposeParts, drawerStyles, drawerTemplate, dropdownGroupStyles, dropdownGroupTemplate, dropdownItemStyles, dropdownItemTemplate, dropdownSeparatorStyles, dropdownSeparatorTemplate, dropdownStyles, dropdownTemplate, effect, emit, environment, findRouteByName, flip, focusFirst, focusLast, focusTrap, focusVisible, formControlDirective, formFieldStyles, formFieldTemplate, getActiveComponent, getActiveEffect, getAdapter, getAttributeDirective, getComponentDefinition, getComponentDefinitions, getDeepActiveElement, getEnvironment, getFirstFocusable, getFocusableControl, getFocusableElements, getGlobalMessage, getLastFocusable, getRegisteredDirectives, getResolvedTheme, getTheme, getTokenKey, hasAttributeDirective, hasLightSlot, heroSectionStyles, heroSectionTemplate, html, inject, injectOptional, injectTheme, installConsoleApi, installHistoryEvents, isDeepFocusWithin, isDevMode, isDirective, isFocusVisible, isSafeUrl, isSignal, lightTheme, lightThemeCss, listItemStyles, listItemTemplate, listStyles, listTemplate, live, loginPageStyles, loginPageTemplate, matchRouteTree, modelDirective, newID, offset, onAction, onThemeChange, pageHeaderStyles, pageHeaderTemplate, paginationStyles, paginationTemplate, parseUrlParts, portalDirective, primitiveColors, progressStyles, progressTemplate, props, provideConfig, provideHttp, provideRX, provideRouter, radioAdapter, refreshGlobalStyles, registerAdapter, registerAttributeDirective, registerDefaultMessages, render, repeat, repeatRaw, resetDevWarnings, resetStyles, resolveEnvironment, resolveMessage, routerLinkDirective, selectStyles, selectTemplate, setActiveComponent, setActiveEffect, setCrossRootActiveDescendant, setCrossRootDescription, setCrossRootLabel, setDefaultMessage, setDevMode, shadowTokens, shift, sidebarGroupStyles, sidebarGroupTemplate, sidebarItemStyles, sidebarItemTemplate, sidebarStyles, sidebarTemplate, signal, signupPageStyles, signupPageTemplate, sliderStyles, sliderTemplate, spacingTokens, stepPanelStyles, stepPanelTemplate, stepStyles, stepTemplate, stepsStyles, stepsTemplate, styleMap, supportsAriaElementReferences, tabPanelStyles, tabPanelTemplate, tabStyles, tabTemplate, tableStyles, tableTemplate, tabsStyles, tabsTemplate, textAdapter, toastContainerStyles, toastContainerTemplate, toastStyles, toastTemplate, toggleTheme, tokensToCss, tooltipDirective, transitionTokens, typographyTokens, unregisterAttributeDirective, unsafeHTML, untracked, visuallyHiddenStyles, warnDeprecatedOnce, warnDeprecatedTitleOnce, watchLightSlots, watchSlotPresence, when };
 
 //# sourceMappingURL=melodic-components.js.map

@@ -4,8 +4,8 @@ import type { TableColumn, SortDirection } from './table.types.js';
 import { watchSlotPresence } from '../../../functions/index.js';
 import { tableTemplate } from './table.template.js';
 import { tableStyles } from './table.styles.js';
-import { TableCore } from '../table-core/index.js';
-import { memoOn } from '../table-core/index.js';
+import { TableCore, memoOn, resolveRowKey } from '../table-core/index.js';
+import type { TableRowKey } from '../table-core/index.js';
 
 /**
  * ml-table - Data table with sorting, selection, and custom cell rendering
@@ -40,7 +40,7 @@ import { memoOn } from '../table-core/index.js';
 	selector: 'ml-table',
 	template: tableTemplate,
 	styles: tableStyles,
-	attributes: ['selectable', 'striped', 'hoverable', 'size', 'table-title', 'description', 'sticky-header', 'virtual', 'manual-sort', 'clickable-rows']
+	attributes: ['selectable', 'striped', 'hoverable', 'size', 'table-title', 'description', 'sticky-header', 'virtual', 'manual-sort', 'clickable-rows', 'row-key']
 })
 export class TableComponent implements IElementRef, OnCreate, OnDestroy, OnRender, OnPropertyChange {
 	public elementRef!: HTMLElement;
@@ -92,6 +92,14 @@ export class TableComponent implements IElementRef, OnCreate, OnDestroy, OnRende
 
 	/** Column definitions */
 	public columns: TableColumn[] = [];
+
+	/**
+	 * Row identity: a property name (attribute `row-key="id"`) or a function
+	 * `(row, index) => key`. Optional. When set, each rendered row's DOM
+	 * follows its record across sorting instead of being reused by position,
+	 * so state held inside custom cells stays with the right row.
+	 */
+	public rowKey: TableRowKey | null = null;
 
 	/** Row data */
 	public rows: Record<string, unknown>[] = [];
@@ -199,6 +207,11 @@ export class TableComponent implements IElementRef, OnCreate, OnDestroy, OnRende
 		return this._core.isRowSelected(index);
 	};
 
+	/** `repeat` key for a rendered row (see `rowKey`). */
+	public getRowKey = (row: Record<string, unknown>, index: number): unknown => {
+		return resolveRowKey(this.rowKey, row, index);
+	};
+
 	// ── Event handlers ────────────────────────────────────────────────────────────
 
 	/**
@@ -228,6 +241,23 @@ export class TableComponent implements IElementRef, OnCreate, OnDestroy, OnRende
 	};
 
 	public handleRowClick = (row: Record<string, unknown>, index: number): void => {
+		this._core.emitRowClick(row, index);
+	};
+
+	/**
+	 * Keyboard activation for clickable rows. With `clickable-rows` a row is a
+	 * tab stop and Enter/Space fire `ml:row-click`, which used to be reachable
+	 * with a mouse only. Keys pressed inside a cell's own controls are theirs.
+	 */
+	public handleRowKeyDown = (row: Record<string, unknown>, index: number, event: KeyboardEvent): void => {
+		if (!this.clickableRows || event.target !== event.currentTarget) {
+			return;
+		}
+		if (event.key !== 'Enter' && event.key !== ' ') {
+			return;
+		}
+
+		event.preventDefault();
 		this._core.emitRowClick(row, index);
 	};
 }

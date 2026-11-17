@@ -1,27 +1,21 @@
 import { MelodicComponent } from '@melodicdev/core';
 import type { IElementRef, OnCreate, OnDestroy } from '@melodicdev/core';
-import { registerAdapter } from '@melodicdev/core/forms';
 import type { Size } from '../../../types/index.js';
 import type { AutocompleteOption, AutocompleteSearchFn } from './autocomplete.types.js';
 import { OverlayPositioner } from '../../../utils/overlay/index.js';
 import { newID } from '../../../functions/index.js';
+import {
+	ListboxValueSync,
+	registerListboxAdapter,
+	findNextEnabledIndex,
+	findPreviousEnabledIndex,
+	findFirstEnabledIndex as firstEnabledIndex,
+	scrollOptionIntoView
+} from '../listbox-core/index.js';
 import { autocompleteTemplate } from './autocomplete.template.js';
 import { autocompleteStyles } from './autocomplete.styles.js';
 
-registerAdapter<string | string[]>((el) => el.tagName === 'ML-AUTOCOMPLETE', {
-	inputEvent: 'ml:change',
-	blurEvent: 'focusout',
-	getValue: (el) => {
-		const e = el as unknown as { value: string; values?: string[]; multiple?: boolean };
-		return e.multiple ? (e.values ?? []) : (e.value ?? '');
-	},
-	setValue: (el, value) => {
-		const e = el as unknown as { value: string; values?: string[]; multiple?: boolean };
-		if (Array.isArray(value)) e.values = value;
-		else e.value = value !== null && value !== undefined ? String(value) : '';
-	},
-	setDisabled: (el, disabled) => { (el as unknown as { disabled: boolean }).disabled = disabled; }
-});
+registerListboxAdapter('ML-AUTOCOMPLETE');
 
 /**
  * ml-autocomplete - Typeahead/autocomplete form component
@@ -137,7 +131,8 @@ export class AutocompleteComponent implements IElementRef, OnCreate, OnDestroy {
 	}));
 	private _debounceTimer: ReturnType<typeof setTimeout> | null = null;
 	private _searchGeneration = 0;
-	private _syncingValues = false;
+	/** Keeps value / values / multiple consistent (shared with ml-select). */
+	private readonly _valueSync = new ListboxValueSync(this);
 
 	public onCreate(): void {
 		this.elementRef.addEventListener('keydown', this._handleKeyDown);
@@ -153,54 +148,8 @@ export class AutocompleteComponent implements IElementRef, OnCreate, OnDestroy {
 		}
 	}
 
-	public onPropertyChange(name: string): void {
-		if (this._syncingValues) return;
-
-		if (name === 'multiple') {
-			if (this.multiple) {
-				if (!this.values.length && this.value) {
-					this.updateValues([this.value]);
-				}
-				return;
-			}
-			if (this.values.length) {
-				this.value = this.values[0] ?? '';
-			}
-			this.updateValues([]);
-			this.search = '';
-			return;
-		}
-
-		if (name === 'values') {
-			const rawValues = this.values as unknown;
-			let normalized: string[] = [];
-			if (typeof rawValues === 'string') {
-				normalized = rawValues
-					.split(',')
-					.map((v) => v.trim())
-					.filter((v) => v.length > 0);
-			} else if (Array.isArray(rawValues)) {
-				normalized = rawValues.filter((v) => typeof v === 'string');
-			}
-			normalized = Array.from(new Set(normalized));
-			if (!this.areValuesEqual(this.values, normalized)) {
-				this.updateValues(normalized);
-			}
-			if (!this.multiple) {
-				this.value = normalized[0] ?? '';
-				this.updateValues([]);
-			}
-			return;
-		}
-
-		if (name === 'value' && this.multiple) {
-			if (this.value) {
-				const nextValues = Array.from(new Set([...this.values, this.value]));
-				if (!this.areValuesEqual(this.values, nextValues)) {
-					this.updateValues(nextValues);
-				}
-			}
-		}
+	public onPropertyChange(name: string, _: unknown, newValue: unknown): void {
+		this._valueSync.handlePropertyChange(name, newValue);
 	}
 
 	/** Get the selected option (single mode) */
@@ -247,6 +196,23 @@ export class AutocompleteComponent implements IElementRef, OnCreate, OnDestroy {
 
 	public get hasValue(): boolean {
 		return this.multiple ? this.values.length > 0 : !!this.value;
+	}
+
+	/** Unique id of the error element (for aria-describedby) */
+	public get errorId(): string {
+		return `ml-autocomplete-error-${this._uid}`;
+	}
+
+	/** Unique id of the hint element (for aria-describedby) */
+	public get hintId(): string {
+		return `ml-autocomplete-hint-${this._uid}`;
+	}
+
+	/** Id of the message that describes the input, or undefined when there is none. */
+	public get describedBy(): string | undefined {
+		if (this.error) return this.errorId;
+		if (this.hint) return this.hintId;
+		return undefined;
 	}
 
 	/** Unique id of the listbox element (for aria-controls) */
@@ -614,45 +580,32 @@ export class AutocompleteComponent implements IElementRef, OnCreate, OnDestroy {
 		}
 	}
 
+	/**
+	 * Keep the keyboard-focused option visible. Arrowing past the visible
+	 * part of a long list used to move the highlight out of view.
+	 */
+	private scrollFocusedOptionIntoView(): void {
+		if (this.focusedIndex < 0) return;
+		scrollOptionIntoView(this.elementRef.shadowRoot, this.optionId(this.focusedIndex));
+	}
+
 	private focusNextOption(): void {
-		const options = this.filteredOptions;
-		let index = this.focusedIndex + 1;
-		while (index < options.length) {
-			if (!options[index].disabled) {
-				this.focusedIndex = index;
-				return;
-			}
-			index++;
+		const index = findNextEnabledIndex(this.filteredOptions, this.focusedIndex);
+		if (index >= 0) {
+			this.focusedIndex = index;
+			this.scrollFocusedOptionIntoView();
 		}
 	}
 
 	private focusPreviousOption(): void {
-		const options = this.filteredOptions;
-		let index = this.focusedIndex - 1;
-		while (index >= 0) {
-			if (!options[index].disabled) {
-				this.focusedIndex = index;
-				return;
-			}
-			index--;
+		const index = findPreviousEnabledIndex(this.filteredOptions, this.focusedIndex);
+		if (index >= 0) {
+			this.focusedIndex = index;
+			this.scrollFocusedOptionIntoView();
 		}
 	}
 
 	private findFirstEnabledIndex(): number {
-		return this.filteredOptions.findIndex((opt) => !opt.disabled);
-	}
-
-	private updateValues(values: string[]): void {
-		this._syncingValues = true;
-		this.values = values;
-		this._syncingValues = false;
-	}
-
-	private areValuesEqual(left: string[], right: string[]): boolean {
-		if (left.length !== right.length) return false;
-		for (let i = 0; i < left.length; i++) {
-			if (left[i] !== right[i]) return false;
-		}
-		return true;
+		return firstEnabledIndex(this.filteredOptions);
 	}
 }

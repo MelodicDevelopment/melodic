@@ -11,6 +11,23 @@ import { devWarn } from '../../devtools/dev-mode';
 export class InjectionEngine {
 	private _bindings: Map<TokenKey, Binding<unknown>> = new Map();
 	private _constructionStack: Set<TokenKey> = new Set();
+	private _teardowns: Array<() => void> = [];
+
+	/**
+	 * Register cleanup for something a provider set up outside the container
+	 * (window listeners, global browser state). `bootstrap()` collects the
+	 * teardowns its providers registered and runs them from `app.destroy()`.
+	 */
+	public addTeardown(teardown: () => void): void {
+		this._teardowns.push(teardown);
+	}
+
+	/** Hand over (and forget) every teardown registered since the last call. */
+	public takeTeardowns(): Array<() => void> {
+		const teardowns = this._teardowns;
+		this._teardowns = [];
+		return teardowns;
+	}
 
 	/**
 	 * Bind a class to the injector
@@ -99,6 +116,7 @@ export class InjectionEngine {
 			binding.setSingleton(options.singleton);
 		}
 
+		this.warnOnRebind(key);
 		this._bindings.set(key, binding as Binding<unknown>);
 
 		return binding;

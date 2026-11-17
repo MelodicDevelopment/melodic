@@ -25,6 +25,49 @@ const createAttributeMarker = (index: number): string => `${ATTRIBUTE_MARKER_PRE
 
 const templateCache = new Map<string, ITemplateCache>();
 
+// Front cache keyed by the literal's own strings array. A tagged template
+// passes the SAME array on every evaluation, so this lookup is one WeakMap
+// probe with no string hashing and no LRU bookkeeping — which the keyed map
+// above paid on every row a `repeat()` created. It also means a template is
+// never re-parsed just because more than 500 others were used since: the
+// string-keyed LRU now only de-duplicates distinct literals with equal text.
+const templateCacheByStrings = new WeakMap<TemplateStringsArray, ITemplateCache>();
+
+// Attributes whose value the browser treats as a URL it may navigate to or load.
+const URL_ATTRIBUTES = new Set(['href', 'src', 'action', 'formaction', 'xlink:href']);
+
+/**
+ * Dev-mode advisory for attribute bindings that can execute script: a
+ * `javascript:` URL in a navigable attribute, or a string bound to an inline
+ * event-handler attribute. Neither is blocked (the value may be trusted), but
+ * both are the classic way user-controlled data becomes code.
+ */
+function warnScriptableAttribute(element: Element, name: string, value: string): void {
+	if (!isDevMode()) return;
+
+	const lower = name.toLowerCase();
+
+	if (URL_ATTRIBUTES.has(lower)) {
+		// Browsers ignore whitespace and control characters in the scheme.
+		if (value.replace(/[\u0000-\u0020]/g, '').toLowerCase().startsWith('javascript:')) {
+			devWarn(
+				`attr-javascript-url:${lower}`,
+				`An attribute binding wrote a "javascript:" URL to "${name}". If any part of that value comes from user input this is an XSS hole — ` +
+					'validate the scheme (http:, https:, mailto:, …) before binding it.'
+			);
+		}
+		return;
+	}
+
+	if (lower.startsWith('on') && lower in element) {
+		devWarn(
+			`attr-inline-handler:${lower}`,
+			`An attribute binding wrote a string to the inline event handler "${name}", which the browser compiles and runs as script. ` +
+				`Use an event binding instead: @${lower.slice(2)}=\${handler}.`
+		);
+	}
+}
+
 /**
  * Where the parser cursor sits in the markup written so far.
  *
@@ -360,7 +403,7 @@ export class TemplateResult {
 		const clone = cache.element.content.cloneNode(true);
 		const parts = this.prepareParts(clone, cache);
 
-		this.commit(parts);
+		this.commitFresh(parts);
 		target.appendChild(clone);
 
 		target.__parts = parts;
@@ -391,12 +434,19 @@ export class TemplateResult {
 			const clone = cache.element.content.cloneNode(true);
 			const parts = this.prepareParts(clone, cache);
 
+			// Commit values BEFORE appending to DOM so attributes are set
+			// before connectedCallback fires on child custom elements.
+			//
+			// The part tree is stored only once that commit has succeeded. It
+			// used to be stored first, so a throw part-way through (a `when()`
+			// or `repeat()` callback reading a property of undefined) left the
+			// container holding parts whose nodes were in a clone that was
+			// never attached: every later render "updated" that orphan and the
+			// container stayed empty for good, even once the data was fixed.
+			this.commitFresh(parts);
+
 			target.__parts = parts;
 			target.__templateKey = templateKey;
-
-			// Commit values BEFORE appending to DOM so attributes are set
-			// before connectedCallback fires on child custom elements
-			this.commit(parts);
 
 			target.textContent = '';
 			target.appendChild(clone);
@@ -410,7 +460,26 @@ export class TemplateResult {
 		this.commit(target.__parts);
 	}
 
+	/**
+	 * First commit of a freshly cloned part tree. If it throws, whatever the
+	 * parts that did commit registered (listeners, action directives, nested
+	 * part trees) is released before the clone is abandoned.
+	 */
+	private commitFresh(parts: ITemplatePart[]): void {
+		try {
+			this.commit(parts);
+		} catch (error) {
+			disposeParts(parts);
+			throw error;
+		}
+	}
+
 	private getTemplate(key: string): ITemplateCache {
+		const byStrings = templateCacheByStrings.get(this.strings);
+		if (byStrings) {
+			return byStrings;
+		}
+
 		let cached = templateCache.get(key);
 
 		if (cached) {
@@ -418,6 +487,7 @@ export class TemplateResult {
 			// template, not the least recently created one.
 			templateCache.delete(key);
 			templateCache.set(key, cached);
+			templateCacheByStrings.set(this.strings, cached);
 			return cached;
 		}
 
@@ -576,8 +646,12 @@ export class TemplateResult {
 			} else if (node.nodeType === Node.ELEMENT_NODE) {
 				const el = node as Element;
 
-				// Check attributes for markers
-				for (let i = el.attributes.length - 1; i >= 0; i--) {
+				// Check attributes for markers — in SOURCE order, which is the
+				// order the parts then commit in. This loop used to run
+				// backwards, so `<input type="range" max=${200} .value=${150}>`
+				// assigned the value before the max and the browser clamped it
+				// to the default range.
+				for (let i = 0; i < el.attributes.length; i++) {
 					const attr = el.attributes[i];
 
 					if (attr.name.startsWith('__event-')) {
@@ -667,7 +741,14 @@ export class TemplateResult {
 			warnLeakedBindings(partPaths, this.strings.length - 1, html);
 		}
 
+		// Everything the parser injected is needed only to FIND the parts. Take
+		// it out of the cached template once, here, instead of out of every
+		// clone: each instance used to pay a removeAttribute per binding and a
+		// createTextNode + replaceChild per text binding.
+		this.stripMarkers(element.content, partPaths);
+
 		cached = { element, parts, partPaths };
+		templateCacheByStrings.set(this.strings, cached);
 		if (templateCache.size >= 500) {
 			const oldestKey = templateCache.keys().next().value;
 			if (oldestKey) {
@@ -724,6 +805,7 @@ export class TemplateResult {
 				element.removeAttribute(name);
 			} else {
 				element.setAttribute(name, composed);
+				warnScriptableAttribute(element, name, composed);
 			}
 
 			part.previousValue = composed;
@@ -797,10 +879,6 @@ export class TemplateResult {
 				});
 				return html.slice(0, -(match?.[0].length ?? 0)) + `__bool-${index}__=""`;
 			},
-			'__': (index: number, html: string, _?: string) => {
-				// Regular attribute
-				return html + createAttributeMarker(index);
-			},
 			'___': (index: number, html: string) => {
 				// Text position
 				parts.push({
@@ -812,87 +890,81 @@ export class TemplateResult {
 		};
 	}
 
-	private prepareParts(clone: Node, cache: ITemplateCache): ITemplatePart[] {
-		const parts: ITemplatePart[] = [];
-		const { partPaths } = cache;
-
-		// Navigate directly to each part using pre-computed paths
+	/**
+	 * Remove the parser's markers from the cached template (once per template):
+	 * marker attributes are dropped and each text-position comment marker is
+	 * swapped for the empty text node its part renders into. Replacements are
+	 * one-for-one, so the pre-computed child-index paths stay valid.
+	 */
+	private stripMarkers(content: DocumentFragment, partPaths: IPartPath[]): void {
 		for (const partPath of partPaths) {
-			// Navigate to the node using the path
+			let node: Node = content;
+			for (const index of partPath.path) {
+				node = node.childNodes[index];
+			}
+
+			switch (partPath.type) {
+				case 'node':
+					// Several paths never share a node part, but be safe against
+					// a node that was already swapped.
+					if (node.nodeType === Node.COMMENT_NODE) {
+						node.parentNode!.replaceChild(document.createTextNode(''), node);
+					}
+					break;
+				case 'event':
+					(node as Element).removeAttribute(`__event-${partPath.index}__`);
+					break;
+				case 'property':
+					(node as Element).removeAttribute(`__prop-${partPath.index}__`);
+					break;
+				case 'action':
+					(node as Element).removeAttribute(partPath.index >= 0 ? `__action-${partPath.index}__` : `:${partPath.name}`);
+					break;
+				case 'boolean-attribute':
+					(node as Element).removeAttribute(`__bool-${partPath.index}__`);
+					break;
+				case 'attribute':
+					(node as Element).removeAttribute(partPath.name!);
+					break;
+				default:
+					break;
+			}
+		}
+	}
+
+	private prepareParts(clone: Node, cache: ITemplateCache): ITemplatePart[] {
+		const { partPaths } = cache;
+		const parts: ITemplatePart[] = new Array(partPaths.length);
+
+		// Navigate directly to each part using pre-computed paths. The clone
+		// carries no markers (see stripMarkers), so this only records nodes.
+		for (let p = 0; p < partPaths.length; p++) {
+			const partPath = partPaths[p];
 			let node: Node = clone;
 			for (const index of partPath.path) {
 				node = node.childNodes[index];
 			}
 
-			if (partPath.type === 'node') {
-				// Replace comment marker with text node
-				const textNode = document.createTextNode('');
-				node.parentNode!.replaceChild(textNode, node);
-
-				parts.push({
-					type: 'node',
-					index: partPath.index,
-					node: textNode
-				});
-			} else if (partPath.type === 'event') {
-				const element = node as Element;
-				element.removeAttribute(`__event-${partPath.index}__`);
-
-				parts.push({
-					type: 'event',
-					index: partPath.index,
-					name: partPath.name,
-					node: element
-				});
-			} else if (partPath.type === 'property') {
-				const element = node as Element;
-				element.removeAttribute(`__prop-${partPath.index}__`);
-
-				parts.push({
-					type: 'property',
-					index: partPath.index,
-					name: partPath.name,
-					node: element
-				});
-			} else if (partPath.type === 'action') {
-				const element = node as Element;
-
-				if (partPath.index >= 0) {
-					element.removeAttribute(`__action-${partPath.index}__`);
-				} else {
-					// Static action directive
-					element.removeAttribute(`:${partPath.name}`);
-				}
-
-				parts.push({
-					type: 'action',
-					index: partPath.index,
-					name: partPath.name,
-					node: element,
-					staticValue: partPath.staticValue
-				});
-			} else if (partPath.type === 'boolean-attribute') {
-				const element = node as Element;
-				element.removeAttribute(`__bool-${partPath.index}__`);
-
-				parts.push({
-					type: 'boolean-attribute',
-					index: partPath.index,
-					name: partPath.name,
-					node: element
-				});
-			} else if (partPath.type === 'attribute') {
-				const element = node as Element;
-				element.removeAttribute(partPath.name!);
-
-				parts.push({
-					type: 'attribute',
-					index: partPath.index,
-					name: partPath.name,
-					node: element,
-					attributeStrings: partPath.attributeStrings,
-					attributeIndices: partPath.attributeIndices
-				});
+			switch (partPath.type) {
+				case 'node':
+					parts[p] = { type: 'node', index: partPath.index, node };
+					break;
+				case 'action':
+					parts[p] = { type: 'action', index: partPath.index, name: partPath.name, node, staticValue: partPath.staticValue };
+					break;
+				case 'attribute':
+					parts[p] = {
+						type: 'attribute',
+						index: partPath.index,
+						name: partPath.name,
+						node,
+						attributeStrings: partPath.attributeStrings,
+						attributeIndices: partPath.attributeIndices
+					};
+					break;
+				default:
+					parts[p] = { type: partPath.type, index: partPath.index, name: partPath.name, node };
+					break;
 			}
 		}
 
@@ -1523,7 +1595,9 @@ export class TemplateResult {
 							// Boolean true sets empty attribute (e.g., disabled="")
 							element.setAttribute(part.name, '');
 						} else {
-							element.setAttribute(part.name, String(value));
+							const text = String(value);
+							element.setAttribute(part.name, text);
+							warnScriptableAttribute(element, part.name, text);
 						}
 					}
 					break;

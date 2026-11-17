@@ -67,6 +67,12 @@ export const toastStyles = () => css`
 		animation: ml-toast-in var(--ml-toast-animation-duration, var(--ml-duration-300)) var(--ml-toast-animation-easing, var(--ml-ease-out));
 	}
 
+	@media (prefers-reduced-motion: reduce) {
+		.ml-toast {
+			animation: none;
+		}
+	}
+
 	@keyframes ml-toast-in {
 		from {
 			opacity: 0;

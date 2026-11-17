@@ -8,7 +8,7 @@ All framework utilities are available directly from the CDN bundle — no npm, n
 
 ```html
 <script type="module">
-  import { signal, computed, html, applyTheme } from 'https://unpkg.com/@melodicdev/core@3/bundle/melodic-core.min.js';
+  import { signal, computed, html } from 'https://unpkg.com/@melodicdev/core@4/bundle/melodic-core.min.js';
 
   const count = signal(0);
   const doubled = computed(() => count() * 2);
@@ -25,9 +25,9 @@ For a complete no-build UI solution, use `@melodicdev/components` instead — it
 
 ```html
 <link melodic-styles rel="stylesheet"
-      href="https://unpkg.com/@melodicdev/components@3/assets/melodic-components.min.css">
+      href="https://unpkg.com/@melodicdev/components@4/assets/melodic-components.min.css">
 <script type="module"
-        src="https://unpkg.com/@melodicdev/components@3/assets/melodic-components.min.js"></script>
+        src="https://unpkg.com/@melodicdev/components@4/assets/melodic-components.min.js"></script>
 ```
 
 See the [`@melodicdev/components` README](./packages/melodic-components/README.md) for full CDN usage details.
@@ -46,6 +46,51 @@ Install the CLI globally (optional but recommended):
 npm install -g @melodicdev/cli
 melodic --help
 ```
+
+## TypeScript configuration (required)
+
+Melodic's decorators (`@MelodicComponent`, `@Injectable`, `@Inject`, `@Service`) are
+**legacy ("experimental") TypeScript decorators**, not TC39 standard decorators. Your
+`tsconfig.json` must say so, and must keep class fields from shadowing the accessors the
+decorators install:
+
+```jsonc
+{
+	"compilerOptions": {
+		"target": "ES2022",
+		"module": "ESNext",
+		"moduleResolution": "Bundler",
+		"experimentalDecorators": true,      // required
+		"useDefineForClassFields": false     // required
+	}
+}
+```
+
+Projects created with `melodic init` already have this. If you set a project up by hand
+and skip it, the failures are not obvious:
+
+| Missing | What happens |
+|---|---|
+| `experimentalDecorators` | `@Inject(...)` on a constructor parameter does not compile (standard decorators have no parameter decorators), and `@Service(...)` throws `TypeError` at class-definition time because it is called with a different signature. |
+| `useDefineForClassFields: false` | With `target` ES2022 or later the default is `true`, so `@Service(Token) private _svc!: Svc;` defines an own `undefined` field that shadows the injected getter. Injection **silently returns `undefined`** — no error at build or load time. |
+
+`emitDecoratorMetadata` is **not** needed: nothing in the framework reads `design:*`
+metadata.
+
+Build tools:
+
+- **Vite / esbuild / Vitest** read both options from `tsconfig.json` — nothing else to do.
+- **SWC** does not read them: set `jsc.parser.decorators: true`,
+  `jsc.transform.legacyDecorator: true` and `jsc.transform.useDefineForClassFields: false`.
+- **Babel** needs `@babel/plugin-proposal-decorators` with `{ "version": "legacy" }`
+  (and class properties in loose mode / `setPublicClassFields`).
+- **No build step:** decorators are not available in plain JavaScript, so components
+  cannot be authored against the CDN bundle directly (see the note above).
+
+`@melodicdev/core` is published as ES modules for bundlers: its internal imports are
+extensionless, so it is consumed through Vite, esbuild, Rollup, webpack or Vitest rather
+than loaded directly by Node's ESM loader. Moving to standard decorators is tracked in
+[docs/ROADMAP.md](./docs/ROADMAP.md).
 
 ## Quick Start (CLI)
 
@@ -292,6 +337,14 @@ await bootstrap({
 
 ## Documentation
 
+Building an app or library **on** Melodic? Start with
+[USING_MELODIC.md](./USING_MELODIC.md): the recommended patterns, the rules that matter and
+the mistakes to avoid, in one file that other projects (and their coding agents) can
+reference directly.
+
+- [Using Melodic](./USING_MELODIC.md) — how to use the framework and component library well
+- [Framework reference](./MELODIC_FRAMEWORK.md) — every core API in one file
+- [Components reference](./MELODIC_COMPONENTS.md) — every `ml-*` component in one file
 - [Component System](./docs/COMPONENT_SYSTEM.md)
 - [Template System](./docs/TEMPLATE_SYSTEM.md)
 - [Attribute Directives](./docs/ATTRIBUTE_DIRECTIVES.md)
@@ -303,24 +356,36 @@ await bootstrap({
 - [HTTP Client](./docs/HTTP.md)
 - [Dependency Injection](./docs/INJECTION.md)
 - [Forms](./docs/FORMS.md)
+- [Configuration](./docs/CONFIG.md)
 - [Testing](./docs/TESTING.md)
 - [API Surface](./docs/API_SURFACE.md)
+- [Migration Guide](./MIGRATION.md) and [Changelog](./CHANGELOG.md)
+
+## Development
+
+```bash
+npm ci
+npm run test:all        # core + components + CLI unit tests
+npm run smoke:apps      # builds the demo and example apps, drives them in headless Chrome
+npm run build:bundle    # CDN bundle (bundle/melodic-core.js + .min.js)
+npm run size            # checks the .min.js bundles really are minified
+```
+
+`build:lib` and the components/CLI builds delete their output directory first, so a
+renamed or removed source file cannot leave a stale compiled file behind in a published
+package.
 
 ## Publishing
 
-Framework build and publish:
+`prepublishOnly` rebuilds each package, so publishing never ships a stale build.
 
 ```bash
-npm run build:lib
-npm publish --access public
-```
-
-CLI build and publish:
-
-```bash
-npm --workspace @melodicdev/cli run build
+npm publish --access public                                   # @melodicdev/core
+npm publish --workspace @melodicdev/components --access public
 npm publish --workspace @melodicdev/cli --access public
 ```
+
+Security issues: see [SECURITY.md](./SECURITY.md).
 
 ## License
 

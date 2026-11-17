@@ -202,4 +202,15 @@ export const radioCardStyles = () => css`
 		line-height: var(--ml-radio-card-detail-line-height, var(--ml-leading-tight));
 		padding-top: var(--ml-space-0-5);
 	}
+
+	/*
+	 * Forced colors (Windows High Contrast): box-shadow rings and background
+	 * highlights are not painted there, so focus falls back to a real outline.
+	 */
+	@media (forced-colors: active) {
+		.ml-radio-card:focus-visible {
+			outline: 2px solid Highlight;
+			outline-offset: 2px;
+		}
+	}
 `;

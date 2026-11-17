@@ -260,7 +260,10 @@ export class TabsComponent implements IElementRef, OnCreate, OnDestroy, OnRender
 		if (this.routed) return;
 
 		const tabs = this.getAllTabs();
-		const panels = this.elementRef.querySelectorAll('ml-tab-panel');
+		// Only this tab set's own panels: a nested <ml-tabs> inside one of our
+		// panels owns its panels, and a plain descendant query used to hide or
+		// show those by OUR value too.
+		const panels = Array.from(this.elementRef.querySelectorAll('ml-tab-panel')).filter((panel) => panel.closest('ml-tabs') === this.elementRef);
 		panels.forEach((panel) => {
 			const value = panel.getAttribute('value');
 			const isActive = value === this.value;

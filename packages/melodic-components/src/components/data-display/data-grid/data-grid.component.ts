@@ -3,8 +3,24 @@ import type { IElementRef, OnCreate, OnDestroy, OnRender, OnPropertyChange } fro
 import type { DataGridColumn, SortDirection } from './data-grid.types.js';
 import { dataGridTemplate } from './data-grid.template.js';
 import { dataGridStyles } from './data-grid.styles.js';
-import { TableCore } from '../table-core/index.js';
-import { memoOn } from '../table-core/index.js';
+import { TableCore, memoOn, resolveRowKey } from '../table-core/index.js';
+import type { TableRowKey } from '../table-core/index.js';
+
+/** Step, in px, for keyboard column resizing (Shift + Arrow). */
+const KEYBOARD_RESIZE_STEP = 16;
+
+/**
+ * Name of the custom property that carries a column's live width.
+ *
+ * The column key used to be interpolated as-is, so a key that is not a valid
+ * CSS identifier (`user.name`, `first name`, `a/b`) produced an invalid
+ * `var()` — which invalidates the whole `grid-template-columns` declaration
+ * and collapsed the grid. Keys that are already valid keep the same name.
+ */
+export function columnWidthVar(key: string): string {
+	const safe = /^[a-zA-Z0-9_-]+$/.test(key) ? key : key.replace(/[^a-zA-Z0-9_-]/g, (char) => `_${char.codePointAt(0)!.toString(16)}_`);
+	return `--ml-grid-col-${safe}`;
+}
 
 /**
  * ml-data-grid — Full-featured data grid with virtual scrolling, sorting, filtering,
@@ -50,7 +66,9 @@ import { memoOn } from '../table-core/index.js';
 		'server-side',
 		'page-size',
 		'virtual',
-		'show-filter-row'
+		'show-filter-row',
+		'clickable-rows',
+		'row-key'
 	]
 })
 export class DataGridComponent implements IElementRef, OnCreate, OnDestroy, OnRender, OnPropertyChange {
@@ -88,6 +106,13 @@ export class DataGridComponent implements IElementRef, OnCreate, OnDestroy, OnRe
 	/** Show per-column filter inputs below the header row */
 	public showFilterRow = false;
 
+	/**
+	 * Make rows keyboard-operable: each row becomes a tab stop and Enter/Space
+	 * fire `ml:row-click` (which a click always fires). Set this when you
+	 * listen for `ml:row-click`. Mirrors ml-table's `clickable-rows`.
+	 */
+	public clickableRows = false;
+
 	// ── Properties ───────────────────────────────────────────────────────────────
 
 	/** Column definitions */
@@ -95,6 +120,15 @@ export class DataGridComponent implements IElementRef, OnCreate, OnDestroy, OnRe
 
 	/** Row data */
 	public rows: Record<string, unknown>[] = [];
+
+	/**
+	 * Row identity: a property name (attribute `row-key="id"`) or a function
+	 * `(row, index) => key`. Optional. When set, each rendered row's DOM
+	 * follows its record across sorting, filtering and paging instead of being
+	 * reused by position, so state held inside custom cells stays with the
+	 * right row.
+	 */
+	public rowKey: TableRowKey | null = null;
 
 	// ── Sort state ───────────────────────────────────────────────────────────────
 
@@ -306,7 +340,7 @@ export class DataGridComponent implements IElementRef, OnCreate, OnDestroy, OnRe
 	public get gridTemplateColumns(): string {
 		// `var(--ml-grid-col-<key>, <committed>px)` lets a live column drag
 		// update the layout by writing one custom property, without a render.
-		const cols = this.orderedColumns.map((col) => `var(--ml-grid-col-${col.key}, ${this.columnWidths[col.key] ?? 150}px)`).join(' ');
+		const cols = this.orderedColumns.map((col) => `var(${columnWidthVar(col.key)}, ${this.columnWidths[col.key] ?? 150}px)`).join(' ');
 		return this.selectable ? `44px ${cols}` : cols;
 	}
 
@@ -368,6 +402,15 @@ export class DataGridComponent implements IElementRef, OnCreate, OnDestroy, OnRe
 
 	public isRowSelected = (index: number): boolean => this._core.isRowSelected(index);
 
+	/** 1-based position of a page row within the whole (filtered) dataset; the header is row 1. */
+	public rowAriaIndex = (pageIndex: number): number => {
+		const pageOffset = this.serverSide ? 0 : (this.currentPage - 1) * this.pageSize;
+		return pageOffset + pageIndex + 2;
+	};
+
+	/** `repeat` key for a rendered row (see `rowKey`). */
+	public getRowKey = (row: Record<string, unknown>, index: number): unknown => resolveRowKey(this.rowKey, row, index);
+
 	// ── Event handlers ────────────────────────────────────────────────────────────
 
 	public handleSort = (col: DataGridColumn): void => {
@@ -406,6 +449,19 @@ export class DataGridComponent implements IElementRef, OnCreate, OnDestroy, OnRe
 		this._core.emitRowClick(row, index);
 	};
 
+	/** Enter/Space on a focused row fires `ml:row-click` (see `clickableRows`). */
+	public handleRowKeyDown = (row: Record<string, unknown>, index: number, event: KeyboardEvent): void => {
+		if (!this.clickableRows || event.target !== event.currentTarget) {
+			return;
+		}
+		if (event.key !== 'Enter' && event.key !== ' ') {
+			return;
+		}
+
+		event.preventDefault();
+		this._core.emitRowClick(row, index);
+	};
+
 	public handleResizeStart = (key: string, e: PointerEvent): void => {
 		this.resizingKey = key;
 		this._resizeStartX = e.clientX;
@@ -426,7 +482,7 @@ export class DataGridComponent implements IElementRef, OnCreate, OnDestroy, OnRe
 		// cell — on each pointermove. Drive the live drag through a CSS custom
 		// property instead and commit the value once, on pointerup.
 		this._pendingResizeWidth = width;
-		this.elementRef.style.setProperty(`--ml-grid-col-${key}`, `${width}px`);
+		this.elementRef.style.setProperty(columnWidthVar(key), `${width}px`);
 	};
 
 	private _pendingResizeWidth: number | null = null;
@@ -436,7 +492,7 @@ export class DataGridComponent implements IElementRef, OnCreate, OnDestroy, OnRe
 
 		if (this._pendingResizeWidth !== null) {
 			this.colWidths = { ...this.colWidths, [this.resizingKey]: this._pendingResizeWidth };
-			this.elementRef.style.removeProperty(`--ml-grid-col-${this.resizingKey}`);
+			this.elementRef.style.removeProperty(columnWidthVar(this.resizingKey));
 			this._pendingResizeWidth = null;
 		}
 
@@ -451,12 +507,56 @@ export class DataGridComponent implements IElementRef, OnCreate, OnDestroy, OnRe
 	};
 
 	/**
+	 * Abandon an in-flight column resize without committing it.
+	 *
+	 * A `pointercancel` (touch scroll takeover, the OS stealing the pointer)
+	 * or losing pointer capture never produces a `pointerup`, which left the
+	 * grid stuck in its "resizing" state with a stray live width applied.
+	 */
+	public handleResizeCancel = (): void => {
+		if (!this.resizingKey) return;
+
+		this.elementRef.style.removeProperty(columnWidthVar(this.resizingKey));
+		this._pendingResizeWidth = null;
+		this.resizingKey = null;
+	};
+
+	/** Resize a column by `delta` px (keyboard path) and announce the new width. */
+	public resizeColumnBy = (key: string, delta: number): void => {
+		const col = this.columns.find((c) => c.key === key);
+		if (!col || col.resizable === false) return;
+
+		const minW = col.minWidth ?? 80;
+		const width = Math.max(minW, (this.columnWidths[key] ?? 150) + delta);
+		if (width === this.columnWidths[key]) return;
+
+		this.colWidths = { ...this.colWidths, [key]: width };
+		this.elementRef.dispatchEvent(
+			new CustomEvent('ml:column-resize', {
+				bubbles: true,
+				composed: true,
+				detail: { key, width }
+			})
+		);
+	};
+
+	/**
 	 * Keyboard equivalents for the header's mouse-only interactions.
 	 *
-	 * Enter/Space sorts; Ctrl/Cmd + Arrow moves the column. Drag-and-drop
-	 * reordering and click-to-sort were otherwise unreachable without a mouse.
+	 * Enter/Space sorts; Ctrl/Cmd + Arrow moves the column; Shift + Arrow
+	 * resizes it. Drag-and-drop reordering, drag-to-resize and click-to-sort
+	 * were otherwise unreachable without a mouse.
 	 */
 	public handleHeaderKeyDown = (col: DataGridColumn, event: KeyboardEvent): void => {
+		if (event.shiftKey && !event.ctrlKey && !event.metaKey && (event.key === 'ArrowLeft' || event.key === 'ArrowRight')) {
+			if (col.resizable === false) {
+				return;
+			}
+			event.preventDefault();
+			this.resizeColumnBy(col.key, event.key === 'ArrowLeft' ? -KEYBOARD_RESIZE_STEP : KEYBOARD_RESIZE_STEP);
+			return;
+		}
+
 		if ((event.ctrlKey || event.metaKey) && (event.key === 'ArrowLeft' || event.key === 'ArrowRight')) {
 			if (col.reorderable === false) {
 				return;

@@ -8,11 +8,16 @@ import type {
 import type { IHttpResponse } from '../interfaces/ihttp-response.interface';
 import type { IInterceptorApi } from '../interfaces/iinterceptor-api.interface';
 import type { IProgressEvent } from '../interfaces/iprogress-event.interface';
-import type { IRequestConfig } from '../interfaces/irequest-config.interface';
+import type { HttpResponseType, IRequestConfig } from '../interfaces/irequest-config.interface';
 import type { HttpRequestBody } from '../types/http-request-body.type';
 import { RequestManager } from './request-manager.class';
 
 const MAX_RETRIES = 3;
+
+const ABSOLUTE_URL_PATTERN = /^[a-z][a-z\d+\-.]*:\/\//i;
+
+/** `application/json`, `application/problem+json`, `application/vnd.api+json`, `text/json`, … */
+const JSON_CONTENT_TYPE_PATTERN = /[/+]json\b/i;
 
 /**
  * Combines abort signals into one that aborts when ANY of them aborts.
@@ -57,6 +62,12 @@ function createTimeoutSignal(ms: number): AbortSignal {
 export class HttpClient {
 	private _clientConfig: IHttpClientConfig;
 	private _requestManager = new RequestManager();
+	/**
+	 * Errors the response error-interceptor chain has already processed (inside
+	 * a shared, deduplicated request). Each participant rethrows them as-is
+	 * rather than running the chain again.
+	 */
+	private _handledErrors = new WeakSet<object>();
 	private _interceptors: {
 		request: IHttpRequestInterceptor[];
 		response: IHttpResponseInterceptor[];
@@ -153,13 +164,17 @@ export class HttpClient {
 
 		try {
 			if (requestConfig.deduplicate === true) {
-				return await this.executeDeduplicatedRequest<T>(requestConfig, callerSignal);
+				return await this.executeDeduplicatedRequest<T>(requestConfig, originalConfig, callerSignal);
 			}
 
 			const response = await this.executeRequest<T>(requestConfig, callerSignal);
 
 			return await this.executeResponseInterceptors<T>(response, 0);
 		} catch (error) {
+			if (typeof error === 'object' && error !== null && this._handledErrors.has(error)) {
+				throw error;
+			}
+
 			return this.handleResponseError<T>(error as Error, originalConfig);
 		}
 	}
@@ -169,8 +184,14 @@ export class HttpClient {
 	 * interceptors run EXACTLY ONCE on the shared response, and cancellation is
 	 * ref-counted — the underlying request aborts only when every participant
 	 * has aborted, while each aborting caller's own promise rejects immediately.
+	 *
+	 * A failure of the shared request runs the response ERROR interceptors
+	 * exactly once as well, inside the shared promise: N callers sharing one
+	 * 401 must trigger one token refresh and one retry, not N. A caller's own
+	 * abort is not a failure of the shared request and is still reported to
+	 * the error interceptors for that caller alone.
 	 */
-	private async executeDeduplicatedRequest<T>(config: IRequestConfig, callerSignal?: AbortSignal): Promise<IHttpResponse<T>> {
+	private async executeDeduplicatedRequest<T>(config: IRequestConfig, originalConfig: IRequestConfig, callerSignal?: AbortSignal): Promise<IHttpResponse<T>> {
 		const requestKey = this._requestManager.generateRequestKey({
 			method: config.method!,
 			url: config.url!,
@@ -178,16 +199,42 @@ export class HttpClient {
 			headers: config.headers,
 			credentials: config.credentials,
 			mode: config.mode,
-			body: config.body
+			body: config.body,
+			responseType: config.responseType
 		});
 
 		let shared = this._requestManager.joinPendingRequest<T>(requestKey, callerSignal);
 
 		if (!shared) {
 			const sharedController = new AbortController();
-			const promise = this.executeRequest<T>(config, sharedController.signal).then((response) =>
-				this.executeResponseInterceptors<T>(response, 0)
-			);
+			// A retry issued by an error interceptor belongs to every
+			// participant, so it must live and die with the shared request —
+			// not with the signal or timeout of whichever caller came first.
+			// It is also not deduplicated itself: the shared request is still
+			// registered while its error handlers run, so a deduplicated retry
+			// would join the very promise that is waiting for it.
+			const sharedConfig: IRequestConfig = {
+				...originalConfig,
+				signal: sharedController.signal,
+				abortController: undefined,
+				deduplicate: false
+			};
+			const promise = this.executeRequest<T>(config, sharedController.signal)
+				.then((response) => this.executeResponseInterceptors<T>(response, 0))
+				.catch((error) => {
+					// Every participant left: nobody is waiting for a recovery,
+					// and each one already reported its own abort.
+					if (sharedController.signal.aborted) {
+						throw error;
+					}
+					return this.handleResponseError<T>(error as Error, sharedConfig);
+				})
+				.catch((error) => {
+					if (typeof error === 'object' && error !== null) {
+						this._handledErrors.add(error);
+					}
+					throw error;
+				});
 			shared = this._requestManager.addPendingRequest<T>(requestKey, promise, sharedController, callerSignal);
 		}
 
@@ -316,6 +363,7 @@ export class HttpClient {
 			body instanceof FormData ||
 			body instanceof Blob ||
 			body instanceof ArrayBuffer ||
+			ArrayBuffer.isView(body) ||
 			body instanceof URLSearchParams ||
 			body instanceof ReadableStream
 		) {
@@ -335,7 +383,7 @@ export class HttpClient {
 			signal
 		})
 			.then(async (response) => {
-				const data = await this.parseResponse<T>(response, config.onProgress);
+				const data = await this.parseResponse<T>(response, config.onProgress, config.responseType);
 
 				const httpResponse: IHttpResponse<T> = {
 					data,
@@ -393,6 +441,25 @@ export class HttpClient {
 	}
 
 	private mergeConfig(config: IRequestConfig): IRequestConfig {
+		const url = this.buildUrl(config.url ?? '', config.params);
+
+		if (!this.shouldSendDefaultsTo(url)) {
+			// Another origin: the client's default headers (typically
+			// `Authorization`) and credentials mode were configured for the
+			// app's own API and must not be handed to a third party. Whatever
+			// the request itself asks for is still honored.
+			const { defaultHeaders, credentials, ...clientConfig } = this._clientConfig;
+			void defaultHeaders;
+			void credentials;
+
+			return {
+				...clientConfig,
+				...config,
+				headers: { ...config.headers },
+				url
+			};
+		}
+
 		return {
 			...this._clientConfig,
 			...config,
@@ -400,8 +467,40 @@ export class HttpClient {
 				...this._clientConfig.defaultHeaders,
 				...config.headers
 			},
-			url: this.buildUrl(config.url ?? '', config.params)
+			url
 		};
+	}
+
+	/**
+	 * Whether the client-level `defaultHeaders` and `credentials` apply to a
+	 * request URL: always for the `baseURL`'s origin and the page's own origin,
+	 * and for any other origin only when `allowCrossOriginDefaults` is set.
+	 */
+	private shouldSendDefaultsTo(url: string): boolean {
+		if (this._clientConfig.allowCrossOriginDefaults) {
+			return true;
+		}
+
+		const isAbsolute = ABSOLUTE_URL_PATTERN.test(url) || url.startsWith('//');
+		const pageHref = typeof location !== 'undefined' && typeof location.href === 'string' ? location.href : undefined;
+
+		if (!isAbsolute) {
+			// Resolved by fetch against the page: same origin by construction.
+			return true;
+		}
+
+		try {
+			const target = new URL(url, pageHref).origin;
+			const baseUrl = this._clientConfig.baseURL;
+
+			if (baseUrl && (ABSOLUTE_URL_PATTERN.test(baseUrl) || baseUrl.startsWith('//')) && new URL(baseUrl, pageHref).origin === target) {
+				return true;
+			}
+
+			return pageHref !== undefined && new URL(pageHref).origin === target;
+		} catch {
+			return false;
+		}
 	}
 
 	private buildUrl(url: string, params?: IRequestConfig['params']): string {
@@ -410,7 +509,7 @@ export class HttpClient {
 		// Absolute URLs are used as-is; otherwise join base and path with exactly
 		// one slash (no double slashes, no missing slash).
 		let fullUrl: string;
-		if (!baseUrl || /^[a-z][a-z\d+\-.]*:\/\//i.test(url)) {
+		if (!baseUrl || ABSOLUTE_URL_PATTERN.test(url)) {
 			fullUrl = url;
 		} else {
 			fullUrl = `${baseUrl.replace(/\/+$/, '')}/${url.replace(/^\/+/, '')}`;
@@ -448,6 +547,7 @@ export class HttpClient {
 			body instanceof FormData ||
 			body instanceof Blob ||
 			body instanceof ArrayBuffer ||
+			ArrayBuffer.isView(body) ||
 			body instanceof URLSearchParams ||
 			body instanceof ReadableStream ||
 			typeof body === 'string'
@@ -459,9 +559,20 @@ export class HttpClient {
 		return JSON.stringify(body);
 	}
 
-	private async parseResponse<T>(response: Response, onProgress?: (progress: IProgressEvent) => void): Promise<T> {
+	private async parseResponse<T>(response: Response, onProgress?: (progress: IProgressEvent) => void, responseType?: HttpResponseType): Promise<T> {
 		const contentType = response.headers.get('content-type') || '';
 		const contentLength = parseInt(response.headers.get('content-length') || '0', 10);
+
+		// An explicit `responseType` wins; otherwise the content-type decides.
+		const kind: HttpResponseType =
+			responseType ??
+			(JSON_CONTENT_TYPE_PATTERN.test(contentType)
+				? 'json'
+				: contentType.includes('text/')
+					? 'text'
+					: this.isBinaryContentType(contentType)
+						? 'blob'
+						: 'text');
 
 		if (onProgress && response.body && contentLength > 0) {
 			const reader = response.body.getReader();
@@ -483,38 +594,32 @@ export class HttpClient {
 				});
 			}
 
-			// Honor the content-type exactly like the non-progress path below —
-			// supplying onProgress must not silently change a text response to Blob.
-			const blob = new Blob(chunks as BlobPart[]);
+			// Decode exactly like the non-progress path below — supplying
+			// onProgress must not change what the caller receives.
+			const blob = new Blob(chunks as BlobPart[], contentType ? { type: contentType } : undefined);
 
-			if (contentType.includes('application/json')) {
-				return this.parseJsonText<T>(await blob.text(), response);
+			switch (kind) {
+				case 'json':
+					return this.parseJsonText<T>(await blob.text(), response);
+				case 'blob':
+					return blob as T;
+				case 'arrayBuffer':
+					return (await blob.arrayBuffer()) as T;
+				default:
+					return (await blob.text()) as T;
 			}
-
-			if (contentType.includes('text/')) {
-				return (await blob.text()) as T;
-			}
-
-			if (this.isBinaryContentType(contentType)) {
-				return blob as T;
-			}
-
-			return (await blob.text()) as T;
 		}
 
-		if (contentType.includes('application/json')) {
-			return this.parseJsonText<T>(await response.text(), response);
+		switch (kind) {
+			case 'json':
+				return this.parseJsonText<T>(await response.text(), response);
+			case 'blob':
+				return (await response.blob()) as T;
+			case 'arrayBuffer':
+				return (await response.arrayBuffer()) as T;
+			default:
+				return (await response.text()) as T;
 		}
-
-		if (contentType.includes('text/')) {
-			return (await response.text()) as T;
-		}
-
-		if (this.isBinaryContentType(contentType)) {
-			return (await response.blob()) as T;
-		}
-
-		return (await response.text()) as T;
 	}
 
 	/**

@@ -274,3 +274,47 @@ describe('ml-sidebar slotted keyboard navigation', () => {
 		expect(items[2].shadowRoot!.activeElement).toBe(linkThree);
 	});
 });
+
+describe('ml-sidebar external links', () => {
+	let el: any;
+
+	afterEach(() => {
+		if (el) removeComponent(el);
+	});
+
+	// Regression: `?target=` / `?rel=` are BOOLEAN bindings, so these rendered
+	// target="" and rel="" — external links opened in the same tab.
+	it('opens config-driven external links in a new tab with a safe rel', async () => {
+		el = createComponent('ml-sidebar', {
+			properties: {
+				navigation: [
+					{
+						items: [
+							{ value: 'docs', label: 'Docs', href: 'https://example.com/docs', external: true },
+							{ value: 'home', label: 'Home', href: '/home' }
+						]
+					}
+				]
+			}
+		});
+		await flush();
+
+		const links = shadowQueryAll<HTMLAnchorElement>(el, 'a');
+		const docs = links.find((a) => a.getAttribute('href') === 'https://example.com/docs')!;
+		const home = links.find((a) => a.getAttribute('href') === '/home')!;
+
+		expect(docs.getAttribute('target')).toBe('_blank');
+		expect(docs.getAttribute('rel')).toBe('noopener noreferrer');
+		expect(home.hasAttribute('target')).toBe(false);
+		expect(home.hasAttribute('rel')).toBe(false);
+	});
+
+	it('does the same for a slotted ml-sidebar-item', async () => {
+		el = createComponent('ml-sidebar-item', { attributes: { href: 'https://example.com', external: '', label: 'Out' } });
+		await flush();
+
+		const link = shadowQuery<HTMLAnchorElement>(el, 'a')!;
+		expect(link.getAttribute('target')).toBe('_blank');
+		expect(link.getAttribute('rel')).toBe('noopener noreferrer');
+	});
+});

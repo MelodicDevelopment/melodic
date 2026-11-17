@@ -52,8 +52,8 @@ export function sidebarItemTemplate(c: SidebarItemComponent) {
 					<a
 						class=${linkClasses}
 						href=${c.href}
-						?target=${c.external ? '_blank' : null}
-						?rel=${c.external ? 'noopener noreferrer' : null}
+						target=${c.external ? '_blank' : null}
+						rel=${c.external ? 'noopener noreferrer' : null}
 						@click=${(event: MouseEvent) => {
 							routeAnchorClick(event, c.href, { external: c.external });
 							c.handleClick(event);

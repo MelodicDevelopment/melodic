@@ -125,3 +125,46 @@ describe('ml-popover', () => {
 		});
 	});
 });
+
+describe('ml-popover semantics', () => {
+	afterEach(() => {
+		document.body.innerHTML = '';
+	});
+
+	async function mount(html: string, attributes: Record<string, string> = {}): Promise<{ host: HTMLElement; popoverEl: HTMLElement }> {
+		const host = document.createElement('ml-popover');
+		for (const [name, value] of Object.entries(attributes)) host.setAttribute(name, value);
+		host.innerHTML = html;
+		document.body.appendChild(host);
+		await flush();
+		await flush();
+		const popoverEl = host.shadowRoot!.querySelector('.ml-popover__content') as HTMLElement;
+		stubPopoverApi(popoverEl);
+		return { host, popoverEl };
+	}
+
+	it('exposes the panel as a dialog, named by the label attribute', async () => {
+		const { popoverEl } = await mount('<button slot="trigger">Open</button><p>Body</p>', { label: 'Filters' });
+		expect(popoverEl.getAttribute('role')).toBe('dialog');
+		expect(popoverEl.getAttribute('aria-label')).toBe('Filters');
+	});
+
+	it('keeps aria-haspopup / aria-expanded on the trigger in sync with the open state', async () => {
+		const { host, popoverEl } = await mount('<button slot="trigger">Open</button><p>Body</p>');
+		const trigger = host.querySelector('button')!;
+
+		expect(trigger.getAttribute('aria-haspopup')).toBe('dialog');
+		expect(trigger.getAttribute('aria-expanded')).toBe('false');
+
+		(popoverEl as any).showPopover();
+		expect(trigger.getAttribute('aria-expanded')).toBe('true');
+
+		(popoverEl as any).hidePopover();
+		expect(trigger.getAttribute('aria-expanded')).toBe('false');
+	});
+
+	it('does not overwrite a consumer aria-haspopup', async () => {
+		const { host } = await mount('<button slot="trigger" aria-haspopup="menu">Open</button><p>Body</p>');
+		expect(host.querySelector('button')!.getAttribute('aria-haspopup')).toBe('menu');
+	});
+});

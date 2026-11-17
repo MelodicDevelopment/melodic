@@ -93,6 +93,52 @@ describe('tz-utils', () => {
 		});
 	});
 
+	// Regression: the offset used to be read at the wall clock misread as UTC,
+	// so for several hours around each transition the wrong side of the DST
+	// change was applied and the result was an hour out.
+	describe('DST transition days', () => {
+		const cases: Array<[zone: string, naive: string, utc: string, note: string]> = [
+			// America/Detroit spring forward: 2026-03-08 02:00 EST → 03:00 EDT (07:00Z)
+			['America/Detroit', '2026-03-08T00:30', '2026-03-08T05:30:00.000Z', 'before the jump (EST)'],
+			['America/Detroit', '2026-03-08T01:59', '2026-03-08T06:59:00.000Z', 'last minute of EST'],
+			['America/Detroit', '2026-03-08T02:30', '2026-03-08T07:30:00.000Z', 'gap → post-jump wall clock'],
+			['America/Detroit', '2026-03-08T03:00', '2026-03-08T07:00:00.000Z', 'first minute of EDT'],
+			['America/Detroit', '2026-03-08T03:30', '2026-03-08T07:30:00.000Z', 'just after the jump (EDT)'],
+			['America/Detroit', '2026-03-08T05:00', '2026-03-08T09:00:00.000Z', 'hours after the jump (EDT)'],
+			['America/Detroit', '2026-03-08T06:59', '2026-03-08T10:59:00.000Z', 'end of the old error window'],
+			['America/Detroit', '2026-03-08T08:00', '2026-03-08T12:00:00.000Z', 'well after the jump'],
+			// America/Detroit fall back: 2026-11-01 02:00 EDT → 01:00 EST (06:00Z)
+			['America/Detroit', '2026-11-01T00:30', '2026-11-01T04:30:00.000Z', 'before the fall-back (EDT)'],
+			['America/Detroit', '2026-11-01T01:30', '2026-11-01T05:30:00.000Z', 'ambiguous → first occurrence'],
+			['America/Detroit', '2026-11-01T02:00', '2026-11-01T07:00:00.000Z', 'first unambiguous EST minute'],
+			['America/Detroit', '2026-11-01T03:00', '2026-11-01T08:00:00.000Z', 'after the fall-back (EST)'],
+			['America/Detroit', '2026-11-01T05:30', '2026-11-01T10:30:00.000Z', 'hours after the fall-back'],
+			['America/Detroit', '2026-11-01T07:00', '2026-11-01T12:00:00.000Z', 'well after the fall-back'],
+			// Australia/Sydney (southern hemisphere, positive offset)
+			// DST starts 2026-10-04 02:00 AEST → 03:00 AEDT (2026-10-03T16:00Z)
+			['Australia/Sydney', '2026-10-03T20:00', '2026-10-03T10:00:00.000Z', 'evening before the jump (AEST)'],
+			['Australia/Sydney', '2026-10-04T01:30', '2026-10-03T15:30:00.000Z', 'just before the jump (AEST)'],
+			['Australia/Sydney', '2026-10-04T02:30', '2026-10-03T16:30:00.000Z', 'gap → post-jump wall clock'],
+			['Australia/Sydney', '2026-10-04T03:30', '2026-10-03T16:30:00.000Z', 'just after the jump (AEDT)'],
+			['Australia/Sydney', '2026-10-04T12:00', '2026-10-04T01:00:00.000Z', 'well after the jump (AEDT)'],
+			// DST ends 2026-04-05 03:00 AEDT → 02:00 AEST (2026-04-04T16:00Z)
+			['Australia/Sydney', '2026-04-04T20:00', '2026-04-04T09:00:00.000Z', 'evening before the fall-back (AEDT)'],
+			['Australia/Sydney', '2026-04-05T01:30', '2026-04-04T14:30:00.000Z', 'before the fall-back (AEDT)'],
+			['Australia/Sydney', '2026-04-05T02:30', '2026-04-04T15:30:00.000Z', 'ambiguous → first occurrence'],
+			['Australia/Sydney', '2026-04-05T03:30', '2026-04-04T17:30:00.000Z', 'after the fall-back (AEST)'],
+			['Australia/Sydney', '2026-04-05T12:00', '2026-04-05T02:00:00.000Z', 'well after the fall-back (AEST)']
+		];
+
+		it.each(cases)('%s %s → %s (%s)', (zone, naive, utc) => {
+			expect(naiveToUtcIso(naive, zone)).toBe(utc);
+		});
+
+		// Every wall clock that exists must survive the trip to UTC and back.
+		it.each(cases.filter(([, , , note]) => !note.startsWith('gap')))('%s %s round-trips', (zone, naive) => {
+			expect(utcToNaive(naiveToUtcIso(naive, zone), zone)).toBe(naive);
+		});
+	});
+
 	describe('getZoneOffsetMs', () => {
 		it('returns 0 for UTC', () => {
 			expect(getZoneOffsetMs(new Date('2026-04-27T12:00:00Z'), 'UTC')).toBe(0);

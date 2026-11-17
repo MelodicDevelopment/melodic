@@ -181,4 +181,15 @@ export const fileUploadStyles = () => css`
 		border-color: var(--ml-file-upload-disabled-border-color, var(--ml-color-border));
 		background-color: var(--ml-file-upload-disabled-bg, var(--ml-color-input-disabled-bg));
 	}
+
+	/*
+	 * Forced colors (Windows High Contrast): box-shadow rings and background
+	 * highlights are not painted there, so focus falls back to a real outline.
+	 */
+	@media (forced-colors: active) {
+		.ml-file-upload__dropzone:focus-visible {
+			outline: 2px solid Highlight;
+			outline-offset: 2px;
+		}
+	}
 `;

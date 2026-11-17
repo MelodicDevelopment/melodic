@@ -8,7 +8,7 @@ export function toastTemplate(c: ToastComponent) {
 				'ml-toast': true,
 				[`ml-toast--${c.variant}`]: true
 			})}
-			role=${c.variant === 'error' ? 'alert' : 'status'}
+			role=${c.innerRole}
 		>
 			<div class="ml-toast__icon">
 				${c.renderIcon()}

@@ -37,6 +37,11 @@ interface RepeatRawState {
  * @param keyFn - Function to extract unique key from each item
  * @param factory - Creates a DOM element for an item
  * @param update - Optional: updates an existing element for an item in place
+ *
+ * @deprecated Prefer `repeat()`. `repeatRaw` re-appends every element whenever
+ * a key is added, removed or moved (it has no minimal-move reconciliation), and
+ * elements it creates get no bindings or cleanup from the template engine. It
+ * keeps working and is not scheduled for removal.
  */
 export function repeatRaw<T>(
 	items: T[],

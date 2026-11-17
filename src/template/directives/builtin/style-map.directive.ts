@@ -15,6 +15,16 @@ import type { IDirectiveResult } from '../interfaces/idirective-result.interface
  *
  * @param styles - Object mapping CSS property names to values
  */
+/**
+ * The CSS name for a `styleMap` key: camelCase becomes kebab-case, but a
+ * custom property (`--rowHeight`) is passed through untouched — custom
+ * property names are case-sensitive, so `--rowHeight` and `--row-height` are
+ * different properties and converting one silently set the other.
+ */
+function cssPropertyName(property: string): string {
+	return property.startsWith('--') ? property : property.replace(/([A-Z])/g, '-$1').toLowerCase();
+}
+
 export function styleMap(styles: Record<string, string | number | undefined>): IDirectiveResult {
 	return directive((container: Node, previousStyles?: Set<string>) => {
 		const element = container as HTMLElement;
@@ -23,11 +33,7 @@ export function styleMap(styles: Record<string, string | number | undefined>): I
 		// Apply new styles
 		for (const [property, value] of Object.entries(styles)) {
 			if (value !== undefined) {
-				element.style.setProperty(
-					// Convert camelCase to kebab-case
-					property.replace(/([A-Z])/g, '-$1').toLowerCase(),
-					String(value)
-				);
+				element.style.setProperty(cssPropertyName(property), String(value));
 				currentStyles.add(property);
 			}
 		}
@@ -36,7 +42,7 @@ export function styleMap(styles: Record<string, string | number | undefined>): I
 		if (previousStyles) {
 			for (const property of previousStyles) {
 				if (!currentStyles.has(property)) {
-					element.style.removeProperty(property.replace(/([A-Z])/g, '-$1').toLowerCase());
+					element.style.removeProperty(cssPropertyName(property));
 				}
 			}
 		}

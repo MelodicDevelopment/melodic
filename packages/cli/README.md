@@ -28,10 +28,17 @@ npm run dev
 ## Name rules
 
 Every name the CLI accepts (project, app, lib, and generate names) is
-kebab-cased and must then match `^[a-z][a-z0-9-]*$`. Names containing path
-separators, `..`, quotes, or other special characters are rejected — they
-would otherwise escape the project directory or break generated source.
-PascalCase input is fine: `melodic g component UserCard` generates `user-card`.
+kebab-cased and must then match `^[a-z][a-z0-9]*(-[a-z0-9]+)*$` — lowercase
+words joined by single hyphens, so no leading, trailing or doubled hyphen.
+Names containing path separators, `..`, quotes, or other special characters
+are rejected — they would otherwise escape the project directory or break
+generated source. PascalCase input is fine: `melodic g component UserCard`
+generates `user-card`.
+
+`melodic generate directive` exports a bare identifier (`toolTip`), so a name
+that is a JavaScript reserved word (`delete`, `new`, `class`, …) is refused
+there. Generators that add a suffix (`deleteGuard`, `DeleteComponent`) accept
+it.
 
 ## Commands
 
@@ -110,11 +117,22 @@ Add environment-aware configuration.
 
 ### `melodic add testing [--path .]`
 
-Add a basic Vitest + happy-dom test setup to an existing project.
+Add a Vitest + happy-dom test setup to an existing project: `test` /
+`test:unit` scripts, the dev dependencies, `vitest.config.ts` and
+`tests/unit/example.test.ts`. Run `npm install` afterwards.
 
 ```sh
+melodic add testing
 melodic add testing --path apps/web
 ```
+
+When the project (or the workspace root above it) depends on
+`@melodicdev/core`, the example mounts a real component with
+[`@melodicdev/core/testing`](../../docs/TESTING.md) (`mount`, `flush`, `query`,
+`text`, `unmountAll`). Otherwise it is a plain Vitest example.
+
+The command is all-or-nothing: if `vitest.config.ts` or the example test
+already exists it stops before changing `package.json`.
 
 ### `melodic generate <type> <name> [--path <dir>] [--dry-run] [--force]`
 
@@ -162,8 +180,8 @@ Create an injectable service.
 
 #### `melodic generate interceptor <name> [--path src/http/interceptors]`
 
-Create HTTP request/response interceptors matching the v2 `@melodicdev/core`
-API (the response error handler receives an `IHttpResponseErrorContext` with
+Create HTTP request/response interceptors matching the current
+`@melodicdev/core` API (the response error handler receives an `IHttpResponseErrorContext` with
 `retry()`).
 
 #### `melodic generate guard <name> [--path src/guards]`
@@ -204,21 +222,36 @@ Template notes:
 - App templates include `vite-plugin-melodic-styles.ts`, a
   `src/styles/global.css` sample, and a `<link melodic-styles>` entry in
   `index.html`.
-- Dependencies are pinned to ranges (`@melodicdev/core: ^2.0.0`) — never
-  `latest`.
+- Dependencies are pinned to ranges (`@melodicdev/core` to the CLI's own
+  major) — never `latest`.
+- The Vite plugin imports `esbuild`, so the templates declare it as a
+  devDependency instead of relying on Vite's copy being hoisted (which fails
+  under pnpm).
+- `tsconfig.json` sets `experimentalDecorators: true` and
+  `useDefineForClassFields: false`. Both are required by `@melodicdev/core`'s
+  decorators — do not remove them. `emitDecoratorMetadata` is not needed.
 
 Placeholders:
 
 - `__APP_NAME__`
 - `__REPO_NAME__`
 - `__LIB_NAME__`
+- `__ROOT_PATH__` (relative path from a monorepo app back to the workspace root)
+
+Template files are copied byte-for-byte when they are binary; placeholders are
+only substituted in text files.
 
 ## Behavior Notes
 
 - `init` requires the target directory to be empty (or missing).
 - Existing files are never overwritten without `--force`.
 - `--path` and `--dir` must be relative paths inside the project; absolute
-  paths and `..` segments are rejected.
+  paths and `..` segments are rejected, and so is a path that leaves the
+  project through a symlink.
+- `--dry-run` and `--force` belong to `generate`. `init` and `add` refuse
+  `--dry-run` (they would write files) and warn that `--force` has no effect.
+- `add app --dir` accepts nested directories (`--dir packages/apps`); the
+  app's `vite.config.ts` import of the root styles plugin is computed to match.
 - Unknown flags are rejected with a usage message.
 
 ## Deferred / not yet implemented

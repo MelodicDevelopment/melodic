@@ -26,6 +26,7 @@ export const dataGridStyles = () => css`
 	 * --ml-data-grid-row-selected-hover-bg: var(--ml-color-primary-subtle, rgba(99, 102, 241, 0.07))
 	 * --ml-data-grid-row-striped-bg: var(--ml-color-surface-sunken)
 	 * --ml-data-grid-row-striped-hover-bg: var(--ml-color-surface-raised)
+	 * --ml-data-grid-row-focus-outline-color: var(--ml-color-primary)
 	 *
 	 * Data Grid: cells
 	 * --ml-data-grid-cell-color: var(--ml-color-text)
@@ -312,6 +313,11 @@ export const dataGridStyles = () => css`
 		border-bottom: none;
 	}
 
+	.ml-data-grid__row:focus-visible {
+		outline: 2px solid var(--ml-data-grid-row-focus-outline-color, var(--ml-color-primary));
+		outline-offset: -2px;
+	}
+
 	.ml-data-grid--hoverable .ml-data-grid__row:hover {
 		background-color: var(--ml-data-grid-row-hover-bg, var(--ml-color-surface-sunken));
 	}
@@ -550,5 +556,16 @@ export const dataGridStyles = () => css`
 	.ml-data-grid__page-btn:disabled {
 		opacity: 0.4;
 		cursor: not-allowed;
+	}
+
+	/*
+	 * Forced colors (Windows High Contrast): box-shadow rings and background
+	 * highlights are not painted there, so focus falls back to a real outline.
+	 */
+	@media (forced-colors: active) {
+		.ml-data-grid__filter-input:focus {
+			outline: 2px solid Highlight;
+			outline-offset: -2px;
+		}
 	}
 `;

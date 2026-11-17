@@ -4,4 +4,5 @@ export type { IHttpResponseInterceptor, IHttpResponseErrorContext } from './ihtt
 export type { IHttpResponse } from './ihttp-response.interface';
 export type { IInterceptorApi } from './iinterceptor-api.interface';
 export type { IProgressEvent } from './iprogress-event.interface';
-export type { IRequestConfig } from './irequest-config.interface';
+export type { HttpResponseType, IRequestConfig } from './irequest-config.interface';
+export type { IRequestCancellation } from './irequest-cancellation.interface';

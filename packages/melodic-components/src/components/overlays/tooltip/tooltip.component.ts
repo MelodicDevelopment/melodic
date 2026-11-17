@@ -1,5 +1,5 @@
 import { MelodicComponent } from '@melodicdev/core';
-import type { IElementRef, OnCreate, OnDestroy } from '@melodicdev/core';
+import type { IElementRef, OnCreate, OnDestroy, OnRender } from '@melodicdev/core';
 import type { Placement } from '../../../types/index.js';
 import { OverlayPositioner } from '../../../utils/overlay/index.js';
 import { newID, type UniqueID } from '../../../functions/new-id.function.js';
@@ -29,7 +29,7 @@ import { setCrossRootDescription } from '../../../utils/accessibility/cross-root
 	styles: tooltipStyles,
 	attributes: ['content', 'placement', 'delay']
 })
-export class TooltipComponent implements IElementRef, OnCreate, OnDestroy {
+export class TooltipComponent implements IElementRef, OnCreate, OnDestroy, OnRender {
 	public elementRef!: HTMLElement;
 
 	/** Tooltip content text */
@@ -67,6 +67,12 @@ export class TooltipComponent implements IElementRef, OnCreate, OnDestroy {
 	public onCreate(): void {
 		// Re-wire aria-describedby whenever the slotted trigger changes.
 		this.elementRef.shadowRoot?.addEventListener('slotchange', this.syncTriggerAria);
+		this.syncTriggerAria();
+	}
+
+	public onRender(): void {
+		// The description is carried as text (see syncTriggerAria), so it has
+		// to follow the content when that changes.
 		this.syncTriggerAria();
 	}
 
@@ -129,9 +135,11 @@ export class TooltipComponent implements IElementRef, OnCreate, OnDestroy {
 	 * Describe the slotted trigger with the tooltip's content element.
 	 *
 	 * An `aria-describedby` IDREF pointing INTO this component's shadow root
-	 * resolves to nothing, so the tooltip was set up to look correct in the DOM
-	 * and was never announced. Element references cross the boundary; where
-	 * they are unsupported the text is copied onto the trigger instead.
+	 * resolves to nothing, and so does an element reference
+	 * (`ariaDescribedByElements`) in that direction — a light-DOM element may
+	 * only reference its own tree or an ancestor tree. Either way the tooltip
+	 * looked wired up in the DOM and was never announced, so the text is
+	 * copied onto the trigger as `aria-description` instead.
 	 */
 	private readonly syncTriggerAria = (): void => {
 		const root = this.elementRef.shadowRoot;

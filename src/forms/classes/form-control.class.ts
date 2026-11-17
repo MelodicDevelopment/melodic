@@ -12,8 +12,10 @@ export class FormControl<T = unknown> extends AbstractControl<T> {
 	}
 
 	public setValue(value: T, options?: SetValueOptions): void {
-		if (this._ownDisabled()) return;
-
+		// Disabled controls still accept programmatic writes (Angular
+		// semantics): `disabled` keeps the USER out of a field, not the
+		// application. Skipping the write made `form.patchValue(serverData)`
+		// silently leave read-only fields empty, while `reset()` did write.
 		this.value.set(value);
 
 		// Programmatic setValue does not dirty the control (Angular semantics).

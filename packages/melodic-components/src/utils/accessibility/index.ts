@@ -3,11 +3,13 @@ export type { FocusTrap, FocusTrapOptions, FocusTrapDeactivateOptions } from './
 export { focusVisible, isFocusVisible } from './focus-visible.js';
 export { announce, createLiveRegion } from './live-region.js';
 export { getFirstFocusable, getLastFocusable, getFocusableElements, focusFirst, focusLast } from './focus-utils.js';
+export type { GetFocusableOptions } from './focus-utils.js';
 export {
 	setCrossRootDescription,
 	setCrossRootLabel,
 	setCrossRootActiveDescendant,
 	clearCrossRootDescription,
 	getFocusableControl,
-	supportsAriaElementReferences
+	supportsAriaElementReferences,
+	canReferenceElement
 } from './cross-root-aria.js';

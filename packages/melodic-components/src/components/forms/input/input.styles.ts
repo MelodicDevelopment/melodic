@@ -78,7 +78,7 @@ export const inputStyles = () => css`
 
 	.ml-input__required {
 		color: var(--ml-input-required-color, var(--ml-color-danger));
-		margin-left: var(--ml-space-0-5);
+		margin-inline-start: var(--ml-space-0-5);
 	}
 
 	.ml-input__wrapper {
@@ -186,5 +186,16 @@ export const inputStyles = () => css`
 		align-items: center;
 		color: var(--ml-input-addon-color, var(--ml-color-text-muted));
 		flex-shrink: 0;
+	}
+
+	/*
+	 * Forced colors (Windows High Contrast): box-shadow rings and background
+	 * highlights are not painted there, so focus falls back to a real outline.
+	 */
+	@media (forced-colors: active) {
+		.ml-input--focused .ml-input__wrapper {
+			outline: 2px solid Highlight;
+			outline-offset: 2px;
+		}
 	}
 `;

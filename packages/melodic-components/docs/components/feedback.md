@@ -115,6 +115,14 @@ at once (default 5, `0` for unlimited) — the oldest is dropped when the cap is
 The container is an `aria-live="polite"` region. Only `error` toasts use `role="alert"`
 (assertive), so a success message does not interrupt what the user is reading.
 
+Auto-dismiss pauses while the pointer is over a toast or focus is inside it, and resumes
+with the remaining time afterwards.
+
+Where the Popover API is available the container is rendered in the top layer, so a toast
+raised while an `ml-dialog` or `ml-drawer` is open appears above it rather than behind the
+backdrop. (The browser keeps everything outside an open modal dialog inert, so that toast
+cannot be clicked until the dialog closes; it still auto-dismisses.)
+
 ```ts
 import '@melodicdev/components/toast';
 import { ToastService } from '@melodicdev/components';

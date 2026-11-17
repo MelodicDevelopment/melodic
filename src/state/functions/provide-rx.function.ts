@@ -10,6 +10,7 @@ export function provideRX<S>(initState: State<S>, actionReducers: ActionReducerM
 		injector.bindValue(RX_ACTION_PROVIDERS, actionReducers);
 		injector.bindValue(RX_EFFECTS_PROVIDERS, effects);
 		injector.bindValue(RX_STATE_DEBUG, debug);
-		injector.bind(SignalStoreService, SignalStoreService, { dependencies: [RX_INIT_STATE, RX_ACTION_PROVIDERS, RX_EFFECTS_PROVIDERS] });
+		// The store reads its tokens lazily through `@Service`; its constructor takes no arguments.
+		injector.bind(SignalStoreService, SignalStoreService);
 	};
 }

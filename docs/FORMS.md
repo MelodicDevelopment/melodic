@@ -50,6 +50,7 @@ Each control has an optional `parent` reference. Adding a control to a group/arr
 ### Semantics (standard, Angular-aligned)
 
 - **Disabled controls are excluded from `value()` AND from validity.** A disabled control reports `invalid() === false` no matter what its errors say, and its parent group ignores it — a disabled `required` field cannot block submit on a field the user cannot reach. Use `getRawValue()` to get the full value including disabled controls.
+- **Disabled controls still accept programmatic writes.** `setValue` / `patchValue` on a disabled control, group or array update it (visible through `getRawValue()`); `disabled` keeps the user out of a field, not your code — so `form.patchValue(serverData)` fills read-only fields too.
 - **`setValue` is strict; `patchValue` is lenient.** On a `FormGroup`, `setValue` throws if the supplied object's keys don't exactly match the controls (use `patchValue` for partial updates). On a `FormArray`, `setValue` requires a matching length.
 - **Programmatic `setValue` does not mark the control dirty.** User input dirties via the `:formControl` directive; call `markAsDirty()` explicitly for programmatic dirtying. Pass `{ markAsPristine: true }` to keep it pristine when hydrating.
 - **`markAsTouched()` touches only that control; `markAllAsTouched()` cascades to children.** To show all errors on submit, call `form.markAllAsTouched()` (not `markAsTouched()`).

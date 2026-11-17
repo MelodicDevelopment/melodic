@@ -117,7 +117,7 @@ export const fileUploadItemStyles = () => css`
 		font-weight: var(--ml-font-medium);
 		color: var(--ml-color-text-secondary);
 		min-width: 32px;
-		text-align: right;
+		text-align: end;
 	}
 
 	/* Status row */
@@ -169,5 +169,17 @@ export const fileUploadItemStyles = () => css`
 	/* Complete state */
 	.ml-file-item--complete {
 		border-color: var(--ml-color-success);
+	}
+
+	/*
+	 * Forced colors (Windows High Contrast): box-shadow rings and background
+	 * highlights are not painted there, so focus falls back to a real outline.
+	 */
+	@media (forced-colors: active) {
+		.ml-file-item__remove:focus-visible,
+		.ml-file-item__retry:focus-visible {
+			outline: 2px solid Highlight;
+			outline-offset: 2px;
+		}
 	}
 `;

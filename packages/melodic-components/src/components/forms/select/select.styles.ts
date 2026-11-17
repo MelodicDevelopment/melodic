@@ -120,7 +120,7 @@ export const selectStyles = () => css`
 
 	.ml-select__required {
 		color: var(--ml-select-required-color, var(--ml-color-danger));
-		margin-left: var(--ml-space-0-5);
+		margin-inline-start: var(--ml-space-0-5);
 	}
 
 	.ml-select__trigger {
@@ -140,7 +140,7 @@ export const selectStyles = () => css`
 		font-family: var(--ml-select-font-family, var(--ml-font-sans));
 		font-size: var(--ml-select-font-size, var(--ml-text-sm));
 		cursor: pointer;
-		text-align: left;
+		text-align: start;
 		transition:
 			border-color var(--ml-select-transition-duration, var(--ml-duration-150)) var(--ml-select-transition-easing, var(--ml-ease-in-out)),
 			box-shadow var(--ml-select-transition-duration, var(--ml-duration-150)) var(--ml-select-transition-easing, var(--ml-ease-in-out));
@@ -258,15 +258,15 @@ export const selectStyles = () => css`
 		height: 14px;
 		border-radius: var(--ml-select-tag-border-radius, var(--ml-radius-full));
 		object-fit: cover;
-		margin-left: -2px;
+		margin-inline-start: -2px;
 	}
 
 	.ml-select__tag-remove {
 		border: none;
 		background: transparent;
 		padding: 2px;
-		margin-left: var(--ml-space-0-5);
-		margin-right: -4px;
+		margin-inline-start: var(--ml-space-0-5);
+		margin-inline-end: -4px;
 		color: var(--ml-select-tag-remove-color, var(--ml-color-text-secondary));
 		cursor: pointer;
 		display: inline-flex;
@@ -388,7 +388,7 @@ export const selectStyles = () => css`
 	.ml-select__option-check {
 		flex-shrink: 0;
 		color: var(--ml-select-option-check-color, var(--ml-color-primary));
-		margin-left: auto;
+		margin-inline-start: auto;
 	}
 
 	.ml-select__hint,
@@ -432,5 +432,22 @@ export const selectStyles = () => css`
 	/* Disabled state */
 	.ml-select--disabled {
 		pointer-events: none;
+	}
+
+	/*
+	 * Forced colors (Windows High Contrast): box-shadow rings and background
+	 * highlights are not painted there, so focus falls back to a real outline.
+	 */
+	@media (forced-colors: active) {
+		.ml-select__trigger:focus,
+		.ml-select__trigger:focus-within {
+			outline: 2px solid Highlight;
+			outline-offset: 2px;
+		}
+
+		.ml-select__option--focused {
+			outline: 2px solid Highlight;
+			outline-offset: -2px;
+		}
 	}
 `;

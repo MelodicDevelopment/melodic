@@ -1,9 +1,10 @@
 import type { Placement, Position, ComputePositionConfig, ComputePositionReturn, MiddlewareState } from './types.js';
 
 /**
- * Get the base position for a given placement
+ * Get the base position for a given placement.
+ * Shared with flip(), which re-places the element for each fallback.
  */
-function getBasePlacement(reference: DOMRect, floating: DOMRect, placement: Placement): Position {
+export function getBasePlacement(reference: DOMRect, floating: DOMRect, placement: Placement): Position {
 	const [side, alignment = 'center'] = placement.split('-') as [string, string?];
 
 	let x = 0;

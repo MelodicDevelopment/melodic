@@ -2,6 +2,7 @@ import { Injector } from '../../injection';
 import { RouterService } from '../services/router.service';
 import type { INavigationOptions } from '../interfaces/inavigation-options.interface';
 import { isSafeUrl } from '../functions/is-safe-url.function';
+import { toRootRelative } from '../functions/url-parts.function';
 
 /**
  * Options shared by the `:routerLink` directive and the `<router-link>`
@@ -40,6 +41,8 @@ export interface IRouterLinkOptions {
  * - middle click (`auxclick`) → native on anchors; `window.open` otherwise
  * - `javascript:` (or any non-http(s), non-relative) URLs are never
  *   assigned to `href`, navigated to, or passed to `window.open`
+ * - an http(s) URL on another origin is not a route: anchors keep their
+ *   native navigation, non-anchors get `window.location.assign`
  */
 export class RouterLinkCore {
 	private _host: Element;
@@ -88,7 +91,11 @@ export class RouterLinkCore {
 
 	/** Target path including query params (merged, not double-`?` appended). */
 	public buildFullPath(): string {
-		let path = this._options.href ?? '';
+		const href = this._options.href ?? '';
+		// A scheme-less href without a leading slash is root-relative — that is
+		// how the router matches it and how the active state compares it, so
+		// the anchor (new tab, copy link) must point at the same place.
+		let path = toRootRelative(href) ?? href;
 		const queryParams = this._options.queryParams;
 
 		if (queryParams && Object.keys(queryParams).length > 0) {
@@ -97,6 +104,11 @@ export class RouterLinkCore {
 		}
 
 		return path;
+	}
+
+	/** True when the link points at another origin, which the router cannot route. */
+	private isExternal(): boolean {
+		return toRootRelative(this._options.href ?? '') === null;
 	}
 
 	private isSafe(): boolean {
@@ -137,6 +149,16 @@ export class RouterLinkCore {
 			if (!this._getAnchor()) {
 				// Non-anchor hosts have no native navigation — emulate new-tab.
 				this.openInNewTab();
+			}
+			return;
+		}
+
+		if (this.isSafe() && this.isExternal()) {
+			// Not a route. An anchor already carries the href, so leave the
+			// click to the browser; other hosts have no native navigation.
+			if (!this._getAnchor()) {
+				e.preventDefault();
+				window.location.assign(this.buildFullPath());
 			}
 			return;
 		}

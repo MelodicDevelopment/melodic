@@ -258,6 +258,12 @@ export abstract class AbstractControl<T = unknown> {
 		}
 
 		if (this._asyncValidators.length > 0) {
+			// The sync validators passed for THIS value: drop whatever the
+			// previous run left behind, or a stale `required` stays on screen
+			// (and keeps the control invalid) until the async pass resolves.
+			if (this.errors() !== null) {
+				this.errors.set(null);
+			}
 			this._pending.set(true);
 
 			try {

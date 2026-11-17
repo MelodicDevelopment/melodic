@@ -2,6 +2,8 @@ import type { IHttpResponse } from '../interfaces/ihttp-response.interface';
 import type { HttpRequestBody } from '../types/http-request-body.type';
 
 interface IPendingRequest<T = any> {
+	/** Key the request is registered under, so a participant can release it. */
+	key: string;
 	/** The fully-interceptored response promise shared by all participants. */
 	promise: Promise<IHttpResponse<T>>;
 	/** Controls the single underlying fetch. */
@@ -29,6 +31,8 @@ export interface IRequestIdentity {
 	credentials?: RequestCredentials;
 	mode?: RequestMode;
 	body?: HttpRequestBody;
+	/** How the body is decoded — a blob and a parsed object are not the same response. */
+	responseType?: string;
 }
 
 export class RequestManager {
@@ -57,7 +61,8 @@ export class RequestManager {
 			headers,
 			identity.credentials ?? '',
 			identity.mode ?? '',
-			identity.body === undefined || identity.body === null ? '' : this.serializeBody(identity.body)
+			identity.body === undefined || identity.body === null ? '' : this.serializeBody(identity.body),
+			identity.responseType ?? ''
 		]);
 	}
 
@@ -99,6 +104,7 @@ export class RequestManager {
 		signal?: AbortSignal
 	): Promise<IHttpResponse<T>> {
 		const pending: IPendingRequest<T> = {
+			key,
 			promise,
 			abortController,
 			remainingParticipants: 0,
@@ -112,8 +118,8 @@ export class RequestManager {
 		// when every caller aborts early, nobody is left to observe the shared
 		// rejection — observe it here so it never surfaces as unhandled.
 		promise.then(
-			() => this.removePendingRequest(key),
-			() => this.removePendingRequest(key)
+			() => this.removePendingRequest(key, pending),
+			() => this.removePendingRequest(key, pending)
 		);
 
 		return promise;
@@ -149,6 +155,11 @@ export class RequestManager {
 			pending.remainingParticipants--;
 			if (pending.remainingParticipants === 0) {
 				pending.abortController.abort(signal.reason);
+				// Forget the request NOW. Its rejection only propagates a few
+				// microtasks later; until then a new caller for the same key
+				// would join a request that is already dead and be rejected
+				// with an AbortError it never asked for.
+				this.removePendingRequest(pending.key, pending);
 			}
 		};
 
@@ -160,16 +171,26 @@ export class RequestManager {
 		}
 	}
 
-	private removePendingRequest(key: string): void {
-		const pending = this._pendingRequests.get(key);
-		if (pending) {
+	/**
+	 * Release `pending` — but only if it is still the request registered under
+	 * `key`. A replacement registered after this one was abandoned must not be
+	 * dropped when the abandoned request finally settles.
+	 */
+	private removePendingRequest(key: string, pending: IPendingRequest): void {
+		if (this._pendingRequests.get(key) === pending) {
 			this.releasePendingRequest(key, pending);
+		} else {
+			this.detachParticipants(pending);
 		}
 	}
 
 	/** Forget a request and detach every participant listener it registered. */
 	private releasePendingRequest(key: string, pending: IPendingRequest): void {
 		this._pendingRequests.delete(key);
+		this.detachParticipants(pending);
+	}
+
+	private detachParticipants(pending: IPendingRequest): void {
 		const cleanups = pending.cleanups;
 		pending.cleanups = [];
 		for (const cleanup of cleanups) {
@@ -185,6 +206,7 @@ export class RequestManager {
 			body instanceof FormData ||
 			body instanceof Blob ||
 			body instanceof ArrayBuffer ||
+			ArrayBuffer.isView(body) ||
 			body instanceof ReadableStream
 		) {
 			return `opaque:${++this._opaqueCounter}`;

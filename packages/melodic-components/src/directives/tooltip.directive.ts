@@ -107,8 +107,9 @@ function createState(element: Element): TooltipDirectiveState {
 	const state: TooltipDirectiveState = { tooltip, pendingRemoval: false, ownsDescribedBy: false, show, hide };
 
 	// Mirror ml-tooltip's slotted-trigger ARIA wiring. The content lives inside
-	// the tooltip's shadow root, so an IDREF would resolve to nothing —
-	// describe the element with the content ELEMENT instead.
+	// the tooltip's shadow root, where neither an IDREF nor an element
+	// reference from this element can reach — its text is copied onto the
+	// element as `aria-description` instead.
 	//
 	// The tooltip has only just been created here, so its shadow content does
 	// not exist yet; wiring it synchronously silently described nothing at all.
@@ -153,6 +154,26 @@ function describeWhenReady(element: Element, tooltip: TooltipHostElement, state:
 		});
 }
 
+/**
+ * The description is the tooltip's text copied onto the element, so it must
+ * be refreshed once the tooltip has re-rendered with new content.
+ */
+function redescribeAfterRender(element: Element, state: TooltipDirectiveState): void {
+	if (!state.ownsDescribedBy) {
+		return; // first render (describeWhenReady handles it) or consumer-owned
+	}
+
+	const refresh = (): void => {
+		const content = state.tooltip.shadowRoot?.querySelector('.ml-tooltip__content') as HTMLElement | null;
+		if (content && !state.pendingRemoval && state.ownsDescribedBy) {
+			setCrossRootDescription(element, [content]);
+		}
+	};
+
+	void Promise.resolve().then(refresh);
+	setTimeout(refresh, 0);
+}
+
 function destroyState(element: Element, state: TooltipDirectiveState): void {
 	element.removeEventListener('mouseenter', state.show);
 	element.removeEventListener('mouseleave', state.hide);
@@ -160,8 +181,8 @@ function destroyState(element: Element, state: TooltipDirectiveState): void {
 	element.removeEventListener('focusout', state.hide);
 
 	if (state.ownsDescribedBy) {
+		state.ownsDescribedBy = false;
 		clearCrossRootDescription(element);
-		element.removeAttribute('aria-describedby');
 	}
 
 	state.tooltip.anchorEl = null;
@@ -196,6 +217,7 @@ function tooltipDirective(element: Element, value: unknown): AttributeDirectiveC
 	// tooltip's attributeChangedCallback each time.
 	if (state.tooltip.getAttribute('content') !== content) {
 		state.tooltip.setAttribute('content', content);
+		redescribeAfterRender(element, state);
 	}
 	const resolvedPlacement = placement ?? 'top';
 	if (state.tooltip.getAttribute('placement') !== resolvedPlacement) {

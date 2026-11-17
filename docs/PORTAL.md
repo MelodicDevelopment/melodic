@@ -13,14 +13,13 @@ Portals solve this by rendering the content at a different location (typically `
 
 ## Installation
 
-Import from the portal module to register the directive:
+The directive is built in. It registers itself under the name `portal` when `@melodicdev/core` (or `@melodicdev/core/template`) is imported, so `:portal` works in any template with no extra import.
+
+The directive function and its types are exported for typing and for registering it under another name:
 
 ```typescript
-import './_poc/portal';
-
-// Or import specific exports
-import { portalDirective } from './_poc/portal';
-import type { PortalOptions } from './_poc/portal';
+import { portalDirective } from '@melodicdev/core';
+import type { PortalOptions, PortalValue } from '@melodicdev/core';
 ```
 
 ## Usage
@@ -30,8 +29,7 @@ import type { PortalOptions } from './_poc/portal';
 Teleport an element to `document.body`:
 
 ```typescript
-import { html } from '@melodicdev/core';
-import './_poc/portal';
+import { html, when } from '@melodicdev/core';
 
 html`
   <button @click=${() => this.showModal = true}>Open Modal</button>
@@ -93,6 +91,8 @@ html`<div class="toast" :portal=${{ target: '#notifications', persist: true }}>
 </div>`
 ```
 
+A persisted element is left in the target exactly as it was. The template that rendered it has been torn down, so its bindings no longer update and its `@event` listeners are removed. Nothing removes the element later; remove it yourself when it is no longer needed.
+
 ## API
 
 ### Portal Value Types
@@ -114,6 +114,18 @@ The `:portal` directive accepts three value types:
 :portal=${{ target: this.container, persist: true }}
 ```
 
+These three forms are the exported `PortalValue` type (`string | Element | PortalOptions`).
+
+String targets are resolved with `document.querySelector`, so a selector only finds elements in the document itself, never inside a shadow root. To portal into an element that lives in a shadow root, pass the element.
+
+The directive re-runs when the bound value changes, compared by identity. An options object written inline in the template is a new object on every render, so the portal is cleaned up and re-applied each time: without `persist`, the element is removed from the target and appended again on every render. Keep the options object in a field when the component re-renders while the portal is open:
+
+```typescript
+portalTarget: PortalOptions = { target: '#modal-root' };
+
+html`<div class="modal" :portal=${this.portalTarget}>...</div>`
+```
+
 ### PortalOptions Interface
 
 ```typescript
@@ -131,13 +143,11 @@ interface PortalOptions {
 ### Modal
 
 ```typescript
-import { MelodicComponent, html, css } from '@melodicdev/core';
-import './_poc/portal';
+import { MelodicComponent, html, when } from '@melodicdev/core';
 
 @MelodicComponent({
   selector: 'app-modal-example',
-  template: modalTemplate,
-  styles: modalStyles
+  template: modalTemplate
 })
 export class ModalExampleComponent {
   isOpen = false;
@@ -173,35 +183,34 @@ function modalTemplate(component: ModalExampleComponent) {
     `)}
   `;
 }
+```
 
-function modalStyles() {
-  return css`
-    .modal-overlay {
-      position: fixed;
-      inset: 0;
-      background: rgba(0, 0, 0, 0.5);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      z-index: 1000;
-    }
+The overlay is moved to `document.body`, outside the component's shadow root, so the component's own `styles` do not reach it. Its styles go in a global stylesheet (see [CSS Considerations](#css-considerations)):
 
-    .modal {
-      background: white;
-      border-radius: 8px;
-      padding: 20px;
-      min-width: 300px;
-      max-width: 500px;
-    }
-  `;
+```css
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal {
+  background: white;
+  border-radius: 8px;
+  padding: 20px;
+  min-width: 300px;
+  max-width: 500px;
 }
 ```
 
 ### Tooltip
 
 ```typescript
-import { MelodicComponent, html } from '@melodicdev/core';
-import './_poc/portal';
+import { MelodicComponent, html, when } from '@melodicdev/core';
 
 @MelodicComponent({
   selector: 'app-tooltip',
@@ -258,20 +267,27 @@ function tooltipTemplate(component: TooltipComponent) {
 // In index.html
 <div id="toast-container"></div>
 
-// Toast service
-class ToastService {
-  show(message: string) {
-    // Toast stays even after calling component unmounts
-    const toast = document.createElement('div');
-    toast.innerHTML = `
-      <app-toast
-        message="${message}"
-        :portal=${{ target: '#toast-container', persist: true }}
-      ></app-toast>
-    `;
-  }
+// A component whose message stays behind after the component unmounts
+import { MelodicComponent, html } from '@melodicdev/core';
+import type { PortalOptions } from '@melodicdev/core';
+
+@MelodicComponent({
+  selector: 'app-save-notice',
+  template: saveNoticeTemplate
+})
+export class SaveNoticeComponent {
+  // A field, so the same options object is passed on every render
+  toastTarget: PortalOptions = { target: '#toast-container', persist: true };
+}
+
+function saveNoticeTemplate(component: SaveNoticeComponent) {
+  return html`
+    <div class="toast" :portal=${component.toastTarget}>Changes saved</div>
+  `;
 }
 ```
+
+`:portal` is a template binding: it only does anything inside an `html` template. Writing it into an `innerHTML` string does not run the directive.
 
 ## How It Works
 
@@ -280,7 +296,7 @@ class ToastService {
    - Resolves the target element (from selector or reference)
    - Moves the element to the target using `appendChild`
 
-2. When the source component unmounts:
+2. When the binding is torn down — the source component unmounts, the `when()` branch or list item containing the element is removed, or the bound value changes:
    - The cleanup function is called
    - If `persist: false` (default), the element is removed from the target
    - The placeholder comment is removed
@@ -291,10 +307,13 @@ class ToastService {
 
 | Scenario | Behavior |
 |----------|----------|
+| Value is empty (`undefined`, `null`, `''`) | Console warning, element stays in place |
 | Target not found | Console warning, element stays in place |
-| Target selector invalid | Console warning, element stays in place |
+| Target selector invalid | `document.querySelector` throws a `SyntaxError`; the directive does not catch it |
+| Target is inside a shadow root | A selector does not find it (see [Portal Value Types](#portal-value-types)); pass the element |
 | Element already in target | No-op, returns without moving |
 | Component unmounts | Content removed (unless `persist: true`) |
+| Bound value changes | Cleaned up as on unmount, then portaled to the new target |
 | Multiple portals to same target | All append in order |
 
 ## Best Practices

@@ -102,6 +102,51 @@ describe('ml-date-picker', () => {
 		});
 	});
 
+	// Regression: whatever the field displays must parse back. Locales whose
+	// short date is not N<sep>N<sep>N with a single / . or - (spaces after the
+	// dots, a trailing literal, non-ASCII digits) reverted on every edit.
+	describe('locale round-trip', () => {
+		const locales = ['en-US', 'en-GB', 'de-DE', 'ko-KR', 'hu-HU', 'bg', 'ar-EG', 'ja-JP', 'fa-IR-u-ca-gregory'];
+
+		it.each(locales)('re-committing the displayed text keeps the value (%s)', async (locale) => {
+			el = createComponent('ml-date-picker', { attributes: { locale, value: '2001-02-03' } });
+			await flush();
+
+			const shown = input().value;
+			expect(shown).not.toBe('');
+
+			el.value = '';
+			await flush();
+			changeInput(shown);
+			await flush();
+			expect(el.value).toBe('2001-02-03');
+		});
+
+		it('reads day/month order from the locale', async () => {
+			el = createComponent('ml-date-picker', { attributes: { locale: 'en-GB' } });
+			await flush();
+			changeInput('03/02/2001');
+			await flush();
+			expect(el.value).toBe('2001-02-03');
+		});
+
+		it('still rejects text that is not a date', async () => {
+			el = createComponent('ml-date-picker', { attributes: { locale: 'en-US', value: '2026-02-08' } });
+			await flush();
+			for (const junk of ['tomorrow', '03/15', '03/15/2026 extra', '13/45/2026', '1/2/3/4']) {
+				changeInput(junk);
+				await flush();
+				expect(el.value).toBe('2026-02-08');
+			}
+		});
+
+		it('falls back to the browser locale for a malformed locale tag instead of throwing', async () => {
+			el = createComponent('ml-date-picker', { attributes: { locale: 'not a locale!', value: '2026-02-08' } });
+			await flush();
+			expect(input().value).toMatch(/2026/);
+		});
+	});
+
 	describe('focus behavior on close', () => {
 		it('restores focus to the input on Escape (keyboard dismissal)', async () => {
 			el = createComponent('ml-date-picker');

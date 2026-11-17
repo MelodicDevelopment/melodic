@@ -1,6 +1,10 @@
 import { html, classMap, styleMap, when } from '@melodicdev/core';
 import type { SliderComponent } from './slider.component.js';
 
+// Binding order matters: `min` / `max` / `step` come BEFORE `.value`. A range
+// input clamps a value to the range in force when it is assigned, so writing
+// the value first clamped it to the default 0–100 and `max="1000" value="500"`
+// rendered its thumb at 100.
 export function sliderTemplate(c: SliderComponent) {
 	return html`
 		<div
@@ -28,10 +32,10 @@ export function sliderTemplate(c: SliderComponent) {
 				<input
 					class="ml-slider__input"
 					type="range"
-					.value=${String(c.value)}
 					min=${c.min}
 					max=${c.max}
 					step=${c.step}
+					.value=${String(c.value)}
 					disabled=${c.disabled}
 					aria-label=${c.label || 'Slider'}
 					@input=${c.handleInput}

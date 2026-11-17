@@ -67,8 +67,14 @@ export const copyTemplate = async (source: string, destination: string, replacem
 			continue;
 		}
 
-		const contents = await fs.readFile(sourcePath, 'utf8');
-		const output = replacePlaceholders(contents, replacements);
+		// Binary files (an icon, a font) must be copied byte-for-byte: decoding
+		// them as UTF-8 to substitute placeholders would corrupt them.
+		const buffer = await fs.readFile(sourcePath);
+		if (buffer.includes(0)) {
+			await fs.writeFile(destinationPath, buffer);
+			continue;
+		}
+		const output = replacePlaceholders(buffer.toString('utf8'), replacements);
 		await fs.writeFile(destinationPath, output);
 	}
 };

@@ -32,8 +32,8 @@ const usage = (): void => {
 	console.log('  melodic version');
 	console.log('');
 	console.log('Options:');
-	console.log('  --dry-run   (generate) print the files that would be created without writing');
-	console.log('  --force     (generate) overwrite existing files');
+	console.log('  --dry-run   (generate only) print the files that would be created without writing');
+	console.log('  --force     (generate only) overwrite existing files');
 	console.log('  -h, --help  show this help');
 	console.log('  -v, --version  print the CLI version');
 };
@@ -82,6 +82,26 @@ export const parseCliArgs = (args: string[]): CliArgs => {
 	return { positionals, options: values };
 };
 
+/**
+ * `--dry-run` and `--force` are implemented by `generate` only. Accepting
+ * `--dry-run` on `init`/`add` and then writing files anyway is the one outcome
+ * the flag exists to prevent, so it is refused; `--force` is merely ineffective
+ * there (those commands never overwrite), so it warns.
+ */
+const rejectGenerateOnlyFlags = (command: string, options: CliArgs['options']): void => {
+	if (options['dry-run']) {
+		throw new Error(`--dry-run is only supported by "melodic generate"; "melodic ${command}" would write files. Nothing was changed.`);
+	}
+	if (options.force) {
+		console.warn(`Warning: --force has no effect on "melodic ${command}" — it never overwrites existing files.`);
+	}
+};
+
+/** Quotes a path for the "cd ..." hint when it would not survive a shell unquoted. */
+export const shellQuote = (value: string): string => {
+	return /^[A-Za-z0-9_./@:+-]+$/.test(value) ? value : `"${value.replace(/(["\\$`])/g, '\\$1')}"`;
+};
+
 const logGenerated = (files: string[], options: GenerateOptions): void => {
 	if (options.dryRun) {
 		return;
@@ -127,6 +147,7 @@ export const run = async (args: string[]): Promise<void> => {
 				if (!target) {
 					throw new Error('Target directory is required. Usage: melodic init <directory> [--monorepo] [--app-name <name>]');
 				}
+				rejectGenerateOnlyFlags('init', options);
 				const targetPath = path.resolve(process.cwd(), target);
 				if (options.monorepo) {
 					const appName = options['app-name'] ?? 'app';
@@ -136,13 +157,15 @@ export const run = async (args: string[]): Promise<void> => {
 				}
 				console.log('Melodic project created.');
 				console.log('Next steps:');
-				console.log(`  cd ${target}`);
+				console.log(`  cd ${shellQuote(target)}`);
 				console.log('  npm install');
 				console.log('  npm run dev');
+				console.log('Optional: "melodic add testing" sets up Vitest with a component test example.');
 				break;
 			}
 			case 'add': {
 				const type = rest[0];
+				rejectGenerateOnlyFlags('add', options);
 				if (type === 'config') {
 					const targetPath = path.resolve(process.cwd(), options.path ?? '.');
 					await addConfig(targetPath);

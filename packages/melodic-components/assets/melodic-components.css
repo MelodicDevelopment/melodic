@@ -7,11 +7,7 @@
 
 @font-face {
 	font-family: 'Phosphor-Bold';
-	src:
-		url('./fonts/phosphor/Phosphor-Bold.woff2') format('woff2'),
-		url('./fonts/phosphor/Phosphor-Bold.woff') format('woff'),
-		url('./fonts/phosphor/Phosphor-Bold.ttf') format('truetype'),
-		url('./fonts/phosphor/Phosphor-Bold.svg#Phosphor-Bold') format('svg');
+	src: url('./fonts/phosphor/Phosphor-Bold.woff2') format('woff2');
 	font-weight: normal;
 	font-style: normal;
 	font-display: block;
@@ -19,11 +15,7 @@
 
 @font-face {
 	font-family: 'Phosphor-Fill';
-	src:
-		url('./fonts/phosphor/Phosphor-Fill.woff2') format('woff2'),
-		url('./fonts/phosphor/Phosphor-Fill.woff') format('woff'),
-		url('./fonts/phosphor/Phosphor-Fill.ttf') format('truetype'),
-		url('./fonts/phosphor/Phosphor-Fill.svg#Phosphor-Fill') format('svg');
+	src: url('./fonts/phosphor/Phosphor-Fill.woff2') format('woff2');
 	font-weight: normal;
 	font-style: normal;
 	font-display: block;
@@ -31,11 +23,7 @@
 
 @font-face {
 	font-family: 'Phosphor-Light';
-	src:
-		url('./fonts/phosphor/Phosphor-Light.woff2') format('woff2'),
-		url('./fonts/phosphor/Phosphor-Light.woff') format('woff'),
-		url('./fonts/phosphor/Phosphor-Light.ttf') format('truetype'),
-		url('./fonts/phosphor/Phosphor-Light.svg#Phosphor-Light') format('svg');
+	src: url('./fonts/phosphor/Phosphor-Light.woff2') format('woff2');
 	font-weight: normal;
 	font-style: normal;
 	font-display: block;
@@ -43,11 +31,7 @@
 
 @font-face {
 	font-family: 'Phosphor';
-	src:
-		url('./fonts/phosphor/Phosphor.woff2') format('woff2'),
-		url('./fonts/phosphor/Phosphor.woff') format('woff'),
-		url('./fonts/phosphor/Phosphor.ttf') format('truetype'),
-		url('./fonts/phosphor/Phosphor.svg#Phosphor') format('svg');
+	src: url('./fonts/phosphor/Phosphor.woff2') format('woff2');
 	font-weight: normal;
 	font-style: normal;
 	font-display: block;
@@ -55,11 +39,7 @@
 
 @font-face {
 	font-family: 'Phosphor-Thin';
-	src:
-		url('./fonts/phosphor/Phosphor-Thin.woff2') format('woff2'),
-		url('./fonts/phosphor/Phosphor-Thin.woff') format('woff'),
-		url('./fonts/phosphor/Phosphor-Thin.ttf') format('truetype'),
-		url('./fonts/phosphor/Phosphor-Thin.svg#Phosphor-Thin') format('svg');
+	src: url('./fonts/phosphor/Phosphor-Thin.woff2') format('woff2');
 	font-weight: normal;
 	font-style: normal;
 	font-display: block;
@@ -373,6 +353,19 @@
 
 	/* Default to light color scheme */
 	color-scheme: light;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	:root {
+		--ml-duration-75: 0ms;
+		--ml-duration-100: 0ms;
+		--ml-duration-150: 0ms;
+		--ml-duration-200: 0ms;
+		--ml-duration-300: 0ms;
+		--ml-duration-500: 0ms;
+		--ml-duration-700: 0ms;
+		--ml-duration-1000: 0ms;
+	}
 }
 
 /* ─── Light Theme ─────────────────────────────────────────────────────────── */

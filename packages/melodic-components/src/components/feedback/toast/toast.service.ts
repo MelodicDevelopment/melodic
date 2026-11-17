@@ -67,6 +67,7 @@ export class ToastService {
 		toast.setAttribute('role', config.variant === 'error' ? 'alert' : 'status');
 
 		container.appendChild(toast);
+		this.raiseContainer(container);
 		this._active.push(toast);
 		toast.addEventListener('ml:dismiss', () => this.forget(toast), { once: true });
 		this.enforceMaxVisible();
@@ -136,5 +137,47 @@ export class ToastService {
 		document.body.appendChild(this._containerEl);
 
 		return this._containerEl;
+	}
+
+	/**
+	 * Put the container in the top layer, above everything already there.
+	 *
+	 * As an ordinary fixed-position child of <body> the container sat UNDER
+	 * any modal `<dialog>` (ml-dialog, ml-drawer), whatever its z-index — a
+	 * toast raised while a dialog was open was hidden behind the backdrop.
+	 * A manual popover is rendered in the top layer; re-showing it for each
+	 * new toast moves it above a dialog opened since the last one.
+	 *
+	 * Note: the platform still makes everything outside an open modal dialog
+	 * inert, so such a toast is visible but its dismiss button is not
+	 * clickable until the dialog closes.
+	 */
+	private raiseContainer(container: HTMLElement): void {
+		if (typeof container.showPopover !== 'function') {
+			return;
+		}
+
+		if (container.getAttribute('popover') !== 'manual') {
+			container.setAttribute('popover', 'manual');
+		}
+
+		// Hiding first re-inserts it at the top of the top layer. Skip that
+		// while the user has focus inside a toast — hiding a popover moves
+		// focus out of it.
+		if (!container.contains(document.activeElement)) {
+			try {
+				container.hidePopover();
+			} catch {
+				// Not showing yet.
+			}
+		}
+
+		try {
+			container.showPopover();
+		} catch {
+			// Popover API refused: fall back to plain fixed positioning
+			// rather than leaving a hidden [popover] element behind.
+			container.removeAttribute('popover');
+		}
 	}
 }

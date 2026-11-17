@@ -5,9 +5,10 @@
 import type { TemplateResult } from '../../classes/template-result.class';
 import { disposeContainerParts } from '../../functions/dispose.functions';
 import { renderDetachedItem } from '../../functions/render-detached.function';
+import { clearBetweenBulk, restoreDirectiveContainer } from '../../functions/marker-range.functions';
 import { directive } from '../functions/directive.function';
 import type { IDirectiveResult } from '../interfaces/idirective-result.interface';
-import { devWarn } from '../../../devtools/dev-mode';
+import { devWarn, isDevMode } from '../../../devtools/dev-mode';
 
 interface RepeatState {
 	items: RepeatItem[];
@@ -19,12 +20,17 @@ interface RepeatState {
 
 interface RepeatItem {
 	key: unknown;
+	/**
+	 * Holds the item's part tree. A NEW item's nodes also sit in here until the
+	 * item is inserted; after that the live nodes are whatever lies between
+	 * `start` and `end` — every removal/move walks that range.
+	 */
 	container: DocumentFragment;
 	/**
-	 * The nodes rendered when the item was CREATED — used only to insert a new
-	 * item between its markers, then cleared so a later structure change
-	 * inside the item does not keep the detached original subtree alive.
-	 * Never a live list: every removal/move walks `start`..`end`.
+	 * Always empty. Items used to keep a snapshot of the nodes they were
+	 * created with until insertion; new items are now inserted straight from
+	 * `container`, so there is nothing to snapshot. Kept (empty) because the
+	 * state shape is observable through the part tree.
 	 */
 	nodes: Node[];
 	start: Comment;
@@ -69,7 +75,16 @@ export function repeat<T>(items: T[], keyFn: (item: T, index: number) => unknown
 			};
 
 			// Initial render
-			updateList(items, keyFn, template, state);
+			try {
+				updateList(items, keyFn, template, state);
+			} catch (error) {
+				// keyFn or the item template threw before any state could be
+				// handed back to the engine — undo the marker setup so the
+				// next render can try again instead of failing forever.
+				state.__dispose();
+				restoreDirectiveContainer(container, startMarker, endMarker);
+				throw error;
+			}
 			return state;
 		}
 
@@ -86,40 +101,12 @@ function updateList<T>(
 	state: RepeatState
 ): void {
 	const oldItems = state.items;
-	// Only used to detect duplicates and to look items up by key while
-	// reconciling; it is not kept on the state (nothing ever read it back).
-	const newKeyToIndex = new Map<unknown, number>();
-	const newEntries: {
-		item: RepeatItem;
-		oldIndex: number;
-		isNew: boolean;
-	}[] = [];
 
 	// Compute every key ONCE. keyFn used to be called two or three times per
 	// item per render (key map, fast-path check, reconciliation).
 	const newKeys: unknown[] = new Array(newItems.length);
-	let duplicateKey: unknown;
-	let hasDuplicate = false;
-
 	for (let i = 0; i < newItems.length; i++) {
-		const key = keyFn(newItems[i], i);
-		newKeys[i] = key;
-		if (!hasDuplicate && newKeyToIndex.has(key)) {
-			hasDuplicate = true;
-			duplicateKey = key;
-		}
-		newKeyToIndex.set(key, i);
-	}
-
-	if (hasDuplicate) {
-		// Keyed reconciliation addresses items BY key, so a repeated key means
-		// one entry shadows the other: the shadowed item is neither reused nor
-		// removed, and its DOM and part tree are orphaned on every render.
-		devWarn(
-			'repeat-duplicate-key',
-			`repeat() received a duplicate key (${String(duplicateKey)}). Keys must be unique — with a repeated key one item ` +
-				'shadows the other, leaving orphaned DOM behind on every update. Use a key that is unique per item (an id, not an index into a filtered list).'
-		);
+		newKeys[i] = keyFn(newItems[i], i);
 	}
 
 	// Quick check: if length and all keys are the same, skip expensive reconciliation
@@ -141,6 +128,19 @@ function updateList<T>(
 		}
 	}
 
+	// The key set or order changed. (Duplicate detection lives here, on the
+	// slow path and in dev only — it used to build a Map of every key on
+	// every render, including renders where nothing had changed.)
+	if (isDevMode()) {
+		warnAboutDuplicateKeys(newKeys);
+	}
+
+	// The list was emptied: drop everything in one pass.
+	if (newItems.length === 0) {
+		removeAllItems(state);
+		return;
+	}
+
 	// Track old items by key so we can reuse and remove efficiently. A key may
 	// appear more than once in a malformed list, so each key holds a QUEUE:
 	// every old item is then either reused or removed, never silently dropped.
@@ -157,100 +157,170 @@ function updateList<T>(
 		}
 	}
 
+	const newEntries: {
+		item: RepeatItem;
+		oldIndex: number;
+		isNew: boolean;
+	}[] = [];
+	let reused = 0;
+
 	// Build new items list, reusing when possible
-	for (let i = 0; i < newItems.length; i++) {
-		const item = newItems[i];
-		const key = newKeys[i];
-		const bucket = oldItemsByKey.get(key);
+	try {
+		for (let i = 0; i < newItems.length; i++) {
+			const item = newItems[i];
+			const key = newKeys[i];
+			const bucket = oldItemsByKey.get(key);
 
-		if (bucket && bucket.length > 0) {
-			// Reuse existing item
-			const oldItem = bucket.shift()!;
-			if (bucket.length === 0) {
-				oldItemsByKey.delete(key);
+			if (bucket && bucket.length > 0) {
+				// Reuse existing item
+				const oldItem = bucket.shift()!;
+				if (bucket.length === 0) {
+					oldItemsByKey.delete(key);
+				}
+
+				// Re-render with new data
+				const templateResult = template(item, i);
+				renderDetachedItem(templateResult, oldItem.container, oldItem.start, oldItem.end);
+
+				newEntries.push({
+					item: oldItem,
+					oldIndex: oldIndexByKey.get(key) ?? -1,
+					isNew: false
+				});
+				reused++;
+			} else {
+				// Create new item
+				const repeatItem = createRepeatItem(item, i, key, template);
+				newEntries.push({
+					item: repeatItem,
+					oldIndex: -1,
+					isNew: true
+				});
 			}
-
-			// Re-render with new data
-			const templateResult = template(item, i);
-			renderDetachedItem(templateResult, oldItem.container, oldItem.start, oldItem.end);
-
-			newEntries.push({
-				item: oldItem,
-				oldIndex: oldIndexByKey.get(key) ?? -1,
-				isNew: false
-			});
-		} else {
-			// Create new item
-			const repeatItem = createRepeatItem(item, i, key, template);
-			newEntries.push({
-				item: repeatItem,
-				oldIndex: -1,
-				isNew: true
-			});
 		}
+	} catch (error) {
+		// A template threw part-way through. Nothing has been inserted, moved
+		// or removed yet and `state.items` is untouched, so the list is still
+		// consistent; release the items created for this pass, which no one
+		// will ever reach again.
+		for (const entry of newEntries) {
+			if (entry.isNew) {
+				disposeContainerParts(entry.item.container);
+			}
+		}
+		throw error;
 	}
 
 	// Remove old items that are no longer needed
-	for (const bucket of oldItemsByKey.values()) {
-		for (const oldItem of bucket) {
-			removeItemRange(oldItem);
+	if (reused === 0 && oldItems.length > 0) {
+		// Nothing survived (a full replace): the new items are not in the DOM
+		// yet, so the whole range between the markers is old content.
+		removeAllItems(state);
+	} else {
+		for (const bucket of oldItemsByKey.values()) {
+			for (const oldItem of bucket) {
+				removeItemRange(oldItem);
+			}
 		}
 	}
 
-	if (newEntries.length === 0) {
-		state.items = [];
-		return;
-	}
-
-	const lisPositions = getLisPositions(newEntries);
+	const lisPositions = reused > 0 ? getLisPositions(newEntries) : null;
 	// parentNode, not parentElement: on first commit the markers may still sit
 	// in the template's DocumentFragment (e.g. repeat() at the root of a template).
 	const parent = state.startMarker.parentNode!;
 	let nextSibling: Node = state.endMarker;
 
-	for (let i = newEntries.length - 1; i >= 0; i--) {
+	// Walk backwards placing each item before the one after it. A run of
+	// adjacent NEW items is gathered into one fragment and inserted with a
+	// single DOM operation — creating 1,000 rows used to be 1,000 insertions
+	// into the live tree (plus an intermediate fragment per row).
+	let i = newEntries.length - 1;
+	while (i >= 0) {
 		const entry = newEntries[i];
-		if (entry.isNew) {
-			insertItemRange(entry.item, parent, nextSibling);
-		} else if (!lisPositions.has(i)) {
-			moveItemRange(entry.item, nextSibling);
+
+		if (!entry.isNew) {
+			if (!lisPositions!.has(i)) {
+				moveItemRange(entry.item, nextSibling);
+			}
+			nextSibling = entry.item.start;
+			i--;
+			continue;
 		}
-		nextSibling = entry.item.start;
+
+		let runStart = i;
+		while (runStart > 0 && newEntries[runStart - 1].isNew) {
+			runStart--;
+		}
+
+		const fragment = document.createDocumentFragment();
+		for (let j = runStart; j <= i; j++) {
+			const item = newEntries[j].item;
+			fragment.appendChild(item.start);
+			// Appending the container moves its children; the (now empty)
+			// fragment stays behind as the holder of the item's part tree.
+			fragment.appendChild(item.container);
+			fragment.appendChild(item.end);
+		}
+		parent.insertBefore(fragment, nextSibling);
+
+		nextSibling = newEntries[runStart].item.start;
+		i = runStart - 1;
 	}
 
 	// Update state
-	state.items = newEntries.map((entry) => entry.item);
+	const nextItems: RepeatItem[] = new Array(newEntries.length);
+	for (let j = 0; j < newEntries.length; j++) {
+		nextItems[j] = newEntries[j].item;
+	}
+	state.items = nextItems;
+}
+
+function warnAboutDuplicateKeys(keys: unknown[]): void {
+	const seen = new Set<unknown>();
+
+	for (const key of keys) {
+		if (seen.has(key)) {
+			// Keyed reconciliation addresses items BY key, so a repeated key means
+			// one entry shadows the other: the shadowed item is neither reused nor
+			// removed, and its DOM and part tree are orphaned on every render.
+			devWarn(
+				'repeat-duplicate-key',
+				`repeat() received a duplicate key (${String(key)}). Keys must be unique — with a repeated key one item ` +
+					'shadows the other, leaving orphaned DOM behind on every update. Use a key that is unique per item (an id, not an index into a filtered list).'
+			);
+			return;
+		}
+		seen.add(key);
+	}
 }
 
 function createRepeatItem<T>(item: T, index: number, key: unknown, template: (item: T, index: number) => TemplateResult): RepeatItem {
 	const templateResult = template(item, index);
 
-	// Always render via renderOnce so the item's container retains its update
-	// parts. This lets same-key items update their content in place on re-render
-	// (renderInto diffs against the stored parts). A previous "compiled fast
-	// path" using createDirect() produced no parts and silently dropped in-place
-	// updates — correctness over the micro-optimization.
+	// Render into a container that retains the item's update parts. This lets
+	// same-key items update their content in place on re-render (renderInto
+	// diffs against the stored parts). A previous "compiled fast path" using
+	// createDirect() produced no parts and silently dropped in-place updates —
+	// correctness over the micro-optimization.
 	const container = document.createDocumentFragment();
-	const nodes = templateResult.renderOnce(container);
+	templateResult.renderInto(container);
 
 	return {
 		key,
 		container,
-		nodes,
+		nodes: [],
 		start: document.createComment('repeat-item-start'),
 		end: document.createComment('repeat-item-end')
 	};
 }
 
-function insertItemRange(item: RepeatItem, parent: Node, referenceNode: Node): void {
-	const fragment = document.createDocumentFragment();
-	fragment.appendChild(item.start);
-	for (const node of item.nodes) {
-		fragment.appendChild(node);
+/** Dispose every item and clear the whole range between the list's markers. */
+function removeAllItems(state: RepeatState): void {
+	for (const item of state.items) {
+		disposeContainerParts(item.container);
 	}
-	fragment.appendChild(item.end);
-	parent.insertBefore(fragment, referenceNode);
-	item.nodes = [];
+	clearBetweenBulk(state.startMarker, state.endMarker);
+	state.items = [];
 }
 
 function moveItemRange(item: RepeatItem, referenceNode: Node): void {

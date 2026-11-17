@@ -80,9 +80,9 @@ export const sidebarItemStyles = () => css`
 		box-sizing: border-box;
 		width: 100%;
 		padding: var(--ml-sidebar-item-padding-y, var(--ml-space-2)) var(--ml-sidebar-item-padding-x, var(--ml-space-3));
-		padding-left: calc(var(--ml-sidebar-item-padding-x, var(--ml-space-3)) + (var(--level) * var(--ml-space-5)));
+		padding-inline-start: calc(var(--ml-sidebar-item-padding-x, var(--ml-space-3)) + (var(--level) * var(--ml-space-5)));
 		border: none;
-		border-left: var(--ml-sidebar-item-active-indicator-width, 0px) solid transparent;
+		border-inline-start: var(--ml-sidebar-item-active-indicator-width, 0px) solid transparent;
 		border-radius: var(--ml-sidebar-item-radius, var(--ml-radius));
 		background: transparent;
 		color: var(--ml-sidebar-item-color, var(--ml-color-text-secondary));
@@ -90,7 +90,7 @@ export const sidebarItemStyles = () => css`
 		font-size: var(--ml-sidebar-item-font-size, var(--ml-text-sm));
 		font-weight: var(--ml-sidebar-item-font-weight, var(--ml-font-medium));
 		line-height: var(--ml-sidebar-item-line-height, var(--ml-leading-tight));
-		text-align: left;
+		text-align: start;
 		text-decoration: none;
 		cursor: pointer;
 		transition:
@@ -111,7 +111,7 @@ export const sidebarItemStyles = () => css`
 	.ml-sidebar-item__link--active {
 		background-color: var(--ml-sidebar-item-active-bg, var(--ml-color-primary));
 		color: var(--ml-sidebar-item-active-color, var(--ml-color-text-inverse));
-		border-left-color: var(--ml-sidebar-item-active-indicator-color, transparent);
+		border-inline-start-color: var(--ml-sidebar-item-active-indicator-color, transparent);
 	}
 
 	.ml-sidebar-item__link--active:hover {

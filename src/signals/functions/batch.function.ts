@@ -158,8 +158,12 @@ export function batch<T>(fn: () => T): T {
 		return fn();
 	} finally {
 		batchDepth--;
-		if (batchDepth === 0) {
-			flushBatch();
-		}
+		// `flush()`, not `flushBatch()`: a batch closed from inside an effect
+		// or subscriber is already inside a flush. Re-entering the drain loop
+		// reset `flushing` and the per-flush run counts when the inner call
+		// returned, so the rest of the outer flush stopped coalescing (an
+		// effect with two dependencies ran once per write). The outer loop
+		// picks the batched work up on its next pass.
+		flush();
 	}
 }

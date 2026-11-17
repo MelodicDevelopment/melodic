@@ -1,5 +1,5 @@
 import type { ComponentMeta } from '../types/component-meta.type';
-import { attributeTypes } from '../types/component-meta.type';
+import { attributeNames, attributeTypes } from '../types/component-meta.type';
 import type { Component } from '../types/component.type';
 import { render } from '../../template/functions/render.function';
 import type { Unsubscriber } from '../../signals/types/unsubscriber.type';
@@ -7,13 +7,18 @@ import type { Signal } from '../../signals/types/signal.type';
 import { isSignal } from '../../signals/functions/is-signal.function';
 import type { IRenderedContainer } from '../../template/interfaces/irendered-container.interface';
 import { disposeParts } from '../../template/functions/dispose.functions';
-import { applyGlobalStyles } from '../styles/apply-global-styles.function';
-import { getComponentStyleSheet } from '../styles/component-style-sheets.function';
+import { applyGlobalStyles, getGlobalStyleSheets, getGlobalStyleTexts } from '../styles/apply-global-styles.function';
+import {
+	getComponentStyleSheet,
+	getComponentStyleText,
+	getStyleSheetsForDocument,
+	supportsConstructedStyleSheets
+} from '../styles/component-style-sheets.function';
 import { AbstractControl } from '../../forms/classes/abstract-control.class';
 import { getActiveComponent, setActiveComponent } from '../functions/active-component.functions';
 import { SignalEffect } from '../../signals/classes/signal-effect.class';
 import { untracked } from '../../signals/functions/untracked.function';
-import { devWarn } from '../../devtools/dev-mode';
+import { devWarn, isDevMode } from '../../devtools/dev-mode';
 import { devtoolsListening, emitDevtools, getHook } from '../../devtools/hook';
 
 /**
@@ -23,6 +28,58 @@ import { devtoolsListening, emitDevtools, getHook } from '../../devtools/hook';
  * overflow and no error, just a wedged tab.
  */
 const MAX_RENDERS_PER_TASK = 25;
+
+/**
+ * A counter that advances once per macrotask in which any component rendered.
+ *
+ * The render-loop guard counts renders "within one task". Each component used
+ * to arm its own `setTimeout(0)` to find the task boundary — one timer and one
+ * closure per component per burst, so mounting a 1,000-row list scheduled
+ * 1,000 timers. One shared timer answers the same question for all of them.
+ */
+let renderTaskEpoch = 0;
+let renderTaskEpochArmed = false;
+
+function currentRenderTaskEpoch(): number {
+	if (!renderTaskEpochArmed) {
+		renderTaskEpochArmed = true;
+		setTimeout(() => {
+			renderTaskEpochArmed = false;
+			renderTaskEpoch++;
+		}, 0);
+	}
+
+	return renderTaskEpoch;
+}
+
+/** kebab-case attribute name → camelCase property name, computed once per name. */
+const attributePropertyNames = new Map<string, string>();
+
+function attributeToProperty(attribute: string): string {
+	let prop = attributePropertyNames.get(attribute);
+	if (prop === undefined) {
+		prop = attribute.replace(/-([a-z])/g, (_, ch: string) => ch.toUpperCase());
+		attributePropertyNames.set(attribute, prop);
+	}
+
+	return prop;
+}
+
+/** Declared attribute coercion types per component definition, resolved once. */
+const declaredTypeCache = new WeakMap<ComponentMeta, Array<[prop: string, type: PropertyType]>>();
+
+/** `name in HTMLElement.prototype`, cached — the answer never changes for a name. */
+const nativePropertyNames = new Map<string, boolean>();
+
+function isNativeElementProperty(prop: string): boolean {
+	let native = nativePropertyNames.get(prop);
+	if (native === undefined) {
+		native = prop in HTMLElement.prototype;
+		nativePropertyNames.set(prop, native);
+	}
+
+	return native;
+}
 
 export interface PendingComponentScope {
 	disposables: Set<{ destroy(): void }>;
@@ -49,7 +106,7 @@ export abstract class ComponentBase extends HTMLElement {
 	private readonly _root: ShadowRoot;
 	// Fallback per-instance <style> element — only used when shared constructed
 	// stylesheets are unavailable (see renderStyles()).
-	private readonly _style: HTMLStyleElement | null;
+	private _style: HTMLStyleElement | null;
 	private _renderScheduled = false;
 	private readonly _booleanProperties: Set<string> = new Set();
 	private readonly _numberProperties: Set<string> = new Set();
@@ -81,8 +138,18 @@ export abstract class ComponentBase extends HTMLElement {
 	// a fallback for reads that happen outside the template.
 	private _renderEffect: SignalEffect | null = null;
 	private _rendersThisTask = 0;
+	// The shared task epoch `_rendersThisTask` was counted in.
+	private _renderTaskEpoch = -1;
+	// Pending recovery timer after the render-loop guard tripped (rare).
 	private _renderBurstReset: ReturnType<typeof setTimeout> | null = null;
 	private _renderLoopReported = false;
+	// True while the single catch-up render granted after a trip is running;
+	// a trip during it is a real loop and gets no second chance.
+	private _renderCatchingUp = false;
+	// Teardown destroyed resources this component owned (computeds, effects,
+	// forms). They cannot be recreated if the element is attached again.
+	private _ownedResourcesDestroyed = false;
+	private _onDestroyRan = false;
 	/** DevTools id, assigned only when something is listening. */
 	private _devtoolsId = 0;
 	private _renderCount = 0;
@@ -97,14 +164,18 @@ export abstract class ComponentBase extends HTMLElement {
 		// Components may declare attribute→property coercion types explicitly for
 		// properties whose initial value doesn't reveal the type (e.g. `open?: boolean`):
 		//   static propertyTypes = { open: 'boolean', offset: 'number' };
-		const declaredTypes = {
-			// `attributes: { open: 'boolean' }` is the preferred form; the older
-			// `static propertyTypes` still works and wins on conflict.
-			...attributeTypes(meta.attributes),
-			...((component.constructor as { propertyTypes?: Record<string, PropertyType> }).propertyTypes ?? {})
-		};
-		for (const [attribute, type] of Object.entries(declaredTypes)) {
-			const prop = attribute.replace(/-([a-z])/g, (_, ch: string) => ch.toUpperCase());
+		// Resolved once per component definition rather than per instance.
+		let declaredTypes = declaredTypeCache.get(meta);
+		if (!declaredTypes) {
+			declaredTypes = Object.entries({
+				// `attributes: { open: 'boolean' }` is the preferred form; the older
+				// `static propertyTypes` still works and wins on conflict.
+				...attributeTypes(meta.attributes),
+				...((component.constructor as { propertyTypes?: Record<string, PropertyType> }).propertyTypes ?? {})
+			}).map(([attribute, type]): [string, PropertyType] => [attributeToProperty(attribute), type]);
+			declaredTypeCache.set(meta, declaredTypes);
+		}
+		for (const [prop, type] of declaredTypes) {
 			if (type === 'boolean') this._booleanProperties.add(prop);
 			else if (type === 'number') this._numberProperties.add(prop);
 			else if (type === 'string') this._stringProperties.add(prop);
@@ -205,6 +276,24 @@ export abstract class ComponentBase extends HTMLElement {
 		// so moving the element in the DOM does not destroy its state.
 		this._teardownScheduled = false;
 
+		if (this._destroyed) {
+			// Attached again after its teardown ran (a cached view, a
+			// drag-and-drop library, a node a template toggles in and out).
+			// Bring the framework side back to life: without this the element
+			// rendered through a fresh render effect that no later disconnect
+			// ever destroyed, and its field subscriptions stayed dead.
+			this._destroyed = false;
+
+			if (this._ownedResourcesDestroyed) {
+				devWarn(
+					`reconnect-after-destroy:${this._meta.selector}`,
+					`<${this._meta.selector}> was attached again after it had been destroyed. Its template and handlers are restored, ` +
+						'but the computeds, effects, forms and store selections it owned were destroyed with it and cannot be recreated — ' +
+						'reading one now throws. Keep the element attached (moving it within the same task is fine), or create a new element instead of re-using this one.'
+				);
+			}
+		}
+
 		emitDevtools('component:connect', () => ({ id: this.devtoolsId(), selector: this._meta.selector }));
 
 		this.subscribeReactiveSources();
@@ -260,7 +349,7 @@ export abstract class ComponentBase extends HTMLElement {
 	}
 
 	public attributeChangedCallback(attribute: string, oldVal: unknown, newVal: unknown): void {
-		const prop = attribute.replace(/-([a-z])/g, (_, ch: string) => ch.toUpperCase());
+		const prop = attributeToProperty(attribute);
 		const component = this._component as unknown as Record<string, unknown>;
 
 		const current = component[prop];
@@ -329,6 +418,8 @@ export abstract class ComponentBase extends HTMLElement {
 			clearTimeout(this._renderBurstReset);
 			this._renderBurstReset = null;
 		}
+		this._renderCatchingUp = false;
+		this._renderLoopReported = false;
 
 		this._renderEffect?.destroy();
 		this._renderEffect = null;
@@ -353,10 +444,16 @@ export abstract class ComponentBase extends HTMLElement {
 		// before they're destroyed. Framework cleanup runs in `finally`: a
 		// throwing hook must not leave subscriptions and signals alive.
 		try {
-			if (this._component.onDestroy !== undefined) {
+			// Once per component, even if the element is attached and removed
+			// again afterwards: the hook's contract is "permanent removal".
+			if (this._component.onDestroy !== undefined && !this._onDestroyRan) {
+				this._onDestroyRan = true;
 				untracked(() => this._component.onDestroy!());
 			}
 		} finally {
+			if (this._disposables.size > 0) {
+				this._ownedResourcesDestroyed = true;
+			}
 			for (const d of this._disposables) {
 				try {
 					d.destroy();
@@ -390,9 +487,68 @@ export abstract class ComponentBase extends HTMLElement {
 		}
 
 		const styleNode: HTMLStyleElement = document.createElement('style');
-		render(this._meta.styles(), styleNode);
+		styleNode.textContent = getComponentStyleText(this._meta.styles);
 
 		return this._root.appendChild(styleNode);
+	}
+
+	/**
+	 * The element moved to another document (into an iframe, a new window).
+	 *
+	 * A constructed stylesheet belongs to the document that built it, and the
+	 * platform empties `adoptedStyleSheets` when a shadow root changes
+	 * document — so the component arrived unstyled and nothing put the styles
+	 * back. Rebuild them for the new document, or fall back to a `<style>`
+	 * element where that document cannot construct sheets.
+	 */
+	public adoptedCallback(): void {
+		const componentStyles = this._meta.styles;
+		const atHome = this.ownerDocument === document;
+
+		let sheets: CSSStyleSheet[] | null = null;
+		const texts: string[] = [...getGlobalStyleTexts()];
+		if (componentStyles) {
+			texts.push(getComponentStyleText(componentStyles));
+		}
+
+		if (texts.length === 0) {
+			return;
+		}
+
+		if (atHome) {
+			const componentSheet = componentStyles ? getComponentStyleSheet(componentStyles) : null;
+			if (!componentStyles || componentSheet) {
+				sheets = [...getGlobalStyleSheets()];
+				if (componentSheet) {
+					sheets.push(componentSheet);
+				}
+			}
+		} else {
+			sheets = getStyleSheetsForDocument(this.ownerDocument, texts);
+		}
+
+		if (sheets) {
+			try {
+				this._root.adoptedStyleSheets = sheets;
+				// A `<style>` left behind by an earlier trip through a document
+				// without constructed sheets would now apply everything twice.
+				if (this._style && supportsConstructedStyleSheets()) {
+					this._style.remove();
+					this._style = null;
+				}
+				return;
+			} catch {
+				// Fall through to the element fallback.
+			}
+		}
+
+		if (!this._style) {
+			this._style = this.ownerDocument.createElement('style');
+		}
+		this._style.textContent = texts.join('\n');
+		if (this._style.parentNode !== this._root) {
+			this._root.appendChild(this._style);
+		}
 	}
 
 	/**
@@ -497,16 +653,15 @@ export abstract class ComponentBase extends HTMLElement {
 	 * guard; components had none, so this reported nothing and simply spun.
 	 */
 	private enteredRenderLoop(): boolean {
+		// A macrotask boundary means the burst was real work (user interaction,
+		// network, timers), not a loop: the count starts again.
+		const epoch = currentRenderTaskEpoch();
+		if (epoch !== this._renderTaskEpoch) {
+			this._renderTaskEpoch = epoch;
+			this._rendersThisTask = 0;
+		}
+
 		if (++this._rendersThisTask <= MAX_RENDERS_PER_TASK) {
-			if (this._renderBurstReset === null) {
-				// A macrotask boundary means the burst was real work (user
-				// interaction, network, timers), not a loop.
-				this._renderBurstReset = setTimeout(() => {
-					this._renderBurstReset = null;
-					this._rendersThisTask = 0;
-					this._renderLoopReported = false;
-				}, 0);
-			}
 			return false;
 		}
 
@@ -517,6 +672,31 @@ export abstract class ComponentBase extends HTMLElement {
 					'A render loop is usually a property or signal written from onRender (or from the template itself), ' +
 					'which schedules the render that writes it again.'
 			);
+		}
+
+		// The renders dropped from here on may have been legitimate — a burst
+		// of awaited updates looks exactly like a loop — and nothing used to
+		// render them later: the DOM stayed on a stale value until some
+		// unrelated change. Grant ONE catch-up render after the task ends. A
+		// real loop trips the guard again during it and is then left stopped.
+		if (this._renderBurstReset === null && !this._renderCatchingUp) {
+			this._renderBurstReset = setTimeout(() => {
+				this._renderBurstReset = null;
+
+				if (!this._dirty || !this.isConnected || this._destroyed) {
+					this._renderLoopReported = false;
+					return;
+				}
+
+				this._renderCatchingUp = true;
+				this.scheduleRender();
+				// Runs after the catch-up render's microtasks have settled.
+				this._renderBurstReset = setTimeout(() => {
+					this._renderBurstReset = null;
+					this._renderCatchingUp = false;
+					this._renderLoopReported = false;
+				}, 0);
+			}, 0);
 		}
 
 		return true;
@@ -586,10 +766,18 @@ export abstract class ComponentBase extends HTMLElement {
 		// after the data props so reassignment swaps the render subscription.
 		const sourceProps: string[] = [];
 
-		const filtered = properties.filter((prop) => {
+		// Fields holding a function (`formatter = (x) => x`). Not reactive data,
+		// but a parent must still be able to pass one in with `.formatter=${fn}`.
+		const functionFields: string[] = [];
+
+		// Reactive data props, with the descriptor found while classifying them
+		// (looked up once per property, not once per pass).
+		const dataProps: Array<[prop: string, descriptor: PropertyDescriptor | undefined]> = [];
+
+		for (const prop of properties) {
 			// Skip private properties (convention) and framework-internal fields.
 			if (prop.startsWith('_') || prop === 'elementRef' || prop === 'constructor') {
-				return false;
+				continue;
 			}
 
 			const descriptor = this.getPropertyDescriptor(this._component, prop);
@@ -603,7 +791,7 @@ export abstract class ComponentBase extends HTMLElement {
 			const isServiceAccessor = `__service_${prop}` in this._component;
 			if (descriptor && descriptor.get && (!descriptor.set || isServiceAccessor)) {
 				getterOnly.push(prop);
-				return false;
+				continue;
 			}
 
 			const value = (this._component as any)[prop];
@@ -612,23 +800,26 @@ export abstract class ComponentBase extends HTMLElement {
 			// subscribe to them for re-renders, but don't wrap them as data.
 			if (isSignal(value) || value instanceof AbstractControl) {
 				sourceProps.push(prop);
-				return false;
+				continue;
 			}
 
 			if (typeof value === 'function') {
-				return false;
+				// A function FIELD (own property) is state a parent may replace;
+				// a prototype method is behaviour and stays off the host.
+				if (Object.prototype.hasOwnProperty.call(this._component, prop)) {
+					functionFields.push(prop);
+				}
+				continue;
 			}
 
-			return true;
-		});
+			dataProps.push([prop, descriptor]);
+		}
 
 		for (const prop of sourceProps) {
 			this.observeReactiveSource(prop);
 		}
 
-		for (const prop of filtered) {
-			const descriptor = this.getPropertyDescriptor(this._component, prop);
-
+		for (const [prop, descriptor] of dataProps) {
 			// Check if wrapper already has a value set (from property binding before observe ran)
 			const wrapperValue = Object.getOwnPropertyDescriptor(this, prop)?.value;
 			let value = wrapperValue === undefined ? (this._component as any)[prop] : wrapperValue;
@@ -645,7 +836,9 @@ export abstract class ComponentBase extends HTMLElement {
 			let componentGetter = () => value;
 			let componentSetter = (newVal: unknown) => {
 				if (!Object.is(value, newVal)) {
-					this._component.onPropertyChange?.(prop, value, newVal);
+					// untracked: a parent's render effect can be active while it writes
+					// this property; the hook's reads belong to the component, not to it.
+					untracked(() => this._component.onPropertyChange?.(prop, value, newVal));
 					value = newVal;
 					this.scheduleRender();
 				}
@@ -681,7 +874,7 @@ export abstract class ComponentBase extends HTMLElement {
 			// `slot`, `dir` or `tabIndex` broke the platform behaviour they name:
 			// `el.setAttribute('hidden', '')` left `el.hidden === false` and the
 			// element stayed visible.
-			if (prop in HTMLElement.prototype) {
+			if (isNativeElementProperty(prop)) {
 				devWarn(
 					`native-prop:${this._meta.selector}:${prop}`,
 					`<${this._meta.selector}> declares a property "${prop}", which is also a native HTMLElement property. ` +
@@ -714,6 +907,140 @@ export abstract class ComponentBase extends HTMLElement {
 				enumerable: true,
 				configurable: true
 			});
+		}
+
+		// Fields a parent could not reach before. `.formatter=${fn}`,
+		// `.value=${x}` on a signal field and `.open=${true}` on an observed
+		// attribute with no initializer all landed as a plain property on the
+		// element — no error, no warning, and the component never saw the value.
+		for (const prop of functionFields) {
+			this.exposePassthrough(prop);
+		}
+		for (const prop of sourceProps) {
+			this.exposePassthrough(prop);
+		}
+		for (const attribute of attributeNames(this._meta.attributes)) {
+			const prop = attributeToProperty(attribute);
+			// An attribute pointed at a method is a declaration mistake (warned
+			// about at registration); do not make the method assignable too.
+			if (!seen.has(prop) || typeof (this._component as any)[prop] !== 'function' || Object.prototype.hasOwnProperty.call(this._component, prop)) {
+				this.exposePassthrough(prop);
+			}
+		}
+
+		this.warnAboutUnknownHostProperties();
+	}
+
+	/**
+	 * Expose `prop` on the element as a passthrough to the component field.
+	 *
+	 * The accessor carries no per-instance state, so it is defined once on the
+	 * generated element class rather than on every instance. A value assigned
+	 * before the element was upgraded (a parent template commits its bindings
+	 * before the child is connected) sits on the instance as a plain property,
+	 * where it would shadow the accessor: it is taken off and forwarded.
+	 */
+	private exposePassthrough(prop: string): void {
+		// Never shadow the platform's members or the framework's own.
+		if (prop in ComponentBase.prototype) {
+			return;
+		}
+
+		let pending: unknown;
+		const own = Object.getOwnPropertyDescriptor(this, prop);
+		if (own) {
+			if (own.get || own.set || !own.configurable) {
+				// Already exposed (a reactive data prop or a getter passthrough).
+				return;
+			}
+			pending = own.value;
+			delete (this as unknown as Record<string, unknown>)[prop];
+		}
+
+		const elementClass = Object.getPrototypeOf(this) as object;
+		if (!Object.prototype.hasOwnProperty.call(elementClass, prop)) {
+			Object.defineProperty(elementClass, prop, {
+				get(this: ComponentBase): unknown {
+					return (this._component as unknown as Record<string, unknown>)[prop];
+				},
+				set(this: ComponentBase, value: unknown): void {
+					this.writeFromHost(prop, value);
+				},
+				enumerable: true,
+				configurable: true
+			});
+		}
+
+		// `undefined` means "nothing was bound", matching the data-prop path.
+		if (pending !== undefined) {
+			this.writeFromHost(prop, pending);
+		}
+	}
+
+	/** A write to a passthrough property on the element (see exposePassthrough). */
+	private writeFromHost(prop: string, value: unknown): void {
+		const component = this._component as unknown as Record<string, unknown>;
+		const current = component[prop];
+
+		if (Object.is(current, value)) {
+			return;
+		}
+
+		// A plain value bound to a field that holds a signal is a write TO the
+		// signal — replacing the signal with the value would break every
+		// `this.field()` read in the component.
+		if (isSignal(current) && !isSignal(value)) {
+			try {
+				(current as Signal<unknown>).set(value);
+			} catch (error) {
+				devWarn(
+					`host-write-readonly:${this._meta.selector}:${prop}`,
+					`<${this._meta.selector}>.${prop} holds a read-only signal, so the value bound to it was ignored.`,
+					error
+				);
+			}
+			return;
+		}
+
+		if (current instanceof AbstractControl && !(value instanceof AbstractControl)) {
+			devWarn(
+				`host-write-control:${this._meta.selector}:${prop}`,
+				`<${this._meta.selector}>.${prop} holds a form control; bind a control to it (or bind the value to the control), not a plain value. The write was ignored.`
+			);
+			return;
+		}
+
+		component[prop] = value;
+		this.scheduleRender();
+	}
+
+	/**
+	 * Dev-only: report properties that were assigned to the element before it
+	 * was upgraded but that the component does not declare. This is what a
+	 * `.label=${x}` binding to a field with no initializer leaves behind — the
+	 * field does not exist until something assigns it, so the framework cannot
+	 * see it, and the binding silently does nothing.
+	 */
+	private warnAboutUnknownHostProperties(): void {
+		if (!isDevMode()) {
+			return;
+		}
+
+		for (const prop of Object.keys(this)) {
+			if (prop.startsWith('_')) {
+				continue;
+			}
+
+			const descriptor = Object.getOwnPropertyDescriptor(this, prop);
+			if (!descriptor || descriptor.get || descriptor.set) {
+				continue;
+			}
+
+			devWarn(
+				`unknown-prop:${this._meta.selector}:${prop}`,
+				`A value was bound to <${this._meta.selector}>.${prop}, but the component declares no "${prop}" property, so it was ignored. ` +
+					`Give the field an initializer (\`${prop} = undefined\` is enough) or list it in the component's \`attributes\`.`
+			);
 		}
 	}
 
@@ -750,8 +1077,26 @@ export abstract class ComponentBase extends HTMLElement {
 			for (const unsubscribe of entry.unsubscribers) {
 				unsubscribe();
 			}
-			entry.unsubscribers = entry.signals.map((signal) => signal.subscribe(() => this.scheduleRender()));
+			entry.unsubscribers = this.subscribeSources(entry.signals);
 		}
+	}
+
+	/** Subscribe the render to each source, skipping any that has been destroyed. */
+	private subscribeSources(signals: Array<Signal<unknown>>): Array<Unsubscriber> {
+		const unsubscribers: Array<Unsubscriber> = [];
+
+		for (const source of signals) {
+			try {
+				unsubscribers.push(source.subscribe(() => this.scheduleRender()));
+			} catch {
+				// A destroyed signal refuses new subscribers. That is expected
+				// for a computed this component owned once the element has been
+				// torn down and attached again (see connectedCallback) — it can
+				// never change again, so there is nothing to subscribe to.
+			}
+		}
+
+		return unsubscribers;
 	}
 
 	/** The signals a reactive-source value contributes re-render subscriptions for. */
@@ -800,7 +1145,7 @@ export abstract class ComponentBase extends HTMLElement {
 					return;
 				}
 
-				this._component.onPropertyChange?.(prop, current, newVal);
+				untracked(() => this._component.onPropertyChange?.(prop, current, newVal));
 				current = newVal;
 
 				// Swap the render subscription to the new source.
@@ -811,7 +1156,7 @@ export abstract class ComponentBase extends HTMLElement {
 				entry.signals = this.collectSourceSignals(newVal);
 
 				if (this.isConnected && !this._destroyed) {
-					entry.unsubscribers = entry.signals.map((signal) => signal.subscribe(() => this.scheduleRender()));
+					entry.unsubscribers = this.subscribeSources(entry.signals);
 				}
 
 				this.scheduleRender();

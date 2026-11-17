@@ -1,5 +1,6 @@
 import { describe, it, expect, afterEach } from 'vitest';
 import { createFocusTrap, getDeepActiveElement } from '../../src/utils/accessibility/focus-trap';
+import { getFocusableElements } from '../../src/utils/accessibility/focus-utils';
 
 /** happy-dom reports offsetParent as null; make elements pass the visibility filter. */
 function makeFocusableButton(label: string): HTMLButtonElement {
@@ -134,5 +135,68 @@ describe('getDeepActiveElement', () => {
 
 		expect(document.activeElement).toBe(host);
 		expect(getDeepActiveElement()).toBe(inner);
+	});
+});
+
+describe('focusables inside nested shadow roots', () => {
+	/** A stand-in for <ml-input>: a host whose only focusable lives in its shadow root. */
+	function makeShadowControl(): { host: HTMLElement; inner: HTMLInputElement } {
+		const host = document.createElement('div');
+		const shadow = host.attachShadow({ mode: 'open' });
+		const inner = document.createElement('input');
+		Object.defineProperty(inner, 'offsetParent', { get: () => document.body });
+		shadow.appendChild(inner);
+		return { host, inner };
+	}
+
+	it('getFocusableElements only sees the container tree by default', () => {
+		const container = document.createElement('div');
+		document.body.appendChild(container);
+		const { host } = makeShadowControl();
+		const button = makeFocusableButton('ok');
+		container.append(host, button);
+
+		expect(getFocusableElements(container)).toEqual([button]);
+	});
+
+	it('getFocusableElements({ deep: true }) descends into shadow roots, in tab order', () => {
+		const container = document.createElement('div');
+		document.body.appendChild(container);
+		const { host, inner } = makeShadowControl();
+		const button = makeFocusableButton('ok');
+		container.append(host, button);
+
+		expect(getFocusableElements(container, { deep: true })).toEqual([inner, button]);
+	});
+
+	it('traps Tab across a slotted shadow-hosted control and a native button', () => {
+		// Shadow container with a <slot>, like ml-popover's content element.
+		const popoverHost = document.createElement('div');
+		document.body.appendChild(popoverHost);
+		const shadow = popoverHost.attachShadow({ mode: 'open' });
+		const container = document.createElement('div');
+		container.appendChild(document.createElement('slot'));
+		shadow.appendChild(container);
+
+		const { host, inner } = makeShadowControl();
+		const button = makeFocusableButton('ok');
+		popoverHost.append(host, button);
+
+		const trap = createFocusTrap(container, { autoFocus: false });
+		trap.activate();
+
+		// Tab from the last element (the button) wraps to the shadow input —
+		// it used to wrap to the button itself, leaving the input unreachable.
+		button.focus();
+		const forward = pressTab(button);
+		expect(forward.defaultPrevented).toBe(true);
+		expect(getDeepActiveElement()).toBe(inner);
+
+		// Shift+Tab from the first element (the shadow input) wraps to the button.
+		const backward = pressTab(inner, true);
+		expect(backward.defaultPrevented).toBe(true);
+		expect(getDeepActiveElement()).toBe(button);
+
+		trap.deactivate({ returnFocus: false });
 	});
 });

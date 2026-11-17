@@ -1,0 +1,16 @@
+{
+	"note": "Written by web/benchmark/update-benchmarks.js (npm run benchmark:update). Sizes in bytes.",
+	"version": "4.0.1",
+	"core": {
+		"dev": {
+			"raw": 225799,
+			"gzip": 50783,
+			"brotli": 42857
+		},
+		"min": {
+			"raw": 131756,
+			"gzip": 39219,
+			"brotli": 34369
+		}
+	}
+}

@@ -38,3 +38,49 @@ describe('ml-slider', () => {
 		});
 	});
 });
+
+describe('ml-slider binding order', () => {
+	let el: any;
+
+	afterEach(() => {
+		if (el) removeComponent(el);
+	});
+
+	// A range input clamps a value against the range in force when it is
+	// assigned, so `min`/`max`/`step` must be applied before `.value`.
+	// happy-dom does not clamp, so assert the order the attributes land in.
+	it('applies min / max / step before the value', async () => {
+		const assigned: string[] = [];
+		const proto = HTMLInputElement.prototype;
+		const valueDescriptor = Object.getOwnPropertyDescriptor(proto, 'value')!;
+		const originalSetAttribute = proto.setAttribute;
+
+		Object.defineProperty(proto, 'value', {
+			configurable: true,
+			get: valueDescriptor.get,
+			set(this: HTMLInputElement, v: string) {
+				if (this.type === 'range') assigned.push('value');
+				valueDescriptor.set!.call(this, v);
+			}
+		});
+		proto.setAttribute = function (this: HTMLInputElement, name: string, v: string): void {
+			if (this.type === 'range' && (name === 'min' || name === 'max' || name === 'step')) assigned.push(name);
+			originalSetAttribute.call(this, name, v);
+		};
+
+		try {
+			el = createComponent('ml-slider', { attributes: { value: '500', min: '0', max: '1000', step: '10' } });
+			await flush();
+		} finally {
+			Object.defineProperty(proto, 'value', valueDescriptor);
+			proto.setAttribute = originalSetAttribute;
+		}
+
+		const firstValue = assigned.indexOf('value');
+		expect(firstValue).toBeGreaterThan(-1);
+		for (const name of ['min', 'max', 'step']) {
+			expect(assigned.indexOf(name)).toBeGreaterThan(-1);
+			expect(assigned.indexOf(name)).toBeLessThan(firstValue);
+		}
+	});
+});

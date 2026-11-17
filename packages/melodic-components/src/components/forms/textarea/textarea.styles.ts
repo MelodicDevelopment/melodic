@@ -75,7 +75,7 @@ export const textareaStyles = () => css`
 
 	.ml-textarea__required {
 		color: var(--ml-textarea-required-color, var(--ml-color-danger));
-		margin-left: var(--ml-space-0-5);
+		margin-inline-start: var(--ml-space-0-5);
 	}
 
 	.ml-textarea__field {
@@ -141,7 +141,7 @@ export const textareaStyles = () => css`
 	.ml-textarea__counter {
 		font-size: var(--ml-textarea-counter-font-size, var(--ml-text-xs));
 		color: var(--ml-textarea-counter-color, var(--ml-color-text-muted));
-		margin-left: auto;
+		margin-inline-start: auto;
 	}
 
 	.ml-textarea--resize .ml-textarea__field {
@@ -165,5 +165,16 @@ export const textareaStyles = () => css`
 	.ml-textarea--lg .ml-textarea__field {
 		padding: var(--ml-space-3-5) var(--ml-space-4);
 		font-size: var(--ml-text-base);
+	}
+
+	/*
+	 * Forced colors (Windows High Contrast): box-shadow rings and background
+	 * highlights are not painted there, so focus falls back to a real outline.
+	 */
+	@media (forced-colors: active) {
+		.ml-textarea__field:focus {
+			outline: 2px solid Highlight;
+			outline-offset: 2px;
+		}
 	}
 `;

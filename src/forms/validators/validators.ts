@@ -54,6 +54,9 @@ export const Validators = {
 	pattern(regex: RegExp): ValidatorFn<NullableString> {
 		return (value: NullableString): ValidationErrors | null => {
 			if (!value) return null;
+			// A global/sticky regex keeps `lastIndex` between calls, so the
+			// same value alternated between passing and failing.
+			regex.lastIndex = 0;
 			return !regex.test(value)
 				? { pattern: { code: 'pattern', params: { pattern: regex.toString() } } }
 				: null;

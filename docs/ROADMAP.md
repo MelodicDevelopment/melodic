@@ -1,22 +1,33 @@
 # Roadmap — planned framework capabilities
 
-Items identified in the 2026 full-repo review as worth building, but out of scope for the 3.0 remediation release. Tracked here so they get designed deliberately rather than bolted on.
+Capabilities worth building that have not been scheduled. Tracked here so they get designed deliberately rather than bolted on. Last reconciled against the source on 2026-11-16 (4.0.1).
 
 ## Framework capabilities
 
-- **Auto-registered `effect()`** — a companion to `computed()` that creates and runs a `SignalEffect` bound to the current component's lifetime (disposed on destroy), removing the manual `new SignalEffect(...)` / `run()` ceremony.
 - **Hierarchical / child injectors** — scoped providers per component subtree (route-level services, per-dialog scopes). Requires defining resolution order and disposal semantics.
-- **Router event stream** — `NavigationStart` / `NavigationEnd` / `NavigationCancel` / `NavigationError` observable or signal on `RouterService`, now feasible since 3.0 consolidated the pipeline in one place.
-- **Typed custom-event emit helper** — `emit<T>(host, 'ml:change', detail, options)` with a declared event map per component, replacing hand-rolled `dispatchEvent(new CustomEvent(...))` and standardizing `composed`/`bubbles` defaults.
-- **SSR / jsdom-free testability** — remove module-top-level `window` / `document` access (`src/config/environment.ts`, remaining routing entry points) behind lazy accessors so the packages can at least be imported in a server context.
+- **Importable outside a bundler (prerequisite for SSR and Node-side testing)** — two separate obstacles:
+  1. The published `lib/` is compiled with `moduleResolution: bundler`, so its internal imports are extensionless and use directory imports (`from './bootstrap'`). Node's ESM loader rejects those (`ERR_UNSUPPORTED_DIR_IMPORT`), so `import '@melodicdev/core'` works only through a bundler or Vitest. Fixing it means explicit `.js` specifiers in `src/` (or a post-build rewrite).
+  2. Any remaining module-top-level `window` / `document` access needs to move behind lazy accessors.
+- **Named router outlets / auxiliary routes** — `<router-outlet name>` is still only a child-registration key; real support needs a non-linear match chain.
+- **Typed `html` bindings** — `@click=${'not a function'}` still type-checks. Positional typing of a tagged template's values needs a compiler plugin.
+- **DevTools browser extension** — the in-page hook and `window.melodic` console API shipped in 4.0; the panel that consumes them has not been built.
 
-## Standard decorators migration (major release)
+### Shipped since this list was first written
 
-Migrate from `experimentalDecorators` to TC39 standard decorators. This is **viral**: consumers' tsconfigs are currently locked to the legacy flag by our types. It requires an `accessor`-based redesign of property observation (the current `observe()` getter/setter replacement doesn't map 1:1), so plan it as the headline of the next major (4.0) rather than a patch. Prerequisite spikes:
+- **`effect()`** — 4.0 (`@melodicdev/core/signals`): immediate first run, cleanup functions, `{ name, manual }`.
+- **Router event stream** — 4.0: `RouterService.events`, a signal of navigation lifecycle events.
+- **`emit()` helper** — 4.0 (`@melodicdev/core/components`): `emit(host, 'ml:change', detail)` with `composed` / `bubbles` defaulting to `true`. A per-component declared event map is still open.
+
+## Standard decorators migration (next major)
+
+Migrate from `experimentalDecorators` to TC39 standard decorators. This is **viral**: consumers' tsconfigs are currently locked to the legacy flag by our types. It requires an `accessor`-based redesign of property observation (the current `observe()` getter/setter replacement doesn't map 1:1), so plan it as the headline of a major release rather than a patch. It was originally pencilled in for 4.0 and did not ship there; 4.x still requires `experimentalDecorators: true` and `useDefineForClassFields: false` (see "TypeScript configuration" in the README). Prerequisite spikes:
 
 1. `accessor` field semantics vs. the current `observe()` (initial-value capture, `propertyTypes` coercion, host exposure).
 2. Decorator metadata (`Symbol.metadata`) as the replacement for the current static/prototype bookkeeping in `@MelodicComponent`, `@Inject`, `@Service`.
 3. A compatibility story (can one release support both modes?).
+4. `@Inject` is a **parameter** decorator, which the TC39 proposal does not have at all — constructor injection needs a different surface (`dependencies: [...]` on `@Injectable`, which already exists, or an `inject()` function).
+
+`emitDecoratorMetadata` is *not* part of the lock-in: nothing in the framework reads `design:*` metadata, and the CLI templates no longer set it.
 
 ## Deliberate non-changes
 

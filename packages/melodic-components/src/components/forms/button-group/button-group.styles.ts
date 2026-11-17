@@ -41,10 +41,10 @@ export const buttonGroupStyles = () => css`
 	}
 
 	::slotted(ml-button-group-item) {
-		margin-left: var(--ml-button-group-item-offset, -1px);
+		margin-inline-start: var(--ml-button-group-item-offset, -1px);
 	}
 
 	::slotted(ml-button-group-item:first-child) {
-		margin-left: 0;
+		margin-inline-start: 0;
 	}
 `;

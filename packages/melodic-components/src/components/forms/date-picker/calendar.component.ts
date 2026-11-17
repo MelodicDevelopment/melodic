@@ -1,5 +1,5 @@
 import { MelodicComponent } from '@melodicdev/core';
-import type { IElementRef, OnInit, OnAttributeChange } from '@melodicdev/core';
+import type { IElementRef, OnInit, OnRender } from '@melodicdev/core';
 import { calendarTemplate } from './calendar.template.js';
 import { calendarStyles } from './calendar.styles.js';
 
@@ -78,7 +78,7 @@ function parseYear(val: string | number): number | null {
 	styles: calendarStyles,
 	attributes: ['value', 'min', 'max', 'min-year', 'max-year']
 })
-export class CalendarComponent implements IElementRef, OnInit, OnAttributeChange {
+export class CalendarComponent implements IElementRef, OnInit, OnRender {
 	public elementRef!: HTMLElement;
 
 	/** Selected date in ISO format (YYYY-MM-DD) */
@@ -113,18 +113,10 @@ export class CalendarComponent implements IElementRef, OnInit, OnAttributeChange
 		this.yearPageStart = this.computeYearPageStart(this.viewYear);
 	}
 
-	public onAttributeChange(name: string, _: unknown, newVal: unknown): void {
-		if (name === 'value' && newVal) {
-			this.navigateToValue();
-			this.yearPageStart = this.computeYearPageStart(this.viewYear);
-		}
-	}
-
 	/**
-	 * `.value=${iso}` never writes an attribute, so navigating to a
-	 * programmatically set date only worked when the consumer happened to use
-	 * `setAttribute`. The property hook covers both, since an observed
-	 * attribute write also lands on the property.
+	 * Navigate to a newly set date. This is the only hook needed: an observed
+	 * attribute write lands on the property too, while `.value=${iso}` never
+	 * writes an attribute (so an attribute hook alone missed it).
 	 */
 	public onPropertyChange(name: string, _: unknown, newValue: unknown): void {
 		if (name !== 'value' || !newValue) {
@@ -468,13 +460,94 @@ export class CalendarComponent implements IElementRef, OnInit, OnAttributeChange
 		return (candidates.find((year) => year.isSelected) ?? candidates.find((year) => year.isCurrent) ?? candidates[0]).year;
 	}
 
+	/** Cell to focus once the next render has produced it (month changed by keyboard). */
+	private _pendingFocusKey = '';
+
+	public onRender(): void {
+		if (!this._pendingFocusKey) {
+			return;
+		}
+
+		const key = this._pendingFocusKey;
+		this._pendingFocusKey = '';
+		const cell = this.elementRef.shadowRoot?.querySelector<HTMLButtonElement>(`.ml-calendar__grid button[data-key="${key}"]`);
+		if (cell && !cell.disabled) {
+			cell.focus();
+		}
+	}
+
+	/**
+	 * Day-grid keyboard navigation (WAI-ARIA date picker pattern).
+	 *
+	 * Arrows move by a day / a week and cross month boundaries, PageUp /
+	 * PageDown move by a month (with Shift: a year), Home / End go to the
+	 * start / end of the week. Movement used to be index arithmetic over the
+	 * enabled buttons of the visible month, so it stopped dead at the month's
+	 * edges and jumped unevenly around disabled dates.
+	 *
+	 * Returns true when the key was handled.
+	 */
+	private handleDayGridKey(event: KeyboardEvent, fromIso: string): boolean {
+		const parts = fromIso.split('-').map((part) => Number.parseInt(part, 10));
+		if (parts.length !== 3 || parts.some((part) => Number.isNaN(part))) {
+			return false;
+		}
+		const [year, month, day] = parts;
+		const from = new Date(year, month - 1, day);
+		let target: Date;
+
+		switch (event.key) {
+			case 'ArrowLeft': target = new Date(year, month - 1, day - 1); break;
+			case 'ArrowRight': target = new Date(year, month - 1, day + 1); break;
+			case 'ArrowUp': target = new Date(year, month - 1, day - 7); break;
+			case 'ArrowDown': target = new Date(year, month - 1, day + 7); break;
+			case 'Home': target = new Date(year, month - 1, day - from.getDay()); break;
+			case 'End': target = new Date(year, month - 1, day + (6 - from.getDay())); break;
+			case 'PageUp':
+			case 'PageDown': {
+				const step = (event.key === 'PageUp' ? -1 : 1) * (event.shiftKey ? 12 : 1);
+				const first = new Date(year, month - 1 + step, 1);
+				const lastDay = new Date(first.getFullYear(), first.getMonth() + 1, 0).getDate();
+				target = new Date(first.getFullYear(), first.getMonth(), Math.min(day, lastDay));
+				break;
+			}
+			default:
+				return false;
+		}
+
+		event.preventDefault();
+
+		const iso = toIso(target.getFullYear(), target.getMonth(), target.getDate());
+		if (this.isDisabled(iso)) {
+			return true;
+		}
+
+		this.rovingKey = iso;
+		if (target.getMonth() !== this.viewMonth || target.getFullYear() !== this.viewYear) {
+			// The cell does not exist (or is an inert other-month cell) until
+			// the new month renders; focus it from onRender.
+			this.viewMonth = target.getMonth();
+			this.viewYear = target.getFullYear();
+			this._pendingFocusKey = iso;
+			return true;
+		}
+
+		this.elementRef.shadowRoot?.querySelector<HTMLButtonElement>(`.ml-calendar__grid button[data-key="${iso}"]`)?.focus();
+		return true;
+	}
+
 	public handleGridKeyDown = (event: KeyboardEvent): void => {
 		const key = event.key;
+		const target = event.target as HTMLElement | null;
+		if (!target || target.tagName !== 'BUTTON') return;
+
+		if (this.view === 'day' && this.handleDayGridKey(event, target.dataset.key ?? '')) {
+			return;
+		}
+
 		if (key !== 'ArrowLeft' && key !== 'ArrowRight' && key !== 'ArrowUp' && key !== 'ArrowDown' && key !== 'Home' && key !== 'End') {
 			return;
 		}
-		const target = event.target as HTMLElement | null;
-		if (!target || target.tagName !== 'BUTTON') return;
 		const grid = target.closest('.ml-calendar__grid, .ml-calendar__cell-grid') as HTMLElement | null;
 		if (!grid) return;
 		// Every enabled cell participates in arrow navigation; only one of them

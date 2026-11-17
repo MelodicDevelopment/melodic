@@ -71,10 +71,12 @@ export abstract class ComponentStateBaseService<S extends object> extends Effect
 			console.log(`[ComponentState] Before:`, this._state());
 		}
 
-		// Find and execute reducer
-		const reducer = this._reducerConfig.reducers.find((r) => r.action.type === action.type);
-		if (reducer) {
-			this._state.update((state) => reducer.reducer(state, action));
+		// EVERY reducer registered for this action type, threaded in registration
+		// order — the rule SignalStoreService follows. Taking only the first
+		// match silently dropped the rest.
+		const reducers = this._reducerConfig.reducers.filter((r) => r.action.type === action.type);
+		if (reducers.length > 0) {
+			this._state.update((state) => reducers.reduce((current, r) => r.reducer(current, action), state));
 
 			if (this._debug) {
 				console.log(`[ComponentState] After:`, this._state());

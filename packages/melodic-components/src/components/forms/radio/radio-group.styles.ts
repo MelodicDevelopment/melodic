@@ -21,7 +21,7 @@ export const radioGroupStyles = () => css`
 
 	.ml-radio-group__required {
 		color: var(--ml-color-danger);
-		margin-left: var(--ml-space-0-5);
+		margin-inline-start: var(--ml-space-0-5);
 	}
 
 	.ml-radio-group__options {

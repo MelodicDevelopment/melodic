@@ -79,7 +79,7 @@ export const datePickerStyles = () => css`
 
 	.ml-date-picker__required {
 		color: var(--ml-date-picker-required-color, var(--ml-color-danger));
-		margin-left: var(--ml-space-0-5);
+		margin-inline-start: var(--ml-space-0-5);
 	}
 
 	/* Trigger wrapper */
@@ -230,5 +230,16 @@ export const datePickerStyles = () => css`
 
 	.ml-date-picker__error {
 		color: var(--ml-date-picker-error-color, var(--ml-color-danger));
+	}
+
+	/*
+	 * Forced colors (Windows High Contrast): box-shadow rings and background
+	 * highlights are not painted there, so focus falls back to a real outline.
+	 */
+	@media (forced-colors: active) {
+		.ml-date-picker__trigger:focus-within {
+			outline: 2px solid Highlight;
+			outline-offset: 2px;
+		}
 	}
 `;

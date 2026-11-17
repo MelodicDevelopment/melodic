@@ -75,7 +75,6 @@ export class FormGroup<T = Record<string, unknown>> extends AbstractControl<Form
 	public setValue(value: FormGroupValue<T>, options?: SetValueOptions): void {
 		// One aggregate value/validation pass for the whole write, not one per child.
 		batch(() => {
-			if (this._ownDisabled()) return;
 			const controls = this.controls();
 			const controlKeys = Object.keys(controls);
 			const valueKeys = Object.keys(value as Record<string, unknown>);
@@ -111,7 +110,6 @@ export class FormGroup<T = Record<string, unknown>> extends AbstractControl<Form
 	public patchValue(value: Partial<FormGroupValue<T>>, options?: SetValueOptions): void {
 		// One aggregate value/validation pass for the whole write, not one per child.
 		batch(() => {
-			if (this._ownDisabled()) return;
 			const controls = this.controls();
 			for (const key of Object.keys(value)) {
 				if (value[key as keyof T] !== undefined) {

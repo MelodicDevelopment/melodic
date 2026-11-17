@@ -4,6 +4,7 @@ import { getComponentDefinitions } from '../components/functions/component-regis
 import type { ComponentBase } from '../components/classes/component-base.class';
 import { getHook, type IHookEvent } from './hook';
 import { isDevMode } from './dev-mode';
+import { isSignal } from '../signals/functions/is-signal.function';
 
 /**
  * `window.melodic` — the console half of DevTools.
@@ -83,7 +84,7 @@ export function createConsoleApi(): IMelodicConsoleApi {
 				}
 
 				const value = component[key];
-				if (typeof value === 'function' && '__signal' in (value as object)) {
+				if (isSignal(value)) {
 					sources.push(key);
 					continue;
 				}

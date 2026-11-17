@@ -130,14 +130,14 @@ export const stepStyles = () => css`
 	.ml-step--vertical {
 		flex-direction: row;
 		align-items: stretch;
-		text-align: left;
+		text-align: start;
 	}
 
 	.ml-step--vertical .ml-step__track {
 		display: flex;
 		flex-direction: column;
 		align-items: center;
-		margin-right: var(--ml-step-track-gap, var(--ml-space-3));
+		margin-inline-end: var(--ml-step-track-gap, var(--ml-space-3));
 	}
 
 	.ml-step--vertical .ml-step__connector-before,
@@ -495,7 +495,7 @@ export const stepStyles = () => css`
 		height: auto;
 		min-height: 40px;
 		margin-bottom: 0;
-		margin-right: var(--ml-step-track-gap, var(--ml-space-3));
+		margin-inline-end: var(--ml-step-track-gap, var(--ml-space-3));
 	}
 
 	.ml-step--bar.ml-step--vertical .ml-step__content {

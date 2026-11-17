@@ -58,9 +58,24 @@ export async function bootstrap(config: IAppConfig = {}): Promise<IMelodicApp> {
 	// Anything acquired so far is released if a later step fails: no window
 	// handlers or half-mounted root may outlive a bootstrap that threw.
 	let boundApp: IMelodicApp | null = null;
+	// Cleanup registered by this app's providers (`injector.addTeardown`).
+	let teardowns: Array<() => void> = [];
+
+	const runTeardowns = (): void => {
+		const pending = teardowns;
+		teardowns = [];
+		for (const teardown of pending) {
+			try {
+				teardown();
+			} catch (error) {
+				console.error('[Melodic] Provider teardown failed:', error);
+			}
+		}
+	};
 
 	const rollback = (): void => {
 		removeErrorHandlers();
+		runTeardowns();
 		if (rootElement?.parentNode) {
 			rootElement.parentNode.removeChild(rootElement);
 		}
@@ -81,8 +96,16 @@ export async function bootstrap(config: IAppConfig = {}): Promise<IMelodicApp> {
 		}
 
 		if (config.providers) {
-			for (const provider of config.providers) {
-				provider(Injector);
+			// Drop anything registered outside a bootstrap so this app only
+			// ever runs the teardowns of its own providers.
+			Injector.takeTeardowns();
+
+			try {
+				for (const provider of config.providers) {
+					provider(Injector);
+				}
+			} finally {
+				teardowns = Injector.takeTeardowns();
 			}
 
 			if (devMode) {
@@ -136,6 +159,10 @@ export async function bootstrap(config: IAppConfig = {}): Promise<IMelodicApp> {
 				if (rootElement?.parentNode) {
 					rootElement.parentNode.removeChild(rootElement);
 				}
+
+				// After the root is gone, so components tear down against live
+				// services; then release what the providers took globally.
+				runTeardowns();
 
 				// Release the global binding — but only if it still refers to this
 				// app, so destroying a stale handle never unbinds a newer app.

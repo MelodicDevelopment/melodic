@@ -1,4 +1,5 @@
 import type { TemplateResult } from '../../template/classes/template-result.class';
+import { CssResult } from '../../template/classes/css-result.class';
 import { render } from '../../template/functions/render.function';
 import { disposeContainerParts } from '../../template/functions/dispose.functions';
 
@@ -53,11 +54,7 @@ export function getComponentStyleSheet(stylesFactory: () => TemplateResult): CSS
 		return null;
 	}
 
-	let cssText = cssTextCache.get(stylesFactory);
-	if (cssText === undefined) {
-		cssText = renderStylesToText(stylesFactory());
-		cssTextCache.set(stylesFactory, cssText);
-	}
+	const cssText = getComponentStyleText(stylesFactory);
 
 	let sheet = sheetCache.get(cssText);
 	if (sheet === undefined) {
@@ -74,8 +71,71 @@ export function getComponentStyleSheet(stylesFactory: () => TemplateResult): CSS
 	return sheet;
 }
 
-/** Render a styles TemplateResult to plain CSS text (once per component class). */
+/** The CSS text a styles factory produces, computed once per component class. */
+export function getComponentStyleText(stylesFactory: () => TemplateResult): string {
+	let cssText = cssTextCache.get(stylesFactory);
+	if (cssText === undefined) {
+		cssText = renderStylesToText(stylesFactory());
+		cssTextCache.set(stylesFactory, cssText);
+	}
+
+	return cssText;
+}
+
+/**
+ * Sheets for a document other than the one this module loaded in. A
+ * constructed stylesheet can only be adopted by the document whose
+ * `CSSStyleSheet` constructor built it, so an element moved into an iframe or
+ * a new window needs its own copies. Returns null when that document cannot
+ * construct sheets (no window, or no support) — the caller falls back to a
+ * `<style>` element.
+ */
+const foreignSheets = new WeakMap<Document, Map<string, CSSStyleSheet>>();
+
+export function getStyleSheetsForDocument(ownerDocument: Document, cssTexts: readonly string[]): CSSStyleSheet[] | null {
+	const SheetConstructor = (ownerDocument.defaultView as (Window & { CSSStyleSheet?: typeof CSSStyleSheet }) | null)?.CSSStyleSheet;
+	if (!SheetConstructor || typeof SheetConstructor.prototype.replaceSync !== 'function') {
+		return null;
+	}
+
+	let cache = foreignSheets.get(ownerDocument);
+	if (!cache) {
+		cache = new Map();
+		foreignSheets.set(ownerDocument, cache);
+	}
+
+	const sheets: CSSStyleSheet[] = [];
+	try {
+		for (const cssText of cssTexts) {
+			let sheet = cache.get(cssText);
+			if (!sheet) {
+				sheet = new SheetConstructor();
+				sheet.replaceSync(cssText);
+				cache.set(cssText, sheet);
+			}
+			sheets.push(sheet);
+		}
+	} catch {
+		return null;
+	}
+
+	return sheets;
+}
+
+/**
+ * Styles as plain CSS text (once per component class). A `css` result is
+ * already text; anything else (a styles factory written with `html`, or a
+ * `css` result holding a value only the renderer understands) is rendered
+ * into a detached `<style>` and read back.
+ */
 function renderStylesToText(result: TemplateResult): string {
+	if (result instanceof CssResult) {
+		const cssText = result.cssText;
+		if (cssText !== null) {
+			return cssText;
+		}
+	}
+
 	const host = document.createElement('style');
 	render(result, host);
 	const text = host.textContent ?? '';

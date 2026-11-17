@@ -36,9 +36,9 @@ melodic/
 
 | Package | Version | Description |
 |---------|---------|-------------|
-| `@melodicdev/core` | 3.0.0 | Core framework |
-| `@melodicdev/components` | 3.0.0 | Themeable UI component library |
-| `@melodicdev/cli` | 3.0.0 | CLI scaffolding tool |
+| `@melodicdev/core` | 4.0.1 | Core framework |
+| `@melodicdev/components` | 4.0.1 | Themeable UI component library |
+| `@melodicdev/cli` | 4.0.0 | CLI scaffolding tool |
 
 ## Build Commands
 
@@ -259,7 +259,7 @@ await bootstrap({
 
 // in a component
 @Service(SignalStoreService) private _store!: SignalStoreService<AppState>;
-const count = this._store.select((s) => s.count); // Signal
+const count = this._store.select('count', (count) => count); // Signal — (slice key, selector over that slice)
 this._store.dispatch(increment());
 ```
 
@@ -312,7 +312,8 @@ import { applyTheme, toggleTheme, injectTheme, createBrandTheme } from '@melodic
 import { computePosition, focusTrap, announce, VirtualScroller, resetStyles } from '@melodicdev/components/utils';
 
 // Event/DOM directives
-import { clickOutside } from '@melodicdev/components/directives';
+import { clickOutside } from '@melodicdev/components/utils';
+import { tooltipDirective } from '@melodicdev/components/directives';
 
 // Misc functions
 import { newID } from '@melodicdev/components/functions';
@@ -392,7 +393,7 @@ The underlying `VirtualScroller` class is exported from `@melodicdev/components/
 import { computePosition, autoUpdate, offset, flip, shift, arrow } from '@melodicdev/components/utils';
 import { focusTrap, createFocusTrap, getFocusableElements, announce } from '@melodicdev/components/utils';
 import { focusVisible, isFocusVisible } from '@melodicdev/components/utils';
-import { clickOutside, createClickOutsideHandler } from '@melodicdev/components/utils';
+import { clickOutside } from '@melodicdev/components/utils';
 import { VirtualScroller } from '@melodicdev/components/utils';
 import { resetStyles, visuallyHiddenStyles, componentBaseStyles } from '@melodicdev/components/utils';
 import { newID } from '@melodicdev/components/functions';
@@ -476,29 +477,45 @@ Every component **must** expose component-scoped CSS custom properties for all v
 melodic init <dir> [--monorepo] [--app-name]
 
 # Add to existing project
-melodic add app <name>
-melodic add lib <name>
-melodic add config
+melodic add app <name> [--dir apps]       # --dir may be nested (packages/apps)
+melodic add lib <name> [--dir libs]
+melodic add config [--path .]
+melodic add testing [--path .]            # Vitest + happy-dom + a mount()/flush() example test
 
-# Generate code
-melodic generate component <name>
-melodic generate service <name>
-melodic generate directive <name>
-melodic generate guard <name>
-melodic generate resolver <name>
-# generate supports --dry-run and --force; names must kebab-case to ^[a-z][a-z0-9-]*$
+# Generate code (alias: melodic g)
+melodic generate component <name>            [--path src/components]
+melodic generate directive <name>            [--path src/directives]
+melodic generate attribute-directive <name>  [--path src/directives]
+melodic generate service <name>              [--path src/services]
+melodic generate interceptor <name>          [--path src/http/interceptors]
+melodic generate guard <name>                [--path src/guards]
+melodic generate resolver <name>             [--path src/resolvers]
+melodic generate class <name>                [--path src]
+
+melodic version
 ```
+
+- `--dry-run` and `--force` belong to `generate` only. `init`/`add` refuse `--dry-run` and warn on `--force`.
+- Names are kebab-cased and must match `^[a-z][a-z0-9]*(-[a-z0-9]+)*$`; `generate directive` also refuses JavaScript reserved words (`delete`, `new`, …).
+- `--path`/`--dir` must stay inside the project, including through symlinks.
+- Every CLI change needs a test in `packages/cli/tests/`; CI also scaffolds real projects, runs every generator and type-checks the result.
 
 **Templates:** `app-basic`, `lib-basic`, `monorepo-basic`, `monorepo-app`
 
 ## TypeScript Configuration
 
 - `experimentalDecorators: true` - Required for decorators
-- `emitDecoratorMetadata: true` - Enables decorator metadata
+- `emitDecoratorMetadata: true` - Set in this repo's tsconfig but **not required**: nothing reads `design:*` metadata, and the CLI templates omit it
 - `useDefineForClassFields: false` - Ensures decorator field behavior
 - `verbatimModuleSyntax: true` - Requires `import type` for type-only imports
 
 ## Documentation Files
+
+Top-level references:
+- `USING_MELODIC.md` - For projects that build on Melodic: recommended patterns, rules, mistakes to avoid. Other projects reference this file; keep it current when public behaviour changes
+- `MELODIC_FRAMEWORK.md` - Every `@melodicdev/core` API in one file
+- `MELODIC_COMPONENTS.md` - Every `ml-*` component, token and utility in one file
+- `MIGRATION.md` / `CHANGELOG.md` - Per-version behaviour changes
 
 Core framework docs in `/docs/`:
 - `API_SURFACE.md` - Every export, grouped application / extension / internal

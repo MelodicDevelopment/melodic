@@ -48,7 +48,7 @@ export const radioCardGroupStyles = () => css`
 
 	.ml-radio-card-group__required {
 		color: var(--ml-radio-card-group-required-color, var(--ml-color-danger));
-		margin-left: var(--ml-space-0-5);
+		margin-inline-start: var(--ml-space-0-5);
 	}
 
 	.ml-radio-card-group__options {

@@ -223,3 +223,110 @@ describe('ml-table selection', () => {
 		expect(selectFired).toBe(false);
 	});
 });
+
+describe('ml-table rowKey', () => {
+	let el: any;
+
+	afterEach(() => {
+		if (el) removeComponent(el);
+	});
+
+	const people = [
+		{ id: 'c', name: 'Charlie', age: 30 },
+		{ id: 'a', name: 'Alice', age: 25 },
+		{ id: 'b', name: 'Bob', age: 28 }
+	];
+
+	function rowEls(): HTMLElement[] {
+		return Array.from(el.shadowRoot.querySelectorAll('.ml-table__row'));
+	}
+
+	it('keeps each record on its own row element across a sort when rowKey is set', async () => {
+		el = createComponent('ml-table', { properties: { columns, rows: people, rowKey: 'id' } });
+		await flush();
+
+		const before = rowEls();
+		const charlieEl = before.find((r) => r.textContent!.includes('Charlie'))!;
+		expect(before[0]).toBe(charlieEl);
+
+		el.sortKey = 'name';
+		await flush();
+
+		const after = rowEls();
+		expect(after.map((r) => r.textContent!.replace(/\s+/g, ' ').trim().split(' ')[0])).toEqual(['Alice', 'Bob', 'Charlie']);
+		// Same DOM node, moved — not row 0's node re-filled with another record.
+		expect(after[2]).toBe(charlieEl);
+	});
+
+	it('accepts the row-key attribute and a function', async () => {
+		el = createComponent('ml-table', { attributes: { 'row-key': 'id' }, properties: { columns, rows: people } });
+		await flush();
+		expect(el.rowKey).toBe('id');
+		expect(el.component.getRowKey(people[1], 1)).toBe('a');
+
+		el.rowKey = (row: any) => `k-${row.id}`;
+		expect(el.component.getRowKey(people[1], 1)).toBe('k-a');
+	});
+
+	it('still keys rows by position without a rowKey', async () => {
+		el = createComponent('ml-table', { properties: { columns, rows: people } });
+		await flush();
+		expect(el.component.getRowKey(people[1], 1)).toBe(1);
+	});
+});
+
+describe('ml-table keyboard and semantics', () => {
+	let el: any;
+
+	afterEach(() => {
+		if (el) removeComponent(el);
+	});
+
+	it('makes clickable rows tab stops that activate with Enter and Space', async () => {
+		el = createComponent('ml-table', { attributes: { 'clickable-rows': '' }, properties: { columns, rows: serverOrderedRows } });
+		await flush();
+
+		const row = el.shadowRoot.querySelectorAll('.ml-table__row')[1] as HTMLElement;
+		expect(row.getAttribute('tabindex')).toBe('0');
+
+		for (const key of ['Enter', ' ']) {
+			const clicked = captureEvent<{ row: any; index: number }>(el, 'ml:row-click');
+			const event = new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true });
+			row.dispatchEvent(event);
+			const { detail } = await clicked;
+			expect(detail.row).toBe(serverOrderedRows[1]);
+			expect(detail.index).toBe(1);
+			expect(event.defaultPrevented).toBe(true);
+		}
+	});
+
+	it('does not make rows focusable, or react to keys, without clickable-rows', async () => {
+		el = createComponent('ml-table', { properties: { columns, rows: serverOrderedRows } });
+		await flush();
+
+		const row = el.shadowRoot.querySelector('.ml-table__row') as HTMLElement;
+		expect(row.hasAttribute('tabindex')).toBe(false);
+
+		let fired = false;
+		el.addEventListener('ml:row-click', () => (fired = true));
+		row.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
+		expect(fired).toBe(false);
+	});
+
+	it('ignores keys pressed inside a cell control', async () => {
+		el = createComponent('ml-table', { attributes: { 'clickable-rows': '', selectable: '' }, properties: { columns, rows: serverOrderedRows } });
+		await flush();
+
+		let fired = false;
+		el.addEventListener('ml:row-click', () => (fired = true));
+		const checkbox = el.shadowRoot.querySelector('.ml-table__row .ml-table__checkbox') as HTMLElement;
+		checkbox.dispatchEvent(new KeyboardEvent('keydown', { key: ' ', bubbles: true, cancelable: true }));
+		expect(fired).toBe(false);
+	});
+
+	it('does not claim role="grid" (there is no cell navigation)', async () => {
+		el = createComponent('ml-table', { properties: { columns, rows: serverOrderedRows } });
+		await flush();
+		expect(el.shadowRoot.querySelector('table').hasAttribute('role')).toBe(false);
+	});
+});

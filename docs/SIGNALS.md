@@ -9,9 +9,10 @@ Signals are Melodic's fine-grained reactive primitives. They store a value, noti
 - [Reading and Updating](#reading-and-updating)
 - [Batching Updates](#batching-updates)
 - [Computed Signals](#computed-signals)
-- [Signal Effects](#signal-effects)
+- [Effects](#effects)
 - [Using Signals in Components](#using-signals-in-components)
 - [Destruction](#destruction)
+- [Creating derived state during a render](#creating-derived-state-during-a-render)
 
 ## Overview
 
@@ -32,7 +33,17 @@ count.set(1);
 import { signal } from '@melodicdev/core';
 
 const name = signal('Ada');
-const optional = signal<number>();
+const optional = signal<number>();          // Signal<number | undefined>
+const retries = signal(0, { name: 'retries' }); // label for error messages and DevTools
+```
+
+`isSignal(value)` tells you whether a value is a signal (a computed counts):
+
+```typescript
+import { isSignal } from '@melodicdev/core';
+
+isSignal(name); // true
+isSignal('Ada'); // false
 ```
 
 ## Reading and Updating
@@ -47,6 +58,14 @@ const unsubscribe = count.subscribe((value) => {
 
 unsubscribe();
 ```
+
+A subscriber is called with the new value on each change, not when it subscribes.
+`count.unsubscribe(fn)` removes a subscriber by reference, the same as calling the function
+`subscribe()` returned.
+
+Writes are compared with `Object.is`: setting the value a signal already holds does nothing,
+so mutating an array or object in place and setting the same reference does not notify.
+Set a new array or object instead.
 
 ## Batching Updates
 
@@ -80,7 +99,7 @@ Every write is two-phase. First the written signal **invalidates** its dependent
 
 ## Computed Signals
 
-Computed signals automatically track dependencies and re-run when dependencies change.
+Computed signals automatically track dependencies and recompute when dependencies change.
 
 ```typescript
 import { signal, computed } from '@melodicdev/core';
@@ -93,6 +112,16 @@ console.log(total()); // 20
 price.set(15);
 console.log(total()); // 30
 ```
+
+A computed is **lazy**: the computation does not run when it is created, nor when a source
+changes. A source change marks it dirty, and it recomputes on the next read.
+
+A computed is **read-only**. `computed()` returns a `ReadonlySignal<T>`; calling `.set()` or
+`.update()` on it throws. Update the source signals instead.
+
+`subscribe()` on a computed only fires when the recomputed value actually changed
+(`Object.is`). Effects and other computeds that read it are woken whenever one of its
+sources changes, even if the recomputed value turns out to be equal.
 
 ## Effects
 
@@ -112,6 +141,9 @@ unread.set(3); // title updates
 ref.destroy(); // stop
 ```
 
+`effect()` returns a ref with `run()` (re-run the body), `destroy()` and a `destroyed`
+flag. The first run is synchronous, even when the effect is created inside a `batch()`.
+
 Returning a function registers a cleanup, run before each re-run and once on destroy:
 
 ```typescript
@@ -126,9 +158,11 @@ destroyed with that component, so there is nothing to tear down by hand. Elsewhe
 caller owns it.
 
 Options: `{ name }` labels it in error messages and DevTools; `{ manual: true }` skips the
-immediate first run.
+immediate first run. A manual effect tracks nothing until you call `ref.run()`.
 
-`SignalEffect` remains available as the lower-level primitive `effect()` is built on.
+`SignalEffect` remains available as the lower-level primitive `effect()` is built on:
+`new SignalEffect(fn, { name })`, then `.run()` to start it and `.destroy()` to stop it. It
+has no cleanup function and is not owned by a component.
 
 ### untracked()
 
@@ -188,7 +222,7 @@ export class CounterViewComponent {
 - `signal.destroy()` and `signal.unsubscribe(...)` are idempotent — safe to call any number of times.
 - Unsubscribers returned before destroy can still be invoked safely.
 
-Throwing on access after destroy is intentional. It surfaces stale-reference bugs at the access site rather than silently returning the last-known value. Most signals in a component are destroyed automatically (computeds returned by `select()`, signals owned by `AbstractControl`); if you create raw signals or computeds yourself in long-lived code, call `.destroy()` when you're done with them and don't hold the reference afterwards.
+Throwing on access after destroy is intentional. It surfaces stale-reference bugs at the access site rather than silently returning the last-known value. Most signals in a component are destroyed automatically (computeds and effects created in a field initializer, `onInit` or `onCreate`, computeds returned by `select()`, signals owned by `AbstractControl`); if you create raw signals or computeds yourself in long-lived code, call `.destroy()` when you're done with them and don't hold the reference afterwards.
 
 ```typescript
 const c = signal(0);

@@ -837,4 +837,18 @@ export const calendarViewStyles = () => css`
 		text-align: center;
 		padding: var(--ml-space-6) 0;
 	}
+
+	/*
+	 * Forced colors (Windows High Contrast): box-shadow rings and background
+	 * highlights are not painted there, so focus falls back to a real outline.
+	 */
+	@media (forced-colors: active) {
+		.ml-cv__nav-btn:focus-visible,
+		.ml-cv__today-btn:focus-visible,
+		.ml-cv__view-trigger:focus-visible,
+		.ml-cv__add-btn:focus-visible {
+			outline: 2px solid Highlight;
+			outline-offset: 2px;
+		}
+	}
 `;

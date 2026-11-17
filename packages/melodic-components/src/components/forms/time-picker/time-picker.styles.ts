@@ -126,7 +126,7 @@ export const timePickerStyles = () => css`
 
 	.ml-time-picker__required {
 		color: var(--ml-time-picker-required-color, var(--ml-color-danger));
-		margin-left: var(--ml-space-0-5);
+		margin-inline-start: var(--ml-space-0-5);
 	}
 
 	/* Trigger wrapper */
@@ -191,7 +191,7 @@ export const timePickerStyles = () => css`
 	}
 
 	.ml-time-picker__input::-webkit-date-and-time-value {
-		text-align: left;
+		text-align: start;
 	}
 
 	.ml-time-picker__input:disabled {
@@ -357,7 +357,7 @@ export const timePickerStyles = () => css`
 		flex-direction: column;
 		align-items: center;
 		justify-content: center;
-		margin-left: var(--ml-space-2);
+		margin-inline-start: var(--ml-space-2);
 	}
 
 	.ml-time-picker__period-btn {
@@ -452,5 +452,25 @@ export const timePickerStyles = () => css`
 
 	.ml-time-picker__error {
 		color: var(--ml-time-picker-error-color, var(--ml-color-danger));
+	}
+
+	/*
+	 * Forced colors (Windows High Contrast): box-shadow rings and background
+	 * highlights are not painted there, so focus falls back to a real outline.
+	 */
+	@media (forced-colors: active) {
+		.ml-time-picker__trigger:focus-within,
+		.ml-time-picker__spin-btn:focus-visible,
+		.ml-time-picker__period-btn:focus-visible,
+		.ml-time-picker__now-btn:focus-visible,
+		.ml-time-picker__confirm-btn:focus-visible {
+			outline: 2px solid Highlight;
+			outline-offset: 2px;
+		}
+
+		.ml-time-picker__spin-input:focus {
+			outline: 2px solid Highlight;
+			outline-offset: -2px;
+		}
 	}
 `;

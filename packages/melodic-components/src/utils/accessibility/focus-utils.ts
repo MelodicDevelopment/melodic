@@ -12,26 +12,73 @@ const FOCUSABLE_SELECTOR = [
 	'[tabindex]:not([tabindex="-1"])'
 ].join(', ');
 
+export interface GetFocusableOptions {
+	/**
+	 * Walk the composed (flattened) tree: descend into the shadow roots of
+	 * nested custom elements and follow `<slot>`s to their assigned content,
+	 * returning elements in tab order. Default false — only the container's own
+	 * tree is searched, as before.
+	 */
+	deep?: boolean;
+}
+
+function isVisiblyFocusable(element: HTMLElement): boolean {
+	// Filter out elements that are hidden or have display: none
+	if (element.offsetParent === null && element.style.position !== 'fixed') {
+		return false;
+	}
+
+	// Filter out elements with visibility: hidden
+	return getComputedStyle(element).visibility !== 'hidden';
+}
+
+/**
+ * Collect focusable elements under `root` in composed-tree order.
+ *
+ * `querySelectorAll` stops at shadow boundaries, so a focusable control that
+ * lives inside a nested component's shadow root (`<ml-input>`, `<ml-button>`,
+ * `<ml-select>`…) was invisible to it.
+ */
+function collectDeep(root: Element | ShadowRoot, out: HTMLElement[]): void {
+	for (const child of Array.from(root.children)) {
+		if (child instanceof HTMLSlotElement) {
+			const assigned = child.assignedElements({ flatten: true });
+			if (assigned.length > 0) {
+				for (const element of assigned) {
+					visitDeep(element, out);
+				}
+			} else {
+				// Fallback content
+				collectDeep(child, out);
+			}
+			continue;
+		}
+
+		visitDeep(child, out);
+	}
+}
+
+function visitDeep(element: Element, out: HTMLElement[]): void {
+	if (element instanceof HTMLElement && element.matches(FOCUSABLE_SELECTOR) && isVisiblyFocusable(element)) {
+		out.push(element);
+	}
+
+	// A shadow host renders its shadow tree; its light children only appear
+	// where a <slot> projects them, which collectDeep follows.
+	collectDeep(element.shadowRoot ?? element, out);
+}
+
 /**
  * Get all focusable elements within a container
  */
-export function getFocusableElements(container: HTMLElement): HTMLElement[] {
-	const elements = Array.from(container.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR));
+export function getFocusableElements(container: HTMLElement, options: GetFocusableOptions = {}): HTMLElement[] {
+	if (options.deep) {
+		const focusables: HTMLElement[] = [];
+		collectDeep(container.shadowRoot ?? container, focusables);
+		return focusables;
+	}
 
-	return elements.filter((element) => {
-		// Filter out elements that are hidden or have display: none
-		if (element.offsetParent === null && element.style.position !== 'fixed') {
-			return false;
-		}
-
-		// Filter out elements with visibility: hidden
-		const style = getComputedStyle(element);
-		if (style.visibility === 'hidden') {
-			return false;
-		}
-
-		return true;
-	});
+	return Array.from(container.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)).filter(isVisiblyFocusable);
 }
 
 /**

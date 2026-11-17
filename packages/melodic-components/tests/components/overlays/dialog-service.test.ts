@@ -227,3 +227,51 @@ describe('inline <ml-dialog> survives a re-render that recreates it', () => {
 		expect(dialogs.has('x')).toBe(false);
 	});
 });
+
+describe('ml-dialog accessible name', () => {
+	const mounted: HTMLElement[] = [];
+
+	afterEach(() => {
+		mounted.splice(0).forEach((el) => el.remove());
+	});
+
+	function nameOf(dialogEl: HTMLDialogElement): string {
+		const reflected = dialogEl as HTMLDialogElement & { ariaLabelledByElements?: Element[] | null };
+		return dialogEl.getAttribute('aria-label') ?? (reflected.ariaLabelledByElements ?? []).map((el) => el.textContent).join(' ');
+	}
+
+	it('is named by the slotted header by default', async () => {
+		const host = document.createElement('ml-dialog');
+		host.innerHTML = '<h2 slot="dialog-header">Delete project</h2><p>Sure?</p>';
+		document.body.appendChild(host);
+		mounted.push(host);
+		await flush();
+		await flush();
+		(host as any).component.onRender();
+
+		expect(nameOf(host.shadowRoot!.querySelector('dialog')!)).toBe('Delete project');
+	});
+
+	it('prefers the label attribute', async () => {
+		const host = document.createElement('ml-dialog');
+		host.setAttribute('label', 'Confirm deletion');
+		host.innerHTML = '<h2 slot="dialog-header">Delete project</h2>';
+		document.body.appendChild(host);
+		mounted.push(host);
+		await flush();
+		await flush();
+
+		expect(host.shadowRoot!.querySelector('dialog')!.getAttribute('aria-label')).toBe('Confirm deletion');
+	});
+
+	it('has no name when there is neither a label nor a header', async () => {
+		const host = document.createElement('ml-dialog');
+		host.innerHTML = '<p>Body only</p>';
+		document.body.appendChild(host);
+		mounted.push(host);
+		await flush();
+		await flush();
+
+		expect(host.shadowRoot!.querySelector('dialog')!.hasAttribute('aria-label')).toBe(false);
+	});
+});

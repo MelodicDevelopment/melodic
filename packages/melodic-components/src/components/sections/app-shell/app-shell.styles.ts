@@ -162,7 +162,7 @@ export const appShellStyles = () => css`
 		flex-shrink: 0;
 		width: var(--ml-app-shell-menu-btn-size, 36px);
 		height: var(--ml-app-shell-menu-btn-size, 36px);
-		margin-left: var(--ml-app-shell-menu-btn-margin, var(--ml-space-3));
+		margin-inline-start: var(--ml-app-shell-menu-btn-margin, var(--ml-space-3));
 		padding: 0;
 		border: none;
 		border-radius: var(--ml-app-shell-menu-btn-radius, var(--ml-radius));

@@ -25,14 +25,26 @@ function formatDisplayDate(iso: string, locale?: string): string {
 	if (!match) return iso ?? '';
 
 	const date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
-	return new Intl.DateTimeFormat(locale || undefined, { year: 'numeric', month: '2-digit', day: '2-digit' }).format(date);
+	return dateFormatter(locale).format(date);
+}
+
+/**
+ * Short numeric date formatter for `locale` (the browser's when empty).
+ * An unknown or malformed locale tag falls back to the browser's instead of
+ * throwing out of the render.
+ */
+function dateFormatter(locale?: string): Intl.DateTimeFormat {
+	const options: Intl.DateTimeFormatOptions = { year: 'numeric', month: '2-digit', day: '2-digit' };
+	try {
+		return new Intl.DateTimeFormat(locale || undefined, options);
+	} catch {
+		return new Intl.DateTimeFormat(undefined, options);
+	}
 }
 
 /** Order of the numeric parts in `locale`'s short date format. */
 function localeDateOrder(locale?: string): ('year' | 'month' | 'day')[] {
-	const parts = new Intl.DateTimeFormat(locale || undefined, { year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(
-		new Date(2001, 1, 3)
-	);
+	const parts = dateFormatter(locale).formatToParts(new Date(2001, 1, 3));
 
 	return parts
 		.filter((part): part is Intl.DateTimeFormatPart & { type: 'year' | 'month' | 'day' } => part.type === 'year' || part.type === 'month' || part.type === 'day')
@@ -40,30 +52,68 @@ function localeDateOrder(locale?: string): ('year' | 'month' | 'day')[] {
 }
 
 /**
- * Parse typed text into an ISO date (YYYY-MM-DD).
- * Accepts `YYYY-MM-DD`, `MM/DD/YYYY`, and `M/D/YYYY`. Returns null when invalid.
+ * Map every Unicode decimal digit to ASCII and drop bidi control marks, so
+ * text in the locale's own numbering system (`٠٣/٠٢/٢٠٠١`) parses.
+ */
+function normalizeDateText(text: string): string {
+	return text
+		.replace(/[\u200e\u200f\u061c]/g, '')
+		.replace(/\p{Nd}/gu, (digit) => {
+			if (digit >= '0' && digit <= '9') return digit;
+			// Decimal-digit blocks are contiguous runs of ten starting at zero.
+			const code = digit.codePointAt(0)!;
+			for (let zero = code; zero > code - 10; zero--) {
+				if (!/\p{Nd}/u.test(String.fromCodePoint(zero - 1))) {
+					return String(code - zero);
+				}
+			}
+			return digit;
+		})
+		.trim();
+}
+
+/**
+ * Parse typed text into an ISO date (YYYY-MM-DD). Returns null when invalid.
+ *
+ * Accepts `YYYY-MM-DD` and the locale's own short date — whatever
+ * `formatDisplayDate` produces must parse back, or simply re-committing the
+ * field's own text reverts it. That includes formats whose separators are not
+ * a single `/`, `.` or `-` (`2001. 02. 03.` in ko-KR / hu-HU), trailing
+ * literals (`03.02.2001 г.` in bg) and non-ASCII digits (ar-EG).
  */
 function parseDateInput(text: string, locale?: string): string | null {
-	const trimmed = text.trim();
+	const trimmed = normalizeDateText(text);
 	let year: number;
 	let month: number;
 	let day: number;
 
-	let match = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(trimmed);
-	if (match) {
-		year = Number(match[1]);
-		month = Number(match[2]);
-		day = Number(match[3]);
+	const iso = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(trimmed);
+	if (iso) {
+		year = Number(iso[1]);
+		month = Number(iso[2]);
+		day = Number(iso[3]);
 	} else {
-		// Accept the locale's own part order rather than assuming MM/DD/YYYY —
-		// a user typing 03/02/2001 in en-GB means 3 February.
-		match = /^(\d{1,4})[/.-](\d{1,2})[/.-](\d{1,4})$/.exec(trimmed);
-		if (!match) return null;
+		// Three numeric groups in the locale's own order rather than assuming
+		// MM/DD/YYYY — a user typing 03/02/2001 in en-GB means 3 February.
+		const groups = trimmed.match(/\d+/g);
+		if (!groups || groups.length !== 3 || groups.some((group) => group.length > 4)) return null;
+
+		// Whatever sits between/around the numbers must be punctuation or
+		// the locale's own literal text — not stray words or signs.
+		const literalChars = new Set<string>();
+		for (const part of dateFormatter(locale).formatToParts(new Date(2001, 1, 3))) {
+			if (part.type === 'literal') {
+				for (const char of normalizeDateText(part.value)) literalChars.add(char);
+			}
+		}
+		for (const char of trimmed.replace(/\d+/g, '')) {
+			if (!/[\s./,-]/.test(char) && !literalChars.has(char)) return null;
+		}
 
 		const order = localeDateOrder(locale);
 		const values = { year: 0, month: 0, day: 0 };
 		order.forEach((part, index) => {
-			values[part] = Number(match![index + 1]);
+			values[part] = Number(groups[index]);
 		});
 
 		year = values.year;
@@ -85,7 +135,7 @@ function parseDateInput(text: string, locale?: string): string | null {
 /**
  * ml-date-picker - Date input with calendar dropdown
  *
- * Users can type a date directly into the input (`MM/DD/YYYY` or `YYYY-MM-DD`)
+ * Users can type a date directly into the input (the locale's short date or `YYYY-MM-DD`)
  * or pick from the custom calendar popover. The input is a plain text field so
  * the native browser date picker never competes with the custom calendar.
  * `value` is always the ISO date (`YYYY-MM-DD`).
@@ -133,8 +183,7 @@ export class DatePickerComponent implements IElementRef, OnCreate, OnDestroy {
 
 	/**
 	 * BCP 47 locale for the displayed and accepted date format. Defaults to
-	 * the document's `lang`, then the browser's — the format used to be
-	 * hardcoded MM/DD/YYYY.
+	 * the browser's locale — the format used to be hardcoded MM/DD/YYYY.
 	 */
 	public locale = '';
 

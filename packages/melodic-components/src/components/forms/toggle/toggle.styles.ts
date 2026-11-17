@@ -165,7 +165,7 @@ export const toggleStyles = () => css`
 	.ml-toggle__hint {
 		display: block;
 		margin-top: var(--ml-space-1);
-		margin-left: calc(var(--ml-toggle-track-width, 2.75rem) + var(--ml-toggle-gap, var(--ml-space-3)));
+		margin-inline-start: calc(var(--ml-toggle-track-width, 2.75rem) + var(--ml-toggle-gap, var(--ml-space-3)));
 		font-size: var(--ml-toggle-hint-font-size, var(--ml-text-sm));
 		color: var(--ml-toggle-hint-color, var(--ml-color-text-muted));
 		line-height: var(--ml-leading-tight);
@@ -174,7 +174,7 @@ export const toggleStyles = () => css`
 	.ml-toggle__error {
 		display: block;
 		margin-top: var(--ml-toggle-error-margin-top, var(--ml-space-1));
-		margin-left: calc(var(--ml-toggle-track-width, 2.75rem) + var(--ml-toggle-gap, var(--ml-space-3)));
+		margin-inline-start: calc(var(--ml-toggle-track-width, 2.75rem) + var(--ml-toggle-gap, var(--ml-space-3)));
 		font-size: var(--ml-toggle-hint-font-size, var(--ml-text-sm));
 		color: var(--ml-toggle-error-color, var(--ml-color-danger));
 		line-height: var(--ml-toggle-error-line-height, var(--ml-leading-tight));
@@ -182,5 +182,16 @@ export const toggleStyles = () => css`
 
 	.ml-toggle--error.ml-toggle--checked .ml-toggle__track {
 		background-color: var(--ml-toggle-error-track-bg, var(--ml-color-danger));
+	}
+
+	/*
+	 * Forced colors (Windows High Contrast): box-shadow rings and background
+	 * highlights are not painted there, so focus falls back to a real outline.
+	 */
+	@media (forced-colors: active) {
+		.ml-toggle__input:focus-visible + .ml-toggle__track {
+			outline: 2px solid Highlight;
+			outline-offset: 2px;
+		}
 	}
 `;

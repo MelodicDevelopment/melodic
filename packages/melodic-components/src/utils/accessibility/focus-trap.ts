@@ -50,29 +50,17 @@ export function isDeepFocusWithin(container: Node): boolean {
 }
 
 /**
- * Collect focusable elements within a container, expanding `<slot>` elements
- * to their assigned (light DOM) content so traps work on shadow containers
- * that project slotted content.
+ * Collect the focusable elements inside a trap container, in tab order.
+ *
+ * The walk follows `<slot>`s to their assigned (light DOM) content and
+ * descends into nested shadow roots, so slotted content and the controls
+ * inside nested components (`<ml-input>`, `<ml-button>`…) are all trapped.
+ * A shallow query saw neither — with an `<ml-input>` and a `<button>` in a
+ * popover, the button was both "first" and "last" and Tab could never reach
+ * the input.
  */
 function collectFocusables(container: HTMLElement): HTMLElement[] {
-	const slots = Array.from(container.querySelectorAll('slot'));
-	if (slots.length === 0) {
-		return getFocusableElements(container);
-	}
-
-	const focusables = getFocusableElements(container);
-	for (const slot of slots) {
-		for (const assigned of slot.assignedElements({ flatten: true })) {
-			if (assigned instanceof HTMLElement) {
-				focusables.push(...getFocusableElements(assigned));
-				if (assigned.matches('a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])')) {
-					focusables.push(assigned);
-				}
-			}
-		}
-	}
-
-	return focusables;
+	return getFocusableElements(container, { deep: true });
 }
 
 /**

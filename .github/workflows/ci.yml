@@ -16,15 +16,21 @@ concurrency:
 
 jobs:
   # ── @melodicdev/core (repo root) ─────────────────────────────────────────
+  # Runs on every Node line the packages claim to support (`engines` is
+  # >=20.19.0), so "works on the maintainer's Node" is not the only evidence.
   core:
-    name: Core (typecheck, lint, test, build)
+    name: Core (typecheck, lint, test, build) — Node ${{ matrix.node }}
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [20, 22, 24]
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: ${{ matrix.node }}
           cache: npm
           cache-dependency-path: package-lock.json
 
@@ -34,7 +40,8 @@ jobs:
       - name: Typecheck
         run: npx tsc --noEmit
 
-      # Lint has substantial pre-existing debt (~2,800 errors as of 2026-07-06).
+      # Lint has substantial pre-existing debt (3,720 errors as of 2026-11-16,
+      # 1,046 of them auto-fixable — up from ~2,800 in July, so it is growing).
       # Kept non-blocking so CI is green on arrival; flip to enforced once the
       # backlog is burned down.
       - name: Lint (non-blocking)
@@ -79,20 +86,29 @@ jobs:
         run: npm --workspace @melodicdev/components run build
 
   # ── @melodicdev/cli ──────────────────────────────────────────────────────
+  # The CLI is the one package that runs directly on the user's Node, so it
+  # gets the full matrix too.
   cli:
-    name: CLI (typecheck/build)
+    name: CLI (typecheck, build, test) — Node ${{ matrix.node }}
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [20, 22, 24]
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: ${{ matrix.node }}
           cache: npm
           cache-dependency-path: package-lock.json
 
       - name: Install dependencies
         run: npm ci --no-audit --no-fund
+
+      - name: Typecheck (src + tests)
+        run: npm --workspace @melodicdev/cli run typecheck
 
       - name: Build
         run: npm --workspace @melodicdev/cli run build
@@ -121,10 +137,11 @@ jobs:
       - name: Build CLI
         run: npm --workspace @melodicdev/cli run build
 
-      # Scaffolded projects depend on @melodicdev/core@^3.0.0, which isn't on
-      # the registry until the release is published — and the smoke test should
-      # exercise THIS commit's core anyway. Pack the local core and install the
-      # tarball into each scaffolded project (same layout as a registry install).
+      # Scaffolded projects depend on @melodicdev/core at the CLI's own major
+      # (currently ^4.0.0). During a major bump that range isn't on the registry
+      # until the release is published — and the smoke test should exercise
+      # THIS commit's core anyway. Pack the local core and install the tarball
+      # into each scaffolded project (same layout as a registry install).
       - name: Pack local core
         run: |
           npm run build:lib
@@ -142,6 +159,37 @@ jobs:
         run: npm run build
         working-directory: ${{ runner.temp }}/smoke-app
 
+      # Every generator, then typecheck: a generator that emits code which does
+      # not compile (`melodic g directive delete` once did) fails here instead
+      # of in a user's project. `npm run build` above ran before these files
+      # existed, so this is a separate typecheck.
+      - name: Generate one of everything in the basic project
+        run: |
+          melodic() { node "$GITHUB_WORKSPACE/packages/cli/dist/index.js" "$@"; }
+          melodic generate component user-card
+          melodic generate component card
+          melodic generate directive tool-tip
+          melodic generate attribute-directive auto-focus
+          melodic generate service api
+          melodic generate interceptor auth
+          melodic generate guard auth
+          melodic generate resolver user
+          melodic generate class money
+          melodic add testing
+        working-directory: ${{ runner.temp }}/smoke-app
+
+      - name: Typecheck generated code
+        run: npm run typecheck
+        working-directory: ${{ runner.temp }}/smoke-app
+
+      # `add testing` adds vitest + happy-dom to package.json; install them and
+      # run the generated component test against this commit's core.
+      - name: Run the generated test setup
+        run: |
+          npm install --no-audit --no-fund
+          npm run test:unit
+        working-directory: ${{ runner.temp }}/smoke-app
+
       # ── monorepo project ──
       - name: Scaffold monorepo project (melodic init --monorepo)
         run: node "$GITHUB_WORKSPACE/packages/cli/dist/index.js" init "$RUNNER_TEMP/smoke-mono" --monorepo --app-name web
@@ -153,3 +201,60 @@ jobs:
       - name: Build scaffolded monorepo project
         run: npm run build
         working-directory: ${{ runner.temp }}/smoke-mono
+
+      # `add app` into the default and a NESTED directory (the nested case once
+      # generated a vite.config.ts whose plugin import was one level short),
+      # `add lib`, then typecheck the workspace and build both new apps.
+      - name: Add apps and a library to the monorepo
+        run: |
+          melodic() { node "$GITHUB_WORKSPACE/packages/cli/dist/index.js" "$@"; }
+          melodic add app admin
+          melodic add app portal --dir packages/apps
+          melodic add lib ui
+          npm install --no-audit --no-fund
+        working-directory: ${{ runner.temp }}/smoke-mono
+
+      - name: Typecheck and build the added apps
+        run: |
+          npm run typecheck
+          npm run build:admin
+          npm run build:portal
+        working-directory: ${{ runner.temp }}/smoke-mono
+
+  # ── Browser smoke tests ──────────────────────────────────────────────────
+  # The unit suites run on happy-dom and a build only type-checks and bundles.
+  # These boot the real artifacts in headless Chrome (preinstalled on
+  # ubuntu-latest; scripts/lib/chrome-driver.mjs finds /usr/bin/google-chrome)
+  # and fail on a blank page, a dead control, a console error or a failed load.
+  browser-smoke:
+    name: Browser smoke (apps + CDN bundles, headless Chrome)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      # Builds the example and demo apps, then clicks through both.
+      - name: App smoke check
+        run: npm run smoke:apps
+
+      # Rebuild the CDN bundles from this commit rather than testing the
+      # committed copies, so a change to the bundle config or the minifier
+      # plugins (scripts/lib/vite-build-plugins.mjs) is exercised in a browser.
+      - name: Build CDN bundle
+        run: npm run build:bundle
+
+      - name: Bundle smoke check
+        run: npm run smoke:bundle
+
+      # The size regression that shipped in 4.0.x: a "min" bundle that is not
+      # actually minified gzips LARGER than the readable one.
+      - name: Minified bundle must be smaller than the dev bundle
+        run: node scripts/check-bundle-size.mjs

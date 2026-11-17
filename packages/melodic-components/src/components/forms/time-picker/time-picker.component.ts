@@ -1,7 +1,7 @@
 import { MelodicComponent } from '@melodicdev/core';
 import type { IElementRef, OnCreate, OnDestroy } from '@melodicdev/core';
 import { registerAdapter } from '@melodicdev/core/forms';
-import { computePosition, autoUpdate, offset, flip, shift } from '../../../utils/positioning/index.js';
+import { OverlayPositioner } from '../../../utils/overlay/index.js';
 import { timePickerTemplate } from './time-picker.template.js';
 import { timePickerStyles } from './time-picker.styles.js';
 import { getDeepActiveElement } from '../../../utils/accessibility/focus-trap.js';
@@ -111,7 +111,10 @@ export class TimePickerComponent implements IElementRef, OnCreate, OnDestroy {
 	/** AM or PM when in 12-hour mode */
 	public editPeriod: 'AM' | 'PM' = 'AM';
 
-	private _cleanupAutoUpdate: (() => void) | null = null;
+	private readonly _positioner = new OverlayPositioner(() => ({
+		placement: 'bottom-start',
+		offset: 4
+	}));
 
 	public get use12Hour(): boolean {
 		return this.twelveHour;
@@ -151,7 +154,7 @@ export class TimePickerComponent implements IElementRef, OnCreate, OnDestroy {
 	}
 
 	public onDestroy(): void {
-		this._cleanupAutoUpdate?.();
+		this._positioner.stop();
 		const popoverEl = this.getPopoverEl();
 		if (popoverEl) {
 			popoverEl.removeEventListener('toggle', this._handleToggle);
@@ -373,8 +376,7 @@ export class TimePickerComponent implements IElementRef, OnCreate, OnDestroy {
 			this.startPositioning();
 		} else {
 			this.isOpen = false;
-			this._cleanupAutoUpdate?.();
-			this._cleanupAutoUpdate = null;
+			this._positioner.stop();
 			this.returnFocus();
 		}
 	};
@@ -391,19 +393,7 @@ export class TimePickerComponent implements IElementRef, OnCreate, OnDestroy {
 		const popoverEl = this.getPopoverEl();
 		if (!triggerEl || !popoverEl) return;
 
-		const update = () => this.updatePosition(triggerEl, popoverEl);
-		this._cleanupAutoUpdate?.();
-		this._cleanupAutoUpdate = autoUpdate(triggerEl, popoverEl, update);
-	}
-
-	private updatePosition(triggerEl: HTMLElement, popoverEl: HTMLElement): void {
-		const middleware = [offset(4), flip(), shift({ padding: 8 })];
-		const { x, y } = computePosition(triggerEl, popoverEl, {
-			placement: 'bottom-start',
-			middleware
-		});
-		popoverEl.style.left = `${x}px`;
-		popoverEl.style.top = `${y}px`;
+		this._positioner.start(triggerEl, popoverEl);
 	}
 
 	/**

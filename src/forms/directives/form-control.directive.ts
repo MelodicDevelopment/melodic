@@ -56,10 +56,19 @@ function formControlDirective(element: Element, value: unknown, _: string): Attr
 	};
 
 	/** Push the element's current value into the model. */
-	const writeToModel = (): void => {
+	const writeToModel = (onlyIfChanged: boolean = false): void => {
 		if (control.destroyed) return;
+
+		const next = adapter.getValue(element);
+
+		// Deferred writes (blur / submit) fire whether or not the user typed
+		// anything: tabbing through a field must not dirty it.
+		if (onlyIfChanged && Object.is(next, control.value())) {
+			return;
+		}
+
 		// User input dirties the control; setValue itself no longer auto-dirties.
-		control.setValue(adapter.getValue(element));
+		control.setValue(next);
 		control.markAsDirty();
 	};
 
@@ -79,14 +88,14 @@ function formControlDirective(element: Element, value: unknown, _: string): Attr
 
 	const handleBlur = (): void => {
 		if (control.updateOn === 'blur') {
-			writeToModel();
+			writeToModel(true);
 		}
 		control.markAsTouched();
 	};
 
 	const handleSubmit = (): void => {
 		if (control.updateOn === 'submit') {
-			writeToModel();
+			writeToModel(true);
 			control.markAsTouched();
 			void control.validate();
 		}
@@ -107,12 +116,30 @@ function formControlDirective(element: Element, value: unknown, _: string): Attr
 
 	// `updateOn: 'submit'` needs the enclosing form; listening on the element
 	// itself would never see the submit event (it targets the <form>).
-	const form = control.updateOn === 'submit' ? element.closest('form') : null;
-	form?.addEventListener('submit', handleSubmit);
+	// The directive runs while the element is still in the detached template
+	// clone, where `closest('form')` only sees a <form> from the same template.
+	// Look again once the clone is in the document.
+	let form: HTMLFormElement | null = null;
+	let disposed = false;
+	if (control.updateOn === 'submit') {
+		form = element.closest('form');
+		if (form) {
+			form.addEventListener('submit', handleSubmit);
+		} else {
+			queueMicrotask(() => {
+				if (disposed) {
+					return;
+				}
+				form = element.closest('form');
+				form?.addEventListener('submit', handleSubmit);
+			});
+		}
+	}
 
 	element.setAttribute('data-form-control', '');
 
 	return () => {
+		disposed = true;
 		element.removeEventListener(adapter.inputEvent, handleInput);
 		element.removeEventListener(adapter.blurEvent, handleBlur);
 		form?.removeEventListener('submit', handleSubmit);

@@ -31,7 +31,9 @@ export type HookEventType =
 	| 'nav:redirect'
 	| 'nav:superseded'
 	| 'store:dispatch'
+	/** Reserved: the injector does not emit this yet. */
 	| 'di:bind'
+	/** Reserved: the injector does not emit this yet. */
 	| 'di:resolve';
 
 export interface IHookEvent {
@@ -54,7 +56,7 @@ export interface IMelodicDevtoolsHook {
 	version: string;
 	emit(event: IHookEvent): void;
 	on(type: HookEventType | '*', listener: (event: IHookEvent) => void): () => void;
-	/** True once anything has subscribed — the framework's gate for extra work. */
+	/** True while anything is subscribed — the framework's gate for extra work. */
 	readonly listening: boolean;
 	components: Map<number, IComponentRecord>;
 	nextId(): number;
@@ -73,17 +75,19 @@ let hook: IMelodicDevtoolsHook | null | undefined;
 function createHook(): IMelodicDevtoolsHook {
 	const listeners = new Map<HookEventType | '*', Set<(event: IHookEvent) => void>>();
 	let id = 0;
-	let listening = false;
+	// Derived from the live listener count, so closing a trace turns the
+	// framework's extra instrumentation (store snapshots, …) back off.
+	let listenerCount = 0;
 
 	const instance: IMelodicDevtoolsHook = {
 		version: '1',
 		components: new Map(),
 		get listening(): boolean {
-			return listening;
+			return listenerCount > 0;
 		},
 		nextId: () => ++id,
 		emit(event: IHookEvent): void {
-			if (!listening) {
+			if (listenerCount === 0) {
 				return;
 			}
 
@@ -95,17 +99,20 @@ function createHook(): IMelodicDevtoolsHook {
 			}
 		},
 		on(type: HookEventType | '*', listener: (event: IHookEvent) => void): () => void {
-			listening = true;
-
 			let set = listeners.get(type);
 			if (!set) {
 				set = new Set();
 				listeners.set(type, set);
 			}
-			set.add(listener);
+			if (!set.has(listener)) {
+				set.add(listener);
+				listenerCount++;
+			}
 
 			return () => {
-				set!.delete(listener);
+				if (set!.delete(listener)) {
+					listenerCount--;
+				}
 			};
 		}
 	};

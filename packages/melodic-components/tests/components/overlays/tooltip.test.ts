@@ -121,3 +121,54 @@ describe('ml-tooltip', () => {
 		});
 	});
 });
+
+describe('ml-tooltip description follows its content', () => {
+	afterEach(() => {
+		document.body.innerHTML = '';
+	});
+
+	it('carries the text on the trigger and updates it when content changes', async () => {
+		const host = document.createElement('ml-tooltip');
+		host.setAttribute('content', 'First');
+		host.innerHTML = '<button>Hover me</button>';
+		document.body.appendChild(host);
+		await flush();
+		await flush();
+
+		const trigger = host.querySelector('button')!;
+		expect(trigger.getAttribute('aria-description')).toBe('First');
+
+		host.setAttribute('content', 'Second');
+		await flush();
+		await flush();
+		expect(trigger.getAttribute('aria-description')).toBe('Second');
+	});
+
+	it('does not point an element reference into its own shadow root', async () => {
+		const host = document.createElement('ml-tooltip');
+		host.setAttribute('content', 'Tip');
+		const trigger = document.createElement('button') as HTMLButtonElement & { ariaDescribedByElements?: Element[] | null };
+		// Stand in for an engine with ARIA element reflection.
+		trigger.ariaDescribedByElements = null;
+		host.appendChild(trigger);
+		document.body.appendChild(host);
+		await flush();
+		await flush();
+
+		expect(trigger.ariaDescribedByElements).toBeNull();
+		expect(trigger.getAttribute('aria-description')).toBe('Tip');
+	});
+
+	it('leaves a consumer-provided aria-describedby alone', async () => {
+		const host = document.createElement('ml-tooltip');
+		host.setAttribute('content', 'Tip');
+		host.innerHTML = '<button aria-describedby="own">Hover me</button>';
+		document.body.appendChild(host);
+		await flush();
+		await flush();
+
+		const trigger = host.querySelector('button')!;
+		expect(trigger.getAttribute('aria-describedby')).toBe('own');
+		expect(trigger.hasAttribute('aria-description')).toBe(false);
+	});
+});

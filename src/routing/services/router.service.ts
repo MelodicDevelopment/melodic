@@ -19,7 +19,7 @@ import type { IRouteMatchResult } from '../interfaces/iroute-match-result.interf
 import { matchRouteTree } from '../functions/match-route-tree.function';
 import { buildPathFromRoute } from '../functions/build-path-from-route.function';
 import { installHistoryEvents, routerStateEvent } from '../functions/install-history-events.function';
-import { appendQueryParams, parseUrlParts } from '../functions/url-parts.function';
+import { appendQueryParams, carryQueryAndHash, parseUrlParts, toRootRelative } from '../functions/url-parts.function';
 import { emitDevtools } from '../../devtools/hook';
 
 /**
@@ -125,6 +125,7 @@ export class RouterService {
 		this._events = signal<INavigationEvent | null>(null);
 
 		this._historyIndex = this.readHistoryIndex(history.state) ?? 0;
+		this.ensureHistoryStamp();
 		this.enableScrollRestoration(true);
 
 		this._navigationListener = (event: Event) => {
@@ -382,6 +383,10 @@ export class RouterService {
 	 */
 	public async initialNavigation(): Promise<INavigationResult> {
 		const navId = ++this._navigationId;
+		// This navigation targets the CURRENT location. A pending target left by
+		// an imperative navigation it supersedes would otherwise leak into
+		// guard/resolver contexts and the published query params.
+		this._pendingTarget = null;
 		const currentUrl = `${window.location.pathname}${window.location.search}`;
 		this.emit('start', navId, currentUrl, 'initial');
 
@@ -394,8 +399,9 @@ export class RouterService {
 
 		if (matchResult.redirectTo) {
 			if (this.normalizePath(window.location.pathname) !== this.normalizePath(matchResult.redirectTo)) {
-				this.emit('redirect', navId, currentUrl, 'initial', { redirectTo: matchResult.redirectTo });
-				return this.navigateInternal(matchResult.redirectTo, { replace: true }, { chain: [currentUrl], skipDeactivation: true });
+				const redirectTarget = carryQueryAndHash(matchResult.redirectTo, window.location.search, window.location.hash);
+				this.emit('redirect', navId, currentUrl, 'initial', { redirectTo: redirectTarget });
+				return this.navigateInternal(redirectTarget, { replace: true }, { chain: [currentUrl], skipDeactivation: true });
 			}
 
 			const message = `Route '${currentUrl}' redirects to itself`;
@@ -443,6 +449,7 @@ export class RouterService {
 		}
 
 		this._currentPath = currentUrl;
+		this.ensureHistoryStamp();
 		this.commit(matchResult);
 		this.emit('end', navId, currentUrl, 'initial', { result: matchResult });
 
@@ -460,6 +467,22 @@ export class RouterService {
 	 */
 	private async navigateInternal(path: string, options: INavigationOptions, redirect: IRedirectState | null): Promise<INavigationResult> {
 		const { data, replace = false, queryParams, skipGuards = false, skipResolvers = false, scrollToTop = true, onSameUrlNavigation = 'ignore' } = options;
+
+		// The router only navigates within this origin. A same-origin absolute
+		// URL is reduced to its path; a cross-origin one is refused up front
+		// (pushState would throw a SecurityError for it after guards had
+		// already run). A scheme-less path without a leading slash is
+		// root-relative — that is how it is matched, so it must be pushed the
+		// same way instead of being resolved against the current URL.
+		const local = toRootRelative(path);
+		if (local === null) {
+			// Refused before a navigation id is claimed, so an in-flight
+			// navigation is not superseded by a call that cannot go anywhere.
+			const error = `Cannot navigate to external URL '${path}'. The router only handles same-origin paths; use window.location for external navigation.`;
+			console.error(`[Melodic] ${error}`);
+			return { success: false, error };
+		}
+		path = local;
 
 		const fullPath = appendQueryParams(path, queryParams);
 		const chain = redirect ? redirect.chain : [];
@@ -537,7 +560,11 @@ export class RouterService {
 			const matchResult = resolved.result;
 
 			if (matchResult.redirectTo) {
-				this.emit('redirect', navId, fullPath, 'imperative', { redirectTo: matchResult.redirectTo });
+				// A route-level redirect keeps the query string and fragment the
+				// user navigated with (`/old?code=abc#top` → `/new?code=abc#top`)
+				// unless the target declares its own.
+				const redirectTarget = carryQueryAndHash(matchResult.redirectTo, search, hash);
+				this.emit('redirect', navId, fullPath, 'imperative', { redirectTo: redirectTarget });
 
 				// Honor the caller's original push/replace intent. Forcing
 				// `replace: true` here would erase the previous unrelated history
@@ -545,7 +572,7 @@ export class RouterService {
 				// before reaching pushState below), so a replaceState on the
 				// redirect target lands on whichever entry was current — i.e. the
 				// page the user just came from — instead of becoming a new entry.
-				return this.navigateInternal(matchResult.redirectTo, { ...options, queryParams: undefined }, { chain: [...chain, fullPath], skipDeactivation: true });
+				return this.navigateInternal(redirectTarget, { ...options, queryParams: undefined }, { chain: [...chain, fullPath], skipDeactivation: true });
 			}
 
 			if (resolved.error) {
@@ -824,6 +851,11 @@ export class RouterService {
 		}
 
 		const navId = ++this._navigationId;
+		// window.location is already the target. Drop the pending target of any
+		// imperative navigation this one supersedes — its `finally` will not
+		// (it is no longer the latest), and leaving it would make guards,
+		// resolvers and `queryParams()` report the abandoned navigation.
+		this._pendingTarget = null;
 		this.emit('start', navId, targetPath, 'popstate');
 
 		const revert = (): void => {
@@ -846,6 +878,9 @@ export class RouterService {
 		if (deactivateResult !== true) {
 			if (typeof deactivateResult === 'string') {
 				this.emit('redirect', navId, targetPath, 'popstate', { redirectTo: deactivateResult });
+				// The browser already moved to the target entry; the replace
+				// below must stamp THAT entry's index, not the one we left.
+				this._historyIndex = targetIndex ?? this._historyIndex;
 				await this.navigateInternal(deactivateResult, { replace: true }, { chain: [targetPath], skipDeactivation: true });
 			} else {
 				this.emit('blocked', navId, targetPath, 'popstate', { error: 'Navigation blocked by guard' });
@@ -864,8 +899,9 @@ export class RouterService {
 		const matchResult = resolved.result;
 
 		if (matchResult.redirectTo) {
-			this.emit('redirect', navId, targetPath, 'popstate', { redirectTo: matchResult.redirectTo });
-			await this.navigateInternal(matchResult.redirectTo, { replace: true }, { chain: [targetPath], skipDeactivation: true });
+			const redirectTarget = carryQueryAndHash(matchResult.redirectTo, window.location.search, window.location.hash);
+			this.emit('redirect', navId, targetPath, 'popstate', { redirectTo: redirectTarget });
+			await this.navigateInternal(redirectTarget, { replace: true }, { chain: [targetPath], skipDeactivation: true });
 			return;
 		}
 
@@ -961,6 +997,31 @@ export class RouterService {
 		return data;
 	}
 
+	/**
+	 * Stamp the current history entry with the router's index if it has none.
+	 *
+	 * The entry the page loaded on is created by the browser, not by
+	 * `pushOrReplace`, so it carried no index: a back navigation to it could
+	 * not be told apart from an unknown entry, which broke scroll restoration
+	 * for it and made a blocked "back" overwrite it instead of stepping
+	 * forward again.
+	 */
+	private ensureHistoryStamp(): void {
+		const state: unknown = history.state;
+
+		if (this.readHistoryIndex(state) !== null) {
+			return;
+		}
+
+		const stamped = this.stampHistoryIndex(state, this._historyIndex);
+		if (stamped === state) {
+			// Primitive state: left untouched (see stampHistoryIndex).
+			return;
+		}
+
+		history.replaceState(stamped, '', `${window.location.pathname}${window.location.search}${window.location.hash}`);
+	}
+
 	private readHistoryIndex(state: unknown): number | null {
 		if (state && typeof state === 'object') {
 			const value = (state as Record<string, unknown>)[HISTORY_INDEX_KEY];
@@ -1014,13 +1075,19 @@ export class RouterService {
 			return direct;
 		}
 
-		for (const element of root.querySelectorAll('*')) {
-			if (element.shadowRoot) {
-				const found = this.findDeep(element.shadowRoot, id);
+		// Walk lazily instead of materialising `querySelectorAll('*')` for every
+		// root: the walk stops at the first hit and allocates no node list.
+		const walker = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT);
+		let node = walker.nextNode() as Element | null;
+
+		while (node) {
+			if (node.shadowRoot) {
+				const found = this.findDeep(node.shadowRoot, id);
 				if (found) {
 					return found;
 				}
 			}
+			node = walker.nextNode() as Element | null;
 		}
 
 		return null;

@@ -165,4 +165,15 @@ export const alertStyles = () => css`
 		outline: none;
 		opacity: var(--ml-alert-dismiss-hover-opacity, 1);
 	}
+
+	/*
+	 * Forced colors (Windows High Contrast): box-shadow rings and background
+	 * highlights are not painted there, so focus falls back to a real outline.
+	 */
+	@media (forced-colors: active) {
+		.ml-alert__dismiss:focus-visible {
+			outline: 2px solid Highlight;
+			outline-offset: 2px;
+		}
+	}
 `;

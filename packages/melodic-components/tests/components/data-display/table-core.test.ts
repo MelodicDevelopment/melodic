@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { TableCore, renderCell } from '../../../src/components/data-display/table-core';
+import { TableCore, renderCell, resolveRowKey } from '../../../src/components/data-display/table-core';
 import type { TableCoreHost, SortDirection } from '../../../src/components/data-display/table-core';
 import { flush } from '../../helpers/component-test-utils';
 
@@ -289,5 +289,51 @@ describe('TableCore virtual window', () => {
 		// afterCommit ran before the recompute, and the window used the new count.
 		expect(afterCommitOrder).toHaveLength(1);
 		expect(host.endIndex).toBe(2);
+	});
+});
+
+describe('TableCore.sortRows value types', () => {
+	it('sorts Date values chronologically, not by their string form', () => {
+		// As strings these sort by weekday name: "Fri…" < "Mon…" < "Wed…".
+		const rows = [
+			{ id: 'wed', d: new Date(2026, 0, 7) },
+			{ id: 'fri-later', d: new Date(2026, 0, 16) },
+			{ id: 'mon', d: new Date(2026, 0, 5) }
+		];
+		const host = makeHost(rows, { sortKey: 'd', sortDirection: 'asc' });
+		const core = makeCore(host);
+		expect(core.sortRows(host.rows).map((r) => r.id)).toEqual(['mon', 'wed', 'fri-later']);
+
+		host.sortDirection = 'desc';
+		expect(core.sortRows(host.rows).map((r) => r.id)).toEqual(['fri-later', 'wed', 'mon']);
+	});
+
+	it('sorts strings containing numbers in natural order', () => {
+		const rows = [{ v: 'item 10' }, { v: 'item 2' }, { v: 'item 1' }];
+		const host = makeHost(rows, { sortKey: 'v', sortDirection: 'asc' });
+		const core = makeCore(host);
+		expect(core.sortRows(host.rows).map((r) => r.v)).toEqual(['item 1', 'item 2', 'item 10']);
+	});
+});
+
+describe('resolveRowKey', () => {
+	const row = { id: 'a1', name: 'Alice' };
+
+	it('falls back to the position when no rowKey is given', () => {
+		expect(resolveRowKey(null, row, 3)).toBe(3);
+		expect(resolveRowKey(undefined, row, 3)).toBe(3);
+		expect(resolveRowKey('', row, 3)).toBe(3);
+	});
+
+	it('reads a property name', () => {
+		expect(resolveRowKey('id', row, 3)).toBe('a1');
+	});
+
+	it('calls a function', () => {
+		expect(resolveRowKey((r, i) => `${r.name}-${i}`, row, 3)).toBe('Alice-3');
+	});
+
+	it('falls back to the position when the key is missing', () => {
+		expect(resolveRowKey('missing', row, 3)).toBe(3);
 	});
 });

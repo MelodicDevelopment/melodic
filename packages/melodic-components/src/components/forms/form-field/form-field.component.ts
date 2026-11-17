@@ -4,6 +4,7 @@ import type { ControlSize } from '../../../types/index.js';
 import type { FormFieldOrientation } from './form-field.types.js';
 import { formFieldTemplate } from './form-field.template.js';
 import { formFieldStyles } from './form-field.styles.js';
+import { setCrossRootDescription, getFocusableControl } from '../../../utils/accessibility/cross-root-aria.js';
 
 /**
  * ml-form-field - Wrapper component that adds label, hint, and error to any form control
@@ -123,13 +124,14 @@ export class FormFieldComponent implements IElementRef, OnCreate, OnRender {
 		}
 
 		// The hint and error live in THIS component's shadow root while the
-		// control is in the light DOM, so an `aria-describedby` IDREF between
-		// them never resolves. Element references do cross the boundary, so use
-		// `ariaDescribedByElements` where the browser supports it and fall back
-		// to copying the text into `aria-description`.
+		// control is in the light DOM, so neither an `aria-describedby` IDREF
+		// nor an element reference from the control can reach them (references
+		// only resolve into the same or an ancestor tree). Their text is
+		// carried on the control as `aria-description` instead.
 		this.syncDescription(control);
 		this.syncAttribute(control, 'aria-invalid', this.error ? 'true' : null);
 		this.syncAttribute(control, 'aria-required', this.required ? 'true' : null);
+		this.syncInnerControl(control);
 
 		// Mirror the field's disabled state onto the control, in BOTH
 		// directions — it used to be set to true and never cleared, so a field
@@ -141,29 +143,69 @@ export class FormFieldComponent implements IElementRef, OnCreate, OnRender {
 		}
 	}
 
-	/** Point the control at the hint/error elements across the shadow boundary. */
-	private syncDescription(control: HTMLElement): void {
+	/** The rendered error/hint elements that describe the control. */
+	private getDescribers(): HTMLElement[] {
 		const root = this.elementRef.shadowRoot;
-		const describers = [this.error ? root?.getElementById(this.errorId) : null, this.hint ? root?.getElementById(this.hintId) : null].filter(
+		return [this.error ? root?.getElementById(this.errorId) : null, this.hint ? root?.getElementById(this.hintId) : null].filter(
 			(element): element is HTMLElement => element !== null && element !== undefined
 		);
+	}
 
-		const reflected = control as HTMLElement & { ariaDescribedByElements?: Element[] | null };
+	/** Describe the control with the hint/error across the shadow boundary. */
+	private syncDescription(control: HTMLElement): void {
+		setCrossRootDescription(control, this.getDescribers());
+	}
 
-		if ('ariaDescribedByElements' in reflected) {
-			reflected.ariaDescribedByElements = describers.length > 0 ? describers : null;
-			this.syncAttribute(control, 'aria-description', null);
+	/** ARIA attributes this field has put on a nested (shadow) control. */
+	private readonly _innerOwned = new Set<string>();
+	private _innerControl: HTMLElement | null = null;
+
+	/**
+	 * Mirror the field's ARIA state onto the element that actually takes
+	 * focus. For a slotted `<ml-input>` / `<ml-select>` that is a control
+	 * inside the component's own shadow root; ARIA on the host element alone
+	 * is not announced when focus is on the inner control.
+	 *
+	 * The inner control belongs to another component, which may manage the
+	 * same attributes itself — so only ever add our state, and only remove
+	 * what we added.
+	 */
+	private syncInnerControl(control: HTMLElement): void {
+		const inner = getFocusableControl(control);
+		const target = inner !== control ? inner : null;
+
+		if (this._innerControl && this._innerControl !== target) {
+			for (const name of this._innerOwned) {
+				this._innerControl.removeAttribute(name);
+			}
+			this._innerOwned.clear();
+		}
+		this._innerControl = target;
+
+		if (!target) {
 			return;
 		}
 
-		// No element-reference support: carry the text itself. An IDREF here
-		// would point at nothing.
-		const description = describers
-			.map((element) => element.textContent?.trim() ?? '')
+		const description = this.getDescribers()
+			.map((element) => element.textContent?.replace(/\s+/g, ' ').trim() ?? '')
 			.filter(Boolean)
 			.join('. ');
 
-		this.syncAttribute(control, 'aria-description', description || null);
+		this.syncOwnedAttribute(target, 'aria-description', description || null);
+		this.syncOwnedAttribute(target, 'aria-invalid', this.error ? 'true' : null);
+		this.syncOwnedAttribute(target, 'aria-required', this.required ? 'true' : null);
+	}
+
+	private syncOwnedAttribute(target: HTMLElement, name: string, value: string | null): void {
+		if (value !== null) {
+			if (target.getAttribute(name) !== value) {
+				target.setAttribute(name, value);
+			}
+			this._innerOwned.add(name);
+		} else if (this._innerOwned.has(name)) {
+			target.removeAttribute(name);
+			this._innerOwned.delete(name);
+		}
 	}
 
 	/**

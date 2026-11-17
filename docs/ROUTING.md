@@ -217,8 +217,10 @@ class UserDetailComponent implements IRouteChangeAware {
 }
 ```
 
-The outlet also re-renders the component after a param change, so `getParam()` reads in a
-template stay correct.
+`onRouteChange` fires when the params, the query string or the route's resolved data
+change while the component stays mounted (`/users/1 → /users/2`, `/search?q=a → ?q=b`, a
+`onSameUrlNavigation: 'reload'` that re-ran the resolvers). The outlet also re-renders the
+component, so `getParam()` reads in a template stay correct.
 
 ## Programmatic Navigation
 
@@ -262,7 +264,8 @@ Rules that hold for every redirect:
   "discard changes?" guard that redirects does not ask again on the destination.
 - **A guard redirect does not inherit the caller's `queryParams` or `data`.** Those
   belonged to the navigation the user asked for. A route-level `redirectTo` does preserve
-  query params.
+  the query string and the fragment (`/old?code=abc#top → /new?code=abc#top`) unless the
+  target declares its own, and a `*splat` in the target keeps its slashes.
 - **Redirect chains are bounded** at 10 hops. Exceeding it fails the navigation with the
   chain in the message instead of looping.
 

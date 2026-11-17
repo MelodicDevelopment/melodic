@@ -34,12 +34,12 @@ export function dataGridTemplate(c: DataGridComponent) {
 			`)}
 
 			<div class="ml-data-grid__viewport">
-				<div class="ml-data-grid__inner" style="min-width: ${totalW}px">
+				<div class="ml-data-grid__inner" style="min-width: ${totalW}px" role="table" aria-rowcount=${c.totalRows + 1}>
 
 					<!-- Header row -->
-					<div class="ml-data-grid__header-row" style="grid-template-columns: ${gtc}">
+					<div class="ml-data-grid__header-row" style="grid-template-columns: ${gtc}" role="row" aria-rowindex="1">
 						${when(c.selectable, () => html`
-							<div class="ml-data-grid__th ml-data-grid__check-cell">
+							<div class="ml-data-grid__th ml-data-grid__check-cell" role="columnheader">
 								<input
 									type="checkbox"
 									class="ml-data-grid__checkbox"
@@ -73,7 +73,7 @@ export function dataGridTemplate(c: DataGridComponent) {
 								@drop=${() => c.handleDrop(col.key)}
 								@click=${() => c.handleSort(col)}
 								@keydown=${(e: KeyboardEvent) => c.handleHeaderKeyDown(col, e)}
-								tabindex=${col.sortable || col.reorderable !== false ? '0' : ''}
+								tabindex=${col.sortable || col.reorderable !== false || col.resizable !== false ? '0' : ''}
 								role="columnheader"
 								aria-sort=${c.sortKey === col.key
 									? (c.sortDirection === 'asc' ? 'ascending' : 'descending')
@@ -98,6 +98,8 @@ export function dataGridTemplate(c: DataGridComponent) {
 										@pointerdown=${(e: PointerEvent) => c.handleResizeStart(col.key, e)}
 										@pointermove=${(e: PointerEvent) => c.handleResizeMove(col.key, e)}
 										@pointerup=${c.handleResizeEnd}
+										@pointercancel=${c.handleResizeCancel}
+										@lostpointercapture=${c.handleResizeCancel}
 										@click=${(e: Event) => e.stopPropagation()}
 									></div>
 								`)}
@@ -107,9 +109,9 @@ export function dataGridTemplate(c: DataGridComponent) {
 
 					<!-- Filter row -->
 					${when(c.showFilterRow, () => html`
-						<div class="ml-data-grid__filter-row" style="grid-template-columns: ${gtc}">
+						<div class="ml-data-grid__filter-row" style="grid-template-columns: ${gtc}" role="row">
 							${when(c.selectable, () => html`
-								<div class="ml-data-grid__filter-cell ml-data-grid__check-cell"></div>
+								<div class="ml-data-grid__filter-cell ml-data-grid__check-cell" role="cell"></div>
 							`)}
 							${repeat(c.orderedColumns, (col: DataGridColumn) => col.key, (col: DataGridColumn) => html`
 								<div
@@ -119,12 +121,14 @@ export function dataGridTemplate(c: DataGridComponent) {
 										'ml-data-grid__filter-cell--pinned-right': col.pinned === 'right'
 									})}
 									style=${pinStyle(c, col)}
+									role="cell"
 								>
 									${when(!!col.filterable, () => html`
 										<input
 											type="text"
 											class="ml-data-grid__filter-input"
 											placeholder="Filter..."
+											aria-label=${`Filter ${col.label}`}
 											.value=${c.filters[col.key] ?? ''}
 											@input=${(e: Event) => c.handleFilterInput(col.key, e)}
 										/>
@@ -136,13 +140,13 @@ export function dataGridTemplate(c: DataGridComponent) {
 
 					<!-- Virtual top spacer -->
 					${when(c.virtual && c.topSpacerHeight > 0, () => html`
-						<div class="ml-data-grid__top-spacer" style="height: ${c.topSpacerHeight}px"></div>
+						<div class="ml-data-grid__top-spacer" style="height: ${c.topSpacerHeight}px" aria-hidden="true"></div>
 					`)}
 
 					<!-- Data rows -->
 					${repeat(
 						c.visibleRows,
-						(_: Record<string, unknown>, i: number) => c.startIndex + i,
+						(row: Record<string, unknown>, i: number) => c.getRowKey(row, c.startIndex + i),
 						(row: Record<string, unknown>, i: number) => html`
 							<div
 								class=${classMap({
@@ -151,10 +155,14 @@ export function dataGridTemplate(c: DataGridComponent) {
 									'ml-data-grid__row--even': (c.startIndex + i) % 2 === 1
 								})}
 								style="grid-template-columns: ${gtc}"
+								role="row"
+								aria-rowindex=${c.rowAriaIndex(c.startIndex + i)}
+								tabindex=${c.clickableRows ? '0' : undefined}
 								@click=${() => c.handleRowClick(row, c.startIndex + i)}
+								@keydown=${(e: KeyboardEvent) => c.handleRowKeyDown(row, c.startIndex + i, e)}
 							>
 								${when(c.selectable, () => html`
-									<div class="ml-data-grid__td ml-data-grid__check-cell">
+									<div class="ml-data-grid__td ml-data-grid__check-cell" role="cell">
 										<input
 											type="checkbox"
 											class="ml-data-grid__checkbox"
@@ -176,6 +184,7 @@ export function dataGridTemplate(c: DataGridComponent) {
 											'ml-data-grid__td--pinned-right-edge': col.key === c.firstRightPinnedKey
 										})}
 										style=${pinStyle(c, col)}
+										role="cell"
 									>
 										${renderCell(col, row, c.startIndex + i)}
 									</div>
@@ -186,7 +195,7 @@ export function dataGridTemplate(c: DataGridComponent) {
 
 					<!-- Virtual bottom spacer -->
 					${when(c.virtual && c.bottomSpacerHeight > 0, () => html`
-						<div class="ml-data-grid__bottom-spacer" style="height: ${c.bottomSpacerHeight}px"></div>
+						<div class="ml-data-grid__bottom-spacer" style="height: ${c.bottomSpacerHeight}px" aria-hidden="true"></div>
 					`)}
 
 				</div>

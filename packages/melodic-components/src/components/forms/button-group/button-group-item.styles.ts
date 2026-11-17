@@ -107,4 +107,15 @@ export const buttonGroupItemStyles = () => css`
 		opacity: 0.5;
 		cursor: not-allowed;
 	}
+
+	/*
+	 * Forced colors (Windows High Contrast): box-shadow rings and background
+	 * highlights are not painted there, so focus falls back to a real outline.
+	 */
+	@media (forced-colors: active) {
+		.ml-button-group-item:focus-visible {
+			outline: 2px solid Highlight;
+			outline-offset: 2px;
+		}
+	}
 `;

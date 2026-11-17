@@ -433,6 +433,15 @@ interface SelectOption {
 
 - **Closed select:** the match is selected directly and `ml:change` fires, without opening the dropdown.
 - **Open dropdown:** keyboard focus moves to the match and it scrolls into view; nothing is selected until `Enter`/`Space`.
+
+**`value`, `values` and `multiple`:** the three are kept consistent whichever order they are set in.
+
+- Turning `multiple` on carries the current `value` into `values` (unless `values` is already set, which is kept).
+- Turning `multiple` off keeps the first of `values` as `value` and empties `values`.
+- In multiple mode, assigning `value` adds it to `values`.
+- `values` accepts an array or a comma-separated string (`"us, ca"`); duplicates are removed.
+
+**Accessibility:** the hint or error is announced as the control's description, and `error` / `required` are exposed as `aria-invalid` / `aria-required`. In `multiple` mode the search input is the combobox and the single tab stop.
 - **Multi mode:** typeahead moves focus only — it never toggles values.
 - Keystrokes inside the multi-select search input are ignored by typeahead; that input filters the option list instead.
 
@@ -522,7 +531,9 @@ type AutocompleteSearchFn = (query: string) => Promise<AutocompleteOption[]>;
 - `ml:search` `{ query }` — emitted on input change
 - `ml:open`, `ml:close`
 
-Supports full keyboard navigation (`ArrowDown`/`ArrowUp` to navigate, `Enter` to select, `Escape` to close, `Backspace` removes last tag in multi mode).
+Supports full keyboard navigation (`ArrowDown`/`ArrowUp` to navigate, `Enter` to select, `Escape` to close, `Backspace` removes last tag in multi mode). The highlighted option is scrolled into view as you arrow through a long list.
+
+`value`, `values` and `multiple` are kept consistent in either order of assignment — see the note under `ml-select`.
 
 ---
 
@@ -596,10 +607,15 @@ import '@melodicdev/components/date-picker';
 | `required` | `boolean` | `false` | Required indicator |
 | `min` | `string` | `''` | Earliest selectable date (`YYYY-MM-DD`) |
 | `max` | `string` | `''` | Latest selectable date (`YYYY-MM-DD`) |
+| `locale` | `string` | `''` | BCP 47 locale for the displayed and typed date format. Defaults to the browser's locale; an invalid tag falls back to it |
 
 **Events:** `ml:change` `{ value: string }` — emitted with the ISO date string when a date is selected
 
 Keyboard support: `Enter` / `Space` / `ArrowDown` opens the calendar, `Escape` closes it.
+
+Inside the calendar's day grid: arrow keys move by a day / a week and carry on into the previous or next month, `PageUp` / `PageDown` move by a month (`Shift` + `PageUp` / `PageDown` by a year), `Home` / `End` go to the start / end of the week. Dates outside `min` / `max` are skipped.
+
+Typed dates are accepted as `YYYY-MM-DD` or in the locale's own short format — whatever the field displays can be typed back, including formats such as `2001. 02. 03.` (ko-KR, hu-HU) and non-Latin digits.
 
 ---
 

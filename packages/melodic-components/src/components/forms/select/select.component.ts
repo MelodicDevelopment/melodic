@@ -1,27 +1,22 @@
 import { MelodicComponent } from '@melodicdev/core';
 import type { IElementRef, OnCreate, OnDestroy } from '@melodicdev/core';
-import { registerAdapter } from '@melodicdev/core/forms';
 import type { Size } from '../../../types/index.js';
 import type { SelectOption } from './select.types.js';
 import { OverlayPositioner } from '../../../utils/overlay/index.js';
 import { newID } from '../../../functions/index.js';
+import {
+	ListboxValueSync,
+	registerListboxAdapter,
+	findNextEnabledIndex,
+	findPreviousEnabledIndex,
+	findFirstEnabledIndex as firstEnabledIndex,
+	findLastEnabledIndex as lastEnabledIndex,
+	scrollOptionIntoView
+} from '../listbox-core/index.js';
 import { selectTemplate } from './select.template.js';
 import { selectStyles } from './select.styles.js';
 
-registerAdapter<string | string[]>((el) => el.tagName === 'ML-SELECT', {
-	inputEvent: 'ml:change',
-	blurEvent: 'focusout',
-	getValue: (el) => {
-		const e = el as unknown as { value: string; values?: string[]; multiple?: boolean };
-		return e.multiple ? (e.values ?? []) : (e.value ?? '');
-	},
-	setValue: (el, value) => {
-		const e = el as unknown as { value: string; values?: string[]; multiple?: boolean };
-		if (Array.isArray(value)) e.values = value;
-		else e.value = value !== null && value !== undefined ? String(value) : '';
-	},
-	setDisabled: (el, disabled) => { (el as unknown as { disabled: boolean }).disabled = disabled; }
-});
+registerListboxAdapter('ML-SELECT');
 
 /** Idle time after which the typeahead buffer resets (matches native select behavior) */
 const TYPEAHEAD_RESET_MS = 700;
@@ -119,7 +114,8 @@ export class SelectComponent implements IElementRef, OnCreate, OnDestroy {
 		matchTriggerWidth: true
 	}));
 	private _lastCloseTime = 0;
-	private _syncingValues = false;
+	/** Keeps value / values / multiple consistent (shared with ml-autocomplete). */
+	private readonly _valueSync = new ListboxValueSync(this);
 	private _typeaheadBuffer = '';
 	private _typeaheadLastTime = 0;
 
@@ -134,58 +130,8 @@ export class SelectComponent implements IElementRef, OnCreate, OnDestroy {
 		this.getDropdownEl()?.removeEventListener('toggle', this._handlePopoverToggle);
 	}
 
-	public onPropertyChange(name: string): void {
-		if (this._syncingValues) {
-			return;
-		}
-
-		if (name === 'multiple') {
-			if (this.multiple) {
-				if (!this.values.length && this.value) {
-					this.updateValues([this.value]);
-				}
-				return;
-			}
-
-			if (this.values.length) {
-				this.value = this.values[0] ?? '';
-			}
-			this.updateValues([]);
-			this.search = '';
-			return;
-		}
-
-		if (name === 'values') {
-			const rawValues = this.values as unknown;
-			let normalized: string[] = [];
-			if (typeof rawValues === 'string') {
-				normalized = rawValues
-					.split(',')
-					.map((value) => value.trim())
-					.filter((value) => value.length > 0);
-			} else if (Array.isArray(rawValues)) {
-				normalized = rawValues.filter((value) => typeof value === 'string');
-			}
-
-			normalized = Array.from(new Set(normalized));
-			if (!this.areValuesEqual(this.values, normalized)) {
-				this.updateValues(normalized);
-			}
-			if (!this.multiple) {
-				this.value = normalized[0] ?? '';
-				this.updateValues([]);
-			}
-			return;
-		}
-
-		if (name === 'value' && this.multiple) {
-			if (this.value) {
-				const nextValues = Array.from(new Set([...this.values, this.value]));
-				if (!this.areValuesEqual(this.values, nextValues)) {
-					this.updateValues(nextValues);
-				}
-			}
-		}
+	public onPropertyChange(name: string, _: unknown, newValue: unknown): void {
+		this._valueSync.handlePropertyChange(name, newValue);
 	}
 
 	/** Get the currently selected option */
@@ -231,6 +177,26 @@ export class SelectComponent implements IElementRef, OnCreate, OnDestroy {
 		return `ml-select-label-${this._uid}`;
 	}
 
+	/** Unique id of the error element (for aria-describedby) */
+	public get errorId(): string {
+		return `ml-select-error-${this._uid}`;
+	}
+
+	/** Unique id of the hint element (for aria-describedby) */
+	public get hintId(): string {
+		return `ml-select-hint-${this._uid}`;
+	}
+
+	/**
+	 * Id of the message that describes the control, or undefined when there is
+	 * none. The error replaces the hint visually, so it does here too.
+	 */
+	public get describedBy(): string | undefined {
+		if (this.error) return this.errorId;
+		if (this.hint) return this.hintId;
+		return undefined;
+	}
+
 	/** Unique id of the listbox element (for aria-controls) */
 	public get listboxId(): string {
 		return `ml-select-listbox-${this._uid}`;
@@ -254,6 +220,12 @@ export class SelectComponent implements IElementRef, OnCreate, OnDestroy {
 			this.close();
 		} else if (Date.now() - this._lastCloseTime > 150) {
 			this.open();
+		}
+
+		// In multiple mode the search input is the combobox (and the only tab
+		// stop), so a click anywhere on the trigger must land focus there.
+		if (this.multiple) {
+			(this.elementRef.shadowRoot?.querySelector('.ml-select__search') as HTMLElement | null)?.focus();
 		}
 	};
 
@@ -520,56 +492,35 @@ export class SelectComponent implements IElementRef, OnCreate, OnDestroy {
 	/** Keep the keyboard-focused option visible within the scrollable dropdown */
 	private scrollFocusedOptionIntoView(): void {
 		if (this.focusedIndex < 0) return;
-		const optionEl = this.elementRef.shadowRoot?.getElementById(this.optionId(this.focusedIndex));
-		optionEl?.scrollIntoView({ block: 'nearest' });
+		scrollOptionIntoView(this.elementRef.shadowRoot, this.optionId(this.focusedIndex));
 	}
 
 	/** Move focus to next enabled option */
 	private focusNextOption(): void {
-		const startIndex = this.focusedIndex;
-		let index = startIndex + 1;
-		const options = this.getActiveOptions();
-
-		while (index < options.length) {
-			if (!options[index].disabled) {
-				this.focusedIndex = index;
-				this.scrollFocusedOptionIntoView();
-				return;
-			}
-			index++;
+		const index = findNextEnabledIndex(this.getActiveOptions(), this.focusedIndex);
+		if (index >= 0) {
+			this.focusedIndex = index;
+			this.scrollFocusedOptionIntoView();
 		}
 	}
 
 	/** Move focus to previous enabled option */
 	private focusPreviousOption(): void {
-		const startIndex = this.focusedIndex;
-		let index = startIndex - 1;
-		const options = this.getActiveOptions();
-
-		while (index >= 0) {
-			if (!options[index].disabled) {
-				this.focusedIndex = index;
-				this.scrollFocusedOptionIntoView();
-				return;
-			}
-			index--;
+		const index = findPreviousEnabledIndex(this.getActiveOptions(), this.focusedIndex);
+		if (index >= 0) {
+			this.focusedIndex = index;
+			this.scrollFocusedOptionIntoView();
 		}
 	}
 
 	/** Find first enabled option index */
 	private findFirstEnabledIndex(): number {
-		return this.getActiveOptions().findIndex((opt) => !opt.disabled);
+		return firstEnabledIndex(this.getActiveOptions());
 	}
 
 	/** Find last enabled option index */
 	private findLastEnabledIndex(): number {
-		const options = this.getActiveOptions();
-		for (let i = options.length - 1; i >= 0; i--) {
-			if (!options[i].disabled) {
-				return i;
-			}
-		}
-		return -1;
+		return lastEnabledIndex(this.getActiveOptions());
 	}
 
 	private getInitialFocusIndex(): number {
@@ -594,19 +545,5 @@ export class SelectComponent implements IElementRef, OnCreate, OnDestroy {
 
 	private getActiveOptions(): SelectOption[] {
 		return this.filteredOptions;
-	}
-
-	private updateValues(values: string[]): void {
-		this._syncingValues = true;
-		this.values = values;
-		this._syncingValues = false;
-	}
-
-	private areValuesEqual(left: string[], right: string[]): boolean {
-		if (left.length !== right.length) return false;
-		for (let i = 0; i < left.length; i++) {
-			if (left[i] !== right[i]) return false;
-		}
-		return true;
 	}
 }

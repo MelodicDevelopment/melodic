@@ -100,6 +100,6 @@ export const listItemStyles = () => css`
 		display: flex;
 		align-items: center;
 		flex-shrink: 0;
-		margin-left: auto;
+		margin-inline-start: auto;
 	}
 `;

@@ -5,6 +5,7 @@
  */
 
 import { directive } from '../functions/directive.function';
+import { restoreDirectiveContainer } from '../../functions/marker-range.functions';
 import type { IDirectiveResult } from '../interfaces/idirective-result.interface';
 
 /**
@@ -47,7 +48,12 @@ export function unsafeHTML(html: string): IDirectiveResult {
 				nodes: []
 			};
 
-			renderHTML(html, state);
+			try {
+				renderHTML(html, state);
+			} catch (error) {
+				restoreDirectiveContainer(container, startMarker, endMarker);
+				throw error;
+			}
 			return state;
 		}
 

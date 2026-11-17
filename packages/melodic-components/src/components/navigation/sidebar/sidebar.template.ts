@@ -149,8 +149,8 @@ function renderNavItem(c: SidebarComponent, item: SidebarNavItem, level: number)
 					<a
 						class=${linkClasses}
 						href=${item.href}
-						?target=${item.external ? '_blank' : null}
-						?rel=${item.external ? 'noopener noreferrer' : null}
+						target=${item.external ? '_blank' : null}
+						rel=${item.external ? 'noopener noreferrer' : null}
 						@click=${(event: MouseEvent) => {
 							routeAnchorClick(event, item.href ?? '', { external: item.external });
 							handleClick(event);

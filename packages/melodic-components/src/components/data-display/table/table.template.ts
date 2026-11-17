@@ -25,7 +25,7 @@ export function tableTemplate(c: TableComponent) {
 			`)}
 
 			<div class="ml-table__wrapper">
-				<table role="grid">
+				<table>
 					<thead>
 						<tr>
 							${when(c.selectable, () => html`
@@ -51,10 +51,10 @@ export function tableTemplate(c: TableComponent) {
 									})}
 									style=${col.width ? `width: ${col.width}` : ''}
 									tabindex=${col.sortable ? '0' : ''}
-									role=${col.sortable ? 'columnheader button' : ''}
+									role=${col.sortable ? 'columnheader' : undefined}
 									@click=${() => c.handleSort(col)}
 									@keydown=${(e: KeyboardEvent) => c.handleHeaderKeyDown(col, e)}
-									aria-sort=${c.sortKey === col.key ? (c.sortDirection === 'asc' ? 'ascending' : 'descending') : 'none'}
+									aria-sort=${col.sortable ? (c.sortKey === col.key ? (c.sortDirection === 'asc' ? 'ascending' : 'descending') : 'none') : undefined}
 								>
 									<span class="ml-table__th-content">
 										${col.label}
@@ -75,11 +75,11 @@ export function tableTemplate(c: TableComponent) {
 					</thead>
 					<tbody>
 						${when(c.virtual && c.topSpacerHeight > 0, () => html`
-							<tr class="ml-table__spacer">
+							<tr class="ml-table__spacer" aria-hidden="true">
 								<td colspan="${c.colCount}" style="height: ${c.topSpacerHeight}px"></td>
 							</tr>
 						`)}
-						${repeat(c.visibleRows, (_: Record<string, unknown>, i: number) => c.startIndex + i, (row: Record<string, unknown>, i: number) => {
+						${repeat(c.visibleRows, (row: Record<string, unknown>, i: number) => c.getRowKey(row, c.startIndex + i), (row: Record<string, unknown>, i: number) => {
 							const absoluteIndex = c.startIndex + i;
 							return html`
 								<tr
@@ -88,7 +88,9 @@ export function tableTemplate(c: TableComponent) {
 										'ml-table__row': true,
 										'ml-table__row--selected': c.isRowSelected(absoluteIndex)
 									})}
+									tabindex=${c.clickableRows ? '0' : undefined}
 									@click=${() => c.handleRowClick(row, absoluteIndex)}
+									@keydown=${(e: KeyboardEvent) => c.handleRowKeyDown(row, absoluteIndex, e)}
 								>
 									${when(c.selectable, () => html`
 										<td class="ml-table__check-cell">
@@ -117,7 +119,7 @@ export function tableTemplate(c: TableComponent) {
 							`;
 						})}
 						${when(c.virtual && c.bottomSpacerHeight > 0, () => html`
-							<tr class="ml-table__spacer">
+							<tr class="ml-table__spacer" aria-hidden="true">
 								<td colspan="${c.colCount}" style="height: ${c.bottomSpacerHeight}px"></td>
 							</tr>
 						`)}

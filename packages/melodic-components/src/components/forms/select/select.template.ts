@@ -28,13 +28,17 @@ export function selectTemplate(c: SelectComponent) {
 			<div class="ml-select__control">
 				<div
 					class="ml-select__trigger"
-					role="combobox"
-					tabindex=${c.disabled ? '-1' : '0'}
-					aria-haspopup="listbox"
-					aria-expanded=${c.isOpen}
-					aria-controls=${c.listboxId}
-					aria-activedescendant=${c.activeDescendant}
-					aria-labelledby=${c.label ? c.labelId : undefined}
+					role=${c.multiple ? undefined : 'combobox'}
+					tabindex=${c.multiple ? undefined : c.disabled ? '-1' : '0'}
+					aria-haspopup=${c.multiple ? undefined : 'listbox'}
+					aria-expanded=${c.multiple ? undefined : String(c.isOpen)}
+					aria-controls=${c.multiple ? undefined : c.listboxId}
+					aria-activedescendant=${c.multiple ? undefined : c.activeDescendant}
+					aria-labelledby=${!c.multiple && c.label ? c.labelId : undefined}
+					aria-describedby=${c.multiple ? undefined : c.describedBy}
+					aria-invalid=${!c.multiple && c.error ? 'true' : undefined}
+					aria-required=${!c.multiple && c.required ? 'true' : undefined}
+					aria-disabled=${!c.multiple && c.disabled ? 'true' : undefined}
 					@click=${c.toggle}
 				>
 					<span class="ml-select__value">
@@ -69,8 +73,8 @@ export function selectTemplate(c: SelectComponent) {
 
 			${when(
 				!!c.error,
-				() => html`<span class="ml-select__error">${c.error}</span>`,
-				() => html`${when(!!c.hint, () => html`<span class="ml-select__hint">${c.hint}</span>`)}`
+				() => html`<span id=${c.errorId} class="ml-select__error">${c.error}</span>`,
+				() => html`${when(!!c.hint, () => html`<span id=${c.hintId} class="ml-select__hint">${c.hint}</span>`)}`
 			)}
 		</div>
 	`;
@@ -111,8 +115,20 @@ function renderMultiValue(c: SelectComponent) {
 		<input
 			class="ml-select__search"
 			type="text"
+			role="combobox"
+			aria-haspopup="listbox"
+			aria-autocomplete="list"
+			aria-expanded=${String(c.isOpen)}
+			aria-controls=${c.listboxId}
+			aria-activedescendant=${c.activeDescendant}
+			aria-labelledby=${c.label ? c.labelId : undefined}
+			aria-describedby=${c.describedBy}
+			aria-invalid=${c.error ? 'true' : undefined}
+			aria-required=${c.required ? 'true' : undefined}
 			placeholder=${c.values.length ? '' : c.placeholder}
-			aria-label=${c.placeholder || 'Search'}
+			aria-label=${c.label ? undefined : c.placeholder || 'Search'}
+			aria-disabled=${c.disabled ? 'true' : undefined}
+			tabindex=${c.disabled ? '-1' : undefined}
 			.value=${c.search}
 			@input=${c.handleSearchInput}
 			@click=${c.handleSearchClick}

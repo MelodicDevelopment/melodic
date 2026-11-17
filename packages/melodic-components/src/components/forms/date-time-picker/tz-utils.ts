@@ -19,6 +19,7 @@
 export type TimezoneLabelFormat = 'short' | 'long' | 'offset' | 'none';
 
 const NAIVE_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2})?$/;
+const DAY_MS = 24 * 60 * 60 * 1000;
 const UTC_RE = /(?:Z|[+-]\d{2}:?\d{2})$/;
 
 export function isUtcIsoString(value: string): boolean {
@@ -81,9 +82,33 @@ export function naiveToUtcIso(naive: string, timeZone: string): string {
 	const padded = naive.length === 16 ? `${naive}:00` : naive;
 	const naiveAsUtc = new Date(`${padded}Z`);
 	if (Number.isNaN(naiveAsUtc.getTime())) return '';
-	const offset = getZoneOffsetMs(naiveAsUtc, timeZone);
-	const real = new Date(naiveAsUtc.getTime() - offset);
-	return real.toISOString();
+
+	// The zone's offset has to be the one in force at the REAL instant, which
+	// is what we are solving for. Reading it at `naiveAsUtc` (the wall clock
+	// misread as UTC) is off by the zone's own offset, so for several hours
+	// around every DST transition it picked the wrong side of the change and
+	// the result was an hour out.
+	//
+	// Probe a day either side — far enough to bracket any transition near the
+	// wall clock — to get the offset before and after, then keep the
+	// candidate(s) that actually round-trip to the requested wall clock.
+	const naiveMs = naiveAsUtc.getTime();
+	const before = getZoneOffsetMs(new Date(naiveMs - DAY_MS), timeZone);
+	const after = getZoneOffsetMs(new Date(naiveMs + DAY_MS), timeZone);
+
+	const candidates = (before === after ? [before] : [before, after])
+		.map((offset) => ({ offset, instant: naiveMs - offset }))
+		.filter(({ offset, instant }) => getZoneOffsetMs(new Date(instant), timeZone) === offset)
+		.map(({ instant }) => instant);
+
+	if (candidates.length > 0) {
+		// Two matches = fall-back ambiguity: the first occurrence wins.
+		return new Date(Math.min(...candidates)).toISOString();
+	}
+
+	// No match = spring-forward gap (the wall clock does not exist). Applying
+	// the pre-transition offset lands on the post-jump wall clock.
+	return new Date(naiveMs - before).toISOString();
 }
 
 /**

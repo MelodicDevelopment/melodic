@@ -121,7 +121,7 @@ export const tagStyles = () => css`
 		border-radius: var(--ml-radius-full);
 		object-fit: cover;
 		flex-shrink: 0;
-		margin-left: calc(var(--ml-space-0-5) * -1);
+		margin-inline-start: calc(var(--ml-space-0-5) * -1);
 	}
 
 	.ml-tag--sm .ml-tag__avatar {
@@ -137,7 +137,7 @@ export const tagStyles = () => css`
 	/* Icon */
 	.ml-tag__icon {
 		flex-shrink: 0;
-		margin-left: calc(var(--ml-space-0-5) * -1);
+		margin-inline-start: calc(var(--ml-space-0-5) * -1);
 	}
 
 	/* Content */
@@ -163,7 +163,7 @@ export const tagStyles = () => css`
 		justify-content: center;
 		padding: 0;
 		margin: 0;
-		margin-right: calc(var(--ml-space-1) * -1);
+		margin-inline-end: calc(var(--ml-space-1) * -1);
 		border: none;
 		background: none;
 		color: var(--ml-tag-close-color, var(--ml-color-text-muted));
@@ -190,7 +190,7 @@ export const tagStyles = () => css`
 		height: 1rem;
 		padding: 0;
 		margin: 0;
-		margin-left: calc(var(--ml-space-0-5) * -1);
+		margin-inline-start: calc(var(--ml-space-0-5) * -1);
 		border: var(--ml-tag-border-width, var(--ml-border)) solid var(--ml-tag-checkbox-border, var(--ml-color-border-strong));
 		border-radius: var(--ml-radius-sm);
 		background: var(--ml-tag-checkbox-bg, var(--ml-color-surface));
@@ -233,5 +233,12 @@ export const tagStyles = () => css`
 	.ml-tag--disabled {
 		opacity: var(--ml-tag-disabled-opacity, 0.5);
 		pointer-events: none;
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.ml-tag__close,
+		.ml-tag__checkbox {
+			transition: none;
+		}
 	}
 `;

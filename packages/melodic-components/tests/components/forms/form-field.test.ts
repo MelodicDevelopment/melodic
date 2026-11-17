@@ -90,3 +90,63 @@ describe('ml-form-field', () => {
 		expect(shadowQuery(el, '.ml-form-field__hint')?.textContent?.trim()).toBe('A hint');
 	});
 });
+
+describe('ml-form-field with a shadow-DOM control', () => {
+	let field: any;
+
+	afterEach(() => {
+		field?.remove();
+	});
+
+	if (!customElements.get('ml-fake-control')) {
+		customElements.define(
+			'ml-fake-control',
+			class extends HTMLElement {
+				constructor() {
+					super();
+					this.attachShadow({ mode: 'open' }).innerHTML = '<input aria-invalid="false">';
+				}
+			}
+		);
+	}
+
+	async function mount(attributes: Record<string, string>): Promise<{ host: HTMLElement; inner: HTMLInputElement }> {
+		field = createComponent('ml-form-field', { attributes });
+		const host = document.createElement('ml-fake-control');
+		field.appendChild(host);
+		await flush();
+		await flush();
+		return { host, inner: host.shadowRoot!.querySelector('input')! };
+	}
+
+	it('mirrors the description and state onto the inner focusable control', async () => {
+		const { host, inner } = await mount({ hint: 'Pick one', required: '' });
+
+		// Host keeps its ARIA (unchanged behaviour)…
+		expect(host.getAttribute('aria-required')).toBe('true');
+		// …and the element that actually takes focus now has it too.
+		expect(inner.getAttribute('aria-description')).toBe('Pick one');
+		expect(inner.getAttribute('aria-required')).toBe('true');
+
+		field.error = 'Required';
+		await flush();
+		expect(inner.getAttribute('aria-invalid')).toBe('true');
+		expect(inner.getAttribute('aria-description')).toBe('Required. Pick one');
+	});
+
+	it('only removes inner ARIA it added itself', async () => {
+		const { inner } = await mount({});
+
+		// The inner component manages its own aria-invalid="false": untouched.
+		expect(inner.getAttribute('aria-invalid')).toBe('false');
+
+		field.error = 'Bad';
+		await flush();
+		expect(inner.getAttribute('aria-invalid')).toBe('true');
+
+		field.error = '';
+		await flush();
+		expect(inner.hasAttribute('aria-invalid')).toBe(false);
+		expect(inner.hasAttribute('aria-description')).toBe(false);
+	});
+});

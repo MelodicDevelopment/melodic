@@ -127,3 +127,48 @@ describe('ml-tabs slotted mode — keyboard focus', () => {
 		expect(event.detail.value).toBe('two');
 	});
 });
+
+describe('ml-tabs nested tab sets', () => {
+	let el: any;
+
+	afterEach(() => {
+		if (el) removeComponent(el);
+	});
+
+	it('leaves the panels of a nested ml-tabs alone', async () => {
+		el = document.createElement('ml-tabs');
+		el.setAttribute('value', 'one');
+		el.innerHTML = `
+			<ml-tab slot="tab" value="one" label="One"></ml-tab>
+			<ml-tab slot="tab" value="two" label="Two"></ml-tab>
+			<ml-tab-panel value="one" id="outer-one">
+				<ml-tabs value="x" id="inner">
+					<ml-tab slot="tab" value="x" label="X"></ml-tab>
+					<ml-tab slot="tab" value="one" label="Inner one"></ml-tab>
+					<ml-tab-panel value="x" id="inner-x">X</ml-tab-panel>
+					<ml-tab-panel value="one" id="inner-one">Inner one</ml-tab-panel>
+				</ml-tabs>
+			</ml-tab-panel>
+			<ml-tab-panel value="two" id="outer-two">Two</ml-tab-panel>
+		`;
+		document.body.appendChild(el);
+		await settle();
+
+		const hidden = (id: string) => (el.querySelector(`#${id}`) as HTMLElement).hidden;
+
+		// The outer value is "one": the inner set shows ITS active panel (x),
+		// not the inner panel that happens to share the outer value.
+		expect(hidden('outer-one')).toBe(false);
+		expect(hidden('outer-two')).toBe(true);
+		expect(hidden('inner-x')).toBe(false);
+		expect(hidden('inner-one')).toBe(true);
+
+		el.value = 'two';
+		await settle();
+		expect(hidden('outer-one')).toBe(true);
+		expect(hidden('outer-two')).toBe(false);
+		// Inner panels are untouched by the outer change.
+		expect(hidden('inner-x')).toBe(false);
+		expect(hidden('inner-one')).toBe(true);
+	});
+});

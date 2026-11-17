@@ -3,6 +3,7 @@ import type { IElementRef, OnCreate, OnDestroy } from '@melodicdev/core';
 import type { Placement } from '../../../types/index.js';
 import { OverlayPositioner, ToggleDismissGuard } from '../../../utils/overlay/index.js';
 import { createFocusTrap, isDeepFocusWithin, type FocusTrap } from '../../../utils/accessibility/focus-trap.js';
+import { getFocusableControl } from '../../../utils/accessibility/cross-root-aria.js';
 import { popoverTemplate } from './popover.template.js';
 import { popoverStyles } from './popover.styles.js';
 
@@ -34,7 +35,7 @@ import { popoverStyles } from './popover.styles.js';
 	selector: 'ml-popover',
 	template: popoverTemplate,
 	styles: popoverStyles,
-	attributes: ['placement', 'offset', 'manual', 'arrow']
+	attributes: ['placement', 'offset', 'manual', 'arrow', 'label']
 })
 export class PopoverComponent implements IElementRef, OnCreate, OnDestroy {
 	public elementRef!: HTMLElement;
@@ -50,6 +51,12 @@ export class PopoverComponent implements IElementRef, OnCreate, OnDestroy {
 
 	/** When true, shows an arrow pointing to the trigger */
 	public arrow = false;
+
+	/**
+	 * Accessible name for the popover panel (`aria-label`). Optional, but the
+	 * panel is a focus-trapping `role="dialog"`, which should be named.
+	 */
+	public label = '';
 
 	/** Current open state */
 	public isOpen = false;
@@ -71,7 +78,27 @@ export class PopoverComponent implements IElementRef, OnCreate, OnDestroy {
 			popoverEl.addEventListener('toggle', this.handleToggle);
 			popoverEl.addEventListener('keydown', this.handleKeyDown);
 		}
+		this.elementRef.shadowRoot?.addEventListener('slotchange', this.syncTriggerAria);
+		this.syncTriggerAria();
 	}
+
+	/**
+	 * Tell assistive tech that the slotted trigger opens a dialog and whether
+	 * it is open. The state goes on the element that takes focus (for an
+	 * `<ml-button>` trigger, the `<button>` inside it), and a consumer's own
+	 * `aria-haspopup` is left alone.
+	 */
+	private readonly syncTriggerAria = (): void => {
+		const slot = this.elementRef.shadowRoot?.querySelector('slot[name="trigger"]') as HTMLSlotElement | null;
+		const trigger = slot?.assignedElements()[0];
+		if (!trigger) return;
+
+		const control = getFocusableControl(trigger);
+		if (!control.hasAttribute('aria-haspopup')) {
+			control.setAttribute('aria-haspopup', 'dialog');
+		}
+		control.setAttribute('aria-expanded', String(this.isOpen));
+	};
 
 	/**
 	 * `popover="manual"` opts out of the platform's light-dismiss AND of its
@@ -99,6 +126,7 @@ export class PopoverComponent implements IElementRef, OnCreate, OnDestroy {
 			popoverEl.removeEventListener('toggle', this.handleToggle);
 			popoverEl.removeEventListener('keydown', this.handleKeyDown);
 		}
+		this.elementRef.shadowRoot?.removeEventListener('slotchange', this.syncTriggerAria);
 	}
 
 	/** Open the popover */
@@ -152,6 +180,7 @@ export class PopoverComponent implements IElementRef, OnCreate, OnDestroy {
 				new CustomEvent('ml:close', { bubbles: true, composed: true })
 			);
 		}
+		this.syncTriggerAria();
 	};
 
 	private activateFocusTrap(): void {

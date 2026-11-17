@@ -36,6 +36,20 @@ const http = new HttpClient({
 });
 ```
 
+`defaultHeaders` and `credentials` are sent to the `baseURL`'s origin and to the page's own
+origin only. A request to an absolute URL on any other origin does **not** receive them — a
+default `Authorization` header is meant for your API, not for a third party. Headers and
+`credentials` passed on the request itself are always sent. To send the client defaults
+everywhere, opt in:
+
+```typescript
+const http = new HttpClient({
+	baseURL: 'https://api.example.com',
+	defaultHeaders: { 'X-Client': 'web' },
+	allowCrossOriginDefaults: true
+});
+```
+
 ## Making Requests
 
 ```typescript
@@ -69,6 +83,7 @@ Supported config options include:
 - `body`: request body for `post`, `put`, `patch`
 - `deduplicate`: when `true` (the default for `GET`), identical inflight requests share one fetch and one interceptor pass. Two requests are identical only when their method, URL, query `params`, `headers` (case-insensitive names, any order), `credentials`, `mode` and body all match — a request carrying a different `Authorization` header is never merged with another
 - `onProgress`: receive progress updates (if the browser provides them)
+- `responseType`: `'json' | 'text' | 'blob' | 'arrayBuffer'` — decode the body as this type instead of inferring it from `content-type`. By default any JSON content type (`application/json`, `application/problem+json`, `application/vnd.api+json`, …) is parsed, `text/*` is returned as a string, and a known binary type (images, audio, video, fonts, PDF, zip, octet-stream) as a `Blob`; anything else is read as text, so pass `responseType: 'blob'` for downloads such as spreadsheets
 - `abortController`: supply your own `AbortController`
 - `credentials` / `mode`: forwarded to `fetch`
 - `cancel`: manual cancellation flag
@@ -112,6 +127,11 @@ A response interceptor may define an optional `error(error, context)` handler. I
 - Return an `IHttpResponse` to recover — the remaining response interceptors run on it.
 - Reject (or resolve `void`) to defer to the next interceptor's `error()`.
 - If no handler recovers, the original error is rethrown to the caller.
+
+For a deduplicated request the error handlers run **once for the shared request**, like
+`intercept()` does — three callers sharing one `401` trigger one refresh and one `retry()`,
+and all three receive its result. A caller that aborts its own participation is reported to
+the error handlers for that caller alone.
 
 ```typescript
 http.interceptors.response({

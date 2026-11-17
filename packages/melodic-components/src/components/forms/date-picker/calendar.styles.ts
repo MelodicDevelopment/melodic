@@ -352,4 +352,23 @@ export const calendarStyles = () => css`
 		outline: none;
 		box-shadow: var(--ml-calendar-focus-shadow, var(--ml-shadow-focus-ring));
 	}
+
+	/*
+	 * Forced colors (Windows High Contrast): box-shadow rings and background
+	 * highlights are not painted there, so focus falls back to a real outline.
+	 */
+	@media (forced-colors: active) {
+		.ml-calendar__title-btn:focus-visible,
+		.ml-calendar__nav:focus-visible,
+		.ml-calendar__today-btn:focus-visible {
+			outline: 2px solid Highlight;
+			outline-offset: 2px;
+		}
+
+		.ml-calendar__cell:focus-visible,
+		.ml-calendar__day:focus-visible {
+			outline: 2px solid Highlight;
+			outline-offset: -2px;
+		}
+	}
 `;

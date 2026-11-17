@@ -65,6 +65,41 @@ export interface TableCoreHost {
 	endIndex: number;
 }
 
+/**
+ * Row identity for rendering: a property name to read from each row, or a
+ * function returning a unique key.
+ */
+export type TableRowKey = string | ((row: Record<string, unknown>, index: number) => unknown);
+
+/**
+ * Key used by `repeat` for a rendered row.
+ *
+ * Without a `rowKey` rows are keyed by POSITION, so after a sort, filter or
+ * page change the DOM of row N is reused for whatever record is now at N —
+ * any state a custom cell holds (an input's text, focus, an open menu) leaks
+ * onto a different record. With a `rowKey`, DOM follows the record.
+ */
+export function resolveRowKey(rowKey: TableRowKey | null | undefined, row: Record<string, unknown>, index: number): unknown {
+	if (typeof rowKey === 'function') {
+		return rowKey(row, index) ?? index;
+	}
+	if (typeof rowKey === 'string' && rowKey) {
+		return row[rowKey] ?? index;
+	}
+	return index;
+}
+
+/** Natural-order string comparison: "item 2" sorts before "item 10". */
+const naturalCollator = new Intl.Collator(undefined, { numeric: true });
+
+function compareValues(aVal: unknown, bVal: unknown): number {
+	if (typeof aVal === 'number' && typeof bVal === 'number') return aVal - bVal;
+	// Dates compare chronologically — as strings they sorted by weekday name.
+	if (aVal instanceof Date && bVal instanceof Date) return aVal.getTime() - bVal.getTime();
+	if (typeof aVal === 'bigint' && typeof bVal === 'bigint') return aVal < bVal ? -1 : aVal > bVal ? 1 : 0;
+	return naturalCollator.compare(String(aVal), String(bVal));
+}
+
 export interface TableCoreOptions {
 	/** Shadow-root selector for the scrollable viewport element */
 	viewportSelector: string;
@@ -103,8 +138,8 @@ export class TableCore {
 	/**
 	 * Sort rows by the host's current sortKey/sortDirection. Returns the input
 	 * untouched when no sort key is active. null/undefined values sort last
-	 * regardless of direction; numbers sort numerically, everything else by
-	 * locale-aware string comparison.
+	 * regardless of direction; numbers sort numerically, Dates chronologically,
+	 * everything else by locale-aware natural-order string comparison.
 	 */
 	public sortRows(rows: Record<string, unknown>[]): Record<string, unknown>[] {
 		const key = this._host.sortKey;
@@ -115,8 +150,7 @@ export class TableCore {
 			const bVal = b[key];
 			if (aVal == null) return bVal == null ? 0 : 1;
 			if (bVal == null) return -1;
-			if (typeof aVal === 'number' && typeof bVal === 'number') return (aVal - bVal) * dir;
-			return String(aVal).localeCompare(String(bVal)) * dir;
+			return compareValues(aVal, bVal) * dir;
 		});
 	}
 

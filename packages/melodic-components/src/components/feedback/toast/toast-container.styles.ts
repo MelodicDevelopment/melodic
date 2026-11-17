@@ -5,6 +5,26 @@ export const toastContainerStyles = () => css`
 		display: block;
 	}
 
+	/*
+	 * ToastService shows the container as a manual popover so it renders in
+	 * the top layer (above modal dialogs). Undo the UA popover box so the
+	 * host stays what it always was: an unstyled, click-through wrapper
+	 * around the fixed-position stack.
+	 */
+	:host([popover]) {
+		position: fixed;
+		inset: 0;
+		width: auto;
+		height: auto;
+		margin: 0;
+		padding: 0;
+		border: 0;
+		background: transparent;
+		color: inherit;
+		overflow: visible;
+		pointer-events: none;
+	}
+
 	.ml-toast-container {
 		position: fixed;
 		z-index: 9999;

@@ -3,7 +3,6 @@ import type { BreadcrumbItemComponent } from './breadcrumb-item.component.js';
 import { routeAnchorClick } from '../functions/route-link.function.js';
 
 export function breadcrumbItemTemplate(c: BreadcrumbItemComponent) {
-	const separatorIcon = c.separator === 'slash' ? 'slash-forward' : 'caret-right';
 
 	return html`
 		<li
@@ -12,8 +11,11 @@ export function breadcrumbItemTemplate(c: BreadcrumbItemComponent) {
 				'ml-breadcrumb-item--current': c.current
 			})}
 		>
-			<span class="ml-breadcrumb-item__separator">
-				<ml-icon icon=${separatorIcon} size="sm"></ml-icon>
+			<span class="ml-breadcrumb-item__separator" aria-hidden="true">
+				${c.separator === 'slash'
+					? // The icon font has no forward-slash glyph ("slash-forward" rendered nothing).
+						'/'
+					: html`<ml-icon icon="caret-right" size="sm"></ml-icon>`}
 			</span>
 			${when(
 				!!c.href && !c.current,

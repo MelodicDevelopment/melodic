@@ -1,5 +1,5 @@
 import type { Middleware, Placement } from '../types.js';
-import { getOppositePlacement, getSide } from '../compute-position.js';
+import { getBasePlacement, getOppositePlacement, getSide } from '../compute-position.js';
 import { applyOffsetToPosition, type OffsetMiddlewareData } from './offset.middleware.js';
 
 export interface FlipOptions {
@@ -80,7 +80,7 @@ export function flip(options: FlipOptions = {}): Middleware {
 			for (const fallback of fallbacks) {
 				// Calculate position for fallback placement
 				const newSide = getSide(fallback);
-				let newPos = getBasePlacementForFlip(rects.reference, rects.floating, fallback);
+				let newPos = getBasePlacement(rects.reference, rects.floating, fallback);
 				if (offsetData) {
 					newPos = applyOffsetToPosition(newPos, newSide, offsetData);
 				}
@@ -99,57 +99,4 @@ export function flip(options: FlipOptions = {}): Middleware {
 			return;
 		}
 	};
-}
-
-/**
- * Calculate base position for a placement (used internally by flip)
- */
-function getBasePlacementForFlip(reference: DOMRect, floating: DOMRect, placement: Placement): { x: number; y: number } {
-	const [side, alignment = 'center'] = placement.split('-') as [string, string?];
-
-	let x = 0;
-	let y = 0;
-
-	switch (side) {
-		case 'top':
-			y = reference.top - floating.height;
-			break;
-		case 'bottom':
-			y = reference.bottom;
-			break;
-		case 'left':
-			x = reference.left - floating.width;
-			break;
-		case 'right':
-			x = reference.right;
-			break;
-		default:
-			break;
-	}
-
-	if (side === 'top' || side === 'bottom') {
-		switch (alignment) {
-			case 'start':
-				x = reference.left;
-				break;
-			case 'end':
-				x = reference.right - floating.width;
-				break;
-			default:
-				x = reference.left + (reference.width - floating.width) / 2;
-		}
-	} else {
-		switch (alignment) {
-			case 'start':
-				y = reference.top;
-				break;
-			case 'end':
-				y = reference.bottom - floating.height;
-				break;
-			default:
-				y = reference.top + (reference.height - floating.height) / 2;
-		}
-	}
-
-	return { x, y };
 }

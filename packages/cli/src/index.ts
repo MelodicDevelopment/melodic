@@ -1,4 +1,7 @@
 #!/usr/bin/env node
 import { run } from './cli.js';
 
-run(process.argv.slice(2));
+run(process.argv.slice(2)).catch((error: unknown) => {
+	console.error('Error:', error instanceof Error ? error.message : String(error));
+	process.exitCode = 1;
+});

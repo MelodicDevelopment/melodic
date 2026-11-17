@@ -81,21 +81,41 @@ export function computed<T>(computation: () => T, options: IComputedOptions = {}
 	let value: T;
 	let dirty = true;
 	let destroyed = false;
+	// True while `computation` is on the stack — a read of this computed from
+	// inside its own computation is a cycle.
+	let computing = false;
+	// The last recompute threw. `dirty` stays true (there is no value), so the
+	// next source change must still be propagated: see `onInvalidate`.
+	let failed = false;
 	const subscribers = new Set<Subscriber<T>>();
 	const dependents = new Set<IDependent>();
 
 	/** Re-evaluate the computation, tracking its source reads on `tracker`. */
 	const recompute = (): void => {
+		if (computing) {
+			// Used to recurse until the stack overflowed, with a RangeError
+			// that named nothing.
+			throw new Error(
+				`Circular dependency detected in computed${options.name ? ` '${options.name}'` : ''}: ` +
+					'its computation reads the computed itself (directly or through another computed).'
+			);
+		}
+
 		// Drop stale source subscriptions before re-tracking.
 		tracker.clearDependencies();
 
 		const prevEffect = getActiveEffect();
 		setActiveEffect(tracker);
+		computing = true;
+		let succeeded = false;
 		try {
 			value = computation();
 			dirty = false;
+			succeeded = true;
 			emitDevtools('computed:recompute', () => ({ name: options.name, value }));
 		} finally {
+			computing = false;
+			failed = !succeeded;
 			setActiveEffect(prevEffect);
 		}
 	};
@@ -110,13 +130,18 @@ export function computed<T>(computation: () => T, options: IComputedOptions = {}
 		onInvalidate: () => {
 			// Already dirty ⇒ dependents were invalidated when we became dirty
 			// and nobody has read us since, so there is nothing new to propagate.
-			if (destroyed || dirty) {
+			// The exception is a computation that THREW: it was read (so its
+			// dependents are owed the next change) but could not clear `dirty`.
+			// Returning here left an effect or template stuck on the error
+			// forever, even after the source that caused it was corrected.
+			if (destroyed || (dirty && !failed)) {
 				return;
 			}
 
 			dirty = true;
+			failed = false;
 
-			for (const dependent of [...dependents]) {
+			for (const dependent of dependents) {
 				dependent.invalidate();
 			}
 

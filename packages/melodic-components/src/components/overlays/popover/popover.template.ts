@@ -10,6 +10,8 @@ export function popoverTemplate(c: PopoverComponent) {
 			<div
 				class="ml-popover__content"
 				popover=${c.manual ? 'manual' : 'auto'}
+				role="dialog"
+				aria-label=${c.label || undefined}
 			>
 				<slot></slot>
 				${when(

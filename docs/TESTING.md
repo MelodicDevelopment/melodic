@@ -40,6 +40,8 @@ Options:
 | `attributes` | Attributes to set before connecting |
 
 The returned element carries `component` (the user's instance) and `unmount()`.
+`unmount()` is async: it removes the element (and the `<div>` `mount()` created for it) and
+waits for the deferred teardown, so `await el.unmount()` before asserting on cleanup.
 
 Mounting an unregistered selector throws with a message that says to import the component
 module — a much better failure than a silently inert `HTMLUnknownElement`.
@@ -82,10 +84,23 @@ expect(events[0].detail.value).toBe('hello');
 
 ## `unmountAll()`
 
-Removes everything `mount()` created. Put it in an `afterEach`:
+Removes everything `mount()` created and waits for teardown. It returns a promise, so put
+it in an `afterEach` directly, or `await` it:
 
 ```typescript
 afterEach(unmountAll);
+```
+
+## `base(element)`
+
+Returns the mounted element typed as its `ComponentBase` wrapper, for the framework members
+that are not on the `mount()` return type: `requestRender()`, `isRendering` and `selector`.
+
+```typescript
+import { base } from '@melodicdev/core/testing';
+
+base(el).requestRender(); // queue a re-render
+await flush();
 ```
 
 ## Replacing a dependency
@@ -95,7 +110,7 @@ afterEach(unmountAll);
 ```typescript
 const el = await mount<UserBadge>('user-badge');
 el.component.auth = { user: signal({ name: 'Ada' }) } as AuthService;
-el.requestRender();
+base(el).requestRender();
 await flush();
 ```
 
@@ -128,7 +143,9 @@ Signal writes are synchronous, so no flush is needed:
 const count = signal(0);
 const seen: number[] = [];
 
-const ref = effect(() => seen.push(count()));
+const ref = effect(() => {
+	seen.push(count());
+});
 
 count.set(1);
 expect(seen).toEqual([0, 1]);

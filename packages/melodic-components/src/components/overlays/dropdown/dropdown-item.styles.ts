@@ -98,4 +98,16 @@ export const dropdownItemStyles = () => css`
 		font-size: var(--ml-dropdown-item-addon-font-size, 12px);
 		color: var(--ml-dropdown-item-addon-color, var(--ml-color-text-tertiary));
 	}
+
+	/*
+	 * Forced colors (Windows High Contrast): box-shadow rings and background
+	 * highlights are not painted there, so focus falls back to a real outline.
+	 */
+	@media (forced-colors: active) {
+		.ml-dropdown-item--focused,
+		.ml-dropdown-item--destructive.ml-dropdown-item--focused {
+			outline: 2px solid Highlight;
+			outline-offset: -2px;
+		}
+	}
 `;

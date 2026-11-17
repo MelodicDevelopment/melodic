@@ -73,7 +73,7 @@ export const formFieldStyles = () => css`
 		grid-column: 1;
 		grid-row: 1;
 		padding-top: var(--ml-form-field-horizontal-label-padding-top, var(--ml-space-2-5));
-		text-align: right;
+		text-align: end;
 	}
 
 	.ml-form-field--horizontal .ml-form-field__control {
@@ -97,7 +97,7 @@ export const formFieldStyles = () => css`
 
 	.ml-form-field__required {
 		color: var(--ml-form-field-required-color, var(--ml-color-danger));
-		margin-left: var(--ml-space-0-5);
+		margin-inline-start: var(--ml-space-0-5);
 	}
 
 	/* Control wrapper */
@@ -220,5 +220,18 @@ export const formFieldStyles = () => css`
 
 	.ml-form-field--horizontal.ml-form-field--lg .ml-form-field__label {
 		padding-top: var(--ml-space-3-5);
+	}
+
+	/*
+	 * Forced colors (Windows High Contrast): box-shadow rings and background
+	 * highlights are not painted there, so focus falls back to a real outline.
+	 */
+	@media (forced-colors: active) {
+		::slotted(input:focus),
+		::slotted(select:focus),
+		::slotted(textarea:focus) {
+			outline: 2px solid Highlight;
+			outline-offset: 2px;
+		}
 	}
 `;

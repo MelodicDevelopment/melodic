@@ -63,8 +63,8 @@ export function autocompleteTemplate(c: AutocompleteComponent) {
 
 			${when(
 				!!c.error,
-				() => html`<span class="ml-autocomplete__error">${c.error}</span>`,
-				() => html`${when(!!c.hint, () => html`<span class="ml-autocomplete__hint">${c.hint}</span>`)}`
+				() => html`<span id=${c.errorId} class="ml-autocomplete__error">${c.error}</span>`,
+				() => html`${when(!!c.hint, () => html`<span id=${c.hintId} class="ml-autocomplete__hint">${c.hint}</span>`)}`
 			)}
 		</div>
 	`;
@@ -84,6 +84,9 @@ function renderSingleValue(c: AutocompleteComponent) {
 			aria-autocomplete="list"
 			aria-haspopup="listbox"
 			aria-activedescendant=${c.activeDescendant}
+			aria-describedby=${c.describedBy}
+			aria-invalid=${c.error ? 'true' : undefined}
+			aria-required=${c.required ? 'true' : undefined}
 			placeholder=${c.hasValue ? c.displayText : c.placeholder}
 			aria-label=${c.label || c.placeholder || 'Search'}
 			.value=${c.hasValue && !c.search ? c.displayText : c.search}
@@ -133,6 +136,9 @@ function renderMultiValue(c: AutocompleteComponent) {
 			aria-autocomplete="list"
 			aria-haspopup="listbox"
 			aria-activedescendant=${c.activeDescendant}
+			aria-describedby=${c.describedBy}
+			aria-invalid=${c.error ? 'true' : undefined}
+			aria-required=${c.required ? 'true' : undefined}
 			placeholder=${c.values.length ? '' : c.placeholder}
 			aria-label=${c.label || c.placeholder || 'Search'}
 			.value=${c.search}

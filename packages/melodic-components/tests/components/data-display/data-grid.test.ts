@@ -1,5 +1,6 @@
 import { describe, it, expect, afterEach } from 'vitest';
 import '../../../src/components/data-display/data-grid/data-grid.component';
+import { columnWidthVar } from '../../../src/components/data-display/data-grid/data-grid.component';
 import type { DataGridColumn } from '../../../src/components/data-display/data-grid/data-grid.types';
 import {
 	flush,
@@ -264,5 +265,153 @@ describe('ml-data-grid ml:select contract', () => {
 
 		expect(detail.selectedRows).toEqual([]);
 		expect(detail.selectedIndices).toEqual([]);
+	});
+});
+
+describe('ml-data-grid column keys that are not CSS identifiers', () => {
+	let el: any;
+
+	afterEach(() => {
+		if (el) removeComponent(el);
+	});
+
+	it('keeps the variable name unchanged for ordinary keys', () => {
+		expect(columnWidthVar('name')).toBe('--ml-grid-col-name');
+		expect(columnWidthVar('first_name-2')).toBe('--ml-grid-col-first_name-2');
+	});
+
+	it('escapes keys so the generated var() stays valid CSS', async () => {
+		const dotted: DataGridColumn[] = [
+			{ key: 'user.name', label: 'Name', width: 180 },
+			{ key: 'first name', label: 'First', width: 120 }
+		];
+		el = createComponent('ml-data-grid', { properties: { columns: dotted, rows: [{ 'user.name': 'A', 'first name': 'B' }], virtual: false } });
+		await flush();
+
+		const gtc: string = el.component.gridTemplateColumns;
+		const names = Array.from(gtc.matchAll(/var\((--[^,]+),/g)).map((m) => m[1]);
+		expect(names).toHaveLength(2);
+		for (const name of names) {
+			expect(name).toMatch(/^--[a-zA-Z0-9_-]+$/);
+		}
+		expect(new Set(names).size).toBe(2);
+		expect(gtc).toContain('180px');
+	});
+});
+
+describe('ml-data-grid column resize', () => {
+	let el: any;
+
+	afterEach(() => {
+		if (el) removeComponent(el);
+	});
+
+	it('abandons a resize on pointercancel without committing or emitting', async () => {
+		el = createComponent('ml-data-grid', { properties: { columns, rows, virtual: false } });
+		await flush();
+		const c = el.component;
+
+		let emitted = false;
+		el.addEventListener('ml:column-resize', () => (emitted = true));
+
+		const target = { setPointerCapture() {} };
+		c.handleResizeStart('email', { clientX: 100, pointerId: 1, target, stopPropagation() {}, preventDefault() {} });
+		c.handleResizeMove('email', { clientX: 160 });
+		expect(el.style.getPropertyValue('--ml-grid-col-email')).toBe('280px');
+
+		c.handleResizeCancel();
+		expect(c.resizingKey).toBeNull();
+		expect(el.style.getPropertyValue('--ml-grid-col-email')).toBe('');
+		expect(c.columnWidths.email).toBe(220);
+		expect(emitted).toBe(false);
+
+		// The lostpointercapture that follows a normal pointerup is a no-op.
+		c.handleResizeCancel();
+		expect(c.columnWidths.email).toBe(220);
+	});
+
+	it('resizes a column from the keyboard with Shift+Arrow', async () => {
+		el = createComponent('ml-data-grid', { properties: { columns, rows, virtual: false } });
+		await flush();
+
+		const header = shadowQueryAll<HTMLElement>(el, '.ml-data-grid__th').find((h) => h.textContent?.includes('Email'))!;
+		const events: any[] = [];
+		el.addEventListener('ml:column-resize', (e: CustomEvent) => events.push(e.detail));
+
+		header.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', shiftKey: true, bubbles: true, cancelable: true }));
+		expect(el.component.columnWidths.email).toBe(236);
+		header.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft', shiftKey: true, bubbles: true, cancelable: true }));
+		expect(el.component.columnWidths.email).toBe(220);
+		expect(events).toEqual([
+			{ key: 'email', width: 236 },
+			{ key: 'email', width: 220 }
+		]);
+	});
+
+	it('does not shrink below minWidth or resize a non-resizable column', async () => {
+		const cols: DataGridColumn[] = [
+			{ key: 'a', label: 'A', width: 90, minWidth: 80 },
+			{ key: 'b', label: 'B', width: 100, resizable: false }
+		];
+		el = createComponent('ml-data-grid', { properties: { columns: cols, rows: [], virtual: false } });
+		await flush();
+
+		el.component.resizeColumnBy('a', -50);
+		expect(el.component.columnWidths.a).toBe(80);
+		el.component.resizeColumnBy('b', 50);
+		expect(el.component.columnWidths.b).toBe(100);
+	});
+});
+
+describe('ml-data-grid rows', () => {
+	let el: any;
+
+	afterEach(() => {
+		if (el) removeComponent(el);
+	});
+
+	it('exposes table semantics', async () => {
+		el = createComponent('ml-data-grid', { properties: { columns, rows, virtual: false } });
+		await flush();
+
+		expect(el.shadowRoot.querySelector('[role="table"]')).toBeTruthy();
+		expect(el.shadowRoot.querySelector('.ml-data-grid__header-row').getAttribute('role')).toBe('row');
+		const dataRows = shadowQueryAll<HTMLElement>(el, '.ml-data-grid__row');
+		expect(dataRows.map((r) => r.getAttribute('role'))).toEqual(['row', 'row']);
+		expect(dataRows.map((r) => r.getAttribute('aria-rowindex'))).toEqual(['2', '3']);
+		expect(dataRows[0].querySelector('.ml-data-grid__td')!.getAttribute('role')).toBe('cell');
+	});
+
+	it('only makes rows tab stops with clickable-rows, and activates them with Enter', async () => {
+		el = createComponent('ml-data-grid', { properties: { columns, rows, virtual: false } });
+		await flush();
+		expect(shadowQueryAll<HTMLElement>(el, '.ml-data-grid__row')[0].hasAttribute('tabindex')).toBe(false);
+
+		el.clickableRows = true;
+		await flush();
+		const row = shadowQueryAll<HTMLElement>(el, '.ml-data-grid__row')[1];
+		expect(row.getAttribute('tabindex')).toBe('0');
+
+		const details: any[] = [];
+		el.addEventListener('ml:row-click', (e: CustomEvent) => details.push(e.detail));
+		row.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
+		expect(details).toEqual([{ row: rows[1], index: 1 }]);
+	});
+
+	it('keeps each record on its own row element across a sort when rowKey is set', async () => {
+		const sortable: DataGridColumn[] = [{ key: 'name', label: 'Name', sortable: true }];
+		const data = [{ id: 1, name: 'Zed' }, { id: 2, name: 'Amy' }];
+		el = createComponent('ml-data-grid', { properties: { columns: sortable, rows: data, virtual: false, rowKey: 'id' } });
+		await flush();
+
+		const zed = shadowQueryAll<HTMLElement>(el, '.ml-data-grid__row')[0];
+		expect(zed.textContent).toContain('Zed');
+
+		el.component.handleSort(sortable[0]);
+		await flush();
+
+		const after = shadowQueryAll<HTMLElement>(el, '.ml-data-grid__row');
+		expect(after[0].textContent).toContain('Amy');
+		expect(after[1]).toBe(zed);
 	});
 });

@@ -1,5 +1,6 @@
 import { MelodicComponent } from '@melodicdev/core';
-import type { IElementRef, OnCreate, OnDestroy } from '@melodicdev/core';
+import type { IElementRef, OnCreate, OnDestroy, OnRender } from '@melodicdev/core';
+import { setCrossRootLabel } from '../../../utils/accessibility/cross-root-aria.js';
 import { drawerTemplate } from './drawer.template.js';
 import { drawerStyles } from './drawer.styles.js';
 
@@ -32,9 +33,9 @@ type DrawerSize = 'sm' | 'md' | 'lg' | 'xl';
 	selector: 'ml-drawer',
 	template: drawerTemplate,
 	styles: drawerStyles,
-	attributes: ['side', 'size', 'show-close']
+	attributes: ['side', 'size', 'show-close', 'label']
 })
-export class DrawerComponent implements IElementRef, OnCreate, OnDestroy {
+export class DrawerComponent implements IElementRef, OnCreate, OnDestroy, OnRender {
 	public elementRef!: HTMLElement;
 
 	/** Which side the drawer slides from */
@@ -46,16 +47,27 @@ export class DrawerComponent implements IElementRef, OnCreate, OnDestroy {
 	/** Show close button in header */
 	public showClose = true;
 
+	/**
+	 * Accessible name for the drawer (`aria-label`). Optional: when omitted,
+	 * the drawer is named by whatever is slotted into `drawer-header`.
+	 */
+	public label = '';
+
 	private _dialogEl!: HTMLDialogElement;
 	private _panelEl!: HTMLElement;
 
-	private get _positionProp(): 'left' | 'right' {
-		return this.side === 'left' ? 'left' : 'right';
+	/** True while the slide-out animation is running (the dialog is still open). */
+	private _closing = false;
+
+	/** Off-screen transform for the current side. */
+	private get _offscreen(): string {
+		return this.side === 'left' ? 'translateX(-100%)' : 'translateX(100%)';
 	}
 
 	/**
 	 * Resolve slide animation timing from the component-scoped tokens
 	 * (--ml-drawer-transition-duration / --ml-drawer-transition-easing).
+	 * Users who ask for reduced motion get no slide at all.
 	 */
 	private getAnimationTiming(): { duration: number; easing: string } {
 		const styles = getComputedStyle(this._panelEl);
@@ -72,6 +84,10 @@ export class DrawerComponent implements IElementRef, OnCreate, OnDestroy {
 			duration = 300;
 		}
 
+		if (typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+			duration = 0;
+		}
+
 		return { duration, easing: rawEasing || 'cubic-bezier(0.16, 1, 0.3, 1)' };
 	}
 
@@ -86,65 +102,87 @@ export class DrawerComponent implements IElementRef, OnCreate, OnDestroy {
 		this._panelEl = this._dialogEl?.querySelector('.ml-drawer__panel') as HTMLElement;
 		this._dialogEl?.addEventListener('click', this.handleBackdropClick);
 		this._dialogEl?.addEventListener('cancel', this.handleDialogCancel);
+		this.elementRef.shadowRoot?.addEventListener('slotchange', this.syncAccessibleName);
+		this.syncAccessibleName();
+	}
+
+	public onRender(): void {
+		this.syncAccessibleName();
 	}
 
 	public onDestroy(): void {
 		this._dialogEl?.removeEventListener('click', this.handleBackdropClick);
 		this._dialogEl?.removeEventListener('cancel', this.handleDialogCancel);
+		this.elementRef.shadowRoot?.removeEventListener('slotchange', this.syncAccessibleName);
 	}
+
+	/**
+	 * Give the `<dialog>` an accessible name — it had none. An explicit
+	 * `label` wins; otherwise the slotted header names it.
+	 */
+	private readonly syncAccessibleName = (): void => {
+		const root = this.elementRef.shadowRoot;
+		const dialogEl = root?.querySelector('dialog');
+		if (!root || !dialogEl) return;
+
+		if (this.label) {
+			setCrossRootLabel(dialogEl, []);
+			dialogEl.setAttribute('aria-label', this.label);
+			return;
+		}
+
+		const slot = root.querySelector('slot[name="drawer-header"]') as HTMLSlotElement | null;
+		setCrossRootLabel(dialogEl, slot?.assignedElements({ flatten: true }) ?? []);
+	};
 
 	/** Open the drawer */
 	public open(): void {
-		if (this._dialogEl?.open) return;
+		// Still open and not on its way out: nothing to do. A drawer that is
+		// mid-close IS still `open`, and used to swallow this call — it then
+		// finished closing even though open() was the last thing asked for.
+		if (this._dialogEl?.open && !this._closing) return;
+
+		this._closing = false;
 		this.cancelAnimations();
-		this._dialogEl.showModal();
-		const prop = this._positionProp;
-		const width = this._panelEl.offsetWidth;
+		this.syncAccessibleName();
+		if (!this._dialogEl.open) {
+			this._dialogEl.showModal();
+		}
+
+		// Slide with a transform (compositor-only) rather than animating
+		// `left`/`right`, which re-ran layout on every frame.
 		const { duration, easing } = this.getAnimationTiming();
-		this._panelEl.style[prop] = `${-width}px`;
-		this._panelEl.getBoundingClientRect();
-		const anim = this._panelEl.animate(
-			[{ [prop]: `${-width}px` }, { [prop]: '0px' }],
-			{ duration, easing, fill: 'forwards' }
-		);
+		const anim = this._panelEl.animate([{ transform: this._offscreen }, { transform: 'translateX(0)' }], { duration, easing, fill: 'forwards' });
 		anim.onfinish = () => {
-			this._panelEl.style[prop] = '0px';
-			this.elementRef.dispatchEvent(
-				new CustomEvent('ml:opened', { bubbles: true, composed: true })
-			);
+			// Drop the animation so no transform lingers on the panel (a
+			// transformed ancestor re-anchors position: fixed descendants).
+			anim.cancel();
+			this.elementRef.dispatchEvent(new CustomEvent('ml:opened', { bubbles: true, composed: true }));
 		};
 
 		// ml:open keeps its historical fire-at-start timing; ml:opened fires
 		// after the slide-in animation completes.
-		this.elementRef.dispatchEvent(
-			new CustomEvent('ml:open', { bubbles: true, composed: true })
-		);
+		this.elementRef.dispatchEvent(new CustomEvent('ml:open', { bubbles: true, composed: true }));
 	}
 
 	/** Close the drawer */
 	public close = (): void => {
-		if (!this._dialogEl?.open) return;
+		if (!this._dialogEl?.open || this._closing) return;
 		this.cancelAnimations();
-		const prop = this._positionProp;
-		const width = this._panelEl.offsetWidth;
+		this._closing = true;
+
 		const { duration, easing } = this.getAnimationTiming();
-		const anim = this._panelEl.animate(
-			[{ [prop]: '0px' }, { [prop]: `${-width}px` }],
-			{ duration, easing, fill: 'forwards' }
-		);
+		const anim = this._panelEl.animate([{ transform: 'translateX(0)' }, { transform: this._offscreen }], { duration, easing, fill: 'forwards' });
 		anim.onfinish = () => {
-			this._panelEl.style[prop] = '';
+			this._closing = false;
 			this._dialogEl.close();
-			this.elementRef.dispatchEvent(
-				new CustomEvent('ml:closed', { bubbles: true, composed: true })
-			);
+			anim.cancel();
+			this.elementRef.dispatchEvent(new CustomEvent('ml:closed', { bubbles: true, composed: true }));
 		};
 
 		// ml:close keeps its historical fire-at-start timing; ml:closed fires
 		// once the slide-out animation completes and the dialog is closed.
-		this.elementRef.dispatchEvent(
-			new CustomEvent('ml:close', { bubbles: true, composed: true })
-		);
+		this.elementRef.dispatchEvent(new CustomEvent('ml:close', { bubbles: true, composed: true }));
 	};
 
 	private readonly handleBackdropClick = (event: Event): void => {

@@ -1,0 +1,41 @@
+# Dependabot — keeps dev tooling and CI actions patched.
+#
+# All three packages have zero runtime dependencies, so everything here is
+# build/test tooling. It still matters: `npm audit` on 2026-11-16 reported 16
+# advisories (3 critical) in the dev tree, all fixable, with nothing prompting
+# anyone to fix them.
+version: 2
+updates:
+  # One lockfile at the repo root covers the root package and both workspaces.
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    groups:
+      # Minor and patch bumps arrive as one PR instead of a dozen.
+      dev-tooling:
+        patterns:
+          - '*'
+        update-types:
+          - minor
+          - patch
+    ignore:
+      # Pinned on purpose: `vite` is an alias for rolldown-vite at an exact
+      # version (see "overrides" in package.json). Bump it by hand.
+      - dependency-name: vite
+      # TypeScript majors change emit and deprecate tsconfig options; the
+      # packages pin ~5.9. Take a major deliberately, not from a bot PR.
+      - dependency-name: typescript
+        update-types:
+          - version-update:semver-major
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    groups:
+      actions:
+        patterns:
+          - '*'

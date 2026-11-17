@@ -1,12 +1,13 @@
 # Melodic Components Library — Complete Reference
 
-> Auto-generated from source code analysis. Covers every component, prop, event, slot, CSS custom property, and design token in `@melodicdev/components`.
+> Reference for `@melodicdev/components`, checked against source. It reflects 4.0.1 plus the unreleased changes on the current branch. Covers every component, prop, event, slot and design token, plus the key CSS custom properties of each component — the complete token list for a component is the comment block at the top of its styles source file.
 
 ---
 
 ## Table of Contents
 
 - [Component Registration & Import Pattern](#component-registration--import-pattern)
+  - [Conventions shared by every component](#conventions-shared-by-every-component)
 - [Global Design Tokens](#global-design-tokens)
   - [Primitive Color Palette](#primitive-color-palette)
   - [Semantic Color Tokens](#semantic-color-tokens)
@@ -19,21 +20,24 @@
 - [Theme System](#theme-system)
   - [Theme Presets](#theme-presets)
   - [Theme API Functions](#theme-api-functions)
+- [Component-Scoped CSS Custom Properties](#component-scoped-css-custom-properties)
 - [Style Utilities](#style-utilities)
 - [Shared Types](#shared-types)
+- [Utilities, Functions & Directives](#utilities-functions--directives)
 - [Form Components](#form-components)
   - [ml-button](#ml-button)
-  - [ml-button-group](#ml-button-group)
+  - [ml-button-group / ml-button-group-item](#ml-button-group)
   - [ml-input](#ml-input)
   - [ml-textarea](#ml-textarea)
   - [ml-checkbox](#ml-checkbox)
   - [ml-radio / ml-radio-group](#ml-radio)
-  - [ml-radio-card-group](#ml-radio-card-group)
+  - [ml-radio-card-group / ml-radio-card](#ml-radio-card-group)
   - [ml-toggle](#ml-toggle)
   - [ml-select](#ml-select)
   - [ml-autocomplete](#ml-autocomplete)
   - [ml-slider](#ml-slider)
   - [ml-date-picker](#ml-date-picker)
+  - [ml-calendar](#ml-calendar)
   - [ml-time-picker](#ml-time-picker)
   - [ml-date-time-picker](#ml-date-time-picker)
   - [ml-form-field](#ml-form-field)
@@ -49,7 +53,7 @@
   - [ml-spinner](#ml-spinner)
   - [ml-alert](#ml-alert)
   - [ml-progress](#ml-progress)
-  - [ml-toast / ToastService](#ml-toast)
+  - [ml-toast / ml-toast-container / ToastService](#ml-toast)
 - [Data Display Components](#data-display-components)
   - [ml-avatar](#ml-avatar)
   - [ml-badge](#ml-badge)
@@ -72,8 +76,8 @@
   - [ml-dialog / DialogService](#ml-dialog)
   - [ml-drawer](#ml-drawer)
   - [ml-popover](#ml-popover)
-  - [ml-dropdown](#ml-dropdown)
-  - [ml-tooltip](#ml-tooltip)
+  - [ml-dropdown / ml-dropdown-item / ml-dropdown-group / ml-dropdown-separator](#ml-dropdown)
+  - [ml-tooltip / :tooltip directive](#ml-tooltip)
 - [Section Components](#section-components)
   - [ml-app-shell](#ml-app-shell)
   - [ml-page-header](#ml-page-header)
@@ -85,6 +89,7 @@
   - [ml-login-page](#ml-login-page)
   - [ml-signup-page](#ml-signup-page)
   - [ml-dashboard-page](#ml-dashboard-page)
+- [Token Count Summary](#token-count-summary)
 
 ---
 
@@ -99,11 +104,28 @@ import '@melodicdev/components/table';      // registers <ml-table>
 import '@melodicdev/components/dialog';     // registers <ml-dialog>
 ```
 
+### Conventions shared by every component
+
+- **Attributes and properties.** Each observed attribute maps to a camelCase property (`full-width` → `fullWidth`). Data properties and read-only getters are mirrored on the element, so `el.value = 'x'` and `.value=${x}` both work. Rows marked "(property)" have no attribute and must be set as properties.
+- **Boolean attributes.** Presence means `true`; the literal string `"false"` means `false` (`<ml-data-grid virtual="false">`), which is how a boolean that defaults to `true` is turned off from markup. Numeric attributes are converted to numbers.
+- **Methods live on the component instance.** `element.component.method()` always works: `drawerEl.component.open()`. Whether the same call works directly on the element depends on how the method is written: a method implemented as a function field (an arrow-function property) is also exposed on the element, a prototype method is not — `drawerEl.close()` works, `drawerEl.open()` fails. Each "Methods" entry below says which methods are reachable on the element; when in doubt, go through `.component`.
+- **Events.** Every `ml:*` event is a `CustomEvent` dispatched with `bubbles: true` and `composed: true`; none is cancelable. "none" in a Detail column means the event carries no `detail`.
+- **Reduced motion, forced colors, right-to-left.**
+  - Under `prefers-reduced-motion: reduce` the base theme sets every `--ml-duration-*` token to `0ms`, which switches off the transitions and animations that take their duration from those tokens (`ml-drawer` also skips its slide). Keep your own overrides on the duration tokens rather than literal times.
+  - Under `forced-colors: active`, components whose focus ring is a box-shadow fall back to a real `outline` in the system `Highlight` color.
+  - Label, hint, tag, sidebar, tabs, steps, container and form-control spacing use logical properties and follow `dir="rtl"`. Still physical (left/right): the JavaScript-positioned overlays and their arrows (`ml-popover`, `ml-dropdown`, `ml-tooltip`), `ml-drawer` and `ml-app-shell` sides, toast positions, `ml-data-grid` pinned columns, `ml-slider`, `ml-toggle`, `ml-progress` and `ml-calendar-view`.
+- **Managed attributes.** Props marked "(managed)" are written by a parent component (`ml-tabs` → `ml-tab[active]`); do not set them yourself.
+- **Deprecated aliases still accepted in 4.x:**
+  - The `title` attribute/property on `ml-alert`, `ml-toast`, `ml-page-header`, `ml-hero-section`, `ml-page-section`, `ml-login-page`, `ml-signup-page` and `ml-dashboard-page` — use `alert-title`, `toast-title`, `header-title`, `hero-title`, `section-title` or `page-title`. Warns once; removed in the next major release.
+  - Quoted kebab-case **property** access such as `el['dot-color']` — use the camelCase property (`el.dotColor`); the kebab-case attribute is unaffected. Warns once on first write; removed in the next major release.
+  - The `ml:remove` event of `ml-file-upload-item` and the `ml:close` event of `ml-tag` — listen for `ml:dismiss`. Removed in the next major release.
+  - The `'danger'` value of `ml-button` `variant` and `ml-tag` `dot-color` — the canonical name is `'error'`; both render identically.
+
 ### Full Export Map
 
 | Import Path | Custom Element(s) |
 |-------------|-------------------|
-| `@melodicdev/components/activity-feed` | `ml-activity-feed`, `ml-activity-item` |
+| `@melodicdev/components/activity-feed` | `ml-activity-feed`, `ml-activity-feed-item` |
 | `@melodicdev/components/alert` | `ml-alert` |
 | `@melodicdev/components/app-shell` | `ml-app-shell` |
 | `@melodicdev/components/autocomplete` | `ml-autocomplete` |
@@ -112,16 +134,16 @@ import '@melodicdev/components/dialog';     // registers <ml-dialog>
 | `@melodicdev/components/badge-group` | `ml-badge-group` |
 | `@melodicdev/components/breadcrumb` | `ml-breadcrumb`, `ml-breadcrumb-item` |
 | `@melodicdev/components/button` | `ml-button` |
-| `@melodicdev/components/button-group` | `ml-button-group` |
+| `@melodicdev/components/button-group` | `ml-button-group`, `ml-button-group-item` |
 | `@melodicdev/components/calendar-view` | `ml-calendar-view` |
 | `@melodicdev/components/card` | `ml-card` |
 | `@melodicdev/components/checkbox` | `ml-checkbox` |
 | `@melodicdev/components/container` | `ml-container` |
 | `@melodicdev/components/dashboard-page` | `ml-dashboard-page` |
 | `@melodicdev/components/data-grid` | `ml-data-grid` |
-| `@melodicdev/components/date-picker` | `ml-date-picker` |
+| `@melodicdev/components/date-picker` | `ml-date-picker`, `ml-calendar` |
 | `@melodicdev/components/date-time-picker` | `ml-date-time-picker` |
-| `@melodicdev/components/dialog` | `ml-dialog` |
+| `@melodicdev/components/dialog` | `ml-dialog` (+ `DialogService`, `DialogRef`) |
 | `@melodicdev/components/divider` | `ml-divider` |
 | `@melodicdev/components/drawer` | `ml-drawer` |
 | `@melodicdev/components/dropdown` | `ml-dropdown`, `ml-dropdown-item`, `ml-dropdown-group`, `ml-dropdown-separator` |
@@ -131,7 +153,7 @@ import '@melodicdev/components/dialog';     // registers <ml-dialog>
 | `@melodicdev/components/icon` | `ml-icon` |
 | `@melodicdev/components/input` | `ml-input` |
 | `@melodicdev/components/list` | `ml-list`, `ml-list-item` |
-| `@melodicdev/components/login-page` | `ml-login-page` |
+| `@melodicdev/components/login-page` | `ml-login-page`, `ml-signup-page` (same module as `signup-page`) |
 | `@melodicdev/components/page-header` | `ml-page-header` |
 | `@melodicdev/components/page-section` | `ml-page-section` |
 | `@melodicdev/components/pagination` | `ml-pagination` |
@@ -139,10 +161,10 @@ import '@melodicdev/components/dialog';     // registers <ml-dialog>
 | `@melodicdev/components/profile-card` | `ml-profile-card` |
 | `@melodicdev/components/progress` | `ml-progress` |
 | `@melodicdev/components/radio` | `ml-radio`, `ml-radio-group` |
-| `@melodicdev/components/radio-card-group` | `ml-radio-card-group` |
+| `@melodicdev/components/radio-card-group` | `ml-radio-card-group`, `ml-radio-card` |
 | `@melodicdev/components/select` | `ml-select` |
 | `@melodicdev/components/sidebar` | `ml-sidebar`, `ml-sidebar-group`, `ml-sidebar-item` |
-| `@melodicdev/components/signup-page` | `ml-signup-page` |
+| `@melodicdev/components/signup-page` | `ml-signup-page`, `ml-login-page` (same module as `login-page`) |
 | `@melodicdev/components/slider` | `ml-slider` |
 | `@melodicdev/components/spinner` | `ml-spinner` |
 | `@melodicdev/components/stack` | `ml-stack` |
@@ -153,7 +175,7 @@ import '@melodicdev/components/dialog';     // registers <ml-dialog>
 | `@melodicdev/components/tag` | `ml-tag` |
 | `@melodicdev/components/textarea` | `ml-textarea` |
 | `@melodicdev/components/time-picker` | `ml-time-picker` |
-| `@melodicdev/components/toast` | `ml-toast` |
+| `@melodicdev/components/toast` | `ml-toast`, `ml-toast-container` (+ `ToastService`) |
 | `@melodicdev/components/toggle` | `ml-toggle` |
 | `@melodicdev/components/tooltip` | `ml-tooltip` |
 
@@ -161,11 +183,12 @@ import '@melodicdev/components/dialog';     // registers <ml-dialog>
 
 | Import Path | Purpose |
 |-------------|---------|
-| `@melodicdev/components` | Everything (theme + utils + all components) |
+| `@melodicdev/components` | Theme + utils + functions, and a subset of the components: button, input, textarea, checkbox, radio, toggle, select, autocomplete, slider, form-field, spinner, alert, toast, progress, card, divider, stack, container, avatar, badge, icon, tabs, breadcrumb, pagination, dialog, drawer, dropdown, tooltip, popover. Every other component is reachable only through its own entry point. |
 | `@melodicdev/components/theme` | Theme tokens, presets, functions |
-| `@melodicdev/components/utils` | Positioning, accessibility, styles, virtual scroll, click-outside |
-| `@melodicdev/components/functions` | `newID()` |
-| `@melodicdev/components/directives` | `clickOutside` directive |
+| `@melodicdev/components/utils` | Positioning, accessibility, styles, virtual scroll, `clickOutside`, `watchLightSlots` / `hasLightSlot` |
+| `@melodicdev/components/functions` | `newID()`, `watchSlotPresence()`, `warnDeprecatedOnce()`, `warnDeprecatedTitleOnce()`, `defineLegacyAliases()` |
+| `@melodicdev/components/package.json` | The package manifest (in the exports map so tooling can resolve it) |
+| `@melodicdev/components/directives` | `tooltipDirective` — importing the entry point registers the `:tooltip` attribute directive (and `ml-tooltip`). Type: `TooltipDirectiveOptions` (`{ content: string; placement?: string }`) |
 
 ---
 
@@ -657,7 +680,7 @@ Semantic tokens reference primitives via `var()` and change between light/dark t
 |-------|-------|
 | `--ml-transition-none` | `none` |
 | `--ml-transition-all` | `all var(--ml-duration-150) var(--ml-ease-in-out)` |
-| `--ml-transition-colors` | `color, background-color, border-color — all 150ms ease-in-out` |
+| `--ml-transition-colors` | `color var(--ml-duration-150) var(--ml-ease-in-out), background-color var(--ml-duration-150) var(--ml-ease-in-out), border-color var(--ml-duration-150) var(--ml-ease-in-out)` |
 | `--ml-transition-opacity` | `opacity var(--ml-duration-150) var(--ml-ease-in-out)` |
 | `--ml-transition-shadow` | `box-shadow var(--ml-duration-150) var(--ml-ease-in-out)` |
 | `--ml-transition-transform` | `transform var(--ml-duration-150) var(--ml-ease-in-out)` |
@@ -694,11 +717,11 @@ No built-in CSS grid system. Breakpoints are reference values for media queries.
 
 | Preset | Scope | Purpose |
 |--------|-------|---------|
-| Base | `:root` | All tokens (primitives + semantics), `color-scheme: light` |
-| Light | `:root, [data-theme="light"]` | Reaffirms base semantics, `color-scheme: light` |
-| Dark | `[data-theme="dark"]` + `@media (prefers-color-scheme: dark)` | Overrides all semantic tokens for dark, `color-scheme: dark` |
+| Base (`baseThemeCss`) | `:root` | All tokens (primitives + semantics), `color-scheme: light`. Also redefines every non-zero `--ml-duration-*` token as `0ms` under `@media (prefers-reduced-motion: reduce)` |
+| Light (`lightTheme`, `lightThemeCss`) | `:root, [data-theme="light"]` | Reaffirms the surface, text and border semantics, `color-scheme: light` |
+| Dark (`darkTheme`, `darkThemeCss`) | `[data-theme="dark"]` + `@media (prefers-color-scheme: dark) { :root:not([data-theme]) }` | Overrides the semantic tokens listed in the Dark columns above, `color-scheme: dark` |
 
-Dark mode applies automatically via OS preference unless `data-theme="light"` is explicitly set.
+Dark mode applies automatically via OS preference only while the root element has no `data-theme` attribute at all. Any `data-theme` value — `"light"` or a custom theme name — turns the OS-preference rule off.
 
 ### Theme API Functions
 
@@ -706,18 +729,19 @@ All exported from `@melodicdev/components/theme`.
 
 | Function | Signature | Description |
 |----------|-----------|-------------|
-| `applyTheme` | `(theme: ThemeMode) => void` | Sets `data-theme` on `documentElement`. `'system'` auto-tracks OS preference. |
-| `toggleTheme` | `() => void` | Flips between light and dark |
-| `getTheme` | `() => ThemeMode` | Returns current mode |
+| `applyTheme` | `(theme: ThemeMode) => void` | Sets `data-theme` on `documentElement`. `'system'` writes the resolved `'light'` / `'dark'` value and re-applies it when the OS preference changes. |
+| `toggleTheme` | `() => void` | Applies the opposite of the resolved theme (light ↔ dark) |
+| `getTheme` | `() => ThemeMode` | Returns the current mode. Before the first `applyTheme()` it adopts the document's own `data-theme` (`'light'` / `'dark'`, anything else reads as `'system'`) |
 | `getResolvedTheme` | `() => 'light' \| 'dark'` | Resolves `'system'` to actual |
-| `onThemeChange` | `(cb: (theme, resolved) => void) => () => void` | Subscribe; returns unsubscribe |
-| `createTheme` | `(name: string, overrides: Record<string, string>) => string` | Returns CSS string |
-| `injectTheme` | `(name: string, overrides: Record<string, string>) => HTMLStyleElement` | Injects `<style>` into `<head>` |
-| `createBrandTheme` | `(name: string, { primary?, secondary?, ... }) => string` | Convenience wrapper |
-| `tokensToCss` | `(tokens: Record<string, string>) => string` | Tokens object to CSS string |
-| `generateTokensCss` | `() => string` | Full `:root { ... }` CSS |
+| `onThemeChange` | `(cb: (theme: ThemeMode, resolved: 'light' \| 'dark') => void) => () => void` | Subscribe; returns unsubscribe |
+| `createTheme` | `(name: string, overrides: Partial<Record<string, string>>) => string` | Returns the CSS string `[data-theme="<name>"] { … }`. Throws on invalid input: `name` must match `^[a-z0-9-]+$`, keys must be custom properties (`--…`), values must not contain `;`, `{`, `}`, `<`, `>` or control characters |
+| `injectTheme` | `(name: string, overrides: Partial<Record<string, string>>) => HTMLStyleElement` | Runs `createTheme` and injects `<style id="ml-theme-<name>">` into `<head>`, replacing an existing one with the same name |
+| `createBrandTheme` | `(name: string, options: { primary?, secondary?, success?, warning?, danger?, mode?: BrandThemeMode }) => string` | Returns a CSS string (like `createTheme`); each color also emits its `-hover`, `-active` and `-subtle` variants via `color-mix()`. `mode` (`'light'` default, or `'dark'`) picks the mix direction |
+| `tokensToCss` | `(tokens: Record<string, string>) => string` | Tokens object to CSS declarations |
 
-`ThemeMode = 'light' | 'dark' | 'system'`
+Token objects exported from the same entry point: `primitiveColors`, `colorTokens`, `spacingTokens`, `typographyTokens`, `shadowTokens`, `borderTokens`, `transitionTokens`, `breakpointTokens`, `breakpoints`, `allTokens`.
+
+`ThemeMode = 'light' | 'dark' | 'system'` · `BrandThemeMode = 'light' | 'dark'`
 
 ---
 
@@ -737,11 +761,10 @@ A component never declares these tokens on its own `:host`. Each rule reads its 
 ### Usage Example
 
 ```css
-/* Override a single button's colors without changing the global palette */
+/* Reshape a single button */
 ml-button.cta {
-    --ml-button-bg: #c9a84c;
-    --ml-button-hover-bg: #d4b96a;
-    --ml-button-radius: 0;
+    --ml-button-border-radius: 0;
+    --ml-button-font-weight: var(--ml-font-bold);
 }
 
 /* Customize the sidebar for a specific theme */
@@ -759,7 +782,7 @@ ml-sidebar {
 ml-card.parchment {
     --ml-card-bg: #fdf9f0;
     --ml-card-border-color: #efe8d6;
-    --ml-card-shadow: none;
+    --ml-card-border-radius: 0;
 }
 ```
 
@@ -788,7 +811,7 @@ ml-button.cta {
 
 Two limits apply to both paths:
 
-- Variant and size modifiers reassign tokens on the component's inner element (`.ml-button--secondary { --ml-button-bg: … }`), so those specific tokens cannot be overridden for that variant from outside. Use the global tokens they reference (`--ml-color-surface`, …) for that.
+- Variant and size modifiers reassign tokens on the component's inner element (`.ml-button--secondary { --ml-button-bg: … }`), so those specific tokens cannot be overridden from outside. Where the default variant or size has a modifier class too, the token is never overridable: `ml-button` (colors, and height / padding / font size), `ml-badge` (background, border color, text color, padding, font size), `ml-progress` (fill colors), `ml-checkbox` / `ml-radio` / `ml-toggle` (box, circle and track sizes), `ml-spinner` (size). Use the global tokens the modifier references instead, scoped to the element — `ml-button.cta { --ml-color-primary: #c9a84c; }` — or the per-variant global tokens (`--ml-badge-primary-bg`, …).
 - A few tokens are read by the component's JavaScript rather than by a rule and stay declared on `:host`: `--ml-drawer-transition-duration`, `--ml-drawer-transition-easing` and `--ml-app-shell-mobile-breakpoint`. Set those with an element selector.
 
 Each component's available custom properties and their defaults are listed in the comment block at the top of its styles source file. See the individual component sections below for key properties.
@@ -797,15 +820,15 @@ Each component's available custom properties and their defaults are listed in th
 
 ## Style Utilities
 
-Exported from `@melodicdev/components/utils`.
+Exported from `@melodicdev/components/utils` (and re-exported from the package root).
 
 | Export | Description |
 |--------|-------------|
-| `resetStyles` | Shadow DOM CSS reset (box-sizing, margins, fonts) |
-| `componentBaseStyles` | Base `:host` styles for all `ml-*` components (font-family, focus ring, disabled, hidden) |
-| `focusRingStyles` | Mixin for interactive elements (focus-visible outline) |
-| `interactiveStyles` | Mixin: cursor, user-select, tap-highlight, disabled |
+| `resetStyles` | Shadow DOM CSS reset (box-sizing, margins, button/input font inheritance, `[hidden]`) |
+| `componentBaseStyles` | Base `:host` styles for all `ml-*` components (font-family, box-sizing, focus ring, disabled, hidden) |
 | `visuallyHiddenStyles` | `.visually-hidden` screen-reader-only class |
+
+All three are plain CSS strings.
 
 ---
 
@@ -813,15 +836,128 @@ Exported from `@melodicdev/components/utils`.
 
 ```typescript
 type ThemeMode = 'light' | 'dark' | 'system';
-type Size = 'xs' | 'sm' | 'md' | 'lg' | 'xl';
-type ButtonVariant = 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger' | 'link';
+type Size = 'xs' | 'sm' | 'md' | 'lg' | 'xl';        // button, spinner, avatar, file-icon
+type ControlSize = 'sm' | 'md' | 'lg';               // most other controls
+type ButtonVariant = 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger' | 'error' | 'link';  // 'danger' is a deprecated alias of 'error'
 type AlertVariant = 'info' | 'success' | 'warning' | 'error';
-type BadgeVariant = 'default' | 'primary' | 'success' | 'warning' | 'error';
+type BadgeVariant = 'default' | 'primary' | 'secondary' | 'success' | 'warning' | 'error';
+type Side = 'top' | 'right' | 'bottom' | 'left';
+type Alignment = 'start' | 'center' | 'end';
 type Placement = 'top' | 'top-start' | 'top-end' | 'bottom' | 'bottom-start' | 'bottom-end'
                | 'left' | 'left-start' | 'left-end' | 'right' | 'right-start' | 'right-end';
 type Orientation = 'horizontal' | 'vertical';
 type Breakpoint = 'xs' | 'sm' | 'md' | 'lg' | 'xl' | '2xl';
 ```
+
+Where each is exported: `ThemeMode` and `Breakpoint` from `@melodicdev/components/theme`; `Placement`, `Side` and `Alignment` from `@melodicdev/components/utils`; `ButtonVariant`, `AlertVariant` and `BadgeVariant` from their component entry points (`/button`, `/alert`, `/badge`). `Size`, `ControlSize` and `Orientation` are internal aliases with no public export — write the union inline.
+
+---
+
+## Utilities, Functions & Directives
+
+### Utilities
+
+Exported from `@melodicdev/components/utils` (and re-exported from the package root).
+
+**Positioning** — a small synchronous positioning engine used by the overlay components.
+
+| Export | Signature | Description |
+|--------|-----------|-------------|
+| `computePosition` | `(reference: Element, floating: HTMLElement, config?: ComputePositionConfig) => { x, y, placement, middlewareData }` | Computes viewport coordinates for `floating` next to `reference`. Synchronous. `config` is `{ placement?: Placement (default 'bottom'), middleware?: Middleware[] }` |
+| `autoUpdate` | `(reference: Element, floating: HTMLElement, update: () => void, options?) => () => void` | Calls `update` on ancestor scroll / resize and element resize; returns a cleanup function. Options: `ancestorScroll`, `ancestorResize`, `elementResize` (default `true`), `animationFrame` (default `false`) |
+| `offset` | `(options?: number \| { mainAxis?: number; crossAxis?: number }) => Middleware` | Distance between reference and floating element |
+| `flip` | `(options?: { fallbackPlacements?: Placement[]; padding?: number }) => Middleware` | Flips to another side when the placement overflows |
+| `shift` | `(options?: { padding?: number; mainAxis?: boolean; crossAxis?: boolean }) => Middleware` | Shifts along the cross axis to stay in view (`crossAxis` default `true`, `mainAxis` default `false`) |
+| `arrow` | `(options: { element: HTMLElement; padding?: number }) => Middleware` | Positions an arrow element |
+
+Types: `Placement`, `Side`, `Alignment`, `Middleware`, `MiddlewareState`, `Position`, `ComputePositionConfig`.
+
+```typescript
+import { computePosition, autoUpdate, offset, flip, shift } from '@melodicdev/components/utils';
+
+const cleanup = autoUpdate(trigger, panel, () => {
+  const { x, y } = computePosition(trigger, panel, {
+    placement: 'bottom-start',
+    middleware: [offset(8), flip(), shift({ padding: 8 })]
+  });
+  Object.assign(panel.style, { left: `${x}px`, top: `${y}px` });
+});
+```
+
+**Accessibility**
+
+| Export | Signature | Description |
+|--------|-----------|-------------|
+| `createFocusTrap` | `(container: HTMLElement, options?: FocusTrapOptions) => FocusTrap` | Returns `{ activate(), deactivate(options?: { returnFocus?: boolean }), isActive() }`. Options: `initialFocus`, `returnFocus` (elements), `autoFocus`. The trap follows slots and descends into nested shadow roots, so controls inside nested components (`ml-input`, `ml-button`, …) are trapped too |
+| `focusTrap` | `(container: HTMLElement, options?: FocusTrapOptions) => () => void` | Activates a trap immediately; returns a function that deactivates it |
+| `getDeepActiveElement` | `() => Element \| null` | The focused element, descending through nested shadow roots |
+| `isDeepFocusWithin` | `(container: Node) => boolean` | Whether focus is inside `container`, across shadow roots |
+| `getFocusableElements` | `(container: HTMLElement, options?: GetFocusableOptions) => HTMLElement[]` | Focusable descendants. `{ deep: true }` walks the composed tree — into the shadow roots of nested custom elements and through `<slot>`s — and returns elements in tab order; the default (`deep: false`) searches only the container's own tree |
+| `getFirstFocusable` / `getLastFocusable` | `(container: HTMLElement) => HTMLElement \| null` | First / last focusable descendant |
+| `focusFirst` / `focusLast` | `(container: HTMLElement) => boolean` | Focus the first / last focusable descendant; returns whether one was found |
+| `isFocusVisible` | `() => boolean` | `true` when the last interaction was keyboard-based |
+| `focusVisible` | `(element: HTMLElement, className = 'focus-visible') => () => void` | Adds `className` while the element is focused via keyboard; returns cleanup |
+| `announce` | `(message: string, priority: 'polite' \| 'assertive' = 'polite') => void` | Announces a message through a shared live region; rapid calls are queued |
+| `createLiveRegion` | `(options?: { id?: string; priority?: 'polite' \| 'assertive'; atomic?: boolean }) => HTMLElement` | Creates a custom live region |
+| `setCrossRootDescription` | `(target: Element, describers: Element[]) => void` | Describes `target` with elements in another root. Uses `ariaDescribedByElements` when the browser supports it and every describer is referenceable from `target` (see `canReferenceElement`); otherwise copies their text onto `target` as `aria-description`. An empty array clears it |
+| `setCrossRootLabel` | `(target: Element, labels: Element[]) => void` | Labels `target` across shadow roots |
+| `setCrossRootActiveDescendant` | `(target: Element, active: Element \| null) => void` | Sets the active descendant across shadow roots |
+| `clearCrossRootDescription` | `(target: Element) => void` | Removes a description set by `setCrossRootDescription` |
+| `getFocusableControl` | `(element: Element) => HTMLElement` | The focusable control inside a host such as `ml-button` |
+| `supportsAriaElementReferences` | `() => boolean` | Whether the browser supports ARIA element reflection |
+| `canReferenceElement` | `(from: Element, to: Element) => boolean` | Whether an ARIA element reference from `from` to `to` will be honoured: `to` must be in `from`'s own tree or one of its shadow-including ancestor trees. A light-DOM element cannot reference into a shadow root |
+
+Types: `FocusTrap`, `FocusTrapOptions`, `FocusTrapDeactivateOptions`, `GetFocusableOptions` (`{ deep?: boolean }`).
+
+**Slot and click helpers**
+
+| Export | Signature | Description |
+|--------|-----------|-------------|
+| `clickOutside` | `(element: HTMLElement, callback: (event: MouseEvent) => void) => () => void` | Calls `callback` for clicks outside `element` (shadow-DOM aware, capture phase); returns cleanup |
+| `watchLightSlots` | `(host: HTMLElement, onChange: () => void) => () => void` | Calls `onChange` immediately and whenever the host's direct children or their `slot` attributes change; returns a disconnect function |
+| `hasLightSlot` | `(host: HTMLElement, slotName: string) => boolean` | Whether `host` has a direct child assigned to `slotName` |
+
+**Virtual scrolling**
+
+```typescript
+import { VirtualScroller } from '@melodicdev/components/utils';
+import type { VirtualScrollOptions } from '@melodicdev/components/utils';
+
+const scroller = new VirtualScroller();
+scroller.attach(viewportEl, {
+  rowHeight: () => 44,                         // px
+  itemCount: () => this.rows.length,
+  onUpdate: (start, end) => { this.startIndex = start; this.endIndex = end; },
+  enabled: () => this.virtual,                 // optional; false renders every row
+  buffer: 3                                    // optional overscan rows (default 3)
+});
+scroller.invalidate();   // after the item count or row height changes
+scroller.detach();       // on destroy
+```
+
+**Styles** — see [Style Utilities](#style-utilities).
+
+### Functions
+
+Exported from `@melodicdev/components/functions` (and re-exported from the package root).
+
+| Export | Signature | Description |
+|--------|-----------|-------------|
+| `newID` | `() => UniqueID` | Random UUID-shaped string (`UniqueID` is a branded `string`) |
+| `watchSlotPresence` | `(shadow: ShadowRoot, onChange: (slotName: string, hasContent: boolean) => void) => void` | Reports, now and on every `slotchange`, whether each `<slot>` currently in `shadow` has content (`''` is the default slot; whitespace-only text does not count) |
+| `warnDeprecatedOnce` | `(key: string, message: string) => void` | `console.warn` once per key |
+| `warnDeprecatedTitleOnce` | `(tag: string, replacement: string) => void` | The shared deprecation warning for the `title` shim |
+| `defineLegacyAliases` | `(proto: T, tag: string, aliases: Record<string, keyof T & string>) => void` | Defines deprecated quoted kebab-case property aliases that forward to camelCase properties |
+
+### Directives
+
+Exported from `@melodicdev/components/directives` (not re-exported from the package root).
+
+| Export | Description |
+|--------|-------------|
+| `tooltipDirective` | Importing the entry point registers it as the `:tooltip` attribute directive and registers `ml-tooltip`. See [ml-tooltip](#ml-tooltip) for usage |
+
+Type: `TooltipDirectiveOptions` — `{ content: string; placement?: string }`.
 
 ---
 
@@ -836,12 +972,20 @@ type Breakpoint = 'xs' | 'sm' | 'md' | 'lg' | 'xl' | '2xl';
 
 | Property | Attribute | Type | Default | Values |
 |----------|-----------|------|---------|--------|
-| `variant` | `variant` | `ButtonVariant` | `'primary'` | `'primary'`, `'secondary'`, `'outline'`, `'ghost'`, `'danger'`, `'link'` |
+| `variant` | `variant` | `ButtonVariant` | `'primary'` | `'primary'`, `'secondary'`, `'outline'`, `'ghost'`, `'error'`, `'link'`. `'danger'` is a deprecated alias of `'error'` and renders identically |
 | `size` | `size` | `Size` | `'md'` | `'xs'`, `'sm'`, `'md'`, `'lg'`, `'xl'` |
 | `type` | `type` | `ButtonType` | `'button'` | `'button'`, `'submit'`, `'reset'` |
 | `disabled` | `disabled` | `boolean` | `false` | |
-| `loading` | `loading` | `boolean` | `false` | |
+| `loading` | `loading` | `boolean` | `false` | Shows an `ml-spinner` and disables the button |
 | `fullWidth` | `full-width` | `boolean` | `false` | |
+| `href` | `href` | `string \| null` | `null` | When set, renders an `<a role="button">` instead of a `<button>` |
+| `target` | `target` | `string \| null` | `null` | Link target (with `href`) |
+| `rel` | `rel` | `string \| null` | `null` | Link rel (with `href`) |
+| `download` | `download` | `string \| null` | `null` | Link download filename (with `href`) |
+
+**Heights:** `xs` = 2rem, `sm` = 2.25rem, `md` = 2.5rem, `lg` = 2.75rem, `xl` = 3rem
+
+**Form participation:** with `type="submit"` or `type="reset"` inside a `<form>` (found by walking ancestors, crossing shadow boundaries), a click calls `form.requestSubmit()` or `form.reset()` — unless `href` is set or a listener called `preventDefault()` on the click.
 
 #### Slots
 
@@ -860,26 +1004,57 @@ type Breakpoint = 'xs' | 'sm' | 'md' | 'lg' | 'xl' | '2xl';
 #### Usage
 
 ```html
-<ml-button variant="danger" size="lg" loading>Processing...</ml-button>
+<ml-button variant="error" size="lg" loading>Processing...</ml-button>
 <ml-button variant="ghost">
   <ml-icon slot="icon-start" icon="plus"></ml-icon>
   Add Item
 </ml-button>
+<ml-button href="/reports/q3.pdf" download="q3.pdf" variant="outline">Download</ml-button>
 ```
 
 #### Key CSS Custom Properties
 
+Overridable from the element or any ancestor:
+
 | Property | Default | Description |
 |----------|---------|-------------|
-| `--ml-button-bg` | `var(--ml-color-primary)` | Background color |
-| `--ml-button-color` | `var(--ml-color-text-inverse)` | Text color |
-| `--ml-button-border-color` | `var(--ml-color-primary)` | Border color |
-| `--ml-button-hover-bg` | `var(--ml-color-primary-hover)` | Hover background |
-| `--ml-button-hover-border-color` | `var(--ml-color-primary-hover)` | Hover border color |
-| `--ml-button-hover-color` | `var(--ml-color-text-inverse)` | Hover text color |
-| `--ml-button-border-radius` | `var(--ml-radius)` | Border radius |
-| `--ml-button-font-size` | `var(--ml-text-sm)` | Font size |
-| `--ml-button-shadow` | `var(--ml-shadow-xs)` | Box shadow |
+| `--ml-button-border-radius` | `var(--ml-radius)` | Border radius (`xs` / `sm` set their own) |
+| `--ml-button-border-width` | `var(--ml-border)` | Border width |
+| `--ml-button-font-family` | `var(--ml-font-sans)` | Font family |
+| `--ml-button-font-weight` | `var(--ml-font-semibold)` | Font weight (`link` sets its own) |
+| `--ml-button-line-height` | `var(--ml-leading-tight)` | Line height |
+| `--ml-button-gap` | `var(--ml-space-2)` | Gap between icon and label |
+| `--ml-button-shadow` | `var(--ml-shadow-xs)` | Box shadow (`outline` / `ghost` / `link` set their own) |
+| `--ml-button-focus-shadow` | `var(--ml-shadow-focus-ring)` | Focus ring shadow (`secondary` / `error` set their own) |
+| `--ml-button-hover-color` | `var(--ml-color-text-inverse)` | Hover text color (`primary` and `error` only; the other variants set their own) |
+| `--ml-button-disabled-opacity` | `0.5` | Opacity when disabled |
+| `--ml-button-transition-duration` | `var(--ml-duration-150)` | Transition duration |
+| `--ml-button-transition-easing` | `var(--ml-ease-in-out)` | Transition easing |
+
+**Not overridable from outside — owned by the variant and size classes.** Every variant class, including the default `primary`, reassigns the color tokens on the inner element, and every size class, including the default `md`, reassigns the sizing tokens. A value for one of these set on `ml-button` or an ancestor is shadowed and has no effect:
+
+| Property | Default (`primary`, `md`) | Set by |
+|----------|---------------------------|--------|
+| `--ml-button-bg` | `var(--ml-color-primary)` | every variant |
+| `--ml-button-border-color` | `var(--ml-color-primary)` | every variant |
+| `--ml-button-color` | `var(--ml-color-text-inverse)` | every variant |
+| `--ml-button-hover-bg` | `var(--ml-color-primary-hover)` | every variant |
+| `--ml-button-hover-border-color` | `var(--ml-color-primary-hover)` | every variant |
+| `--ml-button-active-bg` | `var(--ml-color-primary-active)` | every variant except `link` |
+| `--ml-button-active-border-color` | `var(--ml-color-primary-active)` | `primary`, `error` |
+| `--ml-button-height` | `2.5rem` | every size (and `link`) |
+| `--ml-button-padding` | `0 var(--ml-space-3-5)` | every size (and `link`) |
+| `--ml-button-font-size` | `var(--ml-text-sm)` | every size |
+
+To recolor a button, override the global token its variant reads, scoped to the element:
+
+```css
+ml-button.cta {
+    --ml-color-primary: #c9a84c;        /* primary: background + border */
+    --ml-color-primary-hover: #d4b96a;
+    --ml-color-primary-active: #b8963c;
+}
+```
 
 ---
 
@@ -892,11 +1067,16 @@ type Breakpoint = 'xs' | 'sm' | 'md' | 'lg' | 'xl' | '2xl';
 | Property | Attribute | Type | Default | Values |
 |----------|-----------|------|---------|--------|
 | `value` | `value` | `string` | `''` | Single-select value |
-| `variant` | `variant` | `string` | `'outline'` | `'outline'`, `'solid'` |
-| `size` | `size` | `Size` | `'md'` | `'xs'`–`'xl'` |
+| `variant` | `variant` | `'outline' \| 'solid'` | `'outline'` | `'outline'`, `'solid'` |
+| `size` | `size` | `ControlSize` | `'md'` | `'sm'`, `'md'`, `'lg'` |
 | `disabled` | `disabled` | `boolean` | `false` | |
 | `multiple` | `multiple` | `boolean` | `false` | |
 | `values` | (property) | `string[]` | `[]` | Multi-select values |
+| `error` | `error` | `string` | `''` | Error message shown below the group |
+
+**Slots:** (default) — `ml-button-group-item` children
+
+Programmatic writes to `value` / `values` / `variant` / `size` / `disabled` are pushed to the slotted items on every render. Supports `:formControl` (the control value is a `string`, or a `string[]` when `multiple`).
 
 #### Events
 
@@ -906,7 +1086,11 @@ type Breakpoint = 'xs' | 'sm' | 'md' | 'lg' | 'xl' | '2xl';
 
 #### Child: `ml-button-group-item`
 
-Props: `value`, `icon`, `disabled`, `active` (managed), `groupDisabled`, `groupSize`
+Props: `value`, `icon` (Phosphor icon name), `disabled`, `active` (managed), `groupDisabled` (`group-disabled`, managed), `groupSize` (`group-size`, managed)
+
+**Slots:** (default) — item label
+
+Renders a `<button aria-pressed>`. Dispatches an internal `ml:item-click` (`{ value }`) that the group consumes and re-emits as `ml:change`.
 
 #### Usage
 
@@ -916,6 +1100,15 @@ Props: `value`, `icon`, `disabled`, `active` (managed), `groupDisabled`, `groupS
   <ml-button-group-item value="grid" icon="grid-four">Grid</ml-button-group-item>
 </ml-button-group>
 ```
+
+#### Key CSS Custom Properties
+
+| Property | Default | Description |
+|----------|---------|-------------|
+| `--ml-button-group-disabled-opacity` | `0.5` | Opacity when disabled |
+| `--ml-button-group-item-offset` | `-1px` | Overlap between adjacent items |
+| `--ml-button-group-error-color` | `var(--ml-color-danger)` | Error message color |
+| `--ml-button-group-error-font-size` | `var(--ml-text-sm)` | Error message font size |
 
 ---
 
@@ -932,12 +1125,22 @@ Props: `value`, `icon`, `disabled`, `active` (managed), `groupDisabled`, `groupS
 | `placeholder` | `placeholder` | `string` | `''` | |
 | `label` | `label` | `string` | `''` | |
 | `hint` | `hint` | `string` | `''` | |
-| `error` | `error` | `string` | `''` | |
-| `size` | `size` | `Size` | `'md'` | `'sm'`, `'md'`, `'lg'` |
+| `error` | `error` | `string` | `''` | Shown instead of `hint`; sets the error state |
+| `size` | `size` | `ControlSize` | `'md'` | `'sm'`, `'md'`, `'lg'` |
 | `disabled` | `disabled` | `boolean` | `false` | |
 | `readonly` | `readonly` | `boolean` | `false` | |
 | `required` | `required` | `boolean` | `false` | |
 | `autocomplete` | `autocomplete` | `string` | `'off'` | |
+| `name` | `name` | `string` | `''` | |
+| `maxlength` | `maxlength` | `number \| null` | `null` | |
+| `minlength` | `minlength` | `number \| null` | `null` | |
+| `min` | `min` | `string` | `''` | |
+| `max` | `max` | `string` | `''` | |
+| `step` | `step` | `string` | `''` | |
+| `pattern` | `pattern` | `string` | `''` | |
+| `inputmode` | `inputmode` | `string` | `''` | |
+
+The last eight are passed straight through to the inner `<input>`.
 
 #### Slots
 
@@ -960,6 +1163,8 @@ Props: `value`, `icon`, `disabled`, `active` (managed), `groupDisabled`, `groupS
 </ml-input>
 ```
 
+**Accessible name:** without a `label`, the inner `<input>` is named by the host's `aria-label`, falling back to `placeholder`.
+
 #### Form Integration
 
 Bind a `FormControl` with the `:formControl` directive — the `error` attribute is populated automatically from the validator's resolved message when the control is touched and invalid:
@@ -968,7 +1173,9 @@ Bind a `FormControl` with the `:formControl` directive — the `error` attribute
 html`<ml-input label="Email" :formControl=${this.form.get('email')}></ml-input>`;
 ```
 
-`error="..."` set manually still takes precedence at the attribute level when no `:formControl` is bound. The same auto-error behavior applies to other form components that observe the `error` attribute: `ml-textarea`, `ml-select`, `ml-autocomplete`, `ml-checkbox`, `ml-toggle`, `ml-radio-group`, `ml-slider`, `ml-date-picker`, `ml-time-picker`, `ml-date-time-picker`.
+`error="..."` set manually still takes precedence at the attribute level when no `:formControl` is bound. The same binding and auto-error behavior applies to the other form components that register a forms adapter and observe the `error` attribute: `ml-textarea`, `ml-select`, `ml-autocomplete`, `ml-checkbox`, `ml-toggle`, `ml-radio-group`, `ml-radio-card-group`, `ml-button-group`, `ml-slider`, `ml-date-picker`, `ml-time-picker`, `ml-date-time-picker`, `ml-file-upload`.
+
+The form controls are not form-associated custom elements: none of them calls `setFormValue`, so their values are not part of a native `<form>` submission or `FormData`. Read values through `:formControl` or the `ml:*` events.
 
 #### Key CSS Custom Properties
 
@@ -976,13 +1183,21 @@ html`<ml-input label="Email" :formControl=${this.form.get('email')}></ml-input>`
 |----------|---------|-------------|
 | `--ml-input-bg` | `var(--ml-color-input-bg)` | Input background |
 | `--ml-input-color` | `var(--ml-color-text)` | Text color |
-| `--ml-input-border-color` | `var(--ml-color-border-strong)` | Border color |
+| `--ml-input-border-color` | `var(--ml-color-border)` | Border color |
+| `--ml-input-border-width` | `var(--ml-border)` | Border width |
 | `--ml-input-border-radius` | `var(--ml-radius)` | Border radius |
+| `--ml-input-hover-border-color` | `var(--ml-color-border)` | Hover border color |
+| `--ml-input-padding` | `var(--ml-space-2-5) var(--ml-space-3-5)` | Wrapper padding |
 | `--ml-input-focus-border-color` | `var(--ml-color-primary)` | Focus border color |
 | `--ml-input-focus-shadow` | `var(--ml-shadow-focus-ring)` | Focus ring shadow |
 | `--ml-input-focus-inset-shadow` | `none` | Additional inset shadow on focus (composited with focus-shadow) |
+| `--ml-input-error-border-color` | `var(--ml-color-danger)` | Border color in the error state |
+| `--ml-input-error-color` | `var(--ml-color-danger)` | Error message color |
+| `--ml-input-disabled-bg` | `var(--ml-color-input-disabled-bg)` | Disabled background |
 | `--ml-input-label-color` | `var(--ml-color-text-secondary)` | Label text color |
 | `--ml-input-placeholder-color` | `var(--ml-color-text-muted)` | Placeholder color |
+| `--ml-input-hint-color` | `var(--ml-color-text-muted)` | Hint text color |
+| `--ml-input-addon-color` | `var(--ml-color-text-muted)` | Prefix / suffix color |
 
 ---
 
@@ -999,13 +1214,14 @@ html`<ml-input label="Email" :formControl=${this.form.get('email')}></ml-input>`
 | `label` | `label` | `string` | `''` |
 | `hint` | `hint` | `string` | `''` |
 | `error` | `error` | `string` | `''` |
-| `size` | `size` | `Size` | `'md'` |
+| `size` | `size` | `ControlSize` | `'md'` (`'sm'`, `'md'`, `'lg'`) |
 | `rows` | `rows` | `number` | `3` |
 | `maxLength` | `max-length` | `number` | `0` (no limit; >0 shows counter) |
 | `disabled` | `disabled` | `boolean` | `false` |
 | `readonly` | `readonly` | `boolean` | `false` |
 | `required` | `required` | `boolean` | `false` |
-| `resize` | `resize` | `boolean` | `false` |
+| `resize` | `resize` | `boolean` | `false` (when set, the field is vertically resizable) |
+| `name` | `name` | `string` | `''` |
 
 #### Events
 
@@ -1016,6 +1232,16 @@ html`<ml-input label="Email" :formControl=${this.form.get('email')}></ml-input>`
 ```html
 <ml-textarea label="Bio" rows="5" max-length="500" resize></ml-textarea>
 ```
+
+#### Key CSS Custom Properties
+
+Same token names as `ml-input` with the `--ml-textarea-` prefix (`-bg`, `-color`, `-border-color`, `-border-width`, `-border-radius`, `-hover-border-color`, `-padding`, `-focus-border-color`, `-focus-shadow`, `-focus-inset-shadow`, `-error-border-color`, `-error-color`, `-disabled-bg`, `-label-color`, `-placeholder-color`, `-hint-color`) and the same defaults, except `--ml-textarea-padding` (`var(--ml-space-3) var(--ml-space-3-5)`). Textarea-only tokens:
+
+| Property | Default | Description |
+|----------|---------|-------------|
+| `--ml-textarea-min-height` | `80px` | Minimum field height |
+| `--ml-textarea-counter-color` | `var(--ml-color-text-muted)` | Character counter color |
+| `--ml-textarea-counter-font-size` | `var(--ml-text-xs)` | Character counter font size |
 
 ---
 
@@ -1029,10 +1255,13 @@ html`<ml-input label="Email" :formControl=${this.form.get('email')}></ml-input>`
 |----------|-----------|------|---------|
 | `label` | `label` | `string` | `''` |
 | `hint` | `hint` | `string` | `''` |
-| `size` | `size` | `Size` | `'md'` |
+| `error` | `error` | `string` | `''` |
+| `size` | `size` | `ControlSize` | `'md'` |
 | `checked` | `checked` | `boolean` | `false` |
 | `indeterminate` | `indeterminate` | `boolean` | `false` |
 | `disabled` | `disabled` | `boolean` | `false` |
+| `name` | `name` | `string` | `''` |
+| `value` | `value` | `string` | `'on'` |
 
 **Sizes:** `sm` = 1rem, `md` = 1.25rem, `lg` = 1.5rem
 
@@ -1049,6 +1278,20 @@ html`<ml-input label="Email" :formControl=${this.form.get('email')}></ml-input>`
 <ml-checkbox label="Select all" indeterminate></ml-checkbox>
 ```
 
+#### Key CSS Custom Properties
+
+| Property | Default | Description |
+|----------|---------|-------------|
+| `--ml-checkbox-box-bg` | `var(--ml-color-input-bg)` | Unchecked background |
+| `--ml-checkbox-box-border-color` | `var(--ml-color-border-strong)` | Unchecked border color |
+| `--ml-checkbox-box-border-radius` | `var(--ml-radius-xs)` | Box radius |
+| `--ml-checkbox-box-color` | `var(--ml-color-text-inverse)` | Check mark color |
+| `--ml-checkbox-checked-bg` | `var(--ml-color-primary)` | Checked background |
+| `--ml-checkbox-checked-border-color` | `var(--ml-color-primary)` | Checked border color |
+| `--ml-checkbox-focus-shadow` | `var(--ml-shadow-focus-ring)` | Focus ring shadow |
+| `--ml-checkbox-label-color` | `var(--ml-color-text-secondary)` | Label color |
+| `--ml-checkbox-error-color` | `var(--ml-color-danger)` | Error message color |
+
 ---
 
 ### ml-radio
@@ -1057,7 +1300,7 @@ html`<ml-input label="Email" :formControl=${this.form.get('email')}></ml-input>`
 
 #### Props / Attributes
 
-`name`, `value`, `label`, `hint`, `size`, `checked`, `disabled`
+`name`, `value`, `label`, `hint`, `size` (`'sm'` | `'md'` | `'lg'`, default `'md'`), `checked`, `disabled`
 
 **Sizes:** `sm` = 1rem circle, `md` = 1.25rem, `lg` = 1.5rem
 
@@ -1067,15 +1310,29 @@ html`<ml-input label="Email" :formControl=${this.form.get('email')}></ml-input>`
 |-------|--------|
 | `ml:change` | `{ value: string, checked: true }` |
 
+#### Key CSS Custom Properties
+
+| Property | Default | Description |
+|----------|---------|-------------|
+| `--ml-radio-circle-bg` | `var(--ml-color-input-bg)` | Unchecked background |
+| `--ml-radio-circle-border-color` | `var(--ml-color-border-strong)` | Unchecked border color |
+| `--ml-radio-dot-color` | `var(--ml-color-primary)` | Dot color |
+| `--ml-radio-checked-border-color` | `var(--ml-color-primary)` | Checked border color |
+| `--ml-radio-checked-bg` | `var(--ml-color-primary-subtle)` | Checked background |
+| `--ml-radio-focus-shadow` | `var(--ml-shadow-focus-ring)` | Focus ring shadow |
+| `--ml-radio-label-color` | `var(--ml-color-text-secondary)` | Label color |
+
 ### ml-radio-group
 
-**Selector:** `ml-radio-group`
+**Selector:** `ml-radio-group` · **Import:** `import '@melodicdev/components/radio'` (same entry point as `ml-radio`)
 
 #### Props / Attributes
 
-`label`, `name`, `value`, `hint`, `error`, `orientation` (`'vertical'` | `'horizontal'`), `disabled`, `required`
+`label`, `name`, `value`, `hint`, `error`, `orientation` (`'vertical'` | `'horizontal'`, default `'vertical'`), `disabled`, `required`
 
 **Slots:** (default) — `ml-radio` children
+
+**Keyboard:** ArrowRight/ArrowDown and ArrowLeft/ArrowUp move focus and selection (wrapping, skipping disabled radios).
 
 #### Events
 
@@ -1100,9 +1357,11 @@ html`<ml-input label="Email" :formControl=${this.form.get('email')}></ml-input>`
 
 #### Props / Attributes
 
-`value`, `label`, `hint`, `error`, `orientation` (`'vertical'` | `'horizontal'`), `disabled`, `required`
+`value`, `label`, `hint`, `error`, `orientation` (`'vertical'` | `'horizontal'`, default `'vertical'`), `disabled`, `required`
 
 **Slots:** (default) — `ml-radio-card` children
+
+**Keyboard:** the group is a single tab stop; arrow keys move focus and selection between enabled cards (wrapping).
 
 #### Events
 
@@ -1110,11 +1369,25 @@ html`<ml-input label="Email" :formControl=${this.form.get('email')}></ml-input>`
 |-------|--------|
 | `ml:change` | `{ value: string }` |
 
+#### Key CSS Custom Properties
+
+| Property | Default | Description |
+|----------|---------|-------------|
+| `--ml-radio-card-group-gap` | `var(--ml-space-3)` | Gap between cards |
+| `--ml-radio-card-group-legend-color` | `var(--ml-color-text-secondary)` | Group label color |
+| `--ml-radio-card-group-hint-color` | `var(--ml-color-text-muted)` | Hint color |
+| `--ml-radio-card-group-error-color` | `var(--ml-color-danger)` | Error color |
+| `--ml-radio-card-group-disabled-opacity` | `0.5` | Opacity when disabled |
+
 ### ml-radio-card
 
-Props: `value`, `label`, `description`, `detail`, `icon`, `selected` (managed), `disabled`
+**Selector:** `ml-radio-card` · registered by `import '@melodicdev/components/radio-card-group'`
+
+Props: `value`, `label`, `description`, `detail`, `icon`, `selected` (managed), `disabled`, `groupDisabled` (`group-disabled`, managed), `tabStop` (`tab-stop`, managed)
 
 **Slots:** (default) — Additional content below label/description
+
+Dispatches an internal `ml:card-select` (`{ value }`) that the group consumes and re-emits as `ml:change`.
 
 #### Usage
 
@@ -1125,6 +1398,24 @@ Props: `value`, `label`, `description`, `detail`, `icon`, `selected` (managed), 
 </ml-radio-card-group>
 ```
 
+#### Key CSS Custom Properties
+
+| Property | Default | Description |
+|----------|---------|-------------|
+| `--ml-radio-card-bg` | `var(--ml-color-surface)` | Card background |
+| `--ml-radio-card-border-color` | `var(--ml-color-border)` | Card border color |
+| `--ml-radio-card-border-radius` | `var(--ml-radius-lg)` | Card radius |
+| `--ml-radio-card-padding` | `var(--ml-space-4)` | Card padding |
+| `--ml-radio-card-hover-bg` | `var(--ml-color-surface-raised)` | Hover background |
+| `--ml-radio-card-hover-border-color` | `var(--ml-color-border-strong)` | Hover border color |
+| `--ml-radio-card-selected-bg` | `var(--ml-color-primary-subtle)` | Selected background |
+| `--ml-radio-card-selected-border-color` | `var(--ml-color-primary)` | Selected border color |
+| `--ml-radio-card-selected-ring` | `0 0 0 1px var(--ml-color-primary)` | Selected ring (box-shadow) |
+| `--ml-radio-card-focus-shadow` | `var(--ml-shadow-focus-ring)` | Focus ring shadow |
+| `--ml-radio-card-label-color` | `var(--ml-color-text)` | Label color |
+| `--ml-radio-card-description-color` | `var(--ml-color-text-muted)` | Description color |
+| `--ml-radio-card-icon-color` | `var(--ml-color-text-muted)` | Icon color |
+
 ---
 
 ### ml-toggle
@@ -1133,7 +1424,7 @@ Props: `value`, `label`, `description`, `detail`, `icon`, `selected` (managed), 
 
 #### Props / Attributes
 
-`label`, `hint`, `size` (`'sm'` | `'md'` | `'lg'`), `checked`, `disabled`
+`label`, `hint`, `error`, `size` (`'sm'` | `'md'` | `'lg'`, default `'md'`), `checked`, `disabled`
 
 **Sizes:** `sm` = 2.25rem x 1.25rem, `md` = 2.75rem x 1.5rem, `lg` = 3rem x 1.75rem
 
@@ -1149,6 +1440,21 @@ Props: `value`, `label`, `description`, `detail`, `icon`, `selected` (managed), 
 <ml-toggle label="Enable notifications" checked></ml-toggle>
 ```
 
+#### Key CSS Custom Properties
+
+| Property | Default | Description |
+|----------|---------|-------------|
+| `--ml-toggle-track-bg` | `var(--ml-color-toggle-off)` | Track background (off) |
+| `--ml-toggle-track-hover-bg` | `var(--ml-color-toggle-off-hover)` | Track hover background (off) |
+| `--ml-toggle-track-checked-bg` | `var(--ml-color-primary)` | Track background (on) |
+| `--ml-toggle-track-checked-hover-bg` | `var(--ml-color-primary-hover)` | Track hover background (on) |
+| `--ml-toggle-thumb-bg` | `var(--ml-white)` | Thumb background |
+| `--ml-toggle-thumb-shadow` | `var(--ml-shadow-sm)` | Thumb shadow |
+| `--ml-toggle-focus-shadow` | `var(--ml-shadow-focus-ring)` | Focus ring shadow |
+| `--ml-toggle-label-color` | `var(--ml-color-text-secondary)` | Label color |
+| `--ml-toggle-error-color` | `var(--ml-color-danger)` | Error message color |
+| `--ml-toggle-transition-duration` | `var(--ml-duration-200)` | Transition duration |
+
 ---
 
 ### ml-select
@@ -1163,7 +1469,7 @@ Props: `value`, `label`, `description`, `detail`, `icon`, `selected` (managed), 
 | `placeholder` | `placeholder` | `string` | `'Select an option'` |
 | `hint` | `hint` | `string` | `''` |
 | `error` | `error` | `string` | `''` |
-| `size` | `size` | `Size` | `'md'` |
+| `size` | `size` | `Size` | `'md'` (styled sizes: `'sm'`, `'md'`, `'lg'`) |
 | `disabled` | `disabled` | `boolean` | `false` |
 | `required` | `required` | `boolean` | `false` |
 | `multiple` | `multiple` | `boolean` | `false` |
@@ -1182,17 +1488,28 @@ interface SelectOption {
 }
 ```
 
+In `multiple` mode the trigger shows the selected options as removable tags plus a search input that filters the list. The search input is the combobox and the control's only tab stop; in single mode the trigger is.
+
+`value`, `values` and `multiple` are kept consistent:
+
+- Turning `multiple` on carries a set `value` into `values` (when `values` is empty). Turning it off keeps `values[0]` as `value` and empties `values`.
+- In multiple mode, writing `value` adds it to `values`.
+- In single mode, writing a non-empty `values` mirrors its first entry onto `value`; `values = []` leaves `value` alone.
+- `values` also accepts a comma-separated string; duplicates and non-strings are dropped.
+
+**Methods:** `open()`, `close()`, `toggle()` — function fields, callable on the element (`selectEl.open()`) or on `el.component`
+
 #### Events
 
 | Event | Detail |
 |-------|--------|
-| `ml:change` | `{ value, option }` (single) or `{ values, options }` (multi) |
+| `ml:change` | Single: `{ value: string, option: SelectOption }`. Multiple: `{ values: string[], options: SelectOption[], option?: SelectOption }` (`option` is the toggled option; absent when a tag is removed) |
 | `ml:open` | none |
 | `ml:close` | none |
 
 #### Keyboard
 
-Enter/Space (open/select), Escape (close), ArrowDown/Up (navigate), Home/End, Tab (close)
+Enter/Space (open/select), Escape (close — only handled while open), ArrowDown/Up (open/navigate), Home/End, Tab (close), printable characters (type-ahead to the matching option)
 
 #### Usage
 
@@ -1201,7 +1518,33 @@ Enter/Space (open/select), Escape (close), ArrowDown/Up (navigate), Home/End, Ta
   { value: 'us', label: 'United States', icon: 'flag' },
   { value: 'ca', label: 'Canada' }
 ]}></ml-select>
+
+<ml-select label="Countries" multiple .values=${['us', 'ca']} .options=${countryOptions}></ml-select>
 ```
+
+#### Key CSS Custom Properties
+
+| Property | Default | Description |
+|----------|---------|-------------|
+| `--ml-select-bg` | `var(--ml-color-input-bg)` | Trigger background |
+| `--ml-select-color` | `var(--ml-color-text)` | Trigger text color |
+| `--ml-select-border-color` | `var(--ml-color-border)` | Trigger border color |
+| `--ml-select-border-radius` | `var(--ml-radius)` | Trigger radius |
+| `--ml-select-hover-border-color` | `var(--ml-color-border-strong)` | Trigger hover border color |
+| `--ml-select-focus-border-color` | `var(--ml-color-primary)` | Focus border color |
+| `--ml-select-focus-shadow` | `var(--ml-shadow-focus-ring)` | Focus ring shadow |
+| `--ml-select-error-border-color` | `var(--ml-color-danger)` | Border color in the error state |
+| `--ml-select-placeholder-color` | `var(--ml-color-text-muted)` | Placeholder color |
+| `--ml-select-dropdown-bg` | `var(--ml-color-surface)` | Dropdown background |
+| `--ml-select-dropdown-border-color` | `var(--ml-color-border)` | Dropdown border color |
+| `--ml-select-dropdown-shadow` | `var(--ml-shadow-lg)` | Dropdown shadow |
+| `--ml-select-dropdown-max-height` | `280px` | Dropdown max height |
+| `--ml-select-option-color` | `var(--ml-color-text)` | Option text color |
+| `--ml-select-option-hover-bg` | `var(--ml-color-surface-raised)` | Option hover / focused background |
+| `--ml-select-option-selected-bg` | `var(--ml-color-primary-subtle)` | Selected option background |
+| `--ml-select-option-check-color` | `var(--ml-color-primary)` | Selected check icon color |
+| `--ml-select-tag-bg` | `var(--ml-color-surface)` | Tag background (multiple) |
+| `--ml-select-tag-border-color` | `var(--ml-color-border)` | Tag border color (multiple) |
 
 ---
 
@@ -1215,14 +1558,22 @@ Enter/Space (open/select), Escape (close), ArrowDown/Up (navigate), Home/End, Ta
 |----------|-----------|------|---------|
 | `label` | `label` | `string` | `''` |
 | `placeholder` | `placeholder` | `string` | `'Search'` |
-| `hint`, `error`, `size`, `disabled`, `required`, `multiple` | — | — | — |
+| `hint` | `hint` | `string` | `''` |
+| `error` | `error` | `string` | `''` |
+| `size` | `size` | `Size` | `'md'` (styled sizes: `'sm'`, `'md'`, `'lg'`) |
+| `disabled` | `disabled` | `boolean` | `false` |
+| `required` | `required` | `boolean` | `false` |
+| `multiple` | `multiple` | `boolean` | `false` |
 | `value` | `value` | `string` | `''` |
+| `openOnFocus` | `open-on-focus` | `boolean` | `true` (`open-on-focus="false"` turns it off) |
 | `values` | (property) | `string[]` | `[]` |
 | `options` | (property) | `AutocompleteOption[]` | `[]` |
-| `searchFn` | (property) | `(query: string) => Promise<AutocompleteOption[]>` | `null` |
+| `searchFn` | (property) | `AutocompleteSearchFn \| null` | `null` |
 | `debounce` | (property) | `number` | `300` |
 | `minChars` | (property) | `number` | `0` |
 | `showIcon` | (property) | `boolean` | `true` |
+| `initialOption` | (property) | `AutocompleteOption \| null` | `null` (label for a pre-set `value` when using `searchFn`) |
+| `initialOptions` | (property) | `AutocompleteOption[]` | `[]` (labels for pre-set `values` when using `searchFn`) |
 
 ```typescript
 interface AutocompleteOption {
@@ -1230,14 +1581,31 @@ interface AutocompleteOption {
   label: string;
   subtitle?: string;
   avatarUrl?: string;
+  avatarAlt?: string;
   icon?: string;
   disabled?: boolean;
 }
+
+type AutocompleteSearchFn = (query: string) => Promise<AutocompleteOption[]>;
 ```
+
+Without `searchFn`, `options` are filtered client-side against `label`, `value` and `subtitle`. With `searchFn`, results come from the function (debounced by `debounce` ms); a slow earlier response never overwrites a newer one.
+
+The `value` / `values` / `multiple` rules are the same as for `ml-select` (shared implementation).
+
+**Methods:** `open()`, `close()` — function fields, callable on the element or on `el.component`
 
 #### Events
 
-`ml:change`, `ml:search` (`{ query }`), `ml:open`, `ml:close`
+| Event | Detail |
+|-------|--------|
+| `ml:change` | Single: `{ value: string, option: AutocompleteOption }`, or `{ value: '', option: null }` when cleared. Multiple: `{ values: string[], options: AutocompleteOption[], option?: AutocompleteOption, removedValue?: string }` (`removedValue` when Backspace removes the last tag) |
+| `ml:search` | `{ query: string }` |
+| `ml:search-error` | `{ query: string, error: unknown }` — `searchFn` rejected |
+| `ml:open` | none |
+| `ml:close` | none |
+
+**Keyboard:** Enter (select focused option), Escape (close — only handled while open), ArrowDown/Up (open/navigate), Backspace (multiple: remove last tag when the search is empty), Tab (close)
 
 #### Usage
 
@@ -1248,6 +1616,18 @@ interface AutocompleteOption {
 ></ml-autocomplete>
 ```
 
+#### Key CSS Custom Properties
+
+Same token names as `ml-select` with the `--ml-autocomplete-` prefix and the same defaults (`-bg`, `-color`, `-border-color`, `-border-radius`, `-hover-border-color`, `-focus-border-color`, `-focus-shadow`, `-error-border-color`, `-placeholder-color`, `-dropdown-*`, `-option-*`, `-tag-*`). Autocomplete-only tokens:
+
+| Property | Default | Description |
+|----------|---------|-------------|
+| `--ml-autocomplete-icon-color` | `var(--ml-color-text-muted)` | Search icon color |
+| `--ml-autocomplete-clear-color` | `var(--ml-color-text-muted)` | Clear button color |
+| `--ml-autocomplete-clear-hover-color` | `var(--ml-color-text)` | Clear button hover color |
+| `--ml-autocomplete-option-subtitle-color` | `var(--ml-color-text-muted)` | Option subtitle color |
+| `--ml-autocomplete-option-subtitle-font-size` | `var(--ml-text-xs)` | Option subtitle font size |
+
 ---
 
 ### ml-slider
@@ -1256,7 +1636,7 @@ interface AutocompleteOption {
 
 #### Props / Attributes
 
-`label`, `value` (number, default 50), `min` (0), `max` (100), `step` (1), `size`, `disabled`, `showValue` (`show-value`), `hint`, `error`
+`label`, `value` (number, default 50), `min` (0), `max` (100), `step` (1), `size` (`'sm'` | `'md'` | `'lg'`, default `'md'`), `disabled`, `showValue` (`show-value`), `hint`, `error`
 
 **Track heights:** `sm` = 4px, `md` = 6px, `lg` = 8px. Thumb: 20px.
 
@@ -1273,6 +1653,21 @@ interface AutocompleteOption {
 <ml-slider label="Volume" value="75" show-value></ml-slider>
 ```
 
+#### Key CSS Custom Properties
+
+| Property | Default | Description |
+|----------|---------|-------------|
+| `--ml-slider-fill-color` | `var(--ml-color-primary)` | Filled track color |
+| `--ml-slider-track-border-radius` | `var(--ml-radius-full)` | Track radius |
+| `--ml-slider-thumb-size` | `20px` | Thumb size |
+| `--ml-slider-thumb-bg` | `var(--ml-color-surface)` | Thumb background |
+| `--ml-slider-thumb-border-color` | `var(--ml-color-primary)` | Thumb border color |
+| `--ml-slider-thumb-shadow` | `var(--ml-shadow-sm)` | Thumb shadow |
+| `--ml-slider-label-color` | `var(--ml-color-text)` | Label / value color |
+| `--ml-slider-error-fill-color` | `var(--ml-color-danger)` | Fill color in the error state |
+| `--ml-slider-error-color` | `var(--ml-color-danger)` | Error message color |
+| `--ml-slider-disabled-opacity` | `0.5` | Opacity when disabled |
+
 ---
 
 ### ml-date-picker
@@ -1281,15 +1676,21 @@ interface AutocompleteOption {
 
 #### Props / Attributes
 
-`value` (ISO `YYYY-MM-DD`), `placeholder` (`'Select date'`), `label`, `hint`, `error`, `size` (`'sm'`|`'md'`|`'lg'`), `disabled`, `required`, `min`, `max`, `min-year`, `max-year`
+`value` (ISO `YYYY-MM-DD`), `placeholder` (`'Select date'`), `label`, `hint`, `error`, `size` (`'sm'`|`'md'`|`'lg'`), `disabled`, `required`, `min`, `max`, `min-year`, `max-year`, `locale`
+
+`value`, `min` and `max` are always ISO dates. The field is a plain text input: the user can type a date (ISO `YYYY-MM-DD`, or the locale's own short numeric date — whatever the field itself displays parses back, including separators such as `2001. 02. 03.`, trailing literals and non-ASCII digits) or pick from the calendar popover. Typed input that is invalid or outside `min` / `max` reverts to the last committed value; clearing the field commits `''`.
+
+`locale` is a BCP 47 tag for the displayed and accepted date format. It defaults to the browser's locale (not the document's `lang`); an unknown tag also falls back to the browser's.
 
 The calendar header shows clickable month and year labels. Clicking the month swaps the day grid for a month picker; clicking the year swaps it for a year grid paged 12 years at a time. `min-year` / `max-year` bound how far the year picker can reach (defaults: current year − 120 to current year + 10) — handy for birthday inputs.
+
+**Keyboard:** F4 or Alt+ArrowDown opens the calendar, Escape closes it and returns focus to the input. Inside the calendar each grid is one tab stop — see [ml-calendar](#ml-calendar) for its keys.
 
 #### Events
 
 | Event | Detail |
 |-------|--------|
-| `ml:change` | `{ value: string }` (ISO date) |
+| `ml:change` | `{ value: string }` (ISO date, `''` when cleared) |
 
 #### Usage
 
@@ -1298,7 +1699,71 @@ The calendar header shows clickable month and year labels. Clicking the month sw
 
 <!-- Birthday picker: reach back to 1900 without clicking ‹ hundreds of times -->
 <ml-date-picker label="Date of birth" min-year="1900" max-year="2026"></ml-date-picker>
+
+<ml-date-picker label="Datum" locale="de-DE"></ml-date-picker>
 ```
+
+#### Key CSS Custom Properties
+
+| Property | Default | Description |
+|----------|---------|-------------|
+| `--ml-date-picker-bg` | `var(--ml-color-input-bg)` | Field background |
+| `--ml-date-picker-color` | `var(--ml-color-text)` | Field text color |
+| `--ml-date-picker-border-color` | `var(--ml-color-border)` | Field border color |
+| `--ml-date-picker-border-radius` | `var(--ml-radius)` | Field radius |
+| `--ml-date-picker-hover-border-color` | `var(--ml-color-border-strong)` | Hover border color |
+| `--ml-date-picker-focus-border-color` | `var(--ml-trigger-focus-border, var(--ml-color-primary))` | Focus border color |
+| `--ml-date-picker-focus-shadow` | `var(--ml-shadow-focus-ring)` | Focus ring shadow |
+| `--ml-date-picker-error-border-color` | `var(--ml-color-danger)` | Border color in the error state |
+| `--ml-date-picker-icon-color` | `var(--ml-color-text-muted)` | Calendar icon color |
+| `--ml-date-picker-popover-bg` | `var(--ml-color-surface)` | Popover background |
+| `--ml-date-picker-popover-border-color` | `var(--ml-color-border)` | Popover border color |
+| `--ml-date-picker-popover-border-radius` | `var(--ml-radius-lg)` | Popover radius |
+| `--ml-date-picker-popover-shadow` | `var(--ml-shadow-lg)` | Popover shadow |
+
+The calendar inside the popover is an `ml-calendar` and is styled with the `--ml-calendar-*` tokens below.
+
+---
+
+### ml-calendar
+
+**Selector:** `ml-calendar` · registered by `import '@melodicdev/components/date-picker'`
+
+Standalone calendar grid — the same calendar `ml-date-picker` shows in its popover.
+
+#### Props / Attributes
+
+`value` (ISO `YYYY-MM-DD`), `min`, `max`, `min-year`, `max-year` — same meaning as on `ml-date-picker`.
+
+#### Events
+
+| Event | Detail |
+|-------|--------|
+| `ml:select` | `{ value: string }` (ISO date) — a day was picked, or the Today button was used |
+
+**Keyboard:** each grid is one tab stop. In the day grid, ArrowLeft/Right move by a day and ArrowUp/Down by a week, crossing month boundaries; Home / End go to the start / end of the week; PageUp / PageDown move by a month, with Shift by a year. Disabled dates are not focused. In the month and year grids, arrow keys move between cells and Home / End go to the first / last cell.
+
+#### Usage
+
+```html
+<ml-calendar value="2026-02-08" min="2026-01-01" max="2026-12-31"></ml-calendar>
+```
+
+#### Key CSS Custom Properties
+
+| Property | Default | Description |
+|----------|---------|-------------|
+| `--ml-calendar-width` | `280px` | Calendar width |
+| `--ml-calendar-day-color` | `var(--ml-color-text)` | Day text color |
+| `--ml-calendar-day-hover-bg` | `var(--ml-color-surface-raised)` | Day hover background |
+| `--ml-calendar-day-border-radius` | `var(--ml-radius-full)` | Day cell radius |
+| `--ml-calendar-selected-bg` | `var(--ml-color-primary)` | Selected day background |
+| `--ml-calendar-selected-color` | `var(--ml-color-text-inverse)` | Selected day text color |
+| `--ml-calendar-today-dot-color` | `var(--ml-color-primary)` | Today marker color |
+| `--ml-calendar-weekday-color` | `var(--ml-color-text-muted)` | Weekday header color |
+| `--ml-calendar-cell-selected-bg` | `var(--ml-color-primary)` | Selected month / year cell background |
+| `--ml-calendar-nav-color` | `var(--ml-color-text-muted)` | Prev / next button color |
+| `--ml-calendar-disabled-opacity` | `0.3` | Opacity of disabled days |
 
 ---
 
@@ -1310,16 +1775,20 @@ The calendar header shows clickable month and year labels. Clicking the month sw
 
 | Property | Attribute | Type | Default |
 |----------|-----------|------|---------|
-| `value` | `value` | `string` | `''` (`HH:mm` or `HH:mm:ss`) |
+| `value` | `value` | `string` | `''` (`HH:mm` or `HH:mm:ss`, 24-hour) |
 | `placeholder` | `placeholder` | `string` | `'Select time'` |
 | `label` | `label` | `string` | `''` |
-| `hint`, `error` | — | `string` | `''` |
+| `hint`, `error` | `hint`, `error` | `string` | `''` |
 | `size` | `size` | `'sm'` \| `'md'` \| `'lg'` | `'md'` |
-| `disabled`, `required` | — | `boolean` | `false` |
+| `disabled`, `required` | `disabled`, `required` | `boolean` | `false` |
 | `min` | `min` | `string` | `''` (`HH:mm`) |
 | `max` | `max` | `string` | `''` (`HH:mm`) |
-| `step` | `step` | `number` | `15` (set to 1 for seconds) |
-| `twelveHour` | `twelve-hour` | `boolean` | `true` |
+| `step` | `step` | `number` | `15` (set to `1` to show the seconds field and emit `HH:mm:ss`) |
+| `twelveHour` | `twelve-hour` | `boolean` | `true` (`twelve-hour="false"` for 24-hour display) |
+
+The popover has hour / minute (/ second) steppers, an AM/PM toggle in 12-hour mode, a Now button and a confirm button. The steppers and Now respect `min` / `max`.
+
+**Keyboard:** Space, F4 or Alt+ArrowDown opens the popover; Escape closes it.
 
 #### Events
 
@@ -1334,6 +1803,20 @@ The calendar header shows clickable month and year labels. Clicking the month sw
 <ml-time-picker label="Precise" step="1" twelve-hour="false"></ml-time-picker>
 ```
 
+#### Key CSS Custom Properties
+
+The field and popover tokens mirror `ml-date-picker` with the `--ml-time-picker-` prefix and the same defaults (`-bg`, `-color`, `-border-color`, `-border-radius`, `-hover-border-color`, `-focus-border-color`, `-focus-shadow`, `-error-border-color`, `-icon-color`, `-popover-bg`, `-popover-border-color`, `-popover-border-radius`, `-popover-shadow`). Time-picker-only tokens:
+
+| Property | Default | Description |
+|----------|---------|-------------|
+| `--ml-time-picker-spin-input-bg` | `var(--ml-color-surface-sunken)` | Hour / minute field background |
+| `--ml-time-picker-spin-input-color` | `var(--ml-color-text)` | Hour / minute field text color |
+| `--ml-time-picker-spin-input-focus-border-color` | `var(--ml-color-primary)` | Hour / minute field focus border |
+| `--ml-time-picker-spin-btn-color` | `var(--ml-color-text-muted)` | Stepper button color |
+| `--ml-time-picker-period-bg` | `var(--ml-color-surface)` | AM/PM button background |
+| `--ml-time-picker-confirm-bg` | `var(--ml-color-primary)` | Confirm button background |
+| `--ml-time-picker-confirm-color` | `var(--ml-color-text-inverse)` | Confirm button text color |
+
 ---
 
 ### ml-date-time-picker
@@ -1346,29 +1829,61 @@ Composes `ml-date-picker` + `ml-time-picker` side-by-side.
 
 | Property | Attribute | Type | Default |
 |----------|-----------|------|---------|
-| `value` | `value` | `string` | `''` (ISO `YYYY-MM-DDTHH:mm`) |
+| `value` | `value` | `string` | `''` (naive `YYYY-MM-DDTHH:mm`; with `timezone`, a UTC ISO string is also accepted) |
 | `placeholder` | `placeholder` | `string` | `'Select date and time'` |
-| `label`, `hint`, `error` | — | `string` | `''` |
+| `label`, `hint`, `error` | `label`, `hint`, `error` | `string` | `''` |
 | `size` | `size` | `'sm'` \| `'md'` \| `'lg'` | `'md'` |
-| `disabled`, `required` | — | `boolean` | `false` |
-| `minDate` | `min-date` | `string` | `''` |
-| `maxDate` | `max-date` | `string` | `''` |
-| `minTime` | `min-time` | `string` | `''` |
-| `maxTime` | `max-time` | `string` | `''` |
+| `disabled`, `required` | `disabled`, `required` | `boolean` | `false` |
+| `minDate` | `min-date` | `string` | `''` (`YYYY-MM-DD`) |
+| `maxDate` | `max-date` | `string` | `''` (`YYYY-MM-DD`) |
+| `minTime` | `min-time` | `string` | `''` (`HH:mm`) |
+| `maxTime` | `max-time` | `string` | `''` (`HH:mm`) |
 | `step` | `step` | `number` | `15` |
 | `twelveHour` | `twelve-hour` | `boolean` | `true` |
+| `timezone` | `timezone` | `string` | `''` (IANA name, e.g. `America/Detroit`) |
+| `timezoneLabel` | `timezone-label` | `'short'` \| `'long'` \| `'offset'` \| `'none'` | `'short'` (`EDT` / `Eastern Daylight Time` / `GMT-4` / no label) |
+| `viewerHint` | `viewer-hint` | `boolean` | `false` |
+
+**Without `timezone`** (default) `value` is a naive wall-clock string and no UTC conversion happens.
+
+**With `timezone`** the wall-clock the user sees is anchored to that zone. An incoming `value` that is a UTC ISO string (`…Z` or a `±HH:MM` offset) is parsed as an instant and shown as the equivalent wall-clock in `timezone`; a naive value is treated as wall-clock in `timezone`. A trailing zone label is rendered per `timezone-label`. With `viewer-hint`, a subdued line below the input shows the equivalent time in the viewer's own zone whenever the browser's UTC offset differs from `timezone` at that instant.
+
+Read-only property: `valueUtc` — the UTC ISO string for the current value (`''` without `timezone`).
 
 #### Events
 
 | Event | Detail |
 |-------|--------|
-| `ml:change` | `{ value: string, date: string, time: string }` |
+| `ml:change` | `{ value: string, date: string, time: string, valueUtc?: string, timezone?: string }` — `value` is the naive wall-clock; `timezone` and `valueUtc` are present only when `timezone` is set (`valueUtc` only once both date and time are chosen) |
 
 #### Usage
 
 ```html
 <ml-date-time-picker label="Event start" value="2026-02-08T09:30"></ml-date-time-picker>
+
+<!-- Timezone-anchored: store e.detail.valueUtc -->
+<ml-date-time-picker
+  label="Event start"
+  timezone="America/Detroit"
+  value="2026-04-27T13:00:00Z"
+  timezone-label="short"
+  viewer-hint
+></ml-date-time-picker>
 ```
+
+#### Key CSS Custom Properties
+
+| Property | Default | Description |
+|----------|---------|-------------|
+| `--ml-date-time-picker-bg` | `var(--ml-color-input-bg)` | Row background |
+| `--ml-date-time-picker-border-color` | `var(--ml-color-border)` | Row border color |
+| `--ml-date-time-picker-border-radius` | `var(--ml-radius-md)` | Row radius |
+| `--ml-date-time-picker-focus-border-color` | `var(--ml-color-primary)` | Focus border color |
+| `--ml-date-time-picker-focus-shadow` | `var(--ml-shadow-focus-ring)` | Focus ring shadow |
+| `--ml-date-time-picker-error-border-color` | `var(--ml-color-danger)` | Border color in the error state |
+| `--ml-date-time-picker-divider-color` | `var(--ml-color-border)` | Divider between date and time |
+| `--ml-date-time-picker-tz-label-color` | `var(--ml-color-text-muted)` | Timezone label color |
+| `--ml-date-time-picker-viewer-hint-color` | `var(--ml-color-text-muted)` | Viewer hint color |
 
 ---
 
@@ -1380,15 +1895,18 @@ Wrapper that connects labels, hints, errors, and ARIA attributes to any slotted 
 
 #### Props / Attributes
 
-`label`, `hint`, `error`, `size`, `orientation` (`'vertical'` | `'horizontal'`), `disabled`, `required`
+`label`, `hint`, `error`, `size` (`'sm'` | `'md'` | `'lg'`, default `'md'`), `orientation` (`'vertical'` | `'horizontal'`, default `'vertical'`), `disabled`, `required`
 
 #### Slots
 
-(default) — The form control (native `<input>` or `ml-*` component)
+(default) — The form control (native `<input>` / `<select>` / `<textarea>`, an element with a form-control `role`, or an `ml-*` component)
 
 #### Behavior
 
-- Auto-sets `id`, `aria-describedby`, `aria-invalid`, `aria-required` on slotted controls
+- Sets an `id` on the slotted control when it has none
+- Describes the control with the hint and error text by copying it onto the control as `aria-description` (neither an `aria-describedby` IDREF nor an element reference from the light-DOM control can reach into the field's shadow root). For a slotted `ml-*` control, the description, `aria-invalid` and `aria-required` are also put on the focusable control inside it
+- Syncs `aria-invalid` (while `error` is set) and `aria-required` on every render, and mirrors `disabled` onto the control in both directions (`aria-disabled` when the control has no `disabled` property)
+- Clicking the label focuses the control
 - Styles native slotted inputs with proper token-based focus rings, error states, size variants
 
 #### Usage
@@ -1398,6 +1916,22 @@ Wrapper that connects labels, hints, errors, and ARIA attributes to any slotted 
   <input type="text" />
 </ml-form-field>
 ```
+
+#### Key CSS Custom Properties
+
+| Property | Default | Description |
+|----------|---------|-------------|
+| `--ml-form-field-label-color` | `var(--ml-color-text-secondary)` | Label color |
+| `--ml-form-field-hint-color` | `var(--ml-color-text-muted)` | Hint color |
+| `--ml-form-field-error-color` | `var(--ml-color-danger)` | Error color |
+| `--ml-form-field-required-color` | `var(--ml-color-danger)` | Required indicator color |
+| `--ml-form-field-input-bg` | `var(--ml-color-input-bg)` | Slotted native input background |
+| `--ml-form-field-input-color` | `var(--ml-color-text)` | Slotted native input text color |
+| `--ml-form-field-input-border-color` | `var(--ml-color-border-strong)` | Slotted native input border color |
+| `--ml-form-field-input-border-radius` | `var(--ml-radius)` | Slotted native input radius |
+| `--ml-form-field-input-focus-border-color` | `var(--ml-color-primary)` | Slotted native input focus border |
+| `--ml-form-field-input-focus-shadow` | `var(--ml-shadow-focus-ring)` | Slotted native input focus ring |
+| `--ml-form-field-horizontal-gap` | `var(--ml-space-4)` | Label / control gap in horizontal orientation |
 
 ---
 
@@ -1412,18 +1946,23 @@ Wrapper that connects labels, hints, errors, and ARIA attributes to any slotted 
 | `accept` | `accept` | `string` | `''` (e.g. `.pdf,.docx,image/*`) |
 | `multiple` | `multiple` | `boolean` | `false` |
 | `maxSize` | `max-size` | `number` | `0` (bytes, 0=no limit) |
-| `maxFiles` | `max-files` | `number` | `0` |
+| `maxFiles` | `max-files` | `number` | `0` (0=no limit; counted across the whole selection) |
 | `disabled` | `disabled` | `boolean` | `false` |
 | `label` | `label` | `string` | `'Click to upload'` |
 | `sublabel` | `sublabel` | `string` | `'or drag and drop'` |
-| `hint`, `error` | — | `string` | `''` |
+| `hint`, `error` | `hint`, `error` | `string` | `''` |
 | `icon` | `icon` | `string` | `'cloud-arrow-up'` |
+| `files` | (property) | `File[]` | `[]` — the current valid selection; accumulates in `multiple` mode, otherwise holds the latest file. Settable (e.g. `[]` to reset) |
+
+**Methods:** `removeFile(file: File)` — removes a selected file and emits `ml:change`; a function field, callable on the element or on `el.component`. `processFiles(files: File[])` — validates and adds files as if the user had selected them; a prototype method, `el.component` only.
+
+With `:formControl`, the control value is the `File[]` in `multiple` mode, or a single `File | null` otherwise.
 
 #### Events
 
 | Event | Detail |
 |-------|--------|
-| `ml:change` | `{ files: File[] }` |
+| `ml:change` | `{ files: File[], added: File[] }` after a selection, `{ files: File[], removed: File[] }` after `removeFile()`. `files` is always the full current selection |
 | `ml:error` | `{ errors: FileValidationError[] }` |
 
 ```typescript
@@ -1442,34 +1981,52 @@ interface FileValidationError {
 ></ml-file-upload>
 ```
 
+#### Key CSS Custom Properties
+
+| Property | Default | Description |
+|----------|---------|-------------|
+| `--ml-file-upload-dropzone-bg` | `var(--ml-color-surface)` | Dropzone background |
+| `--ml-file-upload-dropzone-border-color` | `var(--ml-color-border)` | Dropzone border color |
+| `--ml-file-upload-dropzone-border-width` | `2px` | Dropzone border width |
+| `--ml-file-upload-dropzone-border-radius` | `var(--ml-radius-md)` | Dropzone radius |
+| `--ml-file-upload-dropzone-padding` | `var(--ml-space-6)` | Dropzone padding |
+| `--ml-file-upload-dropzone-hover-border-color` | `var(--ml-color-primary)` | Hover / drag-over border color |
+| `--ml-file-upload-dropzone-hover-bg` | `var(--ml-color-surface-sunken)` | Hover / drag-over background |
+| `--ml-file-upload-icon-bg` | `var(--ml-color-surface-sunken)` | Icon circle background |
+| `--ml-file-upload-icon-color` | `var(--ml-color-text-muted)` | Icon color |
+| `--ml-file-upload-label-color` | `var(--ml-color-primary)` | Label color |
+| `--ml-file-upload-sublabel-color` | `var(--ml-color-text-muted)` | Sublabel color |
+| `--ml-file-upload-error-color` | `var(--ml-color-danger)` | Error message color |
+
 ---
 
 ### ml-file-upload-item
 
-**Selector:** `ml-file-upload-item`
+**Selector:** `ml-file-upload-item` · registered by `import '@melodicdev/components/file-upload'`
 
 #### Props / Attributes
 
-`name`, `size` (display string), `status` (`'idle'` | `'uploading'` | `'complete'` | `'error'`), `progress` (0–100), `error`, `file` (File | null)
+`name`, `size` (display string), `status` (`'idle'` | `'uploading'` | `'complete'` | `'error'`, default `'idle'`), `progress` (0–100), `error`, `file` (File | null, property only)
 
 #### Events
 
 | Event | Detail |
 |-------|--------|
-| `ml:remove` | `{ name, file }` |
-| `ml:retry` | `{ name, file }` |
+| `ml:dismiss` | `{ name, file }` — the remove button was clicked |
+| `ml:remove` | `{ name, file }` — deprecated alias of `ml:dismiss`, fired alongside it |
+| `ml:retry` | `{ name, file }` — "Try again" was clicked (shown when `status="error"`) |
 
 ---
 
 ### ml-file-icon
 
-**Selector:** `ml-file-icon`
+**Selector:** `ml-file-icon` · registered by `import '@melodicdev/components/file-upload'`
 
 #### Props / Attributes
 
-`extension`, `color` (`'red'` | `'green'` | `'blue'` | `'purple'` | `'amber'` | `'gray'`), `size`
+`extension`, `color` (`'red'` | `'green'` | `'blue'` | `'purple'` | `'amber'` | `'gray'`; default `''` = pick from the extension), `size` (`'xs'` | `'sm'` | `'md'` | `'lg'` | `'xl'`, default `'md'`)
 
-Auto-color mapping: `pdf/html/xml` → red, `doc/docx/css/ts/mp4` → blue, `xls/xlsx/csv/jpg/png` → green, `ppt/zip/js/json` → amber, `mp3/wav` → purple, others → gray
+Auto-color mapping: `pdf/html/xml` → red, `doc/docx/css/ts/mp4/mov/avi/webm` → blue, `xls/xlsx/csv/jpg/jpeg/png/gif/svg/webp` → green, `ppt/pptx/zip/rar/7z/tar/gz/js/json` → amber, `mp3/wav/flac/ogg` → purple, others → gray. The same mapping is exported as `getColorForExtension(ext)`.
 
 ---
 
@@ -1491,12 +2048,12 @@ Auto-color mapping: `pdf/html/xml` → red, `doc/docx/css/ts/mp4` → blue, `xls
 
 - **default** — border + `--ml-shadow-xs`
 - **outlined** — border only, no shadow
-- **elevated** — muted border + `--ml-shadow-md`
-- **filled** — `--ml-color-surface-raised` background, no shadow
+- **elevated** — muted border (`--ml-color-border-muted`) + `--ml-shadow-md`
+- **filled** — `--ml-color-surface-raised` background, transparent border, no shadow
 
 #### Slots
 
-`header`, (default), `footer`
+`header`, (default), `footer` — the header and footer wrappers are hidden while their slot is empty, and appear when content is slotted later.
 
 #### Events
 
@@ -1508,13 +2065,19 @@ Auto-color mapping: `pdf/html/xml` → red, `doc/docx/css/ts/mp4` → blue, `xls
 
 | Property | Default | Description |
 |----------|---------|-------------|
-| `--ml-card-bg` | `var(--ml-color-surface)` | Card background |
-| `--ml-card-border-color` | `var(--ml-color-border)` | Border color |
+| `--ml-card-bg` | `var(--ml-color-surface)` | Card background (not used by the `filled` variant) |
+| `--ml-card-border-color` | `var(--ml-color-border)` | Border and header/footer divider color (the outer border of `elevated` and `filled` is fixed) |
+| `--ml-card-border-width` | `var(--ml-border)` | Border width |
 | `--ml-card-border-radius` | `var(--ml-radius-lg)` | Border radius |
-| `--ml-card-shadow` | `none` | Box shadow |
 | `--ml-card-body-padding` | `var(--ml-space-5)` | Body padding |
+| `--ml-card-header-padding-y` / `-x` | `var(--ml-space-4)` / `var(--ml-space-5)` | Header padding |
+| `--ml-card-footer-padding-y` / `-x` | `var(--ml-space-4)` / `var(--ml-space-5)` | Footer padding |
+| `--ml-card-hover-border-color` | `var(--ml-color-border-strong)` | Hover border color (when hoverable) |
 | `--ml-card-hover-shadow` | `var(--ml-shadow-md)` | Hover shadow (when hoverable) |
-| `--ml-card-footer-bg` | `transparent` | Footer background |
+| `--ml-card-focus-shadow` | `var(--ml-shadow-focus-ring)` | Focus ring (when clickable) |
+| `--ml-card-footer-bg` | `transparent` | Footer background. The base theme also sets this token globally (`var(--ml-gray-50)` light, `var(--ml-gray-800)` dark — see [Tooltip & Card Tokens](#tooltip--card-tokens)), so that value applies unless overridden |
+
+The resting box shadow is not a token: it comes from the variant (`--ml-shadow-xs` for `default`, `--ml-shadow-md` for `elevated`, none otherwise). Use `variant="outlined"` for a card without a shadow.
 
 ---
 
@@ -1537,6 +2100,15 @@ Auto-color mapping: `pdf/html/xml` → red, `doc/docx/css/ts/mp4` → blue, `xls
 <ml-divider>OR</ml-divider>
 ```
 
+#### Key CSS Custom Properties
+
+| Property | Default | Description |
+|----------|---------|-------------|
+| `--ml-divider-color` | `var(--ml-color-border)` | Line color |
+| `--ml-divider-label-color` | `var(--ml-color-text-muted)` | Label color |
+| `--ml-divider-label-font-size` | `var(--ml-text-sm)` | Label font size |
+| `--ml-divider-label-padding` | `var(--ml-space-4)` | Space around the label |
+
 ---
 
 ### ml-stack
@@ -1553,6 +2125,10 @@ Auto-color mapping: `pdf/html/xml` → red, `doc/docx/css/ts/mp4` → blue, `xls
 | `justify` | `justify` | `Justify` | `'start'` | `'start'`, `'center'`, `'end'`, `'between'`, `'around'`, `'evenly'` |
 | `wrap` | `wrap` | `boolean` | `false` | |
 
+**Slots:** (default)
+
+The component writes its props to `--ml-stack-direction`, `--ml-stack-gap`, `--ml-stack-align`, `--ml-stack-justify` and `--ml-stack-wrap` on its inner element, so layout is driven by the attributes, not by setting those tokens from outside.
+
 ---
 
 ### ml-container
@@ -1564,8 +2140,12 @@ Auto-color mapping: `pdf/html/xml` → red, `doc/docx/css/ts/mp4` → blue, `xls
 | Property | Attribute | Type | Default | Values |
 |----------|-----------|------|---------|--------|
 | `size` | `size` | `ContainerSize` | `'lg'` | `'sm'` (640px), `'md'` (768px), `'lg'` (1024px), `'xl'` (1280px), `'full'` (100%) |
-| `padding` | `padding` | `string` | `'4'` | Spacing scale |
-| `centered` | `centered` | `boolean` | `true` | |
+| `padding` | `padding` | `string` | `'4'` | Spacing scale → horizontal padding `var(--ml-space-{padding})` |
+| `centered` | `centered` | `boolean` | `true` | `centered="false"` removes the auto side margins |
+
+**Slots:** (default)
+
+The component writes its props to `--ml-container-max-width`, `--ml-container-padding-x` and `--ml-container-margin-x` on its inner element.
 
 ---
 
@@ -1577,9 +2157,11 @@ Auto-color mapping: `pdf/html/xml` → red, `doc/docx/css/ts/mp4` → blue, `xls
 
 #### Props
 
-`size` (`'xs'`=16px, `'sm'`=20px, `'md'`=24px, `'lg'`=32px, `'xl'`=40px), `label` (`'Loading'`)
+`size` (`'xs'`=16px, `'sm'`=20px, `'md'`=24px, `'lg'`=32px, `'xl'`=40px; default `'md'`), `label` (`'Loading'`)
 
-Uses `currentColor` for stroke. ARIA: `role="status"`, `aria-label`.
+Uses `currentColor` for stroke — set `color` on the element (or an ancestor) to recolor it. ARIA: `role="status"`, `aria-label`.
+
+**CSS Custom Properties:** `--ml-spinner-track-opacity` (`0.25`), `--ml-spinner-animation-duration` (`0.75s`). `--ml-spinner-size` is reassigned by the size class, so use the `size` attribute.
 
 ---
 
@@ -1592,10 +2174,14 @@ Uses `currentColor` for stroke. ARIA: `role="status"`, `aria-label`.
 | Property | Attribute | Type | Default | Values |
 |----------|-----------|------|---------|--------|
 | `variant` | `variant` | `AlertVariant` | `'info'` | `'info'`, `'success'`, `'warning'`, `'error'` |
-| `title` | `title` | `string` | `''` | |
+| `alertTitle` | `alert-title` | `string` | `''` | |
 | `dismissible` | `dismissible` | `boolean` | `false` | |
 
+The `title` attribute / property is a deprecated alias of `alert-title` (it collides with the native tooltip attribute, warns once, and will be removed in the next major release).
+
 **Default icons:** info → `info`, success → `check-circle`, warning → `warning`, error → `x-circle`
+
+**ARIA:** `role="alert"`
 
 #### Slots
 
@@ -1605,7 +2191,29 @@ Uses `currentColor` for stroke. ARIA: `role="status"`, `aria-label`.
 
 | Event | Detail | Description |
 |-------|--------|-------------|
-| `ml:dismiss` | none | Sets `hidden` attribute on self |
+| `ml:dismiss` | none | Dismiss button clicked; the alert also sets the `hidden` attribute on itself |
+
+#### Usage
+
+```html
+<ml-alert variant="warning" alert-title="Storage almost full" dismissible>
+  You have used 92% of your quota.
+</ml-alert>
+```
+
+#### Key CSS Custom Properties
+
+Variant colors come from the global `--ml-alert-{info|success|warning|error}-{bg|border|text|icon}` tokens (see [Alert Tokens](#alert-tokens)); override those on the element or an ancestor to recolor a variant.
+
+| Property | Default | Description |
+|----------|---------|-------------|
+| `--ml-alert-padding` | `var(--ml-space-4)` | Padding |
+| `--ml-alert-gap` | `var(--ml-space-3)` | Gap between icon and content |
+| `--ml-alert-border-radius` | `var(--ml-radius-lg)` | Border radius |
+| `--ml-alert-title-font-size` | `var(--ml-text-sm)` | Title font size |
+| `--ml-alert-title-font-weight` | `var(--ml-font-semibold)` | Title font weight |
+| `--ml-alert-message-font-size` | `var(--ml-text-sm)` | Message font size |
+| `--ml-alert-icon-size` | `1.25rem` | Icon size |
 
 ---
 
@@ -1624,15 +2232,33 @@ Uses `currentColor` for stroke. ARIA: `role="status"`, `aria-label`.
 | `label` | `label` | `string` | `''` | |
 | `showValue` | `show-value` | `boolean` | `false` | |
 | `shape` | `shape` | `ProgressShape` | `'linear'` | `'linear'`, `'circle'`, `'half-circle'` |
-| `labelPosition` | `label-position` | `ProgressLabelPosition` | `'top'` | `'top'`, `'right'`, `'bottom'`, `'floating-top'`, `'floating-bottom'`, `'none'` |
+| `labelPosition` | `label-position` | `ProgressLabelPosition` | `'top'` | `'top'`, `'right'`, `'bottom'`, `'floating-top'`, `'floating-bottom'`, `'none'` (linear shape) |
 
 **Linear heights:** sm=4px, md=8px, lg=12px
+
+**ARIA:** `role="progressbar"` with `aria-valuenow` / `aria-valuemin` / `aria-valuemax`; `aria-label` is the `label`, or `'Progress'`.
 
 #### Usage
 
 ```html
 <ml-progress value="72" shape="circle" show-value label="Score" size="lg"></ml-progress>
 ```
+
+#### Key CSS Custom Properties
+
+| Property | Default | Description |
+|----------|---------|-------------|
+| `--ml-progress-track-color` | `var(--ml-color-surface-sunken)` | Linear track color |
+| `--ml-progress-track-radius` | `var(--ml-radius-full)` | Linear track radius |
+| `--ml-progress-sm-height` / `-md-height` / `-lg-height` | `4px` / `8px` / `12px` | Linear track height per size |
+| `--ml-progress-label-color` | `var(--ml-color-text)` | Label / value color |
+| `--ml-progress-floating-bg` | `var(--ml-color-text)` | Floating value bubble background |
+| `--ml-progress-floating-color` | `var(--ml-color-text-inverse)` | Floating value bubble text color |
+| `--ml-progress-circle-track-color` | `var(--ml-color-surface-sunken)` | Circle track color |
+| `--ml-progress-half-track-color` | `var(--ml-color-surface-sunken)` | Half-circle track color |
+| `--ml-progress-transition-duration` | `var(--ml-duration-300)` | Fill transition duration |
+
+The fill color tokens (`--ml-progress-fill-color`, `--ml-progress-circle-fill-color`, `--ml-progress-half-fill-color`) are reassigned by every variant class, so choose the fill color with `variant` (or override the global color that variant reads, e.g. `--ml-color-primary`).
 
 ---
 
@@ -1642,7 +2268,15 @@ Uses `currentColor` for stroke. ARIA: `role="status"`, `aria-label`.
 
 #### Props
 
-`variant` (`'info'`|`'success'`|`'warning'`|`'error'`), `title`, `message`, `duration` (ms, default 5000, 0=no auto-dismiss), `dismissible` (default true)
+`variant` (`'info'`|`'success'`|`'warning'`|`'error'`, default `'info'`), `toastTitle` (`toast-title`), `message`, `duration` (ms, default 5000, 0=no auto-dismiss), `dismissible` (default true; `dismissible="false"` hides the dismiss button)
+
+The `title` attribute / property is a deprecated alias of `toast-title`.
+
+**Methods:** `dismiss()` — a function field, callable on the element or on `el.component`
+
+The auto-dismiss timer pauses while the toast is hovered or has focus inside it, and resumes with the time that was left.
+
+**ARIA:** `role="alert"` for `error`, `role="status"` otherwise.
 
 #### Events
 
@@ -1650,20 +2284,76 @@ Uses `currentColor` for stroke. ARIA: `role="status"`, `aria-label`.
 |-------|--------|
 | `ml:dismiss` | none (also removes element from DOM) |
 
+Toasts are normally created through `ToastService`, which appends them to an `ml-toast-container` that it creates on `document.body`.
+
+#### Key CSS Custom Properties
+
+| Property | Default | Description |
+|----------|---------|-------------|
+| `--ml-toast-bg` | `var(--ml-color-surface)` | Background |
+| `--ml-toast-border-color` | `var(--ml-color-border)` | Border color |
+| `--ml-toast-border-radius` | `var(--ml-radius-lg)` | Border radius |
+| `--ml-toast-shadow` | `var(--ml-shadow-lg)` | Box shadow |
+| `--ml-toast-min-width` / `--ml-toast-max-width` | `320px` / `420px` | Width limits |
+| `--ml-toast-title-color` | `var(--ml-color-text)` | Title color |
+| `--ml-toast-message-color` | `var(--ml-color-text-secondary)` | Message color |
+| `--ml-toast-info-icon-color` | `var(--ml-color-primary)` | Icon color, `info` |
+| `--ml-toast-success-icon-color` | `var(--ml-color-success)` | Icon color, `success` |
+| `--ml-toast-warning-icon-color` | `var(--ml-color-warning)` | Icon color, `warning` |
+| `--ml-toast-error-icon-color` | `var(--ml-color-danger)` | Icon color, `error` |
+
+### ml-toast-container
+
+**Selector:** `ml-toast-container` · registered by `import '@melodicdev/components/toast'`
+
+Fixed-position stack that holds toasts. `ToastService` creates one on `document.body` on first use; you rarely place it yourself. Where the Popover API is available the service shows it as `popover="manual"` and re-shows it for each new toast, so it sits in the top layer above open `ml-dialog` / `ml-drawer` modals. A toast raised over a modal is visible, but the platform keeps it inert (its dismiss button is not clickable) until the modal closes.
+
+Props: `position` (`ToastPosition`, default `'top-right'`)
+
+**Slots:** (default) — `ml-toast` elements
+
+**ARIA:** `role="region"`, `aria-label="Notifications"`, `aria-live="polite"`
+
 ### ToastService
 
 `@Injectable()` singleton. Import: `import { ToastService } from '@melodicdev/components/toast'`
 
 | Method | Signature |
 |--------|-----------|
-| `show` | `(config: IToastConfig) => void` |
-| `info` | `(title, message?) => void` |
-| `success` | `(title, message?) => void` |
-| `warning` | `(title, message?) => void` |
-| `error` | `(title, message?) => void` |
+| `show` | `(config: IToastConfig) => IToastRef` |
+| `info` | `(title: string, message?: string) => IToastRef` |
+| `success` | `(title: string, message?: string) => IToastRef` |
+| `warning` | `(title: string, message?: string) => IToastRef` |
+| `error` | `(title: string, message?: string) => IToastRef` |
+| `dismissAll` | `() => void` — removes every toast on screen |
 | `setPosition` | `(position: ToastPosition) => void` |
+| `setMaxVisible` | `(max: number) => void` — cap on simultaneous toasts (default 5, `0` = unlimited); the oldest are removed first |
+
+```typescript
+interface IToastConfig {
+  variant?: ToastVariant;   // 'info' | 'success' | 'warning' | 'error'
+  title?: string;
+  message?: string;
+  duration?: number;        // ms; 0 = no auto-dismiss; default 5000
+  dismissible?: boolean;    // default true
+}
+
+// Returned by show/info/success/warning/error
+interface IToastRef {
+  dismiss(): void;               // remove the toast now; safe to call more than once
+  readonly element: HTMLElement; // the <ml-toast> element
+}
+```
 
 `ToastPosition = 'top-right' | 'top-left' | 'top-center' | 'bottom-right' | 'bottom-left' | 'bottom-center'`
+
+```typescript
+@Service(ToastService) private readonly _toast!: ToastService;
+
+this._toast.success('Saved', 'Your changes have been saved.');
+const ref = this._toast.show({ variant: 'warning', title: 'Reconnecting…', duration: 0 });
+ref.dismiss();
+```
 
 ---
 
@@ -1675,7 +2365,9 @@ Uses `currentColor` for stroke. ARIA: `role="status"`, `aria-label`.
 
 #### Props
 
-`src`, `alt`, `initials` (truncated to 2 uppercase), `size` (`'xs'`=24px, `'sm'`=32px, `'md'`=40px, `'lg'`=48px, `'xl'`=64px), `rounded` (rounded square vs circle)
+`src`, `alt`, `initials` (truncated to 2 uppercase), `size` (`'xs'`=24px, `'sm'`=32px, `'md'`=40px, `'lg'`=48px, `'xl'`=64px; default `'md'`), `rounded` (rounded square vs circle)
+
+Renders the image when `src` loads, otherwise the `initials`, otherwise the fallback slot. ARIA: `role="img"`, `aria-label` = `alt`, then `initials`, then `'Avatar'`.
 
 **Slots:** (default) — Custom fallback (defaults to user icon)
 
@@ -1689,6 +2381,7 @@ Uses `currentColor` for stroke. ARIA: `role="status"`, `aria-label`.
 | `--ml-avatar-shadow` | `var(--ml-shadow-xs)` | Avatar shadow |
 | `--ml-avatar-radius` | `var(--ml-radius-full)` | Border radius |
 | `--ml-avatar-font-weight` | `var(--ml-font-semibold)` | Initials font weight |
+| `--ml-avatar-fallback-color` | `var(--ml-color-text-subtle)` | Fallback icon color |
 
 ---
 
@@ -1698,14 +2391,26 @@ Uses `currentColor` for stroke. ARIA: `role="status"`, `aria-label`.
 
 #### Props
 
-`variant` (`'default'`|`'primary'`|`'secondary'`|`'success'`|`'warning'`|`'error'`), `size` (`'xs'`|`'sm'`|`'md'`|`'lg'`), `dot`, `pill`, `color` (`string`, `''` — custom background color, any CSS color; overrides variant)
+`variant` (`'default'`|`'primary'`|`'secondary'`|`'success'`|`'warning'`|`'error'`, default `'default'`), `size` (`'xs'`|`'sm'`|`'md'`|`'lg'`, default `'md'`), `dot`, `pill`, `color` (`string`, `''` — custom background color, any CSS color; overrides variant)
+
+**Slots:** (default) — badge text
 
 #### Key CSS Custom Properties
 
+Variant colors come from the global `--ml-badge-{default|primary|success|warning|error}-{bg|border|text}` tokens (see [Badge Tokens](#badge-tokens)); `secondary` uses the default background and border with `--ml-badge-secondary-color` as its text color. Override those to recolor a variant — the internal `--ml-badge-background`, `--ml-badge-border-color` and `--ml-badge-text` are reassigned by every variant class, and `--ml-badge-padding` / `--ml-badge-font-size` by every size class.
+
 | Property | Default | Description |
 |----------|---------|-------------|
-| `--ml-badge-bg` | — | Custom background (set via `color` prop) |
-| `--ml-badge-color` | `#fff` | Custom text color (used with `color` prop) |
+| `--ml-badge-radius` | `var(--ml-radius-md)` | Border radius |
+| `--ml-badge-pill-radius` | `var(--ml-radius-full)` | Border radius with `pill` |
+| `--ml-badge-border-width` | `var(--ml-border)` | Border width |
+| `--ml-badge-font-weight` | `var(--ml-font-medium)` | Font weight |
+| `--ml-badge-gap` | `var(--ml-space-1-5)` | Gap between dot and text |
+| `--ml-badge-dot-size` | `0.375rem` | Dot size (`--ml-badge-dot-size-xs` `0.3125rem`, `--ml-badge-dot-size-lg` `0.5rem`) |
+| `--ml-badge-secondary-color` | `var(--ml-color-text-secondary)` | Text color of the `secondary` variant |
+| `--ml-badge-custom-color` | `var(--ml-badge-color, #fff)` | Text color when `color` is set |
+
+When `color` is set, the component writes `--ml-badge-bg` (the color) and `--ml-badge-color` (`#fff`) inline on its inner element; use `--ml-badge-custom-color` to change the text color.
 
 ---
 
@@ -1715,7 +2420,13 @@ Uses `currentColor` for stroke. ARIA: `role="status"`, `aria-label`.
 
 #### Props
 
-`label`, `variant`, `theme` (`'pill'`|`'modern'`), `size`, `badgePosition` (`'leading'`|`'trailing'`), `icon`
+`label` (text of the inner badge), `variant` (styled: `'default'`|`'primary'`|`'success'`|`'warning'`|`'error'`; default `'default'`), `theme` (`'pill'`|`'modern'`, default `'pill'`), `size` (`'sm'`|`'md'`|`'lg'`, default `'md'`), `badgePosition` (`badge-position`: `'leading'`|`'trailing'`, default `'leading'`), `icon` (Phosphor icon name, rendered at the end)
+
+**Slots:** (default) — message text
+
+```html
+<ml-badge-group label="New" variant="primary" icon="arrow-right">We just shipped dark mode</ml-badge-group>
+```
 
 ---
 
@@ -1725,11 +2436,34 @@ Uses `currentColor` for stroke. ARIA: `role="status"`, `aria-label`.
 
 #### Props
 
-`size`, `dot`, `dot-color` (`'success'`|`'warning'`|`'danger'`|`'info'`|`'primary'`|`'secondary'`), `closable`, `avatar-src`, `icon`, `count`, `checkable`, `checked`, `disabled`
+`size` (`'sm'`|`'md'`|`'lg'`, default `'md'`), `dot`, `dotColor` (`dot-color`: `'success'`|`'warning'`|`'error'`|`'info'`|`'primary'`|`'secondary'`, default `'success'`; `'danger'` is a deprecated alias of `'error'`), `closable`, `avatarSrc` (`avatar-src`), `icon`, `count`, `checkable`, `checked`, `disabled`
+
+**Slots:** (default) — tag text
 
 #### Events
 
-`ml:close` (`{}`), `ml:change` (`{ checked: boolean }`)
+| Event | Detail |
+|-------|--------|
+| `ml:dismiss` | none — the close button was clicked (`closable`) |
+| `ml:close` | none — deprecated alias of `ml:dismiss`, fired alongside it |
+| `ml:change` | `{ checked: boolean }` — the checkbox was toggled (`checkable`) |
+
+The tag does not remove itself on dismiss; remove it in the handler.
+
+#### Key CSS Custom Properties
+
+| Property | Default | Description |
+|----------|---------|-------------|
+| `--ml-tag-bg` | `var(--ml-color-surface)` | Background |
+| `--ml-tag-color` | `var(--ml-color-text)` | Text color |
+| `--ml-tag-border-color` | `var(--ml-color-border)` | Border color |
+| `--ml-tag-border-width` | `var(--ml-border)` | Border width |
+| `--ml-tag-radius` | `var(--ml-radius-md)` | Border radius |
+| `--ml-tag-font-weight` | `var(--ml-font-medium)` | Font weight |
+| `--ml-tag-count-color` | `var(--ml-color-text-secondary)` | Count color |
+| `--ml-tag-close-color` | `var(--ml-color-text-muted)` | Close button color |
+| `--ml-tag-checkbox-checked-bg` | `var(--ml-color-primary)` | Checked checkbox background |
+| `--ml-tag-dot-{success\|warning\|danger\|info\|primary\|secondary}` | `var(--ml-color-{name})` | Dot color per `dot-color` (`error` uses `--ml-tag-dot-danger`) |
 
 ---
 
@@ -1739,13 +2473,30 @@ Uses `currentColor` for stroke. ARIA: `role="status"`, `aria-label`.
 
 #### Props
 
-`variant` (`'default'`|`'plain'`), `size` (`'sm'`|`'md'`|`'lg'`)
+`variant` (`'default'`|`'plain'`, default `'default'`), `size` (`'sm'`|`'md'`|`'lg'`, default `'md'`)
+
+**Slots:** (default) — `ml-list-item` children. ARIA: `role="list"`.
+
+**CSS Custom Properties:** `--ml-list-divider-width` (`var(--ml-border)`), `--ml-list-divider-color` (`var(--ml-color-border)`)
 
 ### ml-list-item
 
 **Props:** `primary`, `secondary`, `disabled`, `interactive`
 
 **Slots:** `leading`, (default), `trailing`
+
+With `interactive`, the host gets `role="button"` and `tabindex="0"` (no tab stop and `aria-disabled="true"` while `disabled`), hover/focus styling, and Enter/Space trigger a `click` on the host — listen for the native `click` event. Otherwise the host is `role="listitem"`.
+
+#### Key CSS Custom Properties
+
+| Property | Default | Description |
+|----------|---------|-------------|
+| `--ml-list-item-gap` | `var(--ml-space-3)` | Gap between leading, content and trailing |
+| `--ml-list-item-primary-color` | `var(--ml-color-text)` | Primary text color |
+| `--ml-list-item-primary-weight` | `var(--ml-font-semibold)` | Primary text weight |
+| `--ml-list-item-secondary-color` | `var(--ml-color-text-secondary)` | Secondary text color |
+| `--ml-list-item-focus-color` | `var(--ml-color-primary)` | Focus outline color (interactive) |
+| `--ml-list-item-disabled-opacity` | `0.5` | Opacity when disabled |
 
 ---
 
@@ -1755,13 +2506,30 @@ Uses `currentColor` for stroke. ARIA: `role="status"`, `aria-label`.
 
 #### Props
 
-`variant` (`'list'`|`'timeline'`)
+`variant` (`'list'`|`'timeline'`, default `'list'`)
+
+**Slots:** (default) — `ml-activity-feed-item` children. ARIA: `role="feed"`.
+
+**CSS Custom Properties:** `--ml-activity-feed-divider-width` (`var(--ml-border)`), `--ml-activity-feed-divider-color` (`var(--ml-color-border)`)
 
 ### ml-activity-feed-item
 
-**Props:** `name`, `timestamp`, `avatar-src`, `avatar-initials`, `avatar-size`, `subtitle`, `indicator`, `indicator-color` (`string` — preset name or any CSS color value)
+**Props:** `name`, `timestamp`, `avatarSrc` (`avatar-src`), `avatarInitials` (`avatar-initials`), `avatarSize` (`avatar-size`, `Size`, default `'sm'`), `subtitle`, `indicator` (boolean), `indicatorColor` (`indicator-color`: `string`, default `'gray'` — a preset name `'success'`|`'warning'`|`'error'`|`'primary'`|`'gray'`, or any CSS color value)
 
-**Slots:** (default), `avatar`, `content`
+**Slots:** (default) — description text, `avatar` — replaces the default `ml-avatar`, `content` — extra content below the description
+
+#### Key CSS Custom Properties
+
+| Property | Default | Description |
+|----------|---------|-------------|
+| `--ml-activity-feed-item-padding` | `var(--ml-space-4) 0` | Item padding |
+| `--ml-activity-feed-item-gap` | `var(--ml-space-3)` | Gap between avatar and body |
+| `--ml-activity-feed-item-name-color` | `var(--ml-color-text)` | Name color |
+| `--ml-activity-feed-item-subtitle-color` | `var(--ml-color-text-secondary)` | Subtitle color |
+| `--ml-activity-feed-item-description-color` | `var(--ml-color-text-secondary)` | Description color |
+| `--ml-activity-feed-item-link-color` | `var(--ml-color-primary)` | Color of links in the description |
+| `--ml-activity-feed-item-connector-color` | `var(--ml-color-border)` | Timeline connector color |
+| `--ml-activity-feed-item-indicator-size` | `8px` | Indicator dot size |
 
 ---
 
@@ -1781,8 +2549,13 @@ Uses `currentColor` for stroke. ARIA: `role="status"`, `aria-label`.
 | `description` | `description` | `string` | `''` |
 | `stickyHeader` | `sticky-header` | `boolean` | `false` |
 | `virtual` | `virtual` | `boolean` | `false` |
+| `manualSort` | `manual-sort` | `boolean` | `false` — skip client-side sorting; `rows` render in the order given while header clicks still update `sortKey` / `sortDirection` and fire `ml:sort` (server-side sorting) |
+| `clickableRows` | `clickable-rows` | `boolean` | `false` — pointer cursor + hover affordance for rows, and makes each row a tab stop that fires `ml:row-click` on Enter/Space; set it when listening for `ml:row-click` |
+| `rowKey` | `row-key` | `string \| ((row, index) => unknown) \| null` | `null` — row identity: a property name (`row-key="id"`) or, via the property, a function. When set, a rendered row's DOM follows its record across sorting instead of being reused by position |
 | `columns` | (property) | `TableColumn[]` | `[]` |
 | `rows` | (property) | `Record<string, unknown>[]` | `[]` |
+| `sortKey` | (property) | `string` | `''` — currently sorted column key |
+| `sortDirection` | (property) | `'asc'` \| `'desc'` | `'asc'` |
 
 ```typescript
 interface TableColumn {
@@ -1797,13 +2570,21 @@ interface TableColumn {
 
 **Slots:** `footer`, `header-actions`
 
+**CSS parts:** `header-cell`, `row`, `cell`
+
 #### Events
 
 | Event | Detail |
 |-------|--------|
-| `ml:sort` | `{ key, direction }` |
-| `ml:select` | `{ selectedRows: number[], allSelected }` |
-| `ml:row-click` | `{ row, index }` |
+| `ml:sort` | `{ key: string, direction: 'asc' \| 'desc' }` |
+| `ml:select` | `{ selectedRows: Record<string, unknown>[], selectedIndices: number[], allSelected: boolean }` — `selectedRows` are the selected row objects, `selectedIndices` their indices in the original `rows` array. Also fired when sorting clears a non-empty selection; replacing `rows` clears the selection without an event |
+| `ml:row-click` | `{ row, index }` — `index` is the row's position in the rendered (sorted) order |
+
+**Keyboard:** sortable column headers are focusable; Enter/Space sorts. With `clickable-rows`, rows are focusable and Enter/Space fires `ml:row-click` (keys pressed inside a cell's own controls are left to them).
+
+**Sorting:** numbers sort numerically, `Date` values chronologically, everything else as text in natural order (`item 2` before `item 10`); `null` / `undefined` sort last in either direction.
+
+**ARIA:** a native `<table>` with no `role` override; `aria-sort` is set on sortable headers only.
 
 **Virtual scroll row heights:** sm=36px, md=44px. Parent must have defined height.
 
@@ -1812,18 +2593,24 @@ interface TableColumn {
 | Property | Default | Description |
 |----------|---------|-------------|
 | `--ml-table-bg` | `var(--ml-color-surface)` | Table background |
-| `--ml-table-container-border-width` | `var(--ml-border)` | Outer container border width (set to `0` to remove) |
-| `--ml-table-container-border-color` | `var(--ml-color-border)` | Outer container border color |
-| `--ml-table-container-radius` | `var(--ml-radius-lg)` | Outer container corner radius |
-| `--ml-table-divider-width` | `var(--ml-border)` | Internal header/row/footer separator width |
-| `--ml-table-divider-color` | `var(--ml-color-border)` | Internal header/row/footer separator color |
+| `--ml-table-container-border-width` | `var(--ml-table-border-width, var(--ml-border))` | Outer container border width (set to `0` to remove) |
+| `--ml-table-container-border-color` | `var(--ml-table-border-color, var(--ml-color-border))` | Outer container border color |
+| `--ml-table-container-radius` | `var(--ml-table-radius, var(--ml-radius-lg))` | Outer container corner radius |
+| `--ml-table-divider-width` | `var(--ml-table-border-width, var(--ml-border))` | Internal header/row/footer separator width |
+| `--ml-table-divider-color` | `var(--ml-table-border-color, var(--ml-color-border))` | Internal header/row/footer separator color |
 | `--ml-table-header-bg` | `var(--ml-color-surface-sunken)` | Column header background |
 | `--ml-table-header-color` | `var(--ml-color-text-muted)` | Column header text color |
 | `--ml-table-row-hover-bg` | `var(--ml-color-surface-sunken)` | Row hover background |
 | `--ml-table-row-hover-border-left-width` | `0` | Left border width on row hover (bookmark accent) |
 | `--ml-table-row-hover-border-left-color` | `transparent` | Left border color on row hover |
+| `--ml-table-row-focus-outline-color` | `var(--ml-color-primary)` | Focus outline color of a clickable row |
+| `--ml-table-row-selected-bg` | `var(--ml-color-primary-subtle, rgba(99, 102, 241, 0.04))` | Selected row background |
+| `--ml-table-row-striped-bg` | `var(--ml-color-surface-sunken)` | Striped row background |
 | `--ml-table-cell-color` | `var(--ml-color-text)` | Cell text color |
+| `--ml-table-cell-padding-y` / `-x` | `var(--ml-space-4)` / `var(--ml-space-6)` | Cell padding (`-y-sm` / `-x-sm` for `size="sm"`) |
 | `--ml-table-sort-active-color` | `var(--ml-color-primary)` | Active sort icon color |
+
+`--ml-table-border-width`, `--ml-table-border-color` and `--ml-table-radius` are deprecated aliases — prefer the `container-*` and `divider-*` tokens.
 
 ---
 
@@ -1843,10 +2630,16 @@ interface TableColumn {
 | `description` | `description` | `string` | `''` |
 | `serverSide` | `server-side` | `boolean` | `false` |
 | `pageSize` | `page-size` | `number` | `50` |
-| `virtual` | `virtual` | `boolean` | `true` |
+| `virtual` | `virtual` | `boolean` | `true` (`virtual="false"` renders every row of the page) |
 | `showFilterRow` | `show-filter-row` | `boolean` | `false` |
+| `clickableRows` | `clickable-rows` | `boolean` | `false` — makes each row a tab stop that fires `ml:row-click` on Enter/Space (a click always fires it); set it when listening for `ml:row-click` |
+| `rowKey` | `row-key` | `string \| ((row, index) => unknown) \| null` | `null` — row identity: a property name (`row-key="id"`) or, via the property, a function. When set, a rendered row's DOM follows its record across sorting, filtering and paging instead of being reused by position |
 | `columns` | (property) | `DataGridColumn[]` | `[]` |
 | `rows` | (property) | `Record<string, unknown>[]` | `[]` |
+
+Public state properties: `sortKey` (`''`), `sortDirection` (`'asc'`), `filters` (`Record<string, string>`, `{}`), `currentPage` (`1`), `colWidths` (`Record<string, number>`), `colOrder` (`string[]`).
+
+**Methods:** `goToPage(page: number)`, `moveColumn(key: string, delta: number)`, `resizeColumnBy(key: string, delta: number)` (delta in px; respects `minWidth` and `resizable: false`; fires `ml:column-resize`) — function fields, callable on the element or on `el.component`
 
 ```typescript
 interface DataGridColumn {
@@ -1860,7 +2653,7 @@ interface DataGridColumn {
   reorderable?: boolean; // default true
   pinned?: 'left' | 'right' | false;
   align?: 'left' | 'center' | 'right';
-  render?: (value, row, index) => unknown;
+  render?: (value: unknown, row: Record<string, unknown>, index: number) => unknown;
 }
 ```
 
@@ -1870,15 +2663,41 @@ interface DataGridColumn {
 
 | Event | Detail |
 |-------|--------|
-| `ml:sort` | `{ key, direction }` |
+| `ml:sort` | `{ key: string, direction: 'asc' \| 'desc' }` |
 | `ml:filter` | `{ filters: Record<string, string> }` |
-| `ml:select` | `{ selectedRows, allSelected }` |
-| `ml:row-click` | `{ row, index }` |
-| `ml:column-resize` | `{ key, width }` |
+| `ml:select` | `{ selectedRows: Record<string, unknown>[], selectedIndices: number[], allSelected: boolean }` — row objects plus their indices in the original `rows` array. Also fired when sorting, filtering or paging clears a non-empty selection; replacing `rows` clears the selection without an event |
+| `ml:row-click` | `{ row, index }` — `index` is the row's position on the current page |
+| `ml:column-resize` | `{ key: string, width: number }` |
 | `ml:column-reorder` | `{ order: string[] }` |
-| `ml:page-change` | `{ page, pageSize }` |
+| `ml:page-change` | `{ page: number, pageSize: number }` |
 
-Features: column resizing (drag), column reordering (drag-and-drop), pinned columns, client-side filter→sort→paginate pipeline (disabled when `server-side`).
+**Keyboard:** on a column header, Enter/Space sorts, Ctrl/Cmd+ArrowLeft/Right moves the column and Shift+ArrowLeft/Right resizes it in 16px steps. With `clickable-rows`, rows are focusable and Enter/Space fires `ml:row-click`.
+
+**Sorting** (client-side): numbers numerically, `Date` values chronologically, everything else as text in natural order; `null` / `undefined` last.
+
+Features: column resizing (drag or keyboard), column reordering (drag-and-drop or keyboard), pinned columns, client-side filter→sort→paginate pipeline. With `server-side`, `rows` are rendered as given (no client-side filtering, sorting or paging) and the events tell the consumer what to fetch. Filters match case-insensitively on substring. Sorting and filtering return to page 1. The footer shows the row count (or the selected count) and, when there is more than one page, first/previous/next/last controls.
+
+**Virtual scroll row heights:** sm=36px, md=44px. Parent must have defined height.
+
+#### Key CSS Custom Properties
+
+| Property | Default | Description |
+|----------|---------|-------------|
+| `--ml-data-grid-bg` | `var(--ml-color-surface)` | Grid background |
+| `--ml-data-grid-border-width` | `var(--ml-border)` | Border width |
+| `--ml-data-grid-border-color` | `var(--ml-color-border)` | Border color |
+| `--ml-data-grid-radius` | `var(--ml-radius-lg)` | Corner radius |
+| `--ml-data-grid-header-bg` | `var(--ml-color-surface-sunken)` | Column header background |
+| `--ml-data-grid-header-color` | `var(--ml-color-text-muted)` | Column header text color |
+| `--ml-data-grid-row-hover-bg` | `var(--ml-color-surface-sunken)` | Row hover background |
+| `--ml-data-grid-row-focus-outline-color` | `var(--ml-color-primary)` | Focus outline color of a clickable row |
+| `--ml-data-grid-row-selected-bg` | `var(--ml-color-primary-subtle, rgba(99, 102, 241, 0.04))` | Selected row background |
+| `--ml-data-grid-row-striped-bg` | `var(--ml-color-surface-sunken)` | Striped row background |
+| `--ml-data-grid-cell-color` | `var(--ml-color-text)` | Cell text color |
+| `--ml-data-grid-sort-active-color` | `var(--ml-color-primary)` | Active sort icon color |
+| `--ml-data-grid-filter-bg` | `var(--ml-color-surface-sunken)` | Filter input background |
+| `--ml-data-grid-footer-bg` | `var(--ml-color-surface)` | Footer background |
+| `--ml-data-grid-footer-color` | `var(--ml-color-text-muted)` | Footer text color |
 
 ---
 
@@ -1891,11 +2710,12 @@ Features: column resizing (drag), column reordering (drag-and-drop), pinned colu
 | Property | Attribute | Type | Default |
 |----------|-----------|------|---------|
 | `view` | `view` | `CalendarViewMode` | `'month'` (`'month'`\|`'week'`\|`'day'`) |
-| `date` | `date` | `string` | today (ISO) |
-| `weekStartsOn` | `week-starts-on` | `number` | `0` (Sunday) |
-| `maxVisibleEvents` | `max-visible-events` | `number` | `3` |
+| `date` | `date` | `string` | today (ISO `YYYY-MM-DD`) |
+| `locale` | `locale` | `string` | `''` — BCP 47 tag for month and weekday names; defaults to the document's `lang`, then the browser's |
+| `weekStartsOn` | `week-starts-on` | `number` | `0` (Sunday; `1` = Monday) |
+| `maxVisibleEvents` | `max-visible-events` | `number` | `3` (per day cell in month view; the rest collapse into a "more" link that opens the day view) |
 | `addButtonText` | `add-button-text` | `string` | `'Add event'` |
-| `hideNav`, `hideTodayButton`, `hideViewSelector`, `hideAddButton` | — | `boolean` | `false` |
+| `hideNav`, `hideTodayButton`, `hideViewSelector`, `hideAddButton` | `hide-nav`, `hide-today-button`, `hide-view-selector`, `hide-add-button` | `boolean` | `false` |
 | `events` | (property) | `CalendarEvent[]` | `[]` |
 
 ```typescript
@@ -1910,27 +2730,43 @@ interface CalendarEvent {
 }
 ```
 
-**Slots:** `header-left`, `header-actions`
+**Slots:** `header-left`, `header-actions` — each replaces the default header content on its side when used
 
 #### Events
 
 | Event | Detail |
 |-------|--------|
-| `ml:view-change` | `{ view }` |
-| `ml:date-change` | `{ date }` |
-| `ml:event-click` | `{ event }` |
-| `ml:date-click` | `{ date }` |
-| `ml:add-event` | `{ date? }` |
+| `ml:view-change` | `{ view: CalendarViewMode }` |
+| `ml:date-change` | `{ date: string }` — prev / next / today navigation, or a mini-calendar pick |
+| `ml:event-click` | `{ event: CalendarEvent }` |
+| `ml:date-click` | `{ date: string }` — a month-view day cell was clicked or activated |
+| `ml:add-event` | `{}` from the header add button, `{ date: string }` from a day cell's add button |
+
+**Keyboard (month view):** day cells are one tab stop; arrow keys move between days, Enter/Space fires `ml:date-click`. Event pills are focusable and activate on Enter/Space.
+
+#### Key CSS Custom Properties
+
+| Property | Default | Description |
+|----------|---------|-------------|
+| `--ml-calendar-view-bg` | `var(--ml-color-surface)` | Background |
+| `--ml-calendar-view-border-color` | `var(--ml-color-border)` | Border and grid line color |
+| `--ml-calendar-view-radius` | `var(--ml-radius-lg)` | Corner radius |
+| `--ml-calendar-view-title-color` | `var(--ml-color-text)` | Header title color |
+| `--ml-calendar-view-cell-min-height` | `120px` | Month day cell minimum height |
+| `--ml-calendar-view-cell-hover-bg` | `var(--ml-color-surface-sunken)` | Day cell hover background |
+| `--ml-calendar-view-today-bg` | `var(--ml-color-primary)` | Today indicator background |
+| `--ml-calendar-view-today-color` | `var(--ml-color-text-inverse)` | Today indicator text color |
+| `--ml-calendar-view-add-bg` | `var(--ml-color-primary)` | Add button background |
+| `--ml-calendar-view-add-color` | `var(--ml-color-text-inverse)` | Add button text color |
+| `--ml-calendar-view-event-radius` | `var(--ml-radius-sm)` | Event pill radius |
 
 ---
 
 ### ml-stat-card
 
-Dashboard metric card with label, value, optional trend indicator, and icon.
+**Selector:** `ml-stat-card` · **Import:** `import '@melodicdev/components/stat-card'`
 
-```typescript
-import '@melodicdev/components/stat-card';
-```
+Dashboard metric card with label, value, optional trend indicator, and icon.
 
 **Attributes:**
 
@@ -1941,8 +2777,10 @@ import '@melodicdev/components/stat-card';
 | `trend` | `string` | `''` | Trend text (e.g. "+6 this month") |
 | `trend-direction` | `'up' \| 'down' \| 'neutral'` | `'neutral'` | Trend direction for color styling |
 | `icon` | `string` | `''` | Phosphor icon name |
-| `icon-color` | `string` | `''` | CSS color for the icon container |
+| `icon-color` | `string` | `''` | CSS color for the icon |
 | `value-font` | `'serif' \| 'sans'` | `'serif'` | Value font family |
+
+Property names are the camelCase forms: `trendDirection`, `iconColor`, `valueFont`.
 
 **Key CSS Custom Properties:**
 
@@ -1951,10 +2789,12 @@ import '@melodicdev/components/stat-card';
 | `--ml-stat-card-bg` | `var(--ml-color-surface)` | Card background |
 | `--ml-stat-card-border-color` | `var(--ml-color-border)` | Border color |
 | `--ml-stat-card-radius` | `var(--ml-radius-lg)` | Border radius |
-| `--ml-stat-card-icon-bg` | `var(--ml-color-surface-raised)` | Icon container background |
-| `--ml-stat-card-icon-color` | `var(--ml-color-text-tertiary)` | Icon color |
-| `--ml-stat-card-value-font` | `'Cormorant Garamond', serif` | Value font family |
-| `--ml-stat-card-value-size` | `2.5rem` | Value font size |
+| `--ml-stat-card-padding` | `var(--ml-space-5) var(--ml-space-6)` | Card padding |
+| `--ml-stat-card-shadow` | `var(--ml-shadow-xs)` | Box shadow |
+| `--ml-stat-card-icon-bg` | `var(--ml-color-surface-raised, var(--ml-color-surface-sunken))` | Icon container background |
+| `--ml-stat-card-icon-color` | `var(--ml-color-text-tertiary)` | Icon color (the `icon-color` attribute sets this) |
+| `--ml-stat-card-value-font` | `'Cormorant Garamond', 'Georgia', serif` | Value font family (`value-font="serif"`) |
+| `--ml-stat-card-value-size` | `2.5rem` | Value font size (`--ml-stat-card-value-sans-size`, `2rem`, for `value-font="sans"`) |
 | `--ml-stat-card-value-weight` | `300` | Value font weight |
 | `--ml-stat-card-trend-up-color` | `var(--ml-color-success)` | Upward trend color |
 | `--ml-stat-card-trend-down-color` | `var(--ml-color-error)` | Downward trend color |
@@ -1975,40 +2815,44 @@ import '@melodicdev/components/stat-card';
 
 ### ml-profile-card
 
-Identity card for person/entity detail pages with banner, avatar, and slotted sections.
+**Selector:** `ml-profile-card` · **Import:** `import '@melodicdev/components/profile-card'`
 
-```typescript
-import '@melodicdev/components/profile-card';
-```
+Identity card for person/entity detail pages with banner, avatar, and slotted sections.
 
 **Attributes:**
 
 | Attribute | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `name` | `string` | `''` | Person name |
+| `name` | `string` | `''` | Person name (rendered as a heading; its initials are the avatar fallback) |
 | `subtitle` | `string` | `''` | Subtitle text (e.g. "Member · Choir") |
 | `avatar` | `string` | `''` | Avatar image URL (falls back to initials) |
-| `avatar-size` | `Size` | `'lg'` | Avatar size |
+| `avatar-size` | `Size` | `'lg'` | Avatar size (property: `avatarSize`) |
 
 **Slots:**
 
 | Slot | Description |
 |------|-------------|
 | `actions` | Action buttons (slotted directly, centered with gap) |
-| `details` | Contact info rows (each slotted element gets flex + gap) |
-| `tags` | Tags/badges (flex-wrap layout) |
-| `meta` | Detail fields (vertical stack) |
+| `details` | Contact info rows (each slotted element gets flex + gap); section labelled "Contact" |
+| `tags` | Tags/badges (flex-wrap layout); section labelled "Involvement" |
+| `meta` | Detail fields (vertical stack); section labelled "Details" |
+
+A section is hidden while its slot is empty.
 
 **Key CSS Custom Properties:**
 
 | Property | Default | Description |
 |----------|---------|-------------|
 | `--ml-profile-card-bg` | `var(--ml-color-surface)` | Card background |
+| `--ml-profile-card-border-color` | `var(--ml-color-border)` | Border color |
+| `--ml-profile-card-radius` | `var(--ml-radius-lg)` | Border radius |
 | `--ml-profile-card-banner-from` | `var(--ml-color-primary)` | Banner gradient start |
-| `--ml-profile-card-banner-to` | `var(--ml-color-primary-hover)` | Banner gradient end |
+| `--ml-profile-card-banner-to` | `var(--ml-color-primary-hover, var(--ml-color-primary))` | Banner gradient end |
 | `--ml-profile-card-banner-height` | `80px` | Banner height |
 | `--ml-profile-card-banner-opacity` | `0.85` | Banner opacity |
-| `--ml-profile-card-name-font` | `'Cormorant Garamond', serif` | Name font family |
+| `--ml-profile-card-name-font` | `'Cormorant Garamond', 'Georgia', serif` | Name font family |
+| `--ml-profile-card-name-color` | `var(--ml-color-text)` | Name color |
+| `--ml-profile-card-subtitle-color` | `var(--ml-color-text-muted)` | Subtitle color |
 | `--ml-profile-card-avatar-ring-color` | `var(--ml-color-border)` | Avatar ring border |
 
 **Example:**
@@ -2038,14 +2882,14 @@ import '@melodicdev/components/profile-card';
 
 | Property | Attribute | Type | Default | Values |
 |----------|-----------|------|---------|--------|
-| `value` | `value` | `string` | `''` | Active tab value |
+| `value` | `value` | `string` | `''` | Active tab value (defaults to the first enabled slotted tab) |
 | `variant` | `variant` | `TabsVariant` | `'line'` | `'line'`, `'enclosed'`, `'pills'` |
-| `size` | `size` | `Size` | `'md'` | `'sm'`, `'md'`, `'lg'` |
+| `size` | `size` | `ControlSize` | `'md'` | `'sm'`, `'md'`, `'lg'` |
 | `orientation` | `orientation` | `TabsOrientation` | `'horizontal'` | `'horizontal'`, `'vertical'` |
-| `routed` | `routed` | `boolean` | `false` | |
-| `tabs` | (property) | `TabConfig[]` | `[]` | `{ value, label, icon?, disabled?, href? }` |
+| `routed` | `routed` | `boolean` | `false` | Router integration (see below) |
+| `tabs` | (property) | `TabConfig[]` | `[]` | `{ value, label, icon?, disabled?, href? }` — alternative to slotted `ml-tab` elements |
 
-**Slots:** `tab` (ml-tab elements), (default) (ml-tab-panel elements)
+**Slots:** `tab` (ml-tab elements; ignored when `tabs` is set), (default) (ml-tab-panel elements, or a `<router-outlet>` in routed mode)
 
 #### Events
 
@@ -2053,7 +2897,20 @@ import '@melodicdev/components/profile-card';
 |-------|--------|
 | `ml:change` | `{ value: string }` |
 
-**Keyboard:** ArrowLeft/Right/Up/Down, Home, End
+**Keyboard:** ArrowLeft/Right/Up/Down (wrapping, skipping disabled tabs), Home, End
+
+A programmatic `value` write updates both the slotted tabs and the panels. Inactive panels are hidden with the `hidden` attribute.
+
+**Routed mode:** with `routed`, clicking a tab that has an `href` calls `RouterService.navigate(href)` and activates the tab only if the navigation commits (a guard can block it). The active tab follows the URL: an exact `href` match wins, otherwise the longest `href` that is a path-segment prefix of the current path. Panels are not toggled in routed mode.
+
+```html
+<ml-tabs routed .tabs=${[
+  { value: 'users', label: 'Users', href: '/admin/users' },
+  { value: 'settings', label: 'Settings', href: '/admin/settings' }
+]}>
+  <router-outlet></router-outlet>
+</ml-tabs>
+```
 
 #### Key CSS Custom Properties
 
@@ -2063,18 +2920,26 @@ import '@melodicdev/components/profile-card';
 | `--ml-tabs-tab-active-color` | `var(--ml-color-primary)` | Active tab text color |
 | `--ml-tabs-tab-hover-color` | `var(--ml-color-text)` | Hover tab text color |
 | `--ml-tabs-line-indicator-color` | `var(--ml-color-primary)` | Line variant indicator color |
+| `--ml-tabs-line-indicator-height` | `2px` | Line variant indicator thickness |
 | `--ml-tabs-pills-active-bg` | `var(--ml-color-primary-subtle)` | Pills variant active background |
 | `--ml-tabs-pills-active-color` | `var(--ml-color-primary)` | Pills variant active text color |
 | `--ml-tabs-enclosed-active-bg` | `var(--ml-color-surface)` | Enclosed variant active background |
 | `--ml-tabs-list-border-color` | `var(--ml-color-border)` | Tab list border color |
+| `--ml-tabs-panels-padding-top` | `var(--ml-space-4)` | Space between the tab list and the panels |
 
 ### ml-tab
 
 Props: `value`, `label`, `icon`, `disabled`, `active` (managed), `href`
 
+**Slots:** (default)
+
+Dispatches an internal `ml:tab-click` (`{ value, href }`) that `ml-tabs` consumes and re-emits as `ml:change`. Its own text colors read `--ml-tab-color`, `--ml-tab-hover-color`, `--ml-tab-active-color` and `--ml-tab-disabled-color` (same defaults as the `--ml-tabs-tab-*` tokens).
+
 ### ml-tab-panel
 
-Props: `value`
+Props: `value` (must match the tab's `value`)
+
+**Slots:** (default) — panel content
 
 #### Usage
 
@@ -2097,9 +2962,17 @@ Props: `value`
 
 `separator` (`'chevron'` | `'slash'`, default `'chevron'`)
 
+**Slots:** (default) — `ml-breadcrumb-item` children
+
+**CSS Custom Properties:** `--ml-breadcrumb-gap` (`var(--ml-space-1)`)
+
 ### ml-breadcrumb-item
 
-Props: `href`, `icon`, `current` (renders `aria-current="page"`), `separator` (inherited)
+Props: `href`, `icon`, `current` (renders `aria-current="page"` and no link), `separator` (read from the parent `ml-breadcrumb` when the item is created)
+
+**Slots:** (default) — item label
+
+An item with `href` renders an `<a>`. A plain primary-button click on a same-origin link is routed through `RouterService.navigate()` when a router is registered; modifier clicks, other origins and apps without a router keep native link behavior.
 
 #### Usage
 
@@ -2118,7 +2991,7 @@ Props: `href`, `icon`, `current` (renders `aria-current="page"`), `separator` (i
 
 #### Props
 
-`page` (1), `totalPages` (`total-pages`, 1), `siblings` (1)
+`page` (1), `totalPages` (`total-pages`, 1), `siblings` (1) — all numbers. A `page` outside `1…totalPages` is clamped for display.
 
 #### Events
 
@@ -2126,7 +2999,27 @@ Props: `href`, `icon`, `current` (renders `aria-current="page"`), `separator` (i
 |-------|--------|
 | `ml:page-change` | `{ page: number }` |
 
-**Methods:** `goToPage(n)`, `previous()`, `next()`
+**Methods:** `goToPage(n)`, `previous()`, `next()` — function fields, callable on the element or on `el.component`
+
+#### Usage
+
+```html
+<ml-pagination page="3" total-pages="12" @ml:page-change=${(e) => this.load(e.detail.page)}></ml-pagination>
+```
+
+#### Key CSS Custom Properties
+
+| Property | Default | Description |
+|----------|---------|-------------|
+| `--ml-pagination-btn-color` | `var(--ml-color-text-secondary)` | Button text color |
+| `--ml-pagination-btn-bg` | `transparent` | Button background |
+| `--ml-pagination-btn-radius` | `var(--ml-radius-md)` | Button radius |
+| `--ml-pagination-btn-hover-color` | `var(--ml-color-text)` | Button hover text color |
+| `--ml-pagination-btn-page-size` | `40px` | Page button size |
+| `--ml-pagination-active-bg` | `var(--ml-color-primary)` | Active page background |
+| `--ml-pagination-active-color` | `var(--ml-color-text-inverse)` | Active page text color |
+| `--ml-pagination-focus-color` | `var(--ml-color-primary)` | Focus ring color |
+| `--ml-pagination-disabled-opacity` | `0.5` | Opacity of disabled buttons |
 
 ---
 
@@ -2139,9 +3032,9 @@ Props: `href`, `icon`, `current` (renders `aria-current="page"`), `separator` (i
 | Property | Attribute | Type | Default | Values |
 |----------|-----------|------|---------|--------|
 | `variant` | `variant` | `SidebarVariant` | `'default'` | `'default'`, `'slim'` |
-| `active` | `active` | `string` | `''` | |
-| `navigation` | (property) | `SidebarNavGroup[]` | `[]` | |
-| `footerNavigation` | (property) | `SidebarNavItem[]` | `[]` | |
+| `active` | `active` | `string` | `''` | `value` of the active item |
+| `navigation` | (property) | `SidebarNavGroup[]` | `[]` | Config alternative to slotted groups / items |
+| `footerNavigation` | (property) | `SidebarNavItem[]` | `[]` | Config alternative to the `footer-nav` slot |
 
 ```typescript
 interface SidebarNavGroup { label?: string; items: SidebarNavItem[] }
@@ -2152,46 +3045,58 @@ interface SidebarNavItem {
 }
 ```
 
-**Slots:** `header`, `search`, (default), `footer-nav`, `feature`, `user`
+**Slots:** `header`, `search`, (default), `footer-nav`, `feature`, `user`. The default slot is replaced by `navigation` and `footer-nav` by `footerNavigation` when those are set. `search`, `feature` and `user` are picked up when slotted after mount; `search` and `feature` are hidden while a slim sidebar is collapsed.
 
 #### Events
 
 | Event | Detail |
 |-------|--------|
 | `ml:change` | `{ value }` |
-| `ml:item-click` | `{ value, href? }` |
+| `ml:item-click` | `{ value, href? }` — fired right after `ml:change` |
+
+**Keyboard:** ArrowUp/ArrowDown (wrapping), Home, End move between items.
 
 **Slim variant:** 64px collapsed → 280px on hover with shadow.
+
+Item links with an `href` are routed through `RouterService.navigate()` when a router is registered (plain same-origin clicks only; modifier clicks keep native behavior). An `external` item is never routed: its link opens in a new tab (`target="_blank"`, `rel="noopener noreferrer"`) and shows an external-link icon.
 
 #### Key CSS Custom Properties
 
 | Property | Default | Description |
 |----------|---------|-------------|
-| `--ml-sidebar-width` | `280px` | Sidebar width |
+| `--ml-sidebar-width` | `280px` | Sidebar width (the `slim` variant sets it itself) |
 | `--ml-sidebar-bg` | `var(--ml-color-surface)` | Sidebar background |
 | `--ml-sidebar-border-color` | `var(--ml-color-border)` | Border color |
 | `--ml-sidebar-item-color` | `var(--ml-color-text-secondary)` | Item text color |
 | `--ml-sidebar-item-hover-bg` | `var(--ml-gray-100)` | Item hover background |
+| `--ml-sidebar-item-hover-color` | `var(--ml-color-text)` | Item hover text color |
 | `--ml-sidebar-item-active-bg` | `var(--ml-color-primary)` | Active item background |
 | `--ml-sidebar-item-active-color` | `var(--ml-color-text-inverse)` | Active item text color |
+| `--ml-sidebar-item-active-hover-bg` | `var(--ml-color-primary-hover)` | Active item hover background |
 | `--ml-sidebar-item-active-indicator-width` | `0px` | Left border accent width on active item |
 | `--ml-sidebar-item-active-indicator-color` | `transparent` | Left border accent color on active item |
 | `--ml-sidebar-item-icon-color` | `inherit` | Icon color (separate from text) |
 | `--ml-sidebar-item-active-icon-color` | `inherit` | Icon color when item is active |
 | `--ml-sidebar-item-hover-icon-color` | `inherit` | Icon color on hover |
-| `--ml-sidebar-item-active-badge-bg` | `var(--ml-sidebar-badge-bg)` | Badge background when item is active |
-| `--ml-sidebar-item-active-badge-color` | `var(--ml-sidebar-badge-color)` | Badge text color when item is active |
+| `--ml-sidebar-item-active-badge-bg` | `var(--ml-sidebar-badge-bg)` | Badge background when item is active (slotted `ml-sidebar-item`: `var(--ml-sidebar-item-badge-bg)`) |
+| `--ml-sidebar-item-active-badge-color` | `var(--ml-sidebar-badge-color)` | Badge text color when item is active (slotted `ml-sidebar-item`: `var(--ml-sidebar-item-badge-color)`) |
 | `--ml-sidebar-group-label-color` | `var(--ml-color-text-muted)` | Group label text color |
+
+The `--ml-sidebar-item-*` and `--ml-sidebar-group-label-*` tokens are read both by config-rendered items and by slotted `ml-sidebar-item` / `ml-sidebar-group` elements, so setting them on `ml-sidebar` covers both.
 
 ### ml-sidebar-group
 
 Props: `label`, `collapsed` (managed)
 
+**Slots:** (default) — `ml-sidebar-item` children
+
 ### ml-sidebar-item
 
-Props: `icon`, `label`, `value`, `href`, `active` (managed), `disabled`, `badge`, `badge-color`, `external`, `expanded`, `collapsed` (managed), `level`, `icon-format` (`'fill'`|`'thin'`|`'light'`|`'regular'`|`'bold'`, default `''` — icon format passed through to ml-icon)
+Props: `icon`, `label`, `value`, `href`, `active` (managed), `disabled`, `badge`, `badgeColor` (`badge-color`: `'default'`|`'primary'`|`'success'`|`'warning'`|`'error'`, default `'default'`), `external`, `expanded`, `collapsed` (managed), `level` (default `'0'`), `iconFormat` (`icon-format`: `'fill'`|`'thin'`|`'light'`|`'regular'`|`'bold'`, default `''` — icon format passed through to ml-icon)
 
 **Slots:** `leading`, `trailing`, (default) — sub-items for expandable menus
+
+An item with nested `ml-sidebar-item` children toggles `expanded` on click instead of activating. Otherwise it dispatches an internal `ml:sidebar-item-click` (`{ value, href }`) that `ml-sidebar` consumes and re-emits as `ml:change` + `ml:item-click`.
 
 ---
 
@@ -2203,16 +3108,16 @@ Props: `icon`, `label`, `value`, `href`, `active` (managed), `disabled`, `badge`
 
 | Property | Attribute | Type | Default | Values |
 |----------|-----------|------|---------|--------|
-| `active` | `active` | `string` | `''` | |
+| `active` | `active` | `string` | `''` | `value` of the current step (defaults to the first enabled slotted step) |
 | `variant` | `variant` | `StepsVariant` | `'numbered'` | `'numbered'`, `'circles'`, `'icons'`, `'bar'` |
 | `orientation` | `orientation` | `StepsOrientation` | `'horizontal'` | `'horizontal'`, `'vertical'` |
 | `connector` | `connector` | `StepsConnector` | `'solid'` | `'solid'`, `'dotted'` |
 | `color` | `color` | `StepsColor` | `'primary'` | `'primary'`, `'success'` |
 | `compact` | `compact` | `boolean` | `false` | Dots + "Step X of Y" |
-| `routed` | `routed` | `boolean` | `false` | |
-| `steps` | (property) | `StepConfig[]` | `[]` | `{ value, label, description?, icon?, disabled?, href? }` |
+| `routed` | `routed` | `boolean` | `false` | Router integration — same behavior as `ml-tabs` routed mode |
+| `steps` | (property) | `StepConfig[]` | `[]` | `{ value, label, description?, icon?, disabled?, href? }` — alternative to slotted `ml-step` elements |
 
-**Slots:** `step`, (default)
+**Slots:** `step` (ml-step elements; ignored when `steps` is set), (default) (ml-step-panel elements, or a `<router-outlet>` in routed mode)
 
 #### Events
 
@@ -2220,13 +3125,53 @@ Props: `icon`, `label`, `value`, `href`, `active` (managed), `disabled`, `badge`
 |-------|--------|
 | `ml:change` | `{ value }` |
 
+**Keyboard:** ArrowLeft/Right (horizontal) or ArrowUp/Down (vertical), wrapping and skipping disabled steps; Home, End. Steps activate on Enter/Space as well as click.
+
+Steps before the active one are `completed`, the active one is `current`, the rest `upcoming`. Programmatic writes to `active`, `variant`, `color`, `connector`, `orientation` and `compact` are pushed to slotted steps on every render. Inactive panels are hidden with the `hidden` attribute.
+
+#### Usage
+
+```html
+<ml-steps active="details" variant="numbered">
+  <ml-step slot="step" value="account" label="Account"></ml-step>
+  <ml-step slot="step" value="details" label="Details" description="About you"></ml-step>
+  <ml-step slot="step" value="confirm" label="Confirm"></ml-step>
+  <ml-step-panel value="account">…</ml-step-panel>
+  <ml-step-panel value="details">…</ml-step-panel>
+  <ml-step-panel value="confirm">…</ml-step-panel>
+</ml-steps>
+```
+
+#### Key CSS Custom Properties
+
+| Property | Default | Description |
+|----------|---------|-------------|
+| `--ml-steps-connector-color` | `var(--ml-color-border)` | Connector line color (upcoming) |
+| `--ml-steps-connector-thickness` | `2px` | Connector line thickness |
+| `--ml-steps-indicator-size` | `32px` | Indicator size (numbered / circles) |
+| `--ml-steps-upcoming-bg` | `var(--ml-color-surface)` | Upcoming indicator background |
+| `--ml-steps-upcoming-border-color` | `var(--ml-color-border)` | Upcoming indicator border |
+| `--ml-steps-upcoming-color` | `var(--ml-color-text-secondary)` | Upcoming indicator text color |
+| `--ml-steps-completed-indicator-text` | `#fff` | Completed indicator text / check color |
+| `--ml-steps-label-color` | `var(--ml-color-text)` | Step label color |
+| `--ml-steps-label-upcoming-color` | `var(--ml-color-text-secondary)` | Upcoming step label color |
+| `--ml-steps-desc-color` | `var(--ml-color-text-muted)` | Step description color |
+| `--ml-steps-bar-color` | `var(--ml-color-border)` | Bar variant track color |
+| `--ml-steps-panels-padding-top` | `var(--ml-space-6)` | Space between the steps and the panels |
+
 ### ml-step
 
 Props: `value`, `label`, `description`, `icon`, `href`, `disabled`, `status` (managed: `'completed'`|`'current'`|`'upcoming'`)
 
+Also managed by the parent `ml-steps` (do not set by hand): `variant`, `connector`, `color`, `orientation`, `stepNumber` (`step-number`), `first`, `last`, `compact`.
+
+Dispatches an internal `ml:step-click` (`{ value, href }`) that `ml-steps` consumes and re-emits as `ml:change`.
+
 ### ml-step-panel
 
-Props: `value`
+Props: `value` (must match the step's `value`)
+
+**Slots:** (default) — panel content
 
 ---
 
@@ -2236,31 +3181,99 @@ Props: `value`
 
 **Selector:** `ml-dialog` · **Import:** `import '@melodicdev/components/dialog'`
 
-No public attributes. Configured via `DialogService`.
+Modal dialog built on the native `<dialog>` element (`showModal()`), configured via `DialogService`.
+
+#### Props
+
+`label` — accessible name for the dialog (`aria-label`). Optional: without it the dialog is named by whatever is slotted into `dialog-header`.
 
 #### Slots
 
 `dialog-header`, (default), `dialog-footer`
 
+#### Methods
+
+`open()`, `close(result?)` — prototype methods, reachable on the component instance only (`dialogEl.component.open()`).
+
+#### Events
+
+Dispatched from the inner `<dialog>`; they bubble and are composed, so they can be heard on `ml-dialog` and its ancestors.
+
+| Event | Detail |
+|-------|--------|
+| `ml:open` | none |
+| `ml:close` | `{ result }` — the value passed to `close(result)`, `undefined` for Escape / backdrop dismissal |
+
+Escape and a backdrop click close the dialog unless `disableClose` is set.
+
 #### DialogService API
+
+`@Injectable()` singleton. Import: `import { DialogService, DialogRef } from '@melodicdev/components/dialog'`
+
+| Method | Signature |
+|--------|-----------|
+| `open` | `(component: ComponentClass, config?: IDialogConfig<TData>) => DialogRef<TResult, TData> \| undefined` |
+| `open` | `(dialogID: string) => DialogRef<TResult, TData> \| undefined` |
+| `close` | `(dialogID: string, result?: T) => void` |
+
+`open()` returns `undefined` (and logs a warning) when the id is not registered or the component did not render an `<ml-dialog>`.
 
 ```typescript
 import { DialogService } from '@melodicdev/components/dialog';
 
-// Open by component class
-const ref = dialogService.open(MyDialogComponent, {
+@Service(DialogService) private readonly _dialogService!: DialogService;
+
+// Open by component class. The class must be a @MelodicComponent whose template
+// renders an <ml-dialog>; an element is appended to document.body and removed on close.
+const ref = this._dialogService.open(MyDialogComponent, {
   data: { message: 'Confirm?' },
-  size: 'sm',           // 'sm'(400) | 'md'(500) | 'lg'(640) | 'xl'(800) | 'full'
-  disableClose: true,
-  panelClass: 'my-class',
-  width: '700px'        // overrides size
+  size: 'sm',           // 'sm'(400) | 'md'(500) | 'lg'(640) | 'xl'(800) | 'full' | 'auto' | 'custom'
+  disableClose: true,   // Escape / backdrop click do not close
+  panelClass: 'my-class', // string | string[], added to the <dialog>
+  width: '700px'        // sets max-width on the <dialog>, overriding size
 });
 
-ref.afterClosed((result) => { /* ... */ });
+const off = ref?.afterClosed((result) => { /* ... */ });
 
-// Open by ID
-dialogService.open('#confirmDialog');
+// Open an inline dialog by id: <ml-dialog #confirmDialog>…</ml-dialog>
+// The id parameter is the branded UniqueID type (from '@melodicdev/components/functions').
+this._dialogService.open('confirmDialog' as UniqueID);
+this._dialogService.close('confirmDialog' as UniqueID, result);
 ```
+
+The inline id is the name of the `#`-prefixed attribute on `<ml-dialog>` **without** the `#`; a dialog without one gets a generated id.
+
+Inside a dialog component, implement `onDialogRefSet` to receive the ref:
+
+```typescript
+import type { DialogRef, IDialogRef } from '@melodicdev/components/dialog';
+
+export class MyDialogComponent implements IDialogRef {
+  private _dialogRef!: DialogRef;
+
+  onDialogRefSet(dialogRef: DialogRef): void {
+    this._dialogRef = dialogRef;      // dialogRef.data is config.data
+  }
+
+  confirm(): void {
+    this._dialogRef.close(true);
+  }
+}
+```
+
+**DialogRef**
+
+| Member | Description |
+|--------|-------------|
+| `dialogID` | The dialog's id |
+| `data` | `config.data` (`TData \| undefined`) |
+| `disableClose` | `boolean` |
+| `open()` | Open the dialog |
+| `close(result?)` | Close; `result` reaches `afterClosed` callbacks and the `ml:close` event |
+| `afterOpened(cb)` | Runs `cb` after **every** open. Returns an unsubscribe function |
+| `afterClosed(cb)` | Runs `cb(result)` after **every** close, including Escape / backdrop dismissal. Returns an unsubscribe function |
+
+An inline `<ml-dialog>` reuses one `DialogRef` across opens, so register callbacks once (or call the returned unsubscribe) rather than before each `open()`.
 
 #### Key CSS Custom Properties
 
@@ -2271,9 +3284,12 @@ dialogService.open('#confirmDialog');
 | `--ml-dialog-shadow` | `var(--ml-shadow-xl)` | Box shadow |
 | `--ml-dialog-backdrop-color` | `rgba(0, 0, 0, 0.5)` | Backdrop overlay color |
 | `--ml-dialog-max-width` | `500px` | Default max width |
+| `--ml-dialog-sm-max-width` / `-md-` / `-lg-` / `-xl-` | `400px` / `500px` / `640px` / `800px` | Max width per `size` |
 | `--ml-dialog-header-padding` | `var(--ml-space-6)` | Header padding |
 | `--ml-dialog-body-padding` | `var(--ml-space-6)` | Body padding |
+| `--ml-dialog-body-color` | `var(--ml-color-text-secondary)` | Body text color |
 | `--ml-dialog-footer-border-color` | `var(--ml-color-border)` | Footer top border color |
+| `--ml-dialog-footer-bg` | `var(--ml-color-surface)` | Footer background |
 
 ---
 
@@ -2281,17 +3297,45 @@ dialogService.open('#confirmDialog');
 
 **Selector:** `ml-drawer` · **Import:** `import '@melodicdev/components/drawer'`
 
+Slide-out panel built on the native `<dialog>` element (modal). The panel slides with a `transform` animation; with `prefers-reduced-motion: reduce` it opens and closes without the slide.
+
 #### Props
 
-`side` (`'left'`|`'right'`, default `'right'`), `size` (`'sm'`=320|`'md'`=480|`'lg'`=640|`'xl'`=800), `showClose` (`show-close`, default true)
+`side` (`'left'`|`'right'`, default `'right'`), `size` (`'sm'`=320|`'md'`=480|`'lg'`=640|`'xl'`=800, default `'md'`), `showClose` (`show-close`, default true; `show-close="false"` hides the close button), `label` (accessible name, `aria-label`; without it the drawer is named by the content of the `drawer-header` slot)
 
 **Slots:** `drawer-header`, (default), `drawer-footer`
 
-**Methods:** `open()`, `close()`
+**Methods:** `open()` is a prototype method, reachable on the component instance only; `close()` is a function field, callable on the element (`drawerEl.close()`) or on the instance. Going through `.component` works for both:
+
+```typescript
+const drawer = this.elementRef.shadowRoot?.querySelector('#settings') as HTMLElement & { component: { open(): void; close(): void } };
+drawer.component.open();
+```
+
+Escape and a backdrop click close the drawer.
 
 #### Events
 
-`ml:open`, `ml:close`
+| Event | Detail | When |
+|-------|--------|------|
+| `ml:open` | none | Opening starts |
+| `ml:opened` | none | Slide-in animation finished |
+| `ml:close` | none | Closing starts |
+| `ml:closed` | none | Slide-out animation finished and the dialog is closed |
+
+#### Key CSS Custom Properties
+
+| Property | Default | Description |
+|----------|---------|-------------|
+| `--ml-drawer-bg` | `var(--ml-color-surface)` | Panel background |
+| `--ml-drawer-shadow` | `var(--ml-shadow-xl)` | Panel shadow |
+| `--ml-drawer-backdrop-color` | `rgba(0, 0, 0, 0.5)` | Backdrop color |
+| `--ml-drawer-sm-width` / `-md-` / `-lg-` / `-xl-` | `320px` / `480px` / `640px` / `800px` | Panel width per `size` |
+| `--ml-drawer-header-padding` | `var(--ml-space-6)` | Header padding |
+| `--ml-drawer-body-padding` | `var(--ml-space-6)` | Body padding |
+| `--ml-drawer-footer-border-color` | `var(--ml-color-border)` | Footer top border color |
+| `--ml-drawer-transition-duration` | `var(--ml-duration-300)` | Slide duration — read by JavaScript, declared on `:host`; set it with an element selector |
+| `--ml-drawer-transition-easing` | `cubic-bezier(0.16, 1, 0.3, 1)` | Slide easing — read by JavaScript, declared on `:host`; set it with an element selector |
 
 ---
 
@@ -2301,13 +3345,24 @@ dialogService.open('#confirmDialog');
 
 #### Props
 
-`placement` (Placement, default `'bottom'`), `offset` (number, 8), `manual` (boolean), `arrow` (boolean)
+`placement` (Placement, default `'bottom'`), `offset` (number, 8), `manual` (boolean), `arrow` (boolean), `label` (accessible name for the panel, `aria-label`)
 
-**Slots:** `trigger`, (default)
+State property: `isOpen` (read it; change it through the methods).
 
-**Methods:** `open()`, `close()`, `toggle()`
+**Slots:** `trigger` (clicking it toggles the popover), (default) — popover content
 
-Uses Popover API (`popover="auto"` or `"manual"`) + `computePosition`/`autoUpdate`.
+**Methods:** `open()` and `close()` are prototype methods, reachable on the component instance only (`popoverEl.component.open()`); `toggle()` is a function field, callable on the element too
+
+#### Events
+
+| Event | Detail |
+|-------|--------|
+| `ml:open` | none |
+| `ml:close` | none |
+
+**ARIA:** the content panel is `role="dialog"`, named by `label`; `aria-haspopup="dialog"` (unless the trigger already sets `aria-haspopup`) and `aria-expanded` are put on the slotted trigger's focusable control.
+
+Uses Popover API (`popover="auto"` or `"manual"`) + `computePosition`/`autoUpdate`. Focus is trapped inside the content while open, including controls inside nested components. `auto` popovers light-dismiss (outside click, Escape); `manual` popovers stay open on outside clicks and close on Escape or `close()`.
 
 #### Key CSS Custom Properties
 
@@ -2318,7 +3373,9 @@ Uses Popover API (`popover="auto"` or `"manual"`) + `computePosition`/`autoUpdat
 | `--ml-popover-border-color` | `var(--ml-color-border)` | Panel border color |
 | `--ml-popover-radius` | `var(--ml-radius-lg)` | Panel border radius |
 | `--ml-popover-shadow` | `var(--ml-shadow-lg)` | Panel box shadow |
+| `--ml-popover-padding-y` / `-x` | `var(--ml-space-3)` / `var(--ml-space-4)` | Panel padding |
 | `--ml-popover-content-overflow` | `visible` | Content overflow (set to `auto` for scroll) |
+| `--ml-popover-arrow-bg` | `var(--ml-color-surface)` | Arrow background |
 
 ---
 
@@ -2328,27 +3385,67 @@ Uses Popover API (`popover="auto"` or `"manual"`) + `computePosition`/`autoUpdat
 
 #### Props
 
-`placement` (default `'bottom-start'`), `offset` (4), `arrow`
+`placement` (Placement, default `'bottom-start'`), `offset` (4), `arrow`
 
-**Slots:** `trigger`, (default) — items/groups/separators
+State property: `isOpen` (read it; change it through the methods).
+
+**Slots:** `trigger` (clicking it toggles the menu), (default) — items/groups/separators
+
+**Methods:** `open()` and `close()` are prototype methods, reachable on the component instance only (`dropdownEl.component.close()`); `toggle()` is a function field, callable on the element too
 
 #### Events
 
 | Event | Detail |
 |-------|--------|
-| `ml:select` | `{ value }` |
+| `ml:select` | `{ value }` — an item was chosen; the menu then closes |
 | `ml:open` | none |
 | `ml:close` | none |
 
-**Keyboard:** ArrowDown/Up, Enter/Space, Escape, Home/End, Tab
+**Keyboard:** ArrowDown/Enter/Space open the menu from the trigger; ArrowDown/Up, Home/End move between items, Enter/Space select, Escape and Tab close.
+
+**ARIA:** the menu is `role="menu"`; `aria-haspopup`, `aria-expanded` and `aria-activedescendant` are set on the trigger's focusable control.
+
+#### Usage
+
+```html
+<ml-dropdown @ml:select=${(e) => this.onAction(e.detail.value)}>
+  <ml-button slot="trigger" variant="outline">Actions</ml-button>
+  <ml-dropdown-group label="Edit">
+    <ml-dropdown-item value="rename" icon="pencil" addon="⌘R">Rename</ml-dropdown-item>
+    <ml-dropdown-item value="duplicate" icon="copy">Duplicate</ml-dropdown-item>
+  </ml-dropdown-group>
+  <ml-dropdown-separator></ml-dropdown-separator>
+  <ml-dropdown-item value="delete" icon="trash" destructive>Delete</ml-dropdown-item>
+</ml-dropdown>
+```
+
+#### Key CSS Custom Properties
+
+| Property | Default | Description |
+|----------|---------|-------------|
+| `--ml-dropdown-bg` | `var(--ml-color-surface)` | Menu background |
+| `--ml-dropdown-color` | `var(--ml-color-text)` | Menu text color |
+| `--ml-dropdown-border-color` | `var(--ml-color-border)` | Menu border color |
+| `--ml-dropdown-radius` | `var(--ml-radius-lg)` | Menu radius |
+| `--ml-dropdown-shadow` | `var(--ml-shadow-lg)` | Menu shadow |
+| `--ml-dropdown-padding` | `var(--ml-space-1)` | Menu padding |
+| `--ml-dropdown-min-width` | `180px` | Menu minimum width |
 
 ### ml-dropdown-item
 
 Props: `value`, `icon`, `addon` (shortcut text), `disabled`, `destructive`
 
+**Slots:** (default) — item label
+
+The host is `role="menuitem"`. Dispatches an internal `ml:item-select` (`{ value }`) that `ml-dropdown` consumes and re-emits as `ml:select`.
+
+**CSS Custom Properties:** `--ml-dropdown-item-color` (`var(--ml-color-text)`), `--ml-dropdown-item-hover-bg` (`var(--ml-color-surface-hover)`), `--ml-dropdown-item-padding` (`var(--ml-space-2)`), `--ml-dropdown-item-radius` (`var(--ml-radius-md)`), `--ml-dropdown-item-icon-color` (`var(--ml-color-text-secondary)`), `--ml-dropdown-item-destructive-color` (`var(--ml-color-error)`), `--ml-dropdown-item-destructive-hover-bg` (`var(--ml-color-error-subtle)`), `--ml-dropdown-item-disabled-opacity` (`0.5`)
+
 ### ml-dropdown-group
 
 Props: `label`
+
+**Slots:** (default) — `ml-dropdown-item` children
 
 ### ml-dropdown-separator
 
@@ -2362,11 +3459,43 @@ No props.
 
 #### Props
 
-`content` (string), `placement` (default `'top'`), `delay` (ms, default 200)
+`content` (string), `placement` (Placement, default `'top'`), `delay` (ms before showing, default 200)
 
 **Slots:** (default) — trigger element
 
-Shows on hover + focus. `max-width: 320px`, `z-index: 9999`.
+Shows on hover + focus, hides on mouse leave / focus out, and Escape dismisses it while visible. The tooltip text is copied onto the slotted trigger as `aria-description` so assistive technology announces it (skipped when the trigger already has `aria-describedby`); the `:tooltip` directive does the same for its element. `max-width: 320px`, `z-index: 9999`.
+
+**Methods:** `show()`, `hide()` — function fields, callable on the element or on `el.component`
+
+```html
+<ml-tooltip content="Copy to clipboard" placement="bottom">
+  <ml-button variant="ghost"><ml-icon icon="copy"></ml-icon></ml-button>
+</ml-tooltip>
+```
+
+#### `:tooltip` directive
+
+`import '@melodicdev/components/directives'` registers a `:tooltip` attribute directive that attaches an `ml-tooltip` to any element without wrapping it (the tooltip is inserted as a sibling and anchored to the element):
+
+```html
+<ml-button :tooltip="Helpful tip">Hover me</ml-button>
+<ml-button :tooltip=${this.helpText}>Help</ml-button>
+<span :tooltip=${{ content: 'Info', placement: 'bottom' }}>Info</span>
+```
+
+The value is a string or `{ content: string; placement?: string }` (placement defaults to `'top'`). A falsy value or empty content attaches nothing.
+
+#### Key CSS Custom Properties
+
+| Property | Default | Description |
+|----------|---------|-------------|
+| `--ml-tooltip-bg` | `var(--ml-gray-900)` | Background (the base theme sets this globally — see [Tooltip & Card Tokens](#tooltip--card-tokens)) |
+| `--ml-tooltip-color` | `var(--ml-tooltip-text, var(--ml-white))` | Text color (`--ml-tooltip-text` is the global token) |
+| `--ml-tooltip-max-width` | `320px` | Maximum width |
+| `--ml-tooltip-radius` | `var(--ml-radius)` | Border radius |
+| `--ml-tooltip-shadow` | `var(--ml-shadow-lg)` | Box shadow |
+| `--ml-tooltip-font-size` | `var(--ml-text-xs)` | Font size |
+| `--ml-tooltip-z-index` | `9999` | Stacking order |
 
 ---
 
@@ -2380,15 +3509,28 @@ Shows on hover + focus. `max-width: 320px`, `z-index: 9999`.
 
 | Property | Attribute | Type | Default |
 |----------|-----------|------|---------|
-| `sidebar-position` | `sidebar-position` | `'left'` \| `'right'` | `'left'` |
-| `sidebar-collapsed` | `sidebar-collapsed` | `boolean` | `false` |
-| `header-fixed` | `header-fixed` | `boolean` | `false` |
+| `sidebarPosition` | `sidebar-position` | `'left'` \| `'right'` | `'left'` |
+| `sidebarCollapsed` | `sidebar-collapsed` | `boolean` | `false` — narrows the sidebar column to the collapsed width (64px) |
+| `headerFixed` | `header-fixed` | `boolean` | `false` — makes the header sticky |
+
+State properties: `mobile` (viewport is below the breakpoint), `mobileOpen` (mobile drawer is open).
 
 **Slots:** `sidebar`, `header`, (default)
 
-**Responsive:** < 768px: sidebar becomes off-screen drawer with hamburger menu.
+**Responsive:** < 768px: sidebar becomes off-screen drawer with hamburger menu. The menu button carries `aria-expanded` / `aria-controls`; opening moves focus into the drawer, and Escape or a backdrop click closes it and returns focus to the button.
 
-**CSS:** `--ml-sidebar-width` (default 280px)
+#### Key CSS Custom Properties
+
+| Property | Default | Description |
+|----------|---------|-------------|
+| `--ml-app-shell-sidebar-width` | `var(--ml-sidebar-width, 280px)` | Mobile drawer width (on desktop the sidebar column sizes to its content) |
+| `--ml-app-shell-sidebar-collapsed-width` | `var(--ml-sidebar-collapsed-width, 64px)` | Sidebar width with `sidebar-collapsed` |
+| `--ml-app-shell-sidebar-bg` | `var(--ml-color-surface)` | Mobile drawer background |
+| `--ml-app-shell-header-bg` | `var(--ml-color-surface)` | Header background |
+| `--ml-app-shell-border-color` | `var(--ml-color-border)` | Sidebar / header border color |
+| `--ml-app-shell-backdrop-bg` | `rgba(0, 0, 0, 0.4)` | Mobile drawer backdrop |
+| `--ml-app-shell-menu-btn-color` | `var(--ml-color-text-secondary)` | Hamburger button color |
+| `--ml-app-shell-mobile-breakpoint` | `768px` | Viewport width below which the component's JavaScript switches to the mobile drawer. Declared on `:host`; set it with an element selector. The stylesheet's own media query is fixed at `max-width: 767px` |
 
 ---
 
@@ -2398,9 +3540,11 @@ Shows on hover + focus. `max-width: 320px`, `z-index: 9999`.
 
 #### Props
 
-`title`, `description`, `variant` (`'default'`|`'compact'`|`'centered'`), `divider` (boolean, default true)
+`headerTitle` (`header-title`), `description`, `variant` (`'default'`|`'compact'`|`'centered'`, default `'default'`), `divider` (boolean, default true; `divider="false"` removes the bottom border)
 
-**Slots:** `breadcrumb`, `title`, `description`, `actions`, `tabs`, `meta`
+The `title` attribute / property is a deprecated alias of `header-title`.
+
+**Slots:** `breadcrumb`, `title` (replaces the `header-title` heading), `description` (replaces the `description` text), `actions`, `tabs`, `meta`
 
 **Responsive:** <= 640px: stacks vertically, actions stretch full width.
 
@@ -2410,9 +3554,10 @@ Shows on hover + focus. `max-width: 320px`, `z-index: 9999`.
 |----------|---------|-------------|
 | `--ml-page-header-color` | `var(--ml-color-text)` | General text color |
 | `--ml-page-header-title-color` | `var(--ml-color-text)` | Title text color |
+| `--ml-page-header-title-size` | `var(--ml-text-2xl)` | Title font size (`--ml-page-header-compact-title-size`, `var(--ml-text-lg)`, for `compact`) |
 | `--ml-page-header-description-color` | `var(--ml-color-text-secondary)` | Description text color |
 | `--ml-page-header-border-color` | `var(--ml-color-border)` | Bottom divider border color |
-| `--ml-page-header-padding` | `var(--ml-space-6) var(--ml-space-6) var(--ml-space-4)` | Container padding |
+| `--ml-page-header-padding` | `var(--ml-space-6) var(--ml-space-6) var(--ml-space-4)` | Container padding (`--ml-page-header-compact-padding` for `compact`, `--ml-page-header-mobile-padding` <= 640px) |
 
 ---
 
@@ -2427,32 +3572,51 @@ Shows on hover + focus. `max-width: 320px`, `z-index: 9999`.
 | `variant` | `variant` | `HeroVariant` | `'centered'` | `'centered'`, `'split'`, `'split-reverse'` |
 | `size` | `size` | `HeroSize` | `'lg'` | `'sm'`, `'md'`, `'lg'` |
 | `background` | `background` | `HeroBackground` | `'none'` | `'none'`, `'subtle'`, `'gradient'` |
-| `title` | `title` | `string` | `''` | |
-| `description` | `description` | `string` | `''` | |
+| `heroTitle` | `hero-title` | `string` | `''` | Headline (alternative to the `title` slot) |
+| `description` | `description` | `string` | `''` | Supporting text (alternative to the `description` slot) |
+
+The `title` attribute / property is a deprecated alias of `hero-title`.
 
 **Slots:** `eyebrow`, `title`, `description`, `actions`, `media`, `social-proof`
 
 **Title sizes:** sm=`text-3xl`, md=`text-4xl`, lg=`text-5xl`
 
+#### Key CSS Custom Properties
+
+| Property | Default | Description |
+|----------|---------|-------------|
+| `--ml-hero-title-color` | `var(--ml-color-text)` | Title color |
+| `--ml-hero-title-font-weight` | `var(--ml-font-bold)` | Title font weight |
+| `--ml-hero-description-color` | `var(--ml-color-text-secondary)` | Description color |
+| `--ml-hero-eyebrow-color` | `var(--ml-color-primary)` | Eyebrow color |
+| `--ml-hero-bg-subtle` | `var(--ml-color-surface-secondary)` | Background for `background="subtle"` |
+| `--ml-hero-bg-gradient` | `linear-gradient(135deg, var(--ml-color-primary-subtle) 0%, var(--ml-color-surface) 50%, var(--ml-color-success-subtle, var(--ml-color-surface-secondary)) 100%)` | Background for `background="gradient"` |
+| `--ml-hero-container-max-width` | `var(--ml-container-xl, 1280px)` | Container max width |
+| `--ml-hero-content-max-width` | `800px` | Content column max width |
+| `--ml-hero-sm-padding` / `-md-padding` / `-lg-padding` | `var(--ml-space-12) var(--ml-space-6)` / `var(--ml-space-20) var(--ml-space-6)` / `calc(var(--ml-space-20) + var(--ml-space-10)) var(--ml-space-6)` | Section padding per size |
+| `--ml-hero-sm-title-size` / `-md-title-size` / `-lg-title-size` | `var(--ml-text-3xl)` / `var(--ml-text-4xl)` / `var(--ml-text-5xl)` | Title size per size |
+
 ---
 
 ### ml-page-section
 
-Titled content section with consistent heading typography and optional action link.
+**Selector:** `ml-page-section` · **Import:** `import '@melodicdev/components/page-section'`
 
-```typescript
-import '@melodicdev/components/page-section';
-```
+Titled content section with consistent heading typography and optional action link.
 
 **Attributes:**
 
 | Attribute | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `title` | `string` | `''` | Section title (rendered in serif font) |
+| `section-title` | `string` | `''` | Section title (rendered in serif font). Property: `sectionTitle` |
 | `subtitle` | `string` | `''` | Subtitle text |
-| `action-label` | `string` | `''` | Action link text |
-| `action-href` | `string` | `''` | Action link URL |
+| `action-label` | `string` | `''` | Action link text. Property: `actionLabel` |
+| `action-href` | `string` | `''` | Action link URL. Property: `actionHref`. Only relative, fragment and http(s) URLs are rendered as-is; any other scheme is neutralized with an `unsafe:` prefix |
 | `padding` | `'none' \| 'sm' \| 'md' \| 'lg'` | `'md'` | Content area padding |
+
+The `title` attribute / property is a deprecated alias of `section-title`.
+
+The action link is routed through `RouterService.navigate()` when a router is registered (plain same-origin clicks only).
 
 **Slots:**
 
@@ -2465,16 +3629,19 @@ import '@melodicdev/components/page-section';
 
 | Property | Default | Description |
 |----------|---------|-------------|
-| `--ml-page-section-title-font` | `'Cormorant Garamond', serif` | Title font family |
+| `--ml-page-section-title-font` | `'Cormorant Garamond', 'Georgia', serif` | Title font family |
 | `--ml-page-section-title-size` | `var(--ml-text-2xl)` | Title font size |
 | `--ml-page-section-title-color` | `var(--ml-color-text)` | Title color |
+| `--ml-page-section-subtitle-color` | `var(--ml-color-text-muted)` | Subtitle color |
 | `--ml-page-section-action-color` | `var(--ml-color-primary)` | Action link color |
+| `--ml-page-section-action-hover-color` | `var(--ml-color-primary-hover)` | Action link hover color |
 | `--ml-page-section-gap` | `var(--ml-space-4)` | Gap between header and content |
+| `--ml-page-section-pad-sm` / `-pad-md` / `-pad-lg` | `var(--ml-space-2) 0` / `var(--ml-space-4) 0` / `var(--ml-space-6) 0` | Content padding per `padding` value |
 
 **Example:**
 
 ```html
-<ml-page-section title="Recent Activity" subtitle="Last 7 days" action-label="View All" action-href="/activity">
+<ml-page-section section-title="Recent Activity" subtitle="Last 7 days" action-label="View All" action-href="/activity">
   <ml-activity-feed>...</ml-activity-feed>
 </ml-page-section>
 ```
@@ -2491,15 +3658,17 @@ import '@melodicdev/components/page-section';
 
 | Property | Attribute | Type | Default | Values |
 |----------|-----------|------|---------|--------|
-| `icon` | `icon` | `string` | `''` | Phosphor icon ligature name (e.g. `'house'`, `'gear'`) |
+| `icon` | `icon` | `string` | `''` | Phosphor icon name in kebab-case (e.g. `'house'`, `'gear'`, `'caret-right'`) |
 | `format` | `format` | `string` | `'regular'` | `'bold'`, `'fill'`, `'light'`, `'regular'`, `'thin'` |
-| `size` | `size` | (attribute) | — | `'xs'`=12px, `'sm'`=16px, `'md'`=24px, `'lg'`=32px, `'xl'`=48px |
+| — | `size` | (attribute only, styled via `:host([size])`) | — | `'xs'`=12px, `'sm'`=16px, `'md'`=24px, `'lg'`=32px, `'xl'`=48px; 24px without the attribute |
+
+An unknown `icon` name renders nothing and logs a dev-mode warning. The glyph is `aria-hidden`; give the surrounding control its own accessible name.
 
 **CSS Custom Properties:**
 - `--ml-icon-color` — override icon color (default: `currentColor`)
-- `--ml-icon-size` — override icon size
+- `--ml-icon-size` — override icon size (default: `24px`)
 
-Requires Phosphor Icons font loaded in the page.
+Requires the Phosphor icon fonts (font families `Phosphor`, `Phosphor-Bold`, `Phosphor-Fill`, `Phosphor-Light`, `Phosphor-Thin`) loaded in the page. The package ships them as `.woff2` only (`assets/fonts/phosphor/`); `.woff`, `.ttf` and `.svg` are no longer published.
 
 ---
 
@@ -2511,11 +3680,32 @@ Requires Phosphor Icons font loaded in the page.
 
 #### Props
 
-`variant` (`'centered'`|`'split'`), `title` (`'Log in to your account'`), `description` (`'Welcome back! Please enter your details.'`)
+`variant` (`'centered'`|`'split'`, default `'centered'`), `pageTitle` (`page-title`, default `'Log in to your account'`), `description` (`'Welcome back! Please enter your details.'`)
 
-**Slots:** `logo`, `header`, `form`, `footer`, `social`, `brand` (split only)
+The `title` attribute / property is a deprecated alias of `page-title`.
 
-**Centered:** Full-page centered card (max-width 440px). **Split:** Two-column; brand side hides < 768px.
+**Slots:** `logo`, `header` (replaces the default title + description), `social`, `form`, `footer`, `brand` (split only)
+
+**Centered:** Full-page centered card (max-width 440px). **Split:** Two-column; brand side hides <= 768px.
+
+#### Key CSS Custom Properties
+
+Shared by `ml-login-page` and `ml-signup-page` (`auth-layout.styles.ts`):
+
+| Property | Default | Description |
+|----------|---------|-------------|
+| `--ml-auth-bg` | `var(--ml-color-surface-secondary)` | Page background |
+| `--ml-auth-card-max-width` | `440px` | Card max width |
+| `--ml-auth-card-bg` | `var(--ml-color-surface)` | Card background |
+| `--ml-auth-card-border-color` | `var(--ml-color-border)` | Card border color |
+| `--ml-auth-card-radius` | `var(--ml-radius-xl)` | Card radius |
+| `--ml-auth-card-shadow` | `var(--ml-shadow-lg)` | Card shadow |
+| `--ml-auth-card-padding` | `var(--ml-space-10)` | Card padding |
+| `--ml-auth-title-color` | `var(--ml-color-text)` | Title color |
+| `--ml-auth-description-color` | `var(--ml-color-text-muted)` | Description color |
+| `--ml-auth-split-form-bg` | `var(--ml-color-surface)` | Form side background (split) |
+| `--ml-auth-split-brand-bg` | `var(--ml-color-primary)` | Brand side background (split) |
+| `--ml-auth-split-brand-color` | `var(--ml-color-text-inverse)` | Brand side text color (split) |
 
 ---
 
@@ -2525,11 +3715,13 @@ Requires Phosphor Icons font loaded in the page.
 
 #### Props
 
-`variant` (`'centered'`|`'split'`), `title` (`'Create an account'`), `description` (`'Start your journey today.'`)
+`variant` (`'centered'`|`'split'`, default `'centered'`), `pageTitle` (`page-title`, default `'Create an account'`), `description` (`'Start your journey today.'`)
 
-**Slots:** `logo`, `header`, `form`, `footer`, `social`, `brand` (split only)
+The `title` attribute / property is a deprecated alias of `page-title`.
 
-Same layout as `ml-login-page`; shares `auth-layout.styles.ts`.
+**Slots:** `logo`, `header` (replaces the default title + description), `social`, `form`, `footer`, `brand` (split only)
+
+Same layout and `--ml-auth-*` tokens as `ml-login-page`; shares `auth-layout.styles.ts`.
 
 ---
 
@@ -2539,13 +3731,26 @@ Same layout as `ml-login-page`; shares `auth-layout.styles.ts`.
 
 #### Props
 
-`title`, `description`, `layout` (`'default'`|`'wide'`|`'full'`)
+`pageTitle` (`page-title`), `description`, `layout` (`'default'`|`'wide'`|`'full'`, default `'default'`)
 
-**Slots:** `sidebar`, `header-actions`, `metrics`, `main`, `aside` (default layout only)
+The `title` attribute / property is a deprecated alias of `page-title`.
 
-**Layouts:** `default` = `2fr 1fr` (collapses < 1024px), `wide`/`full` = single column.
+**Slots:** `sidebar`, `header-actions`, `metrics`, `main`, `aside` (default layout only). `metrics`, `aside` and `header-actions` are detected from the element's direct children, including content slotted after mount.
+
+**Layouts:** `default` = `2fr 1fr` (collapses <= 1024px), `wide`/`full` = single column.
 
 Composes `ml-app-shell` + `ml-page-header` internally.
+
+#### Key CSS Custom Properties
+
+| Property | Default | Description |
+|----------|---------|-------------|
+| `--ml-dashboard-padding` | `var(--ml-space-6)` | Content padding (`--ml-dashboard-mobile-padding`, `var(--ml-space-4)`, on small screens) |
+| `--ml-dashboard-metrics-min-width` | `200px` | Minimum width of a metrics grid column |
+| `--ml-dashboard-metrics-gap` | `var(--ml-space-4)` | Metrics grid gap |
+| `--ml-dashboard-body-gap` | `var(--ml-space-6)` | Gap between main and aside |
+| `--ml-dashboard-main-gap` | `var(--ml-space-6)` | Gap between items in `main` |
+| `--ml-dashboard-aside-gap` | `var(--ml-space-6)` | Gap between items in `aside` |
 
 ---
 
@@ -2554,24 +3759,24 @@ Composes `ml-app-shell` + `ml-page-header` internally.
 | Category | Count |
 |----------|-------|
 | Primitive colors (7 ramps × 12 + white/black) | 86 |
-| Semantic color tokens | 60 |
+| Semantic color tokens (incl. focus ring, badge, alert, tooltip, card footer) | 77 |
 | Spacing tokens | 35 |
-| Typography tokens | 34 |
-| Shadow tokens | 20 |
+| Typography tokens | 37 |
+| Shadow tokens | 24 |
 | Border tokens | 17 |
-| Transition tokens | 15 |
+| Transition tokens | 20 |
 | Breakpoint tokens | 6 |
-| **Total design tokens** | **273** |
+| **Total design tokens** | **302** |
 
-| Category | Component Count |
+| Category | Custom Elements |
 |----------|----------------|
-| Form components | 18 |
+| Form components | 22 |
 | Foundation components | 4 |
-| Feedback components | 5 (incl. ToastService) |
-| Data display components | 11 |
+| Feedback components | 5 (+ `ToastService`) |
+| Data display components | 13 |
 | Navigation components | 12 |
-| Overlay components | 8 (incl. DialogService) |
-| Section components | 3 |
+| Overlay components | 8 (+ `DialogService`) |
+| Section components | 4 |
 | General components | 1 |
 | Page components | 3 |
-| **Total components** | **65** |
+| **Total custom elements** | **72** |

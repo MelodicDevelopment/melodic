@@ -85,7 +85,6 @@ export class FormArray<T = unknown> extends AbstractControl<T[]> {
 	public setValue(value: T[], options?: SetValueOptions): void {
 		// One aggregate value/validation pass for the whole write, not one per child.
 		batch(() => {
-			if (this._ownDisabled()) return;
 			const controls = this.controls();
 
 			// Strict: setValue replaces the whole array, so lengths must match.
@@ -112,7 +111,6 @@ export class FormArray<T = unknown> extends AbstractControl<T[]> {
 	public patchValue(value: T[], options?: SetValueOptions): void {
 		// One aggregate value/validation pass for the whole write, not one per child.
 		batch(() => {
-			if (this._ownDisabled()) return;
 			const controls = this.controls();
 			value.forEach((v, i) => {
 				if (v !== undefined) {

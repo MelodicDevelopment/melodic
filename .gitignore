@@ -9,6 +9,9 @@ lerna-debug.log*
 
 node_modules
 dist
+# Coverage reports (npm run test:coverage). Anchored, like lib below.
+/coverage
+packages/*/coverage
 dist-ssr
 *.local
 

@@ -117,7 +117,7 @@ export const checkboxStyles = () => css`
 	.ml-checkbox__hint {
 		display: block;
 		margin-top: var(--ml-space-0-5);
-		margin-left: calc(var(--ml-checkbox-box-size, 1.25rem) + var(--ml-checkbox-gap, var(--ml-space-3)));
+		margin-inline-start: calc(var(--ml-checkbox-box-size, 1.25rem) + var(--ml-checkbox-gap, var(--ml-space-3)));
 		font-size: var(--ml-checkbox-hint-font-size, var(--ml-text-sm));
 		color: var(--ml-checkbox-hint-color, var(--ml-color-text-muted));
 		line-height: var(--ml-leading-tight);
@@ -126,7 +126,7 @@ export const checkboxStyles = () => css`
 	.ml-checkbox__error {
 		display: block;
 		margin-top: var(--ml-checkbox-error-margin-top, var(--ml-space-0-5));
-		margin-left: calc(var(--ml-checkbox-box-size, 1.25rem) + var(--ml-checkbox-gap, var(--ml-space-3)));
+		margin-inline-start: calc(var(--ml-checkbox-box-size, 1.25rem) + var(--ml-checkbox-gap, var(--ml-space-3)));
 		font-size: var(--ml-checkbox-hint-font-size, var(--ml-text-sm));
 		color: var(--ml-checkbox-error-color, var(--ml-color-danger));
 		line-height: var(--ml-checkbox-error-line-height, var(--ml-leading-tight));
@@ -171,5 +171,16 @@ export const checkboxStyles = () => css`
 		--ml-checkbox-box-size: 1.5rem;
 		--ml-checkbox-label-font-size: var(--ml-text-base);
 		--ml-checkbox-label-line-height: 1.5rem;
+	}
+
+	/*
+	 * Forced colors (Windows High Contrast): box-shadow rings and background
+	 * highlights are not painted there, so focus falls back to a real outline.
+	 */
+	@media (forced-colors: active) {
+		.ml-checkbox__input:focus-visible + .ml-checkbox__box {
+			outline: 2px solid Highlight;
+			outline-offset: 2px;
+		}
 	}
 `;

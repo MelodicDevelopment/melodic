@@ -1,8 +1,40 @@
+import { promises as fs } from 'node:fs';
 import path from 'node:path';
-import { toKebabCase } from './utils.js';
+import { toCamelCase, toKebabCase } from './utils.js';
 
-/** Valid kebab-case identifier for anything the CLI names or interpolates into source. */
-export const NAME_PATTERN = /^[a-z][a-z0-9-]*$/;
+/**
+ * Valid kebab-case identifier for anything the CLI names or interpolates into
+ * source: lowercase words of letters/digits joined by single hyphens. A leading,
+ * trailing or doubled hyphen is rejected ("new-" used to produce `new-.directive.ts`).
+ */
+export const NAME_PATTERN = /^[a-z][a-z0-9]*(-[a-z0-9]+)*$/;
+
+/**
+ * Words that cannot be used as a binding name in an ES module (strict mode).
+ * A generator that exports a bare camelCase identifier (`melodic g directive
+ * delete` -> `export const delete = ...`) must refuse these.
+ */
+export const RESERVED_WORDS = new Set([
+	'arguments', 'await', 'break', 'case', 'catch', 'class', 'const', 'continue', 'debugger', 'default', 'delete', 'do',
+	'else', 'enum', 'eval', 'export', 'extends', 'false', 'finally', 'for', 'function', 'if', 'implements', 'import',
+	'in', 'instanceof', 'interface', 'let', 'new', 'null', 'package', 'private', 'protected', 'public', 'return',
+	'static', 'super', 'switch', 'this', 'throw', 'true', 'try', 'typeof', 'undefined', 'var', 'void', 'while', 'with',
+	'yield'
+]);
+
+/**
+ * Returns the camelCase identifier for a kebab-case name, refusing names whose
+ * identifier is a reserved word and would not compile.
+ */
+export const toSafeIdentifier = (kebabName: string, label: string): string => {
+	const identifier = toCamelCase(kebabName);
+	if (RESERVED_WORDS.has(identifier)) {
+		throw new Error(
+			`${label} "${kebabName}" is a reserved word in JavaScript and cannot be used as an exported identifier. Use a more specific name (e.g. "${kebabName}-item").`
+		);
+	}
+	return identifier;
+};
 
 /**
  * Names that contain a hyphen but are reserved by the HTML/SVG/MathML specs and
@@ -37,7 +69,7 @@ export const validateName = (raw: string, label: string): string => {
 	}
 	const kebab = toKebabCase(raw);
 	if (!NAME_PATTERN.test(kebab)) {
-		throw new Error(`${label} "${raw}" is invalid. Use lowercase letters, digits and hyphens, starting with a letter (e.g. "user-card").`);
+		throw new Error(`${label} "${raw}" is invalid. Use lowercase letters and digits in hyphen-separated words, starting with a letter (e.g. "user-card").`);
 	}
 	return kebab;
 };
@@ -85,4 +117,31 @@ export const toSelector = (kebabName: string): { selector: string; prefixed: boo
 		return { selector: kebabName, prefixed: false };
 	}
 	return { selector: `app-${kebabName}`, prefixed: true };
+};
+
+/**
+ * Guards against symlink escapes: `validateRelativePath` only inspects the
+ * string, so `--path link/out` passes even when `link` points outside the
+ * project. Resolves the deepest existing ancestor of `targetPath` and requires
+ * it to be inside the (resolved) project root.
+ */
+export const assertInsideRoot = async (rootPath: string, targetPath: string, label: string): Promise<void> => {
+	const realRoot = await fs.realpath(rootPath);
+	let current = path.resolve(targetPath);
+	let realCurrent: string | undefined;
+	while (realCurrent === undefined) {
+		try {
+			realCurrent = await fs.realpath(current);
+		} catch {
+			const parent = path.dirname(current);
+			if (parent === current) {
+				break;
+			}
+			current = parent;
+		}
+	}
+	const relative = realCurrent === undefined ? '..' : path.relative(realRoot, realCurrent);
+	if (relative === '..' || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative)) {
+		throw new Error(`${label} resolves outside the project (${targetPath} -> ${realCurrent ?? 'unknown'}). Refusing to write through a symlink that leaves the project.`);
+	}
 };

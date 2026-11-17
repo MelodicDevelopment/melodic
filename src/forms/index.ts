@@ -10,6 +10,7 @@ export { createFormControl, createFormGroup, createFormArray } from './functions
 
 // Validators
 export { Validators, createValidator, createAsyncValidator } from './validators';
+export type { ICreateValidatorOptions } from './validators';
 
 // Messages
 export { registerDefaultMessages, setDefaultMessage, getGlobalMessage, resolveMessage } from './messages';

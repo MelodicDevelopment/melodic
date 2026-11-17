@@ -43,6 +43,7 @@ export const tableStyles = () => css`
 	 * --ml-table-row-hover-border-left-width: 0
 	 * --ml-table-row-hover-border-left-color: transparent
 	 * --ml-table-row-selected-bg: var(--ml-color-primary-subtle, rgba(99, 102, 241, 0.04))
+	 * --ml-table-row-focus-outline-color: var(--ml-color-primary)
 	 * --ml-table-row-selected-hover-bg: var(--ml-color-primary-subtle, rgba(99, 102, 241, 0.06))
 	 * --ml-table-row-striped-bg: var(--ml-color-surface-sunken)
 	 * --ml-table-row-striped-hover-bg: var(--ml-color-surface-raised)
@@ -140,7 +141,7 @@ export const tableStyles = () => css`
 		color: var(--ml-table-header-color, var(--ml-color-text-muted));
 		text-transform: uppercase;
 		letter-spacing: 0.05em;
-		text-align: left;
+		text-align: start;
 		white-space: nowrap;
 		user-select: none;
 	}
@@ -206,6 +207,11 @@ export const tableStyles = () => css`
 
 	.ml-table--row-clickable .ml-table__row {
 		cursor: pointer;
+	}
+
+	.ml-table--row-clickable .ml-table__row:focus-visible {
+		outline: 2px solid var(--ml-table-row-focus-outline-color, var(--ml-color-primary));
+		outline-offset: -2px;
 	}
 
 	.ml-table__row--selected {

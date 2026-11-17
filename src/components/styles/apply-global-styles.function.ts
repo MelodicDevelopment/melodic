@@ -4,10 +4,16 @@ const globalStylesAttribute: string = 'melodic-styles';
 const globalStyleSelector: string = `style[${globalStylesAttribute}], link[rel="stylesheet"][${globalStylesAttribute}]`;
 
 const cachedCssSheets: CSSStyleSheet[] = [];
+// The CSS text behind each cached sheet, in the same order. A constructed
+// sheet cannot follow an element into another document, so a component adopted
+// elsewhere rebuilds its styles from the text (see ComponentBase.adoptedCallback).
+const cachedCssTexts: string[] = [];
 let loadingPromise: Promise<void> | null = null;
-// Roots that asked for global styles before the first load finished, so a
-// second pass can adopt sheets that arrive later (a stylesheet added after the
-// first component was constructed used to be adopted by nothing).
+// True once the load started by `applyGlobalStyles` has settled.
+let loadSettled = false;
+// Roots that asked for global styles WHILE the first load was in flight, so
+// they adopt the sheets when it finishes. Strong references, so a root may
+// only sit here until that load settles.
 const pendingRoots = new Set<ShadowRoot>();
 
 export const applyGlobalStyles = (root: ShadowRoot): void => {
@@ -16,9 +22,21 @@ export const applyGlobalStyles = (root: ShadowRoot): void => {
 		return;
 	}
 
+	if (loadingPromise && loadSettled) {
+		// The load finished and found nothing to adopt. Parking the root in
+		// `pendingRoots` here — as this used to — retained it forever, because
+		// nothing drains that set after the load: in an app with no
+		// `melodic-styles` stylesheet every component ever created stayed
+		// reachable, with its DOM, for the life of the page. Remember it
+		// weakly instead so `refreshGlobalStyles()` can still reach it.
+		rememberRoot(root);
+		return;
+	}
+
 	pendingRoots.add(root);
 
 	if (!loadingPromise) {
+		loadSettled = false;
 		loadingPromise = loadStyles()
 			.catch((error) => {
 				// A cross-origin <link> throws on `cssRules`. Without this catch
@@ -33,6 +51,7 @@ export const applyGlobalStyles = (root: ShadowRoot): void => {
 				);
 			})
 			.finally(() => {
+				loadSettled = true;
 				for (const pending of pendingRoots) {
 					applyAdoptedSheets(pending);
 				}
@@ -47,7 +66,9 @@ export const applyGlobalStyles = (root: ShadowRoot): void => {
  */
 export const refreshGlobalStyles = async (): Promise<void> => {
 	cachedCssSheets.length = 0;
+	cachedCssTexts.length = 0;
 	loadingPromise = null;
+	loadSettled = false;
 	await loadStyles().catch(() => undefined);
 
 	for (const ref of [...adoptedRoots]) {
@@ -66,6 +87,37 @@ export const refreshGlobalStyles = async (): Promise<void> => {
  * system for the life of the page.
  */
 const adoptedRoots = new Set<WeakRef<ShadowRoot>>();
+// Roots already in `adoptedRoots`, so a root is registered once however often
+// it adopts.
+const rememberedRoots = new WeakSet<ShadowRoot>();
+// Drops a root's WeakRef once the root is collected. Without it the set grew
+// by one (dead) WeakRef per component instance ever created and was pruned
+// only by `refreshGlobalStyles()`, which most apps never call.
+const rootFinalizer: FinalizationRegistry<WeakRef<ShadowRoot>> | null =
+	typeof FinalizationRegistry === 'undefined' ? null : new FinalizationRegistry((ref) => adoptedRoots.delete(ref));
+
+const rememberRoot = (root: ShadowRoot): void => {
+	if (rememberedRoots.has(root)) {
+		return;
+	}
+
+	rememberedRoots.add(root);
+	const ref = new WeakRef(root);
+	adoptedRoots.add(ref);
+	rootFinalizer?.register(root, ref);
+};
+
+/** The global sheets loaded so far (shared, owned by this document). Internal. */
+export const getGlobalStyleSheets = (): readonly CSSStyleSheet[] => cachedCssSheets;
+
+/** The CSS text of every global sheet loaded so far. Internal. */
+export const getGlobalStyleTexts = (): readonly string[] => cachedCssTexts;
+
+/** Internal bookkeeping sizes, exposed for the leak regression tests. */
+export const globalStyleBookkeeping = (): { pendingRoots: number; rememberedRoots: number } => ({
+	pendingRoots: pendingRoots.size,
+	rememberedRoots: adoptedRoots.size
+});
 
 const loadStyles = async (): Promise<void> => {
 	const globalStyleElements = document.querySelectorAll(globalStyleSelector);
@@ -109,7 +161,7 @@ const loadStyles = async (): Promise<void> => {
 };
 
 const applyAdoptedSheets = (root: ShadowRoot): void => {
-	adoptedRoots.add(new WeakRef(root));
+	rememberRoot(root);
 
 	const adopted = root.adoptedStyleSheets ?? [];
 	const newSheets = cachedCssSheets.filter((sheet) => !adopted.includes(sheet));
@@ -125,6 +177,7 @@ const cacheCssSheet = (text: string): void => {
 		const sheet = new CSSStyleSheet();
 		sheet.replaceSync(trimmedText);
 		cachedCssSheets.push(sheet);
+		cachedCssTexts.push(trimmedText);
 	}
 };
 

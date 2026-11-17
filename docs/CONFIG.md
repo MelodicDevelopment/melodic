@@ -11,6 +11,7 @@ Melodic includes a lightweight configuration module for managing environment-awa
 - [Consuming Configuration](#consuming-configuration)
 - [Extending Configuration](#extending-configuration)
 - [CLI Scaffolding](#cli-scaffolding)
+- [How the environment is resolved](#how-the-environment-is-resolved)
 
 ## Overview
 
@@ -32,7 +33,7 @@ export const appConfig = defineConfig({
 
 ## Defining Configuration
 
-`defineConfig<T>` accepts a `ConfigDefinition<T>` object with a required `base` and optional `dev`, `qa`, and `prod` overrides. Each override is `Partial<T>` and is shallow-merged onto `base`.
+`defineConfig<T>` accepts a `ConfigDefinition<T>` object with a required `base` and optional `dev`, `qa`, and `prod` overrides. Each override is `Partial<T>` and is deep-merged onto `base`: a nested object in an override changes only the keys it declares, while arrays and primitives are replaced.
 
 ```typescript
 import { defineConfig } from '@melodicdev/core/config';
@@ -62,8 +63,11 @@ The returned value is resolved at import time — no runtime lookup on each acce
 The `getEnvironment()` function determines the current environment using Vite's `import.meta.env`:
 
 1. If `VITE_ENV` is `'dev'`, `'qa'`, or `'prod'`, that value is used
-2. Otherwise, if `import.meta.env.PROD` is `true`, returns `'prod'`
-3. Falls back to `'dev'`
+2. Otherwise Vite's `MODE` is used: `development` is `'dev'`, `production` is `'prod'`, and a mode named `dev`, `qa` or `prod` is used directly
+3. Otherwise, if `import.meta.env.PROD` is `true`, returns `'prod'`
+4. Falls back to `'dev'`
+
+See [How the environment is resolved](#how-the-environment-is-resolved) for the details.
 
 Set the environment in your `.env` files or Vite config:
 
@@ -126,6 +130,19 @@ import { APP_CONFIG } from '@melodicdev/core/config';
 import type { AppConfig } from './config/app.config';
 
 const config = Injector.get(APP_CONFIG) as AppConfig;
+```
+
+`APP_CONFIG` is typed `unknown`, because the framework cannot know your config's shape, so
+state the type where you consume it. In a component or service, use `@Service`:
+
+```typescript
+import { Service } from '@melodicdev/core/injection';
+import { APP_CONFIG } from '@melodicdev/core/config';
+import type { AppConfig } from './config/app.config';
+
+export class ApiStatusComponent {
+	@Service(APP_CONFIG) private config!: AppConfig;
+}
 ```
 
 Or from the app instance returned by `bootstrap()`:
@@ -203,6 +220,9 @@ export const appConfig = defineConfig({
 | Arrays | Replaced entirely by the child value |
 | Primitives | Replaced by the child value |
 
+Environment overrides merge onto `base` by the same rules. Keys named `__proto__`,
+`constructor` or `prototype` are skipped.
+
 ### Chaining
 
 Configs can extend configs that themselves extend other configs:
@@ -235,7 +255,7 @@ melodic add config
 
 **Single app projects** get `src/config/app.config.ts` created.
 
-**Monorepo projects** (with `workspaces` in `package.json`) get a full `libs/config/` library with path aliases and tsconfig references wired automatically.
+**Monorepo projects** (with `workspaces` in `package.json`) get a `libs/config/` workspace package named `@<repo>/config`, and `libs` is added to the root tsconfig's `include`. Run `npm install` afterwards so the package is linked, then import `sharedConfig` from `@<repo>/config` in each app.
 
 New projects created with `melodic init` include config scaffolding out of the box. In a monorepo, `melodic add app` will automatically wire the new app to use `libs/config/` if it exists.
 
@@ -253,6 +273,18 @@ Step 2 is why `vite build --mode qa` now resolves to `'qa'`; it previously fell 
 `'prod'` and quietly used your production configuration.
 
 Without a bundler (CDN / import maps) none of these exist and the environment is `'dev'`.
+
+`environment` is the result of `getEnvironment()`, computed once when the module loads.
+`resolveEnvironment(env)` applies the same rules to an env object you pass in, which is how
+to check the precedence in a test:
+
+```typescript
+import { resolveEnvironment } from '@melodicdev/core/config';
+
+resolveEnvironment({ MODE: 'qa' });                    // 'qa'
+resolveEnvironment({ VITE_ENV: 'dev', PROD: true });   // 'dev'
+resolveEnvironment(undefined);                         // 'dev'
+```
 
 This is separate from `devMode`, which gates framework diagnostics — see
 [BOOTSTRAP.md](./BOOTSTRAP.md).

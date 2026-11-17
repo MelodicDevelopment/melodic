@@ -13,6 +13,24 @@ import type { IRouteChangeAware } from '../../interfaces/iroute-change.interface
  */
 const OUTLET_REGISTER_EVENT = 'melodic:outlet-register';
 
+/** Stable ids for resolved-data objects, so a re-resolve shows up in a match signature. */
+const resolvedDataIds = new WeakMap<object, number>();
+let nextResolvedDataId = 0;
+
+function resolvedDataId(data: object | undefined): number {
+	if (!data) {
+		return 0;
+	}
+
+	let id = resolvedDataIds.get(data);
+	if (id === undefined) {
+		id = ++nextResolvedDataId;
+		resolvedDataIds.set(data, id);
+	}
+
+	return id;
+}
+
 /**
  * Data passed when an outlet registers with its parent.
  */
@@ -303,9 +321,17 @@ export class RouterOutletComponent {
 	 * Identity of a rendered match: the route object plus the params that
 	 * produced it. Two navigations to `/users/1` and `/users/2` match the same
 	 * route with the same component tag but are NOT the same view.
+	 *
+	 * The query string and this depth's resolved data are part of it too:
+	 * `/search?q=a → /search?q=b` and a reload that re-ran the resolvers both
+	 * leave the path and params untouched, yet the mounted component is
+	 * showing stale data and must hear about it through `onRouteChange`.
 	 */
 	private matchSignature(match: IRouteMatch): string {
-		return `${match.fullPath}|${JSON.stringify(match.params)}`;
+		const query = this._router.getQueryParams().toString();
+		const resolved = resolvedDataId(this._router.getContextService().getResolvedDataForDepth(this._depth));
+
+		return `${match.fullPath}|${JSON.stringify(match.params)}|${query}|${resolved}`;
 	}
 
 	private async renderMatch(match: IRouteMatch): Promise<void> {
@@ -425,12 +451,22 @@ export class RouterOutletComponent {
 
 	private async render404(): Promise<void> {
 		this._renderGeneration++;
-		const notFoundRoute = this.routes.find((r) => r.path === '404' || r.path === '**');
+		// A bare root outlet takes its routes from `provideRouter(routes)`; its own
+		// `routes` are empty, so a provided '404' route was never found here.
+		const routes = this._depth === 0 && this.routes.length === 0 ? this._router.getRoutes() : this.routes;
+		const notFoundRoute = routes.find((r) => r.path === '404' || r.path === '**');
 
 		if (notFoundRoute?.component) {
 			await this.renderComponent(notFoundRoute.component);
 		} else if (this._depth === 0 && window.location.pathname !== '/404') {
 			this._router.navigate('/404', { replace: true });
+		} else {
+			// Nothing to show at this depth. Leaving the previous element
+			// mounted kept the old child on screen when the chain got shorter
+			// (`/settings/profile → /settings`).
+			this.clearCurrentElement();
+			this._currentComponent = null;
+			this._currentSignature = null;
 		}
 	}
 }

@@ -157,9 +157,20 @@ export const radioStyles = () => css`
 	.ml-radio__hint {
 		display: block;
 		margin-top: var(--ml-space-0-5);
-		margin-left: calc(var(--ml-radio-circle-size, 1.25rem) + var(--ml-radio-gap, var(--ml-space-3)));
+		margin-inline-start: calc(var(--ml-radio-circle-size, 1.25rem) + var(--ml-radio-gap, var(--ml-space-3)));
 		font-size: var(--ml-radio-hint-font-size, var(--ml-text-sm));
 		color: var(--ml-radio-hint-color, var(--ml-color-text-muted));
 		line-height: var(--ml-leading-tight);
+	}
+
+	/*
+	 * Forced colors (Windows High Contrast): box-shadow rings and background
+	 * highlights are not painted there, so focus falls back to a real outline.
+	 */
+	@media (forced-colors: active) {
+		.ml-radio__input:focus-visible + .ml-radio__circle {
+			outline: 2px solid Highlight;
+			outline-offset: 2px;
+		}
 	}
 `;

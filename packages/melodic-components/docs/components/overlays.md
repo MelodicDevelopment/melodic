@@ -14,6 +14,16 @@ All overlays use the [Popover API](https://developer.mozilla.org/en-US/docs/Web/
 
 Uses the native `<dialog>` element.
 
+**Accessible name:** the dialog is named by whatever is slotted into `dialog-header`. To name it differently — or when there is no header — set `label`:
+
+| Property | Type | Default | Description |
+|----------|------|---------|-------------|
+| `label` | `string` | `''` | Accessible name (`aria-label`) for the dialog. Overrides the header |
+
+```html
+<ml-dialog id="confirm" label="Confirm deletion">…</ml-dialog>
+```
+
 ```ts
 import '@melodicdev/components/dialog';
 import { DialogService } from '@melodicdev/components';
@@ -21,12 +31,13 @@ import { DialogService } from '@melodicdev/components';
 
 ### Declarative usage
 
-Attach an `id` and open/close it programmatically from the same component:
+Name the dialog with a `#`-prefixed attribute and open/close it through `DialogService`
+using that name **without** the `#`. (A dialog with no `#name` gets a generated id.)
 
 ```html
 <ml-button @ml:click=${() => this.openDialog('confirm')}>Delete</ml-button>
 
-<ml-dialog id="confirm">
+<ml-dialog #confirm>
   <div slot="dialog-header">Confirm deletion</div>
   <p>Are you sure? This action cannot be undone.</p>
   <div slot="dialog-footer">
@@ -37,16 +48,25 @@ Attach an `id` and open/close it programmatically from the same component:
 ```
 
 ```ts
+import { DialogService } from '@melodicdev/components/dialog';
+import type { UniqueID } from '@melodicdev/components/functions';
+
+@Service(DialogService)
+private readonly _dialog!: DialogService;
+
+// The service's id parameter is the branded `UniqueID` type, so a plain string needs a cast.
 openDialog(id: string): void {
-  const el = this.elementRef.querySelector(`#${id}`) as any;
-  el?.open();
+  this._dialog.open(id as UniqueID);
 }
 
 closeDialog(id: string, result?: unknown): void {
-  const el = this.elementRef.querySelector(`#${id}`) as any;
-  el?.close(result);
+  this._dialog.close(id as UniqueID, result);
 }
 ```
+
+`open()` and `close(result?)` also exist on the component instance, not on the element:
+`dialogEl.component.open()`. Methods declared on a component's class are not mirrored onto
+its host element — only its fields are — so `dialogEl.open()` is not a function.
 
 ### Dynamic component usage (DialogService)
 
@@ -68,14 +88,22 @@ openConfirmation(): void {
 }
 ```
 
-Inside `ConfirmationDialog`, close with:
+Inside `ConfirmationDialog`, implement `onDialogRefSet` to receive the ref, and close
+through it:
 
 ```ts
-@Service(DialogService)
-private readonly _dialog!: DialogService;
+import type { DialogRef, IDialogRef } from '@melodicdev/components/dialog';
 
-confirm(): void {
-  this._dialog.close(this.elementRef.id, true);
+export class ConfirmationDialog implements IDialogRef {
+  private _dialogRef!: DialogRef;
+
+  onDialogRefSet(dialogRef: DialogRef): void {
+    this._dialogRef = dialogRef;   // dialogRef.data is the config's `data`
+  }
+
+  confirm(): void {
+    this._dialogRef.close(true);
+  }
 }
 ```
 
@@ -123,7 +151,7 @@ import '@melodicdev/components/drawer';
 ```
 
 ```html
-<ml-button @ml:click=${() => this._drawerEl.open()}>Open Settings</ml-button>
+<ml-button @ml:click=${() => this.openDrawer()}>Open Settings</ml-button>
 
 <ml-drawer id="settingsDrawer" side="right" size="md">
   <span slot="drawer-header">Settings</span>
@@ -131,10 +159,25 @@ import '@melodicdev/components/drawer';
     <p>Drawer content goes here.</p>
   </div>
   <div slot="drawer-footer">
-    <ml-button variant="outline" @ml:click=${() => this._drawerEl.close()}>Cancel</ml-button>
+    <ml-button variant="outline" @ml:click=${() => this.drawer()?.component.close()}>Cancel</ml-button>
     <ml-button @ml:click=${() => this.save()}>Save</ml-button>
   </div>
 </ml-drawer>
+```
+
+`open()` and `close()` are on the drawer's component instance, reached through the
+element's `component` property. The drawer lives in your component's shadow root:
+
+```ts
+import type { DrawerComponent } from '@melodicdev/components/drawer';
+
+private drawer(): (HTMLElement & { component: DrawerComponent }) | null {
+  return this.elementRef.shadowRoot?.querySelector('#settingsDrawer') ?? null;
+}
+
+openDrawer(): void {
+  this.drawer()?.component.open();
+}
 ```
 
 | Property | Type | Default | Description |
@@ -142,6 +185,7 @@ import '@melodicdev/components/drawer';
 | `side` | `'left'` \| `'right'` | `'right'` | Slide-in direction |
 | `size` | `'sm'` \| `'md'` \| `'lg'` \| `'xl'` | `'md'` | Panel width preset |
 | `showClose` | `boolean` | `true` | Show the built-in × close button |
+| `label` | `string` | `''` | Accessible name (`aria-label`) for the drawer. Defaults to the content of the `drawer-header` slot |
 
 **Size presets:** sm = 320px, md = 448px, lg = 672px, xl = 896px
 
@@ -151,7 +195,7 @@ import '@melodicdev/components/drawer';
 
 **Methods:** `open()`, `close()`
 
-Closes on backdrop click.
+Closes on backdrop click. Calling `open()` while the drawer is still sliding closed reopens it. The slide is skipped when the user has asked for reduced motion.
 
 ---
 
@@ -186,6 +230,9 @@ import '@melodicdev/components/popover';
 | `offset` | `number` | `8` | Gap in pixels between trigger and popover |
 | `manual` | `boolean` | `false` | Disable light-dismiss (click-outside) |
 | `arrow` | `boolean` | `false` | Show an arrow pointing at the trigger |
+| `label` | `string` | `''` | Accessible name (`aria-label`) for the popover panel |
+
+**Accessibility:** the panel is a `role="dialog"` that traps focus while open — give it a `label`. The slotted trigger gets `aria-haspopup="dialog"` (unless you set your own `aria-haspopup`) and `aria-expanded`, placed on the element that takes focus (for an `<ml-button>` trigger, its inner button). Focus is trapped across everything in the panel, including controls inside nested components such as `<ml-input>`.
 
 **Placement values:** `'top'` \| `'top-start'` \| `'top-end'` \| `'bottom'` \| `'bottom-start'` \| `'bottom-end'` \| `'left'` \| `'left-start'` \| `'left-end'` \| `'right'` \| `'right-start'` \| `'right-end'`
 
@@ -313,6 +360,8 @@ import '@melodicdev/components/tooltip';
 **Slots:** `default` (the element that triggers the tooltip)
 
 Uses `computePosition` with `flip`, `shift`, and `offset` middleware to stay in view.
+
+**Accessibility:** the tooltip text is exposed as the trigger's description (`aria-description`) and follows `content` when it changes. A trigger that already has its own `aria-describedby` is left alone.
 
 ### tooltip directive
 

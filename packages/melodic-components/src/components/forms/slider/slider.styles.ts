@@ -212,4 +212,15 @@ export const sliderStyles = () => css`
 		font-size: var(--ml-slider-hint-font-size, var(--ml-text-sm));
 		color: var(--ml-slider-error-color, var(--ml-color-danger));
 	}
+
+	/*
+	 * Forced colors (Windows High Contrast): box-shadow rings and background
+	 * highlights are not painted there, so focus falls back to a real outline.
+	 */
+	@media (forced-colors: active) {
+		.ml-slider__input:focus-visible::-webkit-slider-thumb {
+			outline: 2px solid Highlight;
+			outline-offset: 2px;
+		}
+	}
 `;

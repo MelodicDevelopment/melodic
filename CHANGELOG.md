@@ -1,5 +1,168 @@
 # Changelog
 
+## Unreleased
+
+A second review-driven pass (November 2026). No export, attribute, event, token or CLI
+command was removed; unused public API is marked `@deprecated` and keeps working. A few
+behaviours changed on purpose — see [Behaviour changes](#behaviour-changes-unreleased).
+
+### @melodicdev/core
+
+#### Rendering and signals
+
+- Fixed a memory leak that retained every component created after startup in apps with no
+  `melodic-styles` stylesheet.
+- Fixed a `when()` / `repeat()` / `unsafeHTML` callback that throws on first render leaving
+  its container permanently broken.
+- Fixed bindings on one element committing in reverse order; they now commit in source
+  order (`<input type="range" max=… .value=…>` no longer clamps).
+- Fixed a computed that threw never notifying its dependents again; a self-referential
+  `computed()` now reports a cycle instead of overflowing the stack.
+- Fixed `batch()` called inside an effect breaking coalescing for the rest of the flush.
+- Fixed the render-loop guard leaving the DOM stale after a legitimate burst of updates.
+- Fixed an element re-attached after teardown leaking its render effect and losing its
+  field subscriptions; a dev warning names the case.
+- Fixed `.prop=${…}` being silently ignored for function-valued fields, signal and control
+  fields, and observed-attribute properties with no initializer.
+- Fixed `styleMap` rewriting the case of CSS custom property names.
+- Fixed component CSS being run through the HTML parser (entities decoded, tag-like text
+  dropped). `css` is now its own tag.
+- Fixed `onPropertyChange` running tracked inside a parent's render effect.
+- Added `adoptedCallback`: components keep their styles when moved to another document.
+- Added dev warnings for `javascript:` URLs and inline event-handler strings in attribute
+  bindings, and for a value bound to a property the component does not declare.
+- Performance: batched row insertion and bulk clear in `repeat()`, parser markers stripped
+  once per template, template cache keyed by literal identity, one shared timer for the
+  render-loop guard, less per-instance setup work.
+- Deprecated `repeatRaw` (use `repeat`) and `ITemplatePart.renderedContainers`.
+
+#### Routing
+
+- Fixed the router reporting a superseded navigation's query params after a back/forward
+  during a pending `navigate()`.
+- Fixed a nested `<router-outlet>` keeping the previous child mounted when the matched
+  chain got shorter.
+- Fixed route `redirectTo` dropping the query string and fragment, and encoding the slashes
+  of a `*splat` target.
+- Fixed the initial history entry being unstamped, so a guard-blocked "back" to it
+  overwrote the entry; a `canDeactivate` redirect during popstate stamped the wrong index.
+- Fixed `onRouteChange` not firing for query-only changes or a reload that re-ran resolvers.
+- Fixed `router.navigate()` with a relative path pushing a different URL from the one it
+  matched; cross-origin URLs fail cleanly and router links to another origin fall through
+  to the browser.
+- Fixed a bare root outlet not finding the `'404'` / `'**'` route given to
+  `provideRouter(routes)`.
+- Deprecated `RouteContextEvent`, `ROUTE_CONTEXT_EVENT` and `IRouteContextChangeEvent`
+  (never dispatched by the router).
+
+#### HTTP
+
+- **Security:** `HttpClient` `defaultHeaders` and `credentials` are no longer sent to other
+  origins. Set `allowCrossOriginDefaults: true` to restore the old behaviour.
+- Added the `responseType` request option (`'json' | 'text' | 'blob' | 'arrayBuffer'`).
+- Fixed `+json` content types (`application/problem+json`) being returned as text.
+- Fixed typed-array request bodies being JSON-stringified.
+- Fixed a deduplicated GET issued right after the last caller aborted being rejected with
+  `AbortError`.
+- Response error interceptors now run once per shared deduplicated request.
+
+#### Forms, state, DI, devtools
+
+- `setValue` / `patchValue` now write to disabled controls, groups and arrays.
+- Fixed stale sync validation errors staying visible while an async validator is pending.
+- Fixed `Validators.pattern` alternating between pass and fail with a `/g` or `/y` regex.
+- Fixed `updateOn: 'blur'` / `'submit'` marking an unchanged control dirty, and
+  `updateOn: 'submit'` not finding a `<form>` outside the control's own template.
+- Fixed `ComponentStateBaseService.dispatch` applying only the first matching reducer.
+- Added `injector.addTeardown()`; `app.destroy()` releases the router's window listeners and
+  scroll restoration when `provideRouter()` was used.
+- `bindFactory` now issues the same re-bind warning as `bind` / `bindValue`.
+- Fixed `melodic.inspect()` never listing signal fields, and devtools `hook.listening`
+  staying true after the last listener unsubscribed.
+- Exported types that were declared but unreachable: `OnConnect`, `OnDisconnect`,
+  `IRequestCancellation`, `ICreateValidatorOptions`, `IInjectionToken`,
+  `IClassBindingOptions`, `IFactoryBindingOptions`.
+
+#### Packaging
+
+- `bundle/melodic-core.min.js` is now actually minified: 39 kB gzipped, down from 49 kB. It
+  previously kept all whitespace and gzipped larger than the unminified bundle.
+- `lib/` is cleaned before each build, so compiled files with no source are no longer
+  published.
+- Added a `./package.json` export. The required `tsconfig` options are documented;
+  `emitDecoratorMetadata` is not one of them.
+
+### @melodicdev/components
+
+- Fixed `ml-select` / `ml-autocomplete` losing selections when `multiple`, `value` and
+  `values` were set in certain orders or toggled at runtime.
+- Fixed `ml-date-time-picker` emitting a `valueUtc` one hour off around DST transitions.
+- Fixed external links in `ml-sidebar` / `ml-sidebar-item` not opening in a new tab.
+- Fixed the focus trap (used by `ml-popover`) skipping controls inside nested components.
+- Fixed toasts being hidden behind open dialogs and drawers.
+- Fixed `ml-data-grid` layout collapsing when a column key is not a valid CSS identifier,
+  and a column resize getting stuck after a cancelled pointer.
+- Fixed `ml-date-picker` rejecting its own displayed text in locales such as ko-KR, hu-HU,
+  bg and ar-EG.
+- Fixed `ml-tabs` hiding the panels of a nested `ml-tabs`; `ml-drawer` ignoring `open()`
+  during its close animation; `ml-autocomplete` not scrolling the highlighted option into
+  view; `ml-slider` clamping values above 100 on first render.
+- Fixed `ml-breadcrumb separator="slash"` rendering no separator (the icon it named does not
+  exist); it now renders a text `/`.
+- Table and grid sorting orders `Date` values chronologically and text in natural order.
+- Added `row-key` to `ml-table` and `ml-data-grid`, `clickable-rows` and
+  `resizeColumnBy()` to `ml-data-grid`, and `label` to `ml-dialog`, `ml-drawer` and
+  `ml-popover`.
+- Accessibility: tooltip and form-field descriptions are announced; select and
+  autocomplete expose hint, error and required state; calendar keyboard navigation crosses
+  months; clickable rows are keyboard-operable; grid columns resize with Shift+Arrow;
+  toasts pause on hover and focus; `prefers-reduced-motion` and forced-colors focus
+  outlines are supported; many components follow `dir="rtl"`.
+- Added `getFocusableElements(container, { deep: true })` and `canReferenceElement()` to
+  `@melodicdev/components/utils`.
+- `assets/melodic-components.min.js` is now actually minified, with stylesheet comments and
+  whitespace stripped: 138 kB gzipped, down from 171 kB.
+- The package ships Phosphor icon fonts as woff2 only; the tarball drops from 7.9 MB to
+  1.8 MB. `.woff`, `.ttf` and `.svg` fonts are no longer published or referenced.
+
+### @melodicdev/cli
+
+- Fixed `melodic add app --dir <nested/dir>` generating a `vite.config.ts` with a wrong
+  plugin import.
+- Fixed scaffolded projects not declaring `esbuild`, which their Vite plugin imports.
+- Fixed `melodic generate directive <reserved-word>` generating code that did not compile;
+  names with a leading, trailing or doubled hyphen are rejected.
+- Fixed `melodic add testing` modifying `package.json` before failing; it now scaffolds a
+  component test using `@melodicdev/core/testing`.
+- `--path` / `--dir` can no longer write outside the project through a symlink.
+- `init` and `add` refuse `--dry-run` instead of ignoring it, and warn that `--force` has
+  no effect there.
+- Templates no longer set `emitDecoratorMetadata`.
+
+### Repository
+
+- CI: Node 20/22/24 matrix, a headless-Chrome smoke job, a bundle-size check, and every
+  generator type-checked in the scaffold smoke test.
+- Added Dependabot config, `SECURITY.md`, coverage configuration (`npm run test:coverage`),
+  `npm run size`, and a tracked `web/benchmark/bundle-size.json`.
+- Removed the incorrect "2.87 kB / smallest framework" claim.
+
+### Behaviour changes (Unreleased)
+
+- **HTTP:** client-level `defaultHeaders` and `credentials` reach only the `baseURL` origin
+  and the page origin. Opt back in with `allowCrossOriginDefaults: true`.
+- **Forms:** `setValue` / `patchValue` write to disabled controls (was a silent no-op).
+- **Router:** `onRouteChange` also fires on query-only changes; `navigate('about')` means
+  `/about`; `redirectTo` carries the query string and fragment.
+- **Templates:** bindings on an element commit in source order; component CSS is used
+  verbatim.
+- **Components:** properties bound from a parent now reach signal and function fields.
+- **`ml-select` / `ml-autocomplete`:** turning `multiple` on carries `value` into `values`;
+  in single mode `values = []` no longer clears `value`.
+- **`ml-table`:** `role="grid"` removed; string sorting is natural-order.
+- **`ml-calendar`:** Home / End move to the ends of the week, not the month.
+- **CLI:** `init` / `add` error on `--dry-run`.
+
 ## 4.0.1
 
 ### @melodicdev/core
