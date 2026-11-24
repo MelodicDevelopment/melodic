@@ -136,6 +136,9 @@ export const colorTokens = {
 	'--ml-color-danger': 'var(--ml-red-600)',
 	'--ml-color-danger-hover': 'var(--ml-red-700)',
 	'--ml-color-danger-subtle': 'var(--ml-red-50)',
+	// Aliases of danger: the names several components and apps use for it
+	'--ml-color-error': 'var(--ml-color-danger)',
+	'--ml-color-error-subtle': 'var(--ml-color-danger-subtle)',
 
 	// Info
 	'--ml-color-info': 'var(--ml-cyan-600)',
@@ -148,12 +151,20 @@ export const colorTokens = {
 	'--ml-color-surface-raised': 'var(--ml-gray-50)',
 	'--ml-color-surface-overlay': 'var(--ml-white)',
 	'--ml-color-surface-sunken': 'var(--ml-gray-100)',
+	// Aliases: hover / secondary / bg-secondary follow surface-raised, tertiary follows surface-sunken
+	'--ml-color-surface-hover': 'var(--ml-color-surface-raised)',
+	'--ml-color-surface-secondary': 'var(--ml-color-surface-raised)',
+	'--ml-color-surface-tertiary': 'var(--ml-color-surface-sunken)',
+	'--ml-color-bg-secondary': 'var(--ml-color-surface-raised)',
 
 	// Text colors
 	'--ml-color-text': 'var(--ml-gray-900)',
 	'--ml-color-text-secondary': 'var(--ml-gray-700)',
 	'--ml-color-text-muted': 'var(--ml-gray-500)',
 	'--ml-color-text-subtle': 'var(--ml-gray-400)',
+	// Aliases: tertiary follows text-muted, disabled follows text-subtle
+	'--ml-color-text-tertiary': 'var(--ml-color-text-muted)',
+	'--ml-color-text-disabled': 'var(--ml-color-text-subtle)',
 	'--ml-color-text-inverse': 'var(--ml-white)',
 	'--ml-color-text-link': 'var(--ml-blue-600)',
 	'--ml-color-text-link-hover': 'var(--ml-blue-700)',

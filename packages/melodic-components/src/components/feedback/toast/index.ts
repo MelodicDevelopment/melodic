@@ -1,4 +1,5 @@
 export { ToastService } from './toast.service.js';
+export type { IToastRef } from './toast.service.js';
 export type { IToastConfig, ToastVariant, ToastPosition } from './toast-config.interface.js';
 
 export { ToastComponent } from './toast.component.js';

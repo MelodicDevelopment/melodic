@@ -78,7 +78,7 @@ export class SliderComponent implements IElementRef {
 		// Derive it from the same token that sizes the thumb so themed thumb
 		// sizes keep the fill aligned.
 		const p = this.ratio;
-		return `calc(${p * 100}% + ${0.5 - p} * var(--ml-slider-thumb-size))`;
+		return `calc(${p * 100}% + ${0.5 - p} * var(--ml-slider-thumb-size, 20px))`;
 	}
 
 	public handleInput = (event: Event): void => {

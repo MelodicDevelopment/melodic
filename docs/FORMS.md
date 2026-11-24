@@ -28,7 +28,7 @@ const form = createFormGroup({
 });
 ```
 
-A component that holds an `AbstractControl` (FormControl, FormGroup, FormArray) as a property is **automatically subscribed** to its `state` signal — no manual `SignalEffect` wiring required. When any part of the form changes (value, dirty, touched, errors, child controls), the component re-renders.
+A component that holds an `AbstractControl` (FormControl, FormGroup, FormArray) as a property is **automatically subscribed** to its `value` and `state` signals — no manual `SignalEffect` wiring required. When any part of the form changes (value, dirty, touched, errors, child controls), the component re-renders.
 
 ## AbstractControl
 
@@ -75,6 +75,10 @@ username.markAsTouched();     // also re-validates when updateOn is 'blur'
 - `'change'` (default) — on every input event
 - `'blur'` — when the field loses focus
 - `'submit'` — when the enclosing `<form>` is submitted
+
+With `'blur'` and `'submit'` the write and `markAsDirty()` happen only if the value actually
+changed, so tabbing through a field does not dirty it. For `'submit'` the `<form>` is looked
+up again once the element is attached, so it may sit outside the control's own template.
 
 A **programmatic** `setValue` always validates, whatever `updateOn` says: application code
 that sets a value gets a validated control back. On a `FormGroup` or `FormArray`,
@@ -180,7 +184,7 @@ An async validator that **rejects** (a failed lookup, for example) does not leav
 
 ## Messages
 
-Messages live in three layers:
+Messages live in four layers:
 
 1. **Per-control overrides** via `messages: { code: string | (params) => string }` in `ControlOptions`.
 2. **Parent chain** — message overrides on a parent group/array apply to its descendants.
@@ -284,9 +288,9 @@ The component re-renders automatically on any form state change. Errors appear u
 
 ### Lifecycle
 
-Controls created inside a component scope (template render, `onCreate`, or a class-field initializer like `readonly form = createFormGroup(...)`) auto-register with the host component and are destroyed on `disconnectedCallback`. You don't need to call `this.form.destroy()` from `onDestroy()` — it happens for you.
+Controls created inside a component scope (template render, `onCreate`, or a class-field initializer like `readonly form = createFormGroup(...)`) auto-register with the host component and are destroyed when the component is permanently removed (teardown is deferred one microtask after disconnect; a reconnect cancels it). You don't need to call `this.form.destroy()` from `onDestroy()` — it happens for you.
 
-`AbstractControl.destroy()` is idempotent and recursive: it cleans up internal signals and (for groups/arrays) destroys all child controls. Calling it manually before disconnect is still supported and safe; the auto-destroy at disconnect becomes a no-op.
+`AbstractControl.destroy()` is idempotent and recursive: it cleans up internal signals and (for groups/arrays) destroys all child controls. Calling it manually before the component is removed is still supported and safe; the auto-destroy at teardown becomes a no-op.
 
 If you create a control **outside** any active component (e.g., in a shared service that outlives any one component), no auto-registration happens — the caller owns the lifetime and must call `.destroy()` explicitly when done.
 

@@ -11,6 +11,7 @@ Melodic includes a small, promise-based HTTP client with interceptors, request d
 - [Interceptors](#interceptors)
 - [Cancellation](#cancellation)
 - [Provider Integration](#provider-integration)
+- [Error bodies that are not JSON](#error-bodies-that-are-not-json)
 
 ## Overview
 
@@ -64,6 +65,8 @@ await http.delete(`/users/${created.data.id}`);
 
 Each method returns an `IHttpResponse<T>` with `data`, `status`, `headers`, and the original request config.
 
+A plain object or array body is JSON-stringified, and `Content-Type: application/json` is added unless a `Content-Type` header is already set. Strings, `FormData`, `Blob`, `ArrayBuffer`, `URLSearchParams` and `ReadableStream` are passed to `fetch` unchanged, and typed arrays and `DataView` are sent as binary like an `ArrayBuffer`. For a `FormData` body the `Content-Type` header is removed so the browser can set the multipart boundary.
+
 ## Request Config
 
 All request methods accept an optional config object:
@@ -80,11 +83,13 @@ Supported config options include:
 
 - `headers`: request headers
 - `params`: query params (merged into the URL)
-- `body`: request body for `post`, `put`, `patch`
-- `deduplicate`: when `true` (the default for `GET`), identical inflight requests share one fetch and one interceptor pass. Two requests are identical only when their method, URL, query `params`, `headers` (case-insensitive names, any order), `credentials`, `mode` and body all match — a request carrying a different `Authorization` header is never merged with another
+- `body`: request body for `delete`. `post`, `put` and `patch` take the body as their second argument and ignore this option
+- `deduplicate`: when `true` (the default for `GET`), identical inflight requests share one fetch and one interceptor pass. Two requests are identical only when their method, URL, query `params`, `headers` (case-insensitive names, any order), `credentials`, `mode`, `responseType` and body all match — a request carrying a different `Authorization` header is never merged with another
 - `onProgress`: receive progress updates (if the browser provides them)
 - `responseType`: `'json' | 'text' | 'blob' | 'arrayBuffer'` — decode the body as this type instead of inferring it from `content-type`. By default any JSON content type (`application/json`, `application/problem+json`, `application/vnd.api+json`, …) is parsed, `text/*` is returned as a string, and a known binary type (images, audio, video, fonts, PDF, zip, octet-stream) as a `Blob`; anything else is read as text, so pass `responseType: 'blob'` for downloads such as spreadsheets
-- `abortController`: supply your own `AbortController`
+- `signal`: an `AbortSignal` that aborts the request (`controller.signal`, `AbortSignal.timeout(…)`); combined with `timeout`
+- `timeout`: abort the request after this many milliseconds; the request rejects with `AbortError`
+- `abortController`: **deprecated** — pass `signal` (`controller.signal`) instead. Still honored
 - `credentials` / `mode`: forwarded to `fetch`
 - `cancel`: manual cancellation flag
 
@@ -120,13 +125,13 @@ A response interceptor may define an optional `error(error, context)` handler. I
 `context` provides:
 
 - `retryCount` — retries already attempted for this request (0 on first failure).
-- `retry()` — a one-shot function that re-issues the original request (re-running request interceptors, so token-refresh flows work). Throws if called twice in one handler, or once `MAX_RETRIES` (3) is reached.
+- `retry()` — a one-shot function that re-issues the original request (re-running request interceptors, so token-refresh flows work). Only one retry may be issued per error pass, across all interceptors — a second call throws — and it also throws once `MAX_RETRIES` (3) is reached.
 
 **Recovery semantics:**
 
 - Return an `IHttpResponse` to recover — the remaining response interceptors run on it.
-- Reject (or resolve `void`) to defer to the next interceptor's `error()`.
-- If no handler recovers, the original error is rethrown to the caller.
+- Reject (or resolve `void`) to defer to the next interceptor's `error()`. Once a handler has called `retry()`, no later `error()` handler runs: the pass ends with that handler's response, or with the current error.
+- An error thrown by a handler replaces the one being propagated, so "catch `HttpError`, throw a domain error" works. If no handler recovers, the last error thrown — the original, or one a handler threw in its place — reaches the caller.
 
 For a deduplicated request the error handlers run **once for the shared request**, like
 `intercept()` does — three callers sharing one `401` trigger one refresh and one `retry()`,
@@ -160,14 +165,28 @@ const cancel: IRequestCancellation = {
 const response = await http.get('/slow', { cancel });
 ```
 
-For active requests, pass a shared `AbortController` and call `abort()`.
+A request cancelled this way does not reject and makes no fetch: it resolves with a response
+whose `status` is `0`, `statusText` is `'Request Cancelled'` and `data` is `null`. Set
+`cancel.cancelledResponse` to supply your own values for those fields.
+
+For active requests, pass an `AbortController`'s `signal` and call `abort()`. The request
+rejects with `AbortError`.
 
 ```typescript
 const controller = new AbortController();
 
-const promise = http.get('/slow', { abortController: controller });
+const promise = http.get('/slow', { signal: controller.signal });
 controller.abort();
 ```
+
+To give up after a fixed time, pass `timeout` in milliseconds; it also rejects with
+`AbortError`.
+
+```typescript
+await http.get('/slow', { timeout: 5000 });
+```
+
+The `abortController` option is deprecated; pass `signal: controller.signal` instead.
 
 ## Provider Integration
 

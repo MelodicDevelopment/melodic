@@ -2,7 +2,7 @@ declare const __ML_COMPONENTS_VERSION__: string;
 
 import { MelodicComponent, Service, html } from '@melodicdev/core';
 import type { IElementRef } from '@melodicdev/core';
-import { DialogService, ToastService, type UniqueID, type ThemeMode, type SelectOption, type AutocompleteOption, type AutocompleteSearchFn } from '@melodicdev/components';
+import { DialogService, ToastService, type ThemeMode, type SelectOption, type AutocompleteOption, type AutocompleteSearchFn } from '@melodicdev/components';
 import type { TableColumn } from '@melodicdev/components/table';
 import type { DataGridColumn } from '@melodicdev/components/data-grid';
 import type { StepConfig } from '@melodicdev/components/steps';
@@ -122,12 +122,12 @@ export class DemoApp implements IElementRef {
 		return allOptions.filter((o) => o.label.toLowerCase().includes(q) || (o.subtitle?.toLowerCase().includes(q) ?? false));
 	};
 
-	openDialog(dialogID: UniqueID | string): void {
-		this._dialogService.open(dialogID as UniqueID);
+	openDialog(dialogID: string): void {
+		this._dialogService.open(dialogID);
 	}
 
-	closeDialog(dialogID: UniqueID | string): void {
-		this._dialogService.close(dialogID as UniqueID);
+	closeDialog(dialogID: string): void {
+		this._dialogService.close(dialogID);
 	}
 
 	handleConfirmResult = (event: CustomEvent): void => {

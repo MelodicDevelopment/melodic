@@ -20,6 +20,10 @@ export const transitionTokens = {
 	'--ml-ease-in-out': 'cubic-bezier(0.4, 0, 0.2, 1)',
 	'--ml-ease-bounce': 'cubic-bezier(0.68, -0.55, 0.265, 1.55)',
 
+	// Duration + easing with no property, for per-property lists:
+	// transition: transform var(--ml-transition-normal), opacity var(--ml-transition-normal)
+	'--ml-transition-normal': 'var(--ml-duration-200) var(--ml-ease-in-out)',
+
 	// Common transition presets
 	'--ml-transition-none': 'none',
 	'--ml-transition-all': 'all var(--ml-duration-150) var(--ml-ease-in-out)',

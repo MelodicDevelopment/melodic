@@ -108,12 +108,19 @@ describe('generated identifiers (review item 11)', () => {
 		expect(await read('src/directives/delete-item.directive.ts')).toContain('export const deleteItem =');
 	});
 
-	it('rejects leading, trailing and doubled hyphens', () => {
+	it('rejects leading and trailing hyphens', () => {
 		expect(() => validateName('new-', 'Name')).toThrow(/invalid/);
 		expect(() => validateName('-card', 'Name')).toThrow(/invalid/);
 		expect(() => validateName('user-card-', 'Name')).toThrow(/invalid/);
 		expect(validateName('user-card2', 'Name')).toBe('user-card2');
 		expect(validateName('a', 'Name')).toBe('a');
+	});
+
+	it('collapses a run of hyphens, underscores or spaces into one hyphen', () => {
+		// Kebab-casing runs before the pattern check, so these are accepted, not rejected.
+		expect(validateName('user--card', 'Name')).toBe('user-card');
+		expect(validateName('user__card', 'Name')).toBe('user-card');
+		expect(validateName('user  card', 'Name')).toBe('user-card');
 	});
 });
 
@@ -250,6 +257,16 @@ describe('overwrite and path safety (review item 13)', () => {
 			expect(process.exitCode).toBe(1);
 			expect(error.mock.calls.flat().join(' ')).toMatch(/--dry-run is only supported by "melodic generate"/);
 			expect(await exists('my-app')).toBe(false);
+		});
+
+		it('names all four subcommands when add is given none', async () => {
+			const error = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+			await run(['add']);
+			expect(process.exitCode).toBe(1);
+			const message = error.mock.calls.flat().join(' ');
+			expect(message).toMatch(/add <app\|lib> <name>/);
+			expect(message).toMatch(/add config/);
+			expect(message).toMatch(/add testing/);
 		});
 
 		it('refuses --dry-run on add before touching package.json', async () => {

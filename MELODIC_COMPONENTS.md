@@ -1,6 +1,6 @@
 # Melodic Components Library — Complete Reference
 
-> Reference for `@melodicdev/components`, checked against source. It reflects 4.0.1 plus the unreleased changes on the current branch. Covers every component, prop, event, slot and design token, plus the key CSS custom properties of each component — the complete token list for a component is the comment block at the top of its styles source file.
+> Reference for `@melodicdev/components`, checked against source. It reflects 4.1.0. Covers every component, prop, event, slot and design token, plus the key CSS custom properties of each component — the complete token list for a component is the comment block at the top of its styles source file.
 
 ---
 
@@ -358,6 +358,8 @@ Semantic tokens reference primitives via `var()` and change between light/dark t
 | `--ml-color-danger` | `var(--ml-red-600)` | `var(--ml-red-500)` |
 | `--ml-color-danger-hover` | `var(--ml-red-700)` | _(unchanged)_ |
 | `--ml-color-danger-subtle` | `var(--ml-red-50)` | `var(--ml-red-950)` |
+| `--ml-color-error` | `var(--ml-color-danger)` | _(follows danger)_ |
+| `--ml-color-error-subtle` | `var(--ml-color-danger-subtle)` | _(follows danger-subtle)_ |
 | `--ml-color-info` | `var(--ml-cyan-600)` | `var(--ml-cyan-400)` |
 | `--ml-color-info-hover` | `var(--ml-cyan-700)` | _(unchanged)_ |
 | `--ml-color-info-subtle` | `var(--ml-cyan-50)` | `var(--ml-cyan-950)` |
@@ -371,6 +373,10 @@ Semantic tokens reference primitives via `var()` and change between light/dark t
 | `--ml-color-surface-raised` | `var(--ml-gray-50)` | `var(--ml-gray-800)` |
 | `--ml-color-surface-overlay` | `var(--ml-white)` | `var(--ml-gray-800)` |
 | `--ml-color-surface-sunken` | `var(--ml-gray-100)` | `var(--ml-gray-950)` |
+| `--ml-color-surface-hover` | `var(--ml-color-surface-raised)` | _(follows surface-raised)_ |
+| `--ml-color-surface-secondary` | `var(--ml-color-surface-raised)` | _(follows surface-raised)_ |
+| `--ml-color-bg-secondary` | `var(--ml-color-surface-raised)` | _(follows surface-raised)_ |
+| `--ml-color-surface-tertiary` | `var(--ml-color-surface-sunken)` | _(follows surface-sunken)_ |
 
 #### Text Colors
 
@@ -380,9 +386,20 @@ Semantic tokens reference primitives via `var()` and change between light/dark t
 | `--ml-color-text-secondary` | `var(--ml-gray-700)` | `var(--ml-gray-300)` |
 | `--ml-color-text-muted` | `var(--ml-gray-500)` | `var(--ml-gray-400)` |
 | `--ml-color-text-subtle` | `var(--ml-gray-400)` | `var(--ml-gray-500)` |
+| `--ml-color-text-tertiary` | `var(--ml-color-text-muted)` | _(follows text-muted)_ |
+| `--ml-color-text-disabled` | `var(--ml-color-text-subtle)` | _(follows text-subtle)_ |
 | `--ml-color-text-inverse` | `var(--ml-white)` | `var(--ml-gray-900)` |
 | `--ml-color-text-link` | `var(--ml-blue-600)` | _(unchanged)_ |
 | `--ml-color-text-link-hover` | `var(--ml-blue-700)` | _(unchanged)_ |
+
+**Alias tokens.** `--ml-color-error`, `--ml-color-error-subtle`, `--ml-color-surface-hover`,
+`--ml-color-surface-secondary`, `--ml-color-bg-secondary`, `--ml-color-surface-tertiary`,
+`--ml-color-text-tertiary` and `--ml-color-text-disabled` (plus `--ml-font-regular` and
+`--ml-transition-normal` below) are aliases: each takes its value from the token shown. Several
+component stylesheets and many apps read these names; before 4.1.0 the theme never defined
+them, so every rule that ended in one silently did nothing. A theme that sets an alias directly
+keeps its own value. The dark and light presets restate the colour aliases, so a
+`[data-theme]` set on a subtree resolves them against that subtree's colours.
 
 #### Border Colors
 
@@ -541,6 +558,7 @@ Semantic tokens reference primitives via `var()` and change between light/dark t
 | `--ml-font-extralight` | `200` |
 | `--ml-font-light` | `300` |
 | `--ml-font-normal` | `400` |
+| `--ml-font-regular` | `var(--ml-font-normal)` (alias) |
 | `--ml-font-medium` | `500` |
 | `--ml-font-semibold` | `600` |
 | `--ml-font-bold` | `700` |
@@ -678,6 +696,7 @@ Semantic tokens reference primitives via `var()` and change between light/dark t
 
 | Token | Value |
 |-------|-------|
+| `--ml-transition-normal` | `var(--ml-duration-200) var(--ml-ease-in-out)` — duration and easing with no property, for per-property lists: `transition: transform var(--ml-transition-normal), opacity var(--ml-transition-normal)` |
 | `--ml-transition-none` | `none` |
 | `--ml-transition-all` | `all var(--ml-duration-150) var(--ml-ease-in-out)` |
 | `--ml-transition-colors` | `color var(--ml-duration-150) var(--ml-ease-in-out), background-color var(--ml-duration-150) var(--ml-ease-in-out), border-color var(--ml-duration-150) var(--ml-ease-in-out)` |
@@ -2960,7 +2979,7 @@ Props: `value` (must match the tab's `value`)
 
 #### Props
 
-`separator` (`'chevron'` | `'slash'`, default `'chevron'`)
+`separator` (`'chevron'` | `'slash'`, default `'chevron'`) — `'chevron'` renders a caret icon, `'slash'` a text `/`. Items read it once, when they are created.
 
 **Slots:** (default) — `ml-breadcrumb-item` children
 
@@ -3236,9 +3255,9 @@ const ref = this._dialogService.open(MyDialogComponent, {
 const off = ref?.afterClosed((result) => { /* ... */ });
 
 // Open an inline dialog by id: <ml-dialog #confirmDialog>…</ml-dialog>
-// The id parameter is the branded UniqueID type (from '@melodicdev/components/functions').
-this._dialogService.open('confirmDialog' as UniqueID);
-this._dialogService.close('confirmDialog' as UniqueID, result);
+// The id is a plain string (a DialogRef.dialogID works too); no cast is needed.
+this._dialogService.open('confirmDialog');
+this._dialogService.close('confirmDialog', result);
 ```
 
 The inline id is the name of the `#`-prefixed attribute on `<ml-dialog>` **without** the `#`; a dialog without one gets a generated id.
@@ -3759,14 +3778,14 @@ Composes `ml-app-shell` + `ml-page-header` internally.
 | Category | Count |
 |----------|-------|
 | Primitive colors (7 ramps × 12 + white/black) | 86 |
-| Semantic color tokens (incl. focus ring, badge, alert, tooltip, card footer) | 77 |
+| Semantic color tokens (incl. aliases, focus ring, badge, alert, tooltip, card footer) | 85 |
 | Spacing tokens | 35 |
-| Typography tokens | 37 |
+| Typography tokens | 38 |
 | Shadow tokens | 24 |
 | Border tokens | 17 |
-| Transition tokens | 20 |
+| Transition tokens | 21 |
 | Breakpoint tokens | 6 |
-| **Total design tokens** | **302** |
+| **Total design tokens** | **312** |
 
 | Category | Custom Elements |
 |----------|----------------|

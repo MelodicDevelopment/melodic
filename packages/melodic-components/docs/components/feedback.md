@@ -72,7 +72,7 @@ import '@melodicdev/components/progress';
 ```
 
 ```html
-<ml-progress value="65" label="Upload progress" showValue></ml-progress>
+<ml-progress value="65" label="Upload progress" show-value></ml-progress>
 <ml-progress value="100" variant="success" size="lg"></ml-progress>
 <ml-progress value="30" variant="warning"></ml-progress>
 ```
@@ -84,9 +84,9 @@ import '@melodicdev/components/progress';
 | `variant` | `'primary'` \| `'success'` \| `'warning'` \| `'error'` | `'primary'` | Color variant |
 | `size` | `'sm'` \| `'md'` \| `'lg'` | `'md'` | Bar height |
 | `label` | `string` | `''` | Optional text label |
-| `showValue` | `boolean` | `false` | Display percentage text |
+| `showValue` | `boolean` | `false` | Display percentage text (attribute: `show-value`) |
 | `shape` | `'linear'` \| `'circle'` \| `'half-circle'` | `'linear'` | Bar, ring, or gauge |
-| `labelPosition` | `'top'` \| `'right'` \| `'bottom'` \| `'floating-top'` \| `'floating-bottom'` \| `'none'` | `'top'` | Where the label sits relative to the track |
+| `labelPosition` | `'top'` \| `'right'` \| `'bottom'` \| `'floating-top'` \| `'floating-bottom'` \| `'none'` | `'top'` | Where the label sits relative to the track (attribute: `label-position`) |
 
 ```html
 <ml-progress value="40" shape="circle" show-value></ml-progress>

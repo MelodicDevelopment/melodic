@@ -8,6 +8,9 @@ that gives you a DOM.
 import { mount, flush, query, text, unmountAll } from '@melodicdev/core/testing';
 ```
 
+In a project made with the CLI, `melodic add testing` installs Vitest and happy-dom and
+writes a first test that uses these helpers.
+
 ## Why these helpers exist
 
 Two things about Melodic are easy to get wrong by hand:
@@ -184,7 +187,7 @@ scripts close that gap by driving headless Chrome over the DevTools Protocol.
 ```bash
 npm run smoke:apps      # build the example + demo, then exercise them in a browser
 npm run smoke:bundle    # assert the dev/prod bundle split is real
-npm run smoke:cdn -- 4.0.0   # after publishing: the esm.sh module graph
+npm run smoke:cdn       # after publishing: the esm.sh module graph (defaults to the package.json version)
 ```
 
 ### `smoke:apps`

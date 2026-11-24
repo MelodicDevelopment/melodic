@@ -8,12 +8,17 @@ The Melodic component system provides a decorator-based approach for creating we
 - [Creating a Component](#creating-a-component)
 - [The @MelodicComponent Decorator](#the-melodiccomponent-decorator)
 - [Component Metadata](#component-metadata)
+- [Separating Templates and Styles](#separating-templates-and-styles)
 - [Lifecycle Hooks](#lifecycle-hooks)
 - [Property Reactivity](#property-reactivity)
 - [Accessing the Host Element](#accessing-the-host-element)
 - [Attributes](#attributes)
 - [Complete Example](#complete-example)
 - [Content Projection (Slots)](#content-projection-slots)
+- [Emitting Events](#emitting-events)
+- [Re-rendering](#re-rendering)
+- [Property naming](#property-naming)
+- [Testing components](#testing-components)
 
 ## Overview
 
@@ -260,10 +265,10 @@ export class UserProfileComponent {
 ### `attributes` (optional)
 
 ```typescript
-attributes?: string[]
+attributes?: string[] | Record<string, AttributeType>   // AttributeType = 'boolean' | 'number' | 'string'
 ```
 
-List of HTML attributes to observe. When these attributes change, `attributeChangedCallback` fires and the component re-renders.
+HTML attributes to observe: a list of names, or a map that also declares each attribute's type (`{ open: 'boolean', offset: 'number' }` — see [Attribute → property coercion](#attribute--property-coercion)). When these attributes change, `attributeChangedCallback` fires and the component re-renders.
 
 ```typescript
 @MelodicComponent({
@@ -425,6 +430,9 @@ export class MyComponent {
 
 `onDestroy` runs **before** disposables registered with the host component are destroyed, so you can still read signals (`form.value()`, computeds returned by `select()`, etc.) inside the hook.
 
+- **Re-attaching after teardown revives the element.** An element attached again after its teardown ran gets its template, handlers and field subscriptions back, and `onConnect` fires; `onCreate` does not run again and `onDestroy` still fires only once per component. The computeds, effects, form controls and store selections it owned were destroyed and are not recreated — reading one throws — so dev mode warns (`reconnect-after-destroy`), naming the element. Prefer creating a new element.
+- **Moving to another document keeps styles.** `adoptedCallback` rebuilds the component and global stylesheets for the new document (an iframe, a new window), falling back to a `<style>` element where that document cannot construct sheets.
+
 ### Registering Disposables
 
 Anything resembling `{ destroy(): void }` can be tied to the component's lifetime:
@@ -490,16 +498,16 @@ Component properties are automatically made reactive. When a property value chan
 ### How It Works
 
 1. During initialization, `ComponentBase.observe()` wraps each property with getters/setters
-2. When a setter is called with a new value, it triggers `render()`
-3. The template function is called with the updated component state
+2. When a setter is called with a new value, it schedules a render in a microtask, so several writes in a row produce one render
+3. When that render runs, the template function is called with the updated component state
 
 ### What Gets Observed
 
 Properties are observed **unless** they are:
 
 - **Private** (start with `_`) - Skipped for internal state
-- **Functions** - Methods are not observed
-- **Signals** - Handled separately via subscriptions
+- **Functions** - Not wrapped as reactive data; a function-valued field can still be set by a parent (see [Binding From a Parent](#binding-from-a-parent))
+- **Signals and form controls** - Not wrapped either; the component subscribes to them instead, and a parent can still bind to the field
 - **`elementRef`** - Reserved property for host element access
 
 ```typescript
@@ -521,6 +529,22 @@ export class MyComponent {
     title = signal('Hello');
 }
 ```
+
+### Binding From a Parent
+
+Not being observed does not put a field out of a parent's reach. Function-valued fields (`formatter = (x) => x`), signal and form-control fields, and every observed-attribute property (even one with no initializer) are exposed on the host element as passthroughs, so a parent's `.prop=${value}` reaches them. Prototype methods stay off the host.
+
+A write to a passthrough is ignored when the value is unchanged (`Object.is`); otherwise:
+
+| Field holds | Value bound | Result |
+|-------------|-------------|--------|
+| a signal | a plain value | `signal.set(value)` — the signal itself is kept. A read-only signal (a `computed`) ignores the write with a dev warning (`host-write-readonly`) |
+| a signal | another signal | The field is replaced by the bound signal |
+| a form control | another `AbstractControl` | The field is replaced by the bound control |
+| a form control | anything else | Ignored, with a dev warning (`host-write-control`) |
+| a function, or an observed-attribute property | anything | Assigned to the field; a render is scheduled |
+
+A value bound to a property the component does not declare at all — typically a field with no initializer that is not an observed attribute — never reaches the component. Dev mode reports it (`unknown-prop`); give the field an initializer (`= undefined` is enough) or list it in `attributes`.
 
 ### Preserving Custom Getters/Setters
 
@@ -581,9 +605,9 @@ export class ThemeToggle {
 ### Attribute to Property Sync
 
 When an attribute changes:
-1. If a property with the same name exists, it's updated
-2. The component re-renders
-3. `onAttributeChange` is called (if defined)
+1. The value is coerced (see [Attribute → property coercion](#attribute--property-coercion)) and compared with the matching camelCase property (`user-id` → `userId`)
+2. If the coerced value differs, the property is updated and a render is scheduled in a microtask; an equal value changes nothing and does not render
+3. `onAttributeChange` is called (if defined), synchronously — before that render runs, and whether or not the value changed
 
 **HTML:**
 ```html
@@ -605,7 +629,7 @@ template: (self: MyComponent, attrs) => html`
 ## Complete Example
 
 ```typescript
-import { MelodicComponent, html, css } from '@melodicdev/core';
+import { MelodicComponent, html, css, emit } from '@melodicdev/core';
 
 @MelodicComponent({
     selector: 'todo-item',

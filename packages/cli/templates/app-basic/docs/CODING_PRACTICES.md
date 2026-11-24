@@ -404,14 +404,11 @@ if (!config.endpoint) {
 
 ## Testing Expectations
 
-- Add a focused demo in `web/example/` when behavior needs manual coverage.
-- Run relevant dev flows (`npm run dev`, `npm run benchmark`) when changing runtime behavior.
-
-Example:
-
-```sh
-web/example/components/new-feature-demo/
-```
+- Add a test setup with `melodic add testing` (Vitest + happy-dom), then run it with
+  `npm run test:unit`.
+- Mount components with `mount()` and wait for renders with `flush()` from
+  `@melodicdev/core/testing` rather than hand-rolling them.
+- Run `npm run dev` and exercise the change in a browser when it affects runtime behavior.
 
 ## Performance & DX
 

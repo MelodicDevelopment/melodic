@@ -36,9 +36,9 @@ melodic/
 
 | Package | Version | Description |
 |---------|---------|-------------|
-| `@melodicdev/core` | 4.0.1 | Core framework |
-| `@melodicdev/components` | 4.0.1 | Themeable UI component library |
-| `@melodicdev/cli` | 4.0.0 | CLI scaffolding tool |
+| `@melodicdev/core` | 4.1.0 | Core framework |
+| `@melodicdev/components` | 4.1.0 | Themeable UI component library |
+| `@melodicdev/cli` | 4.1.0 | CLI scaffolding tool |
 
 ## Build Commands
 
@@ -100,7 +100,7 @@ export class MyComponent {
 - `onDestroy()` - Permanent removal (deferred teardown; a reconnect cancels it)
 - `onAttributeChange(name, oldVal, newVal)` - Observed attribute changes
 - `onPropertyChange(name, oldVal, newVal)` - Before property changes
-- `onRouteChange(change)` - Routed component whose params changed while mounted
+- `onRouteChange(change)` - Routed component whose params, query string or resolved data changed while mounted
 
 Hooks are **not** signal-tracked: reads there belong to your code, not the render.
 
@@ -147,10 +147,11 @@ import { signal, computed, effect, untracked } from '@melodicdev/core/signals';
 const count = signal(0);
 const doubled = computed(() => count() * 2); // lazy + read-only: .set()/.update() throw
 
-const effect = new SignalEffect(() => {
+// Runs immediately, then again whenever a signal it read changes. Created in a
+// component it is destroyed with that component; elsewhere call ref.destroy().
+const ref = effect(() => {
   console.log('Count:', count());
 });
-effect.run();
 
 count.set(5);        // Triggers effect
 count.update(n => n + 1);
@@ -161,7 +162,7 @@ count.update(n => n + 1);
 Client-side routing with guards and resolvers:
 
 ```typescript
-import { RouterService, RouterOutlet, RouterLink, provideRouter } from '@melodicdev/core/routing';
+import { RouterService, RouterOutletComponent, RouterLinkComponent, provideRouter } from '@melodicdev/core/routing';
 // Register via bootstrap: providers: [provideRouter()] — installs history events idempotently.
 // The full match→guards→resolvers→commit pipeline runs in RouterService (incl. popstate);
 // outlets render the committed route.
@@ -174,8 +175,10 @@ const routes: IRoute[] = [
   { path: '**', component: 'not-found-page' }
 ];
 
-// Navigation
+// Navigation. Paths are root-relative: navigate('about') means '/about'. It never
+// rejects — check result.success (a URL on another origin resolves success: false).
 router.navigate('/users/123', { scrollToTop: true });
+// A route's `redirectTo` keeps the query string and fragment.
 
 // Reactive route state (signals): params, queryParams, resolvedData, events.
 // Reading router.params() in a template re-renders on /users/1 → /users/2,
@@ -184,7 +187,7 @@ router.navigate('/users/123', { scrollToTop: true });
 
 ### Forms System (`src/forms/`)
 
-Reactive forms built on a single `AbstractControl` base. Concrete classes: `FormControl`, `FormGroup`, `FormArray`. Components that hold an `AbstractControl` field auto-subscribe to its `state` signal — no manual `SignalEffect` wiring.
+Reactive forms built on a single `AbstractControl` base. Concrete classes: `FormControl`, `FormGroup`, `FormArray`. Components that hold an `AbstractControl` field auto-subscribe to its `value` and `state` signals — no manual `SignalEffect` wiring.
 
 ```typescript
 import { createFormControl, createFormGroup, Validators } from '@melodicdev/core/forms';
@@ -201,8 +204,8 @@ form.errors();   // group-level validation errors (Signal)
 
 Bind controls to elements with `:formControl`, or bind a bare signal two-way with
 `:model=${this.query}`. Disabled controls are excluded from validity as well as from
-`value()`. `updateOn` governs when the VIEW writes to the model; a programmatic `setValue`
-always validates. Validator messages auto-populate the `error` attribute on form components
+`value()`, but `setValue` / `patchValue` still write to them. `updateOn` governs when the
+VIEW writes to the model; a programmatic `setValue` always validates. Validator messages auto-populate the `error` attribute on form components
 when touched + invalid:
 
 ```typescript
@@ -233,6 +236,10 @@ await bootstrap({
 const response = await this._http.get<User[]>('/users');
 const users = response.data;
 ```
+
+`defaultHeaders` and `credentials` set on the client are sent only to the `baseURL` origin
+and the page origin; `allowCrossOriginDefaults: true` sends them everywhere. Per-request
+options: `signal`, `timeout`, `responseType` (`'json' | 'text' | 'blob' | 'arrayBuffer'`).
 
 ### Dependency Injection (`src/injection/`)
 
@@ -324,7 +331,7 @@ import { breakpoints, colorTokens, allTokens, tokensToCss } from '@melodicdev/co
 
 ### Available Components
 
-**Forms:** `ml-button`, `ml-button-group`, `ml-input`, `ml-textarea`, `ml-checkbox`, `ml-radio`, `ml-radio-group`, `ml-radio-card-group`, `ml-toggle`, `ml-select`, `ml-autocomplete`, `ml-slider`, `ml-date-picker`, `ml-time-picker`, `ml-file-upload`, `ml-form-field`
+**Forms:** `ml-button`, `ml-button-group`, `ml-input`, `ml-textarea`, `ml-checkbox`, `ml-radio`, `ml-radio-group`, `ml-radio-card-group`, `ml-toggle`, `ml-select`, `ml-autocomplete`, `ml-slider`, `ml-date-picker`, `ml-time-picker`, `ml-date-time-picker`, `ml-file-upload`, `ml-form-field`
 
 **Pages:** `ml-login-page`, `ml-signup-page`, `ml-dashboard-page`
 
@@ -332,7 +339,7 @@ import { breakpoints, colorTokens, allTokens, tokensToCss } from '@melodicdev/co
 
 **Foundation:** `ml-card`, `ml-divider`, `ml-stack`, `ml-container`
 
-**Data Display:** `ml-avatar`, `ml-badge`, `ml-badge-group`, `ml-tag`, `ml-list`, `ml-list-item`, `ml-activity-feed`, `ml-activity-item`, `ml-table`, `ml-data-grid`, `ml-calendar-view`, `ml-stat-card`, `ml-profile-card`
+**Data Display:** `ml-avatar`, `ml-badge`, `ml-badge-group`, `ml-tag`, `ml-list`, `ml-list-item`, `ml-activity-feed`, `ml-activity-feed-item`, `ml-table`, `ml-data-grid`, `ml-calendar-view`, `ml-stat-card`, `ml-profile-card`
 
 **Navigation:** `ml-tabs`, `ml-tab`, `ml-tab-panel`, `ml-breadcrumb`, `ml-breadcrumb-item`, `ml-pagination`, `ml-sidebar`, `ml-sidebar-group`, `ml-sidebar-item`, `ml-steps`, `ml-step`, `ml-step-panel`
 
@@ -368,6 +375,8 @@ const css = createBrandTheme('brand', { primary: '#7c3aed', secondary: '#6b7280'
 ```
 
 **Token categories:** colors (semantic + primitive palette), typography, spacing (4px scale), shadows, borders/radius, breakpoints, transitions
+
+**Every global token a component reads must exist in the theme.** `tests/theme/undefined-tokens.test.ts` fails on a `var(--ml-x)` with no fallback whose token is defined nowhere. `--ml-color-error`, `--ml-color-surface-hover`, `--ml-color-text-tertiary` and seven others are aliases of the canonical tokens (`danger`, `surface-raised`, `text-muted`, …); prefer the canonical names in new code.
 
 **IMPORTANT:** `applyTheme` and named themes via `setAttribute` are mutually exclusive. Calling `applyTheme` after setting a custom `data-theme` will overwrite it.
 
@@ -474,7 +483,7 @@ Every component **must** expose component-scoped CSS custom properties for all v
 
 ```bash
 # Initialize new project
-melodic init <dir> [--monorepo] [--app-name]
+melodic init <dir> [--monorepo] [--app-name <name>]   # alias: create; --app-name defaults to `app`, monorepo only
 
 # Add to existing project
 melodic add app <name> [--dir apps]       # --dir may be nested (packages/apps)
@@ -496,8 +505,8 @@ melodic version
 ```
 
 - `--dry-run` and `--force` belong to `generate` only. `init`/`add` refuse `--dry-run` and warn on `--force`.
-- Names are kebab-cased and must match `^[a-z][a-z0-9]*(-[a-z0-9]+)*$`; `generate directive` also refuses JavaScript reserved words (`delete`, `new`, …).
-- `--path`/`--dir` must stay inside the project, including through symlinks.
+- Names are kebab-cased (runs of hyphens, underscores and spaces collapse to one hyphen) and must then match `^[a-z][a-z0-9]*(-[a-z0-9]+)*$`; `generate directive` also refuses JavaScript reserved words (`delete`, `new`, …).
+- `generate --path` and `add app|lib --dir` must stay inside the project, including through symlinks. `add config|testing --path` names the project directory to operate on, like `init <dir>`.
 - Every CLI change needs a test in `packages/cli/tests/`; CI also scaffolds real projects, runs every generator and type-checks the result.
 
 **Templates:** `app-basic`, `lib-basic`, `monorepo-basic`, `monorepo-app`
@@ -565,4 +574,4 @@ npm test
 - **Shadow DOM styling:** All components use Shadow DOM. External styles reach internals only via CSS custom properties (tokens). Override tokens on the host element or a parent selector.
 - **Virtual scroll layout:** When using the `virtual` attribute on `ml-table` or `ml-data-grid`, the parent must have a defined height. The host uses `:host([virtual]) { height: 100% }` so it fills that container via a flex column layout.
 - **`ml-list` virtual scrolling:** `ml-list` uses `<slot>` for composition and cannot support virtual scrolling — use `ml-table` or `ml-data-grid` for large virtualized datasets.
-- **Overlays:** Popover, dropdown, and tooltip use the Popover API + `computePosition`/`autoUpdate` from `utils/positioning/`. Import `Placement` type from `../../../types/index.js` in component files.
+- **Overlays:** Popover and dropdown use the Popover API + `computePosition`/`autoUpdate` from `utils/positioning/`; tooltip uses the same positioning but is a fixed-position element (`--ml-tooltip-z-index`), not a popover. Import `Placement` type from `../../../types/index.js` in component files.

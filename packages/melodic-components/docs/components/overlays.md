@@ -6,7 +6,7 @@
 - [ml-dropdown](#ml-dropdown)
 - [ml-tooltip](#ml-tooltip)
 
-All overlays use the [Popover API](https://developer.mozilla.org/en-US/docs/Web/API/Popover_API) or native `<dialog>` and `autoUpdate` positioning for robust scroll/resize handling.
+`ml-dialog` and `ml-drawer` use the native `<dialog>` element; `ml-popover` and `ml-dropdown` use the [Popover API](https://developer.mozilla.org/en-US/docs/Web/API/Popover_API). `ml-tooltip` uses neither: its popup is a fixed-position element stacked with `--ml-tooltip-z-index`. Popover, dropdown and tooltip all use `autoUpdate` positioning for robust scroll/resize handling.
 
 ---
 
@@ -49,20 +49,22 @@ using that name **without** the `#`. (A dialog with no `#name` gets a generated 
 
 ```ts
 import { DialogService } from '@melodicdev/components/dialog';
-import type { UniqueID } from '@melodicdev/components/functions';
 
 @Service(DialogService)
 private readonly _dialog!: DialogService;
 
-// The service's id parameter is the branded `UniqueID` type, so a plain string needs a cast.
+// The id is the name of the `#`-prefixed attribute on <ml-dialog>, without the `#`.
 openDialog(id: string): void {
-  this._dialog.open(id as UniqueID);
+  this._dialog.open(id);
 }
 
 closeDialog(id: string, result?: unknown): void {
-  this._dialog.close(id as UniqueID, result);
+  this._dialog.close(id, result);
 }
 ```
+
+The id is a plain string: `<ml-dialog #confirm>` opens with `open('confirm')` and closes with
+`close('confirm', result?)`.
 
 `open()` and `close(result?)` also exist on the component instance, not on the element:
 `dialogEl.component.open()`. Methods declared on a component's class are not mirrored onto
@@ -111,7 +113,7 @@ export class ConfirmationDialog implements IDialogRef {
 
 | Method | Description |
 |--------|-------------|
-| `open(idOrComponent, config?)` | Open by element ID or component class |
+| `open(idOrComponent, config?)` | Open by id (a plain string) or component class |
 | `close(id, result?)` | Close by ID; result is passed to `afterClosed` callbacks |
 
 **IDialogConfig:**
@@ -119,10 +121,10 @@ export class ConfirmationDialog implements IDialogRef {
 ```ts
 interface IDialogConfig<T = unknown> {
   data?: T;                // passed to the dynamic component
-  disableClose?: boolean;  // prevent backdrop-click close
+  disableClose?: boolean;  // prevent Escape and backdrop-click close
   panelClass?: string | string[];
   size?: 'sm' | 'md' | 'lg' | 'xl' | 'full' | 'auto' | 'custom';
-  width?: string;          // CSS width for 'custom' size
+  width?: string;          // sets max-width on the dialog, whatever the size
 }
 ```
 
@@ -132,13 +134,45 @@ interface IDialogConfig<T = unknown> {
 |--------|-------------|
 | `open()` | Open the dialog |
 | `close(result?)` | Close with an optional result |
-| `afterOpened(fn)` | Callback fired after the dialog opens |
-| `afterClosed(fn)` | Callback fired with the result after **every** close. Returns an unsubscribe function |
 | `afterOpened(fn)` | Callback fired after **every** open. Returns an unsubscribe function |
+| `afterClosed(fn)` | Callback fired with the result after **every** close, including Escape and backdrop dismissal. Returns an unsubscribe function |
+
+A `DialogRef` also exposes the read-only properties `dialogID`, `data` (the config's `data`) and `disableClose`.
 
 **Slots:** `dialog-header`, `default` (body), `dialog-footer`
 
 **Events:** `ml:open`, `ml:close` `{ result? }`
+
+### Dialog callbacks and inline dialogs
+
+`afterOpened` and `afterClosed` are persistent: one registration fires on every open/close
+cycle. A dialog opened through `DialogService` gets a fresh `DialogRef` each time, so there
+is nothing to clean up.
+
+An inline `<ml-dialog>` is different — it keeps **one** `DialogRef` for its lifetime. If you
+register a callback each time you open it, every previous registration is still attached and
+they all run:
+
+```typescript
+// Leaks: a new closure is attached on every open, and none are ever released.
+open(): void {
+	this.ref.afterClosed((result) => this.save(result));
+	this.ref.open();
+}
+```
+
+Either register once, outside the open path, or release the previous registration with the
+unsubscribe function:
+
+```typescript
+open(): void {
+	this._stop?.();
+	this._stop = this.ref.afterClosed((result) => this.save(result));
+	this.ref.open();
+}
+```
+
+Dev mode warns once a single dialog accumulates 20 callbacks.
 
 ---
 
@@ -166,7 +200,8 @@ import '@melodicdev/components/drawer';
 ```
 
 `open()` and `close()` are on the drawer's component instance, reached through the
-element's `component` property. The drawer lives in your component's shadow root:
+element's `component` property (`close()` can also be called on the element itself). The
+drawer lives in your component's shadow root:
 
 ```ts
 import type { DrawerComponent } from '@melodicdev/components/drawer';
@@ -184,18 +219,18 @@ openDrawer(): void {
 |----------|------|---------|-------------|
 | `side` | `'left'` \| `'right'` | `'right'` | Slide-in direction |
 | `size` | `'sm'` \| `'md'` \| `'lg'` \| `'xl'` | `'md'` | Panel width preset |
-| `showClose` | `boolean` | `true` | Show the built-in × close button |
+| `showClose` | `boolean` | `true` | Show the built-in × close button. Attribute: `show-close` (`show-close="false"` hides it) |
 | `label` | `string` | `''` | Accessible name (`aria-label`) for the drawer. Defaults to the content of the `drawer-header` slot |
 
-**Size presets:** sm = 320px, md = 448px, lg = 672px, xl = 896px
+**Size presets:** sm = 320px, md = 480px, lg = 640px, xl = 800px
 
 **Slots:** `drawer-header`, `default` (body), `drawer-footer`
 
-**Events:** `ml:open`, `ml:close`
+**Events:** `ml:open` (opening starts), `ml:opened` (slide-in animation finished), `ml:close` (closing starts), `ml:closed` (slide-out animation finished and the drawer is closed)
 
-**Methods:** `open()`, `close()`
+**Methods:** `open()` — reachable only through the component instance (`drawerEl.component.open()`); `close()` — works through `.component` and on the element itself (`drawerEl.close()`)
 
-Closes on backdrop click. Calling `open()` while the drawer is still sliding closed reopens it. The slide is skipped when the user has asked for reduced motion.
+Closes on backdrop click and on Escape. Calling `open()` while the drawer is still sliding closed reopens it. The slide is skipped when the user has asked for reduced motion.
 
 ---
 
@@ -220,7 +255,7 @@ import '@melodicdev/components/popover';
 <!-- Manual control (no auto-dismiss on click-outside) -->
 <ml-popover placement="right" manual>
   <ml-icon slot="trigger" icon="info"></ml-icon>
-  <p>This stays open until you call close().</p>
+  <p>This stays open on outside clicks. Escape or close() closes it.</p>
 </ml-popover>
 ```
 
@@ -228,7 +263,7 @@ import '@melodicdev/components/popover';
 |----------|------|---------|-------------|
 | `placement` | `Placement` | `'bottom'` | Preferred position relative to the trigger |
 | `offset` | `number` | `8` | Gap in pixels between trigger and popover |
-| `manual` | `boolean` | `false` | Disable light-dismiss (click-outside) |
+| `manual` | `boolean` | `false` | Disable light-dismiss (click-outside). Escape still closes the popover |
 | `arrow` | `boolean` | `false` | Show an arrow pointing at the trigger |
 | `label` | `string` | `''` | Accessible name (`aria-label`) for the popover panel |
 
@@ -238,7 +273,11 @@ import '@melodicdev/components/popover';
 
 **Slots:** `trigger` (the element that toggles the popover), `default` (popover content)
 
-**Methods:** `open()`, `close()`, `toggle()`
+**State:** `isOpen` (`boolean`) — whether the popover is open. Read it; change it through the methods
+
+**Events:** `ml:open`, `ml:close`
+
+**Methods:** `open()`, `close()` — reachable only through the component instance (`popoverEl.component.open()`); `toggle()` — also callable on the element itself
 
 Uses `autoUpdate` to reposition on scroll and resize.
 
@@ -307,9 +346,11 @@ import '@melodicdev/components/dropdown';
 | `offset` | `number` | `4` | Gap in pixels |
 | `arrow` | `boolean` | `false` | Show positioning arrow |
 
+**State:** `isOpen` (`boolean`) — whether the menu is open. Read it; change it through the methods
+
 **Events:** `ml:select` `{ value }`, `ml:open`, `ml:close`
 
-**Methods:** `open()`, `close()`, `toggle()`
+**Methods:** `open()`, `close()` — reachable only through the component instance (`dropdownEl.component.close()`); `toggle()` — also callable on the element itself
 
 **ml-dropdown-item:**
 
@@ -329,7 +370,7 @@ import '@melodicdev/components/dropdown';
 
 **ml-dropdown-separator:** No properties. Renders a horizontal divider line.
 
-Keyboard: Arrow keys, Home, End move focus. Enter/Space selects. Escape closes.
+Keyboard: ArrowDown, Enter or Space on the trigger opens the menu. ArrowDown/ArrowUp, Home, End move focus. Enter/Space selects. Escape and Tab close.
 
 ---
 
@@ -348,7 +389,7 @@ import '@melodicdev/components/tooltip';
 </ml-tooltip>
 
 <!-- Directive usage (no wrapper element needed) -->
-<ml-button ${tooltip('Save your changes', 'top')}>Save</ml-button>
+<ml-button :tooltip="Save your changes">Save</ml-button>
 ```
 
 | Property | Type | Default | Description |
@@ -359,49 +400,26 @@ import '@melodicdev/components/tooltip';
 
 **Slots:** `default` (the element that triggers the tooltip)
 
+**Methods:** `show()` (shows after `delay`), `hide()` — callable on the element or through `.component`
+
+Pressing Escape dismisses the tooltip while it is visible.
+
 Uses `computePosition` with `flip`, `shift`, and `offset` middleware to stay in view.
 
 **Accessibility:** the tooltip text is exposed as the trigger's description (`aria-description`) and follows `content` when it changes. A trigger that already has its own `aria-describedby` is left alone.
 
-### tooltip directive
+### `:tooltip` directive
 
-For inline usage without a wrapper element, import the `tooltip` directive:
+For inline usage without a wrapper element, import the directives entry point. It registers
+the `:tooltip` attribute directive:
 
 ```ts
-import { tooltip } from '@melodicdev/components';
+import '@melodicdev/components/directives';
 ```
 
 ```html
-<ml-icon icon="question" ${tooltip('Learn more', 'right')}></ml-icon>
+<ml-button :tooltip="Save your changes">Save</ml-button>
+<ml-icon icon="question" :tooltip=${{ content: 'Learn more', placement: 'right' }}></ml-icon>
 ```
 
-### Dialog callbacks and inline dialogs
-
-`afterOpened` and `afterClosed` are persistent: one registration fires on every open/close
-cycle. A dialog opened through `DialogService` gets a fresh `DialogRef` each time, so there
-is nothing to clean up.
-
-An inline `<ml-dialog>` is different — it keeps **one** `DialogRef` for its lifetime. If you
-register a callback each time you open it, every previous registration is still attached and
-they all run:
-
-```typescript
-// Leaks: a new closure is attached on every open, and none are ever released.
-open(): void {
-	this.ref.afterClosed((result) => this.save(result));
-	this.ref.open();
-}
-```
-
-Either register once, outside the open path, or release the previous registration with the
-unsubscribe function:
-
-```typescript
-open(): void {
-	this._stop?.();
-	this._stop = this.ref.afterClosed((result) => this.save(result));
-	this.ref.open();
-}
-```
-
-Dev mode warns once a single dialog accumulates 20 callbacks.
+The value is a string or `{ content, placement? }`; `placement` defaults to `'top'`.

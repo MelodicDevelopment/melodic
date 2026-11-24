@@ -4,6 +4,8 @@ A lightweight scaffolding and code generation tool for Melodic apps and monorepo
 
 ## Install
 
+Requires Node 20.19 or newer.
+
 ```sh
 npm install -g @melodicdev/cli
 melodic --help
@@ -29,7 +31,9 @@ npm run dev
 
 Every name the CLI accepts (project, app, lib, and generate names) is
 kebab-cased and must then match `^[a-z][a-z0-9]*(-[a-z0-9]+)*$` — lowercase
-words joined by single hyphens, so no leading, trailing or doubled hyphen.
+words joined by single hyphens. Kebab-casing collapses runs of hyphens,
+underscores and spaces into one hyphen (`user--card` becomes `user-card`); a
+leading or trailing hyphen is rejected.
 Names containing path separators, `..`, quotes, or other special characters
 are rejected — they would otherwise escape the project directory or break
 generated source. PascalCase input is fine: `melodic g component UserCard`
@@ -123,8 +127,12 @@ Add a Vitest + happy-dom test setup to an existing project: `test` /
 
 ```sh
 melodic add testing
-melodic add testing --path apps/web
+melodic add testing --path packages/web
 ```
+
+`--path` is the directory to set up and must contain a `package.json`. In a
+monorepo made by `melodic init --monorepo` that is the repository root: the
+apps under `apps/` have no `package.json` of their own.
 
 When the project (or the workspace root above it) depends on
 `@melodicdev/core`, the example mounts a real component with
@@ -219,8 +227,9 @@ The CLI uses built-in templates and replaces placeholders automatically:
 - `lib-basic`: minimal workspace library scaffold used by `add lib`
 
 Template notes:
-- App templates include `vite-plugin-melodic-styles.ts`, a
-  `src/styles/global.css` sample, and a `<link melodic-styles>` entry in
+- `app-basic` and the monorepo root include `vite-plugin-melodic-styles.ts`;
+  monorepo apps import it from the root. Every app has a
+  `src/styles/global.css` sample and a `<link melodic-styles>` entry in
   `index.html`.
 - Dependencies are pinned to ranges (`@melodicdev/core` to the CLI's own
   major) — never `latest`.
@@ -245,9 +254,11 @@ only substituted in text files.
 
 - `init` requires the target directory to be empty (or missing).
 - Existing files are never overwritten without `--force`.
-- `--path` and `--dir` must be relative paths inside the project; absolute
-  paths and `..` segments are rejected, and so is a path that leaves the
-  project through a symlink.
+- `generate --path` and `add app|lib --dir` must be relative paths inside the
+  project; absolute paths and `..` segments are rejected, and so is a path
+  that leaves the project through a symlink. `add config|testing --path` is
+  different: it names the project directory to operate on, like
+  `init <directory>`, and may be anywhere.
 - `--dry-run` and `--force` belong to `generate`. `init` and `add` refuse
   `--dry-run` (they would write files) and warn that `--force` has no effect.
 - `add app --dir` accepts nested directories (`--dir packages/apps`); the

@@ -83,7 +83,7 @@ import '@melodicdev/components/breadcrumb';
 
 | Property | Type | Default | Description |
 |----------|------|---------|-------------|
-| `separator` | `'chevron'` \| `'slash'` | `'chevron'` | Separator style between items |
+| `separator` | `'chevron'` \| `'slash'` | `'chevron'` | Separator between items: `'chevron'` renders a caret icon, `'slash'` a text `/` |
 
 **ml-breadcrumb-item:**
 
@@ -106,7 +106,7 @@ import '@melodicdev/components/pagination';
 ```html
 <ml-pagination
   page="1"
-  totalPages="20"
+  total-pages="20"
   siblings="1"
   @ml:page-change=${e => this.page = e.detail.page}
 ></ml-pagination>
@@ -115,7 +115,7 @@ import '@melodicdev/components/pagination';
 | Property | Type | Default | Description |
 |----------|------|---------|-------------|
 | `page` | `number` | `1` | Current page (1-based) |
-| `totalPages` | `number` | `1` | Total number of pages |
+| `totalPages` | `number` | `1` | Total number of pages (attribute: `total-pages`) |
 | `siblings` | `number` | `1` | Number of page numbers shown on each side of the current page |
 
 **Events:** `ml:page-change` `{ page: number }`

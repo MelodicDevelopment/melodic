@@ -1,10 +1,10 @@
 # Changelog
 
-## Unreleased
+## 4.1.0
 
 A second review-driven pass (November 2026). No export, attribute, event, token or CLI
 command was removed; unused public API is marked `@deprecated` and keeps working. A few
-behaviours changed on purpose — see [Behaviour changes](#behaviour-changes-unreleased).
+behaviours changed on purpose — see [Behaviour changes](#behaviour-changes-410).
 
 ### @melodicdev/core
 
@@ -94,6 +94,19 @@ behaviours changed on purpose — see [Behaviour changes](#behaviour-changes-unr
 
 ### @melodicdev/components
 
+- Defined ten global tokens that component styles read but the theme never set, so about
+  57 rules silently did nothing: `--ml-color-error`, `--ml-color-error-subtle`,
+  `--ml-color-surface-hover`, `--ml-color-surface-secondary`, `--ml-color-surface-tertiary`,
+  `--ml-color-bg-secondary`, `--ml-color-text-tertiary`, `--ml-color-text-disabled`,
+  `--ml-font-regular` and `--ml-transition-normal`. Each is an alias of an existing token
+  (`error` → `danger`, `surface-hover` → `surface-raised`, `text-tertiary` → `text-muted`,
+  …). A test now fails if a component reads a token that is defined nowhere.
+- Fixed the `ml-slider` fill not being drawn unless `--ml-slider-thumb-size` was set
+  (a regression in 4.0.1).
+- `DialogService.open()` and `close()` accept a plain string id; the `as UniqueID` cast is
+  no longer needed.
+- Exported types that were documented but unreachable: `IToastRef`, `IDialogConfig`,
+  `TableRowKey`.
 - Fixed `ml-select` / `ml-autocomplete` losing selections when `multiple`, `value` and
   `values` were set in certain orders or toggled at runtime.
 - Fixed `ml-date-time-picker` emitting a `valueUtc` one hour off around DST transitions.
@@ -131,12 +144,13 @@ behaviours changed on purpose — see [Behaviour changes](#behaviour-changes-unr
   plugin import.
 - Fixed scaffolded projects not declaring `esbuild`, which their Vite plugin imports.
 - Fixed `melodic generate directive <reserved-word>` generating code that did not compile;
-  names with a leading, trailing or doubled hyphen are rejected.
+  names with a leading or trailing hyphen are rejected.
 - Fixed `melodic add testing` modifying `package.json` before failing; it now scaffolds a
   component test using `@melodicdev/core/testing`.
 - `--path` / `--dir` can no longer write outside the project through a symlink.
 - `init` and `add` refuse `--dry-run` instead of ignoring it, and warn that `--force` has
   no effect there.
+- A bare `melodic add` lists all four subcommands in its usage error.
 - Templates no longer set `emitDecoratorMetadata`.
 
 ### Repository
@@ -146,8 +160,10 @@ behaviours changed on purpose — see [Behaviour changes](#behaviour-changes-unr
 - Added Dependabot config, `SECURITY.md`, coverage configuration (`npm run test:coverage`),
   `npm run size`, and a tracked `web/benchmark/bundle-size.json`.
 - Removed the incorrect "2.87 kB / smallest framework" claim.
+- Removed 14 unused legacy Phosphor font files (`.ttf`, `.woff` and four `.svg`, about
+  17 MB) from the repository. `Phosphor.svg` stays: `npm run generate:icon-map` reads it.
 
-### Behaviour changes (Unreleased)
+### Behaviour changes (4.1.0)
 
 - **HTTP:** client-level `defaultHeaders` and `credentials` reach only the `baseURL` origin
   and the page origin. Opt back in with `allowCrossOriginDefaults: true`.
@@ -159,6 +175,12 @@ behaviours changed on purpose — see [Behaviour changes](#behaviour-changes-unr
 - **Components:** properties bound from a parent now reach signal and function fields.
 - **`ml-select` / `ml-autocomplete`:** turning `multiple` on carries `value` into `values`;
   in single mode `values = []` no longer clears `value`.
+- **Tokens:** ten previously undefined global tokens now have values, so the styles that
+  read them apply: red destructive and error states, hover backgrounds on dropdown items,
+  pagination, tabs and list items, a visible slider track, muted secondary text. See
+  `MIGRATION.md` for the full list.
+- **`ml-dialog`:** opens and closes with a 200ms transition (its timing token was
+  undefined, so it had none). Event timing is unchanged.
 - **`ml-table`:** `role="grid"` removed; string sorting is natural-order.
 - **`ml-calendar`:** Home / End move to the ends of the week, not the month.
 - **CLI:** `init` / `add` error on `--dry-run`.

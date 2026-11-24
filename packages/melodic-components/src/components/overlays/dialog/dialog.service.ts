@@ -71,8 +71,13 @@ export class DialogService {
 	}
 
 	public open<TResult = unknown, TData = unknown>(dialogComponent: new (...args: any[]) => any, config?: IDialogConfig<TData>): DialogRef<TResult, TData> | undefined;
-	public open<TResult = unknown, TData = unknown>(dialogID: UniqueID): DialogRef<TResult, TData> | undefined;
-	public open<TResult = unknown, TData = unknown>(dialogComponentOrID: UniqueID | (new (...args: any[]) => any), config?: IDialogConfig<TData>): DialogRef<TResult, TData> | undefined {
+	/**
+	 * Open an inline dialog by id: the name of the `#`-prefixed attribute on its
+	 * `<ml-dialog>` (`<ml-dialog #confirm>` opens with `open('confirm')`), or a
+	 * `DialogRef.dialogID`. A plain string is accepted; no `UniqueID` cast is needed.
+	 */
+	public open<TResult = unknown, TData = unknown>(dialogID: string): DialogRef<TResult, TData> | undefined;
+	public open<TResult = unknown, TData = unknown>(dialogComponentOrID: string | (new (...args: any[]) => any), config?: IDialogConfig<TData>): DialogRef<TResult, TData> | undefined {
 		let dialogID: UniqueID = dialogComponentOrID as UniqueID;
 		let dialogComponent: IDialogComponentElement | undefined;
 
@@ -115,8 +120,9 @@ export class DialogService {
 		return dialogElements.dialogRef as DialogRef<TResult, TData>;
 	}
 
-	public close<T = unknown>(dialogID: UniqueID, result?: T): void {
-		const dialogElements: IDialogElements | undefined = this._dialogs.get(dialogID);
+	/** Close a dialog by id. Takes the same plain-string id as `open()`. */
+	public close<T = unknown>(dialogID: string, result?: T): void {
+		const dialogElements: IDialogElements | undefined = this._dialogs.get(dialogID as UniqueID);
 		if (!dialogElements) {
 			console.warn(`[DialogService] No dialog registered with id "${dialogID}"; close() ignored.`);
 			return;

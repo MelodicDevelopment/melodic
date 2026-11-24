@@ -10,8 +10,9 @@ Security fixes are released for the current major version of each package.
 | `@melodicdev/components` | 4.x |
 | `@melodicdev/cli` | 4.x |
 
-Older majors do not receive fixes. Upgrading within a major is always safe;
-see `MIGRATION.md` and `CHANGELOG.md` for changes between majors.
+Older majors do not receive fixes. No release within a major removes public API, but a
+minor can include deliberate behaviour corrections; `MIGRATION.md` lists them per version
+and `CHANGELOG.md` has the full detail.
 
 ## Reporting a vulnerability
 
@@ -48,8 +49,9 @@ areas where a bug is a security bug rather than an ordinary one:
   the request was configured for.
 - **CLI.** Writing outside the project directory, or generated code that
   executes input passed on the command line. Names are validated against
-  `^[a-z][a-z0-9]*(-[a-z0-9]+)*$`, and `--path` / `--dir` must stay inside the
-  project, including through symlinks. The CLI never runs shell commands.
+  `^[a-z][a-z0-9]*(-[a-z0-9]+)*$`, and `generate --path` and `add app|lib --dir`
+  must stay inside the project, including through symlinks. (`add config|testing
+  --path` names the project directory to operate on, as `init <dir>` does.) The CLI never runs shell commands.
 - **Published packages.** Anything in a published tarball that should not be
   there.
 

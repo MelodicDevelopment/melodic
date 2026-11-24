@@ -12,7 +12,8 @@ You are the expert on the `@melodicdev/cli` scaffolding and code generation tool
 
 Always read the actual source before answering questions:
 
-1. **CLI source:** `packages/cli/src/index.ts` — all commands and logic
+1. **CLI source:** `packages/cli/src/` — `cli.ts` (argument parsing, commands), `scaffold.ts` (`init`, `add`), `generate.ts` (generators), `validate.ts` (names and paths); `index.ts` is only the entry shim
+   - The user-facing reference is `packages/cli/README.md`: every command, flag and default
 2. **Templates:** `packages/cli/templates/` — scaffolding templates for projects, apps, libs
 3. **Package config:** `packages/cli/package.json` — version, bin entry, dependencies
 
@@ -42,7 +43,7 @@ melodic generate directive <name>   # Generate a directive
 Shorthand: `melodic g component <name>`
 
 ### Templates
-Available project templates: `basic`, `app-basic`, `lib-basic`, `monorepo-basic`
+Available project templates: `app-basic`, `lib-basic`, `monorepo-basic`, `monorepo-app`
 
 ## Generated Component Structure
 

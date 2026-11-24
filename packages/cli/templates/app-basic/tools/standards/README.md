@@ -4,7 +4,7 @@ This folder contains reusable linting and formatting configs based on the Melodi
 
 ## Use In This Repo
 
-- ESLint uses `tools/standards/eslint.config.strict.mjs` via the root `eslint.config.mjs`.
+- ESLint uses `tools/standards/eslint.config.mjs` via the root `eslint.config.mjs`.
 - Prettier uses the root `.prettierrc`.
 
 ## Reuse In Another Repo

@@ -79,6 +79,19 @@ On small screens the sidebar becomes a drawer. Use the `toggleMobileSidebar` hel
 
 The shell uses a `(min-width: 768px)` media query to automatically close the mobile drawer when transitioning to desktop.
 
+### Responsive behaviour
+
+Below 768px the sidebar becomes a drawer with a menu button in the header.
+`--ml-app-shell-mobile-breakpoint` (default `768px`) is the viewport width below which the
+component's JavaScript switches to the mobile drawer. It is declared on `:host`, so set it
+with an element selector (`ml-app-shell { … }`). The stylesheet's own media query is fixed at
+`max-width: 767px`: overriding the property moves the JavaScript switch only, not the drawer
+styles, so the two fall out of step at any other value.
+
+The drawer closes on Escape and on a backdrop click, the menu button carries
+`aria-expanded`/`aria-controls`, and focus moves into the drawer when it opens and back to
+the menu button when it closes.
+
 ---
 
 ## ml-page-header
@@ -221,7 +234,7 @@ import '@melodicdev/components/page-section';
 Full-width hero section for landing pages and marketing content.
 
 ```ts
-import '@melodicdev/components/hero';
+import '@melodicdev/components/hero-section';
 ```
 
 ```html
@@ -271,20 +284,3 @@ import '@melodicdev/components/hero';
 | `actions` | CTA buttons |
 | `media` | Image, video, or component displayed alongside/below the text |
 | `social-proof` | Logos, testimonials, stats below the CTA |
-
-### Responsive behaviour
-
-Below `--ml-app-shell-mobile-breakpoint` (768px) the sidebar becomes a drawer with a menu
-button in the header. The breakpoint is read from that custom property by both the
-stylesheet and the component, so overriding it moves both together:
-
-```css
-ml-app-shell {
-	--ml-app-shell-mobile-breakpoint: 900px;
-	--ml-app-shell-sidebar-collapsed-width: 72px;
-}
-```
-
-The drawer closes on Escape and on a backdrop click, the menu button carries
-`aria-expanded`/`aria-controls`, and focus moves into the drawer when it opens and back to
-the menu button when it closes.

@@ -1,6 +1,6 @@
 # Melodic Framework — Complete Reference
 
-> Auto-generated from source code analysis. Covers every module, class, function, type, and pattern in `@melodicdev/core`. Reflects version 4.0.1 plus the unreleased changes on the current development branch.
+> Auto-generated from source code analysis. Covers every module, class, function, type, and pattern in `@melodicdev/core`. Reflects version 4.1.0.
 
 ---
 

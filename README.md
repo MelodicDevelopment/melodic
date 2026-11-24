@@ -36,6 +36,8 @@ See the [`@melodicdev/components` README](./packages/melodic-components/README.m
 
 ## Install
 
+Requires Node 20.19 or newer.
+
 ```bash
 npm install @melodicdev/core
 ```
@@ -141,7 +143,7 @@ Use it in HTML:
 ## Web Apps
 
 - `web/example` is the demo app. Run with `npm run dev`.
-- `web/benchmark` is the performance suite. Run with `npm run dev:benchmark` and update bundle sizes with `npm run benchmark:update`.
+- `web/benchmark` is the performance suite. Run with `npm run benchmark` and update bundle sizes with `npm run benchmark:update`.
 
 ## Core Concepts
 
@@ -267,9 +269,14 @@ import { createState, createAction, props, onAction, createReducer, provideRX } 
 
 const addTodo = createAction('[Todos] Add', props<{ text: string }>());
 
-const state = createState({ todos: [] as string[] });
+interface AppState {
+	todos: string[];
+}
+
+const state = createState<AppState>({ todos: [] });
 const reducers = {
-	todos: createReducer(
+	// The type arguments give `current` its type; without them it is `unknown`.
+	todos: createReducer<AppState, 'todos'>(
 		onAction(addTodo, (current, action) => [...current, action.payload.text])
 	)
 };
@@ -330,8 +337,7 @@ import './components/app-root.component';
 
 await bootstrap({
 	rootComponent: 'app-root',
-	target: '#app',
-	devMode: true
+	target: '#app'
 });
 ```
 
@@ -377,7 +383,9 @@ package.
 
 ## Publishing
 
-`prepublishOnly` rebuilds each package, so publishing never ships a stale build.
+`prepublishOnly` rebuilds each package's `lib/`, and the components and CLI hooks rebuild
+everything they ship. Core's `bundle/` is committed and is **not** rebuilt by
+`prepublishOnly`: run `npm run build:bundle` before publishing core.
 
 ```bash
 npm publish --access public                                   # @melodicdev/core

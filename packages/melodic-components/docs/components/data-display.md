@@ -63,7 +63,7 @@ import '@melodicdev/components/badge';
 
 | Property | Type | Default | Description |
 |----------|------|---------|-------------|
-| `variant` | `'default'` \| `'primary'` \| `'success'` \| `'warning'` \| `'error'` | `'default'` | Color variant |
+| `variant` | `'default'` \| `'primary'` \| `'secondary'` \| `'success'` \| `'warning'` \| `'error'` | `'default'` | Color variant |
 | `size` | `'xs'` \| `'sm'` \| `'md'` \| `'lg'` | `'md'` | Badge size |
 | `dot` | `boolean` | `false` | Show a colored dot to the left of the label |
 | `pill` | `boolean` | `false` | Fully rounded shape |
@@ -123,7 +123,7 @@ import '@melodicdev/components/tag';
 <ml-tag avatar-src="photo.jpg">Jane Doe</ml-tag>
 
 <!-- Closable -->
-<ml-tag closable @ml:close=${e => this.removeTag(tag)}>React</ml-tag>
+<ml-tag closable @ml:dismiss=${e => this.removeTag(tag)}>React</ml-tag>
 
 <!-- With count -->
 <ml-tag count="12">Comments</ml-tag>
@@ -136,9 +136,9 @@ import '@melodicdev/components/tag';
 
 | Property | Type | Default | Description |
 |----------|------|---------|-------------|
-| `size` | `'xs'` \| `'sm'` \| `'md'` \| `'lg'` | `'md'` | Tag size |
+| `size` | `'sm'` \| `'md'` \| `'lg'` | `'md'` | Tag size |
 | `dot` | `boolean` | `false` | Show colored dot |
-| `dot-color` | `'success'` \| `'warning'` \| `'error'` \| `'primary'` \| `'gray'` | `'success'` | Dot color |
+| `dot-color` | `'success'` \| `'warning'` \| `'error'` \| `'info'` \| `'primary'` \| `'secondary'` | `'success'` | Dot color (`'danger'` is a deprecated alias of `'error'`) |
 | `closable` | `boolean` | `false` | Show × close button |
 | `avatar-src` | `string` | `''` | Avatar image URL |
 | `icon` | `string` | `''` | Phosphor icon name |
@@ -150,7 +150,7 @@ import '@melodicdev/components/tag';
 **Slots:** `default` (label text)
 
 **Events:**
-- `ml:close` — fired when close button is clicked
+- `ml:dismiss` — fired when close button is clicked (`ml:close` is a deprecated alias, fired alongside it)
 - `ml:change` `{ checked: boolean }` — fired when checkbox state changes
 
 ---
@@ -290,8 +290,8 @@ import '@melodicdev/components/stat-card';
   icon-color="primary"
 ></ml-stat-card>
 
-<!-- Neutral trend, serif value font -->
-<ml-stat-card label="Avg. Session" value="4m 32s" trend="0%" trend-direction="neutral" value-font="serif"></ml-stat-card>
+<!-- Neutral trend, sans value font -->
+<ml-stat-card label="Avg. Session" value="4m 32s" trend="0%" trend-direction="neutral" value-font="sans"></ml-stat-card>
 ```
 
 | Property | Type | Default | Description |
@@ -302,7 +302,7 @@ import '@melodicdev/components/stat-card';
 | `trend-direction` | `'up'` \| `'down'` \| `'neutral'` | `'neutral'` | Direction of the trend (controls color and arrow) |
 | `icon` | `string` | `''` | Optional Phosphor icon |
 | `icon-color` | `string` | `''` | Icon background color (semantic or CSS color) |
-| `value-font` | `'sans'` \| `'serif'` | `'sans'` | Font family for the value text |
+| `value-font` | `'serif'` \| `'sans'` | `'serif'` | Font family for the value text |
 
 **CSS custom properties:**
 
@@ -398,6 +398,7 @@ import '@melodicdev/components/table';
   striped
   hoverable
   table-title="Users"
+  clickable-rows
   @ml:sort=${this.handleSort}
   @ml:row-click=${this.handleRowClick}
 ></ml-table>
@@ -442,8 +443,13 @@ interface TableColumn {
 | `description` | `string` | `''` | Description text below title |
 | `clickable-rows` | `boolean` | `false` | Pointer/hover affordance for rows, and makes each row a tab stop that fires `ml:row-click` on Enter / Space. Set it whenever you listen for `ml:row-click` |
 | `row-key` | `string` \| `(row, index) => unknown` | `null` | Row identity — a property name (attribute or property) or a function (property `rowKey`). See below |
+| `manual-sort` | `boolean` | `false` | Skip client-side sorting: `rows` render in the order given, while header clicks still update `sortKey` / `sortDirection` and fire `ml:sort` (server-side sorting) |
+| `sortKey` | `string` | `''` | Currently sorted column key (property) |
+| `sortDirection` | `'asc'` \| `'desc'` | `'asc'` | Current sort direction (property) |
 
 **Slots:** `footer` (pagination, etc.), `header-actions` (buttons next to the title)
+
+**CSS parts:** `header-cell`, `row`, `cell`
 
 **Row identity (`row-key`):** by default rows are keyed by position, so after a sort the DOM of row *N* is reused for whichever record is now at *N*. If a custom `render` cell holds state (an input, a focused control, an open menu), set `row-key` so each record keeps its own row element:
 
@@ -460,8 +466,8 @@ Keys must be unique within the rendered rows. Selection is still positional and 
 
 **Events:**
 - `ml:sort` `{ key, direction: 'asc' | 'desc' }`
-- `ml:select` `{ selectedRows: number[], allSelected: boolean }`
-- `ml:row-click` `{ row, index }`
+- `ml:select` `{ selectedRows, selectedIndices, allSelected }` — `selectedRows` are the selected row objects, `selectedIndices` their indices in the original `rows` array. Also fired when sorting clears a non-empty selection; replacing `rows` clears the selection without an event
+- `ml:row-click` `{ row, index }` — `index` is the row's position in the rendered (sorted) order
 
 > **Virtual scrolling:** When `virtual` is set, the table wrapper becomes the scroll container. The parent element **must have a defined height** (e.g. `height: 500px` or `height: 100%` inside a flex/grid). Row heights are fixed (`44px` for `md`, `36px` for `sm`).
 
@@ -502,6 +508,7 @@ import '@melodicdev/components/data-grid';
   grid-title="Users"
   description="Manage your team"
   page-size="50"
+  clickable-rows
   @ml:sort=${this.handleSort}
   @ml:filter=${this.handleFilter}
   @ml:select=${this.handleSelect}
@@ -518,9 +525,12 @@ interface DataGridColumn {
   label: string;
   sortable?: boolean;
   filterable?: boolean;
-  width?: number;         // pixels
+  width?: number;         // pixels (default: 150)
   minWidth?: number;      // pixels (default: 80)
-  pinned?: 'left';
+  resizable?: boolean;    // default: true
+  reorderable?: boolean;  // default: true
+  pinned?: 'left' | 'right' | false;
+  align?: 'left' | 'center' | 'right';
   render?: (value: unknown, row: Record<string, unknown>, index: number) => unknown;
 }
 ```
@@ -544,13 +554,17 @@ interface DataGridColumn {
 | `clickable-rows` | `boolean` | `false` | Makes each row a tab stop that fires `ml:row-click` on Enter / Space. Set it whenever you listen for `ml:row-click` |
 | `row-key` | `string` \| `(row, index) => unknown` | `null` | Row identity — a property name or a function (property `rowKey`). Keeps each record on its own row element across sort / filter / paging; see `ml-table` |
 
+**State properties:** `sortKey` (`''`), `sortDirection` (`'asc'`), `filters` (`Record<string, string>`, `{}`), `currentPage` (`1`), `colWidths` (`Record<string, number>`), `colOrder` (`string[]`).
+
+**Methods:** `goToPage(page: number)`, `moveColumn(key: string, delta: number)`, `resizeColumnBy(key: string, delta: number)` (delta in px; respects `minWidth` and `resizable: false`; fires `ml:column-resize`) — callable on the element or on `el.component`
+
 **Slots:** `toolbar-actions` (buttons placed in the toolbar)
 
 **Events:**
 - `ml:sort` `{ key, direction }`
 - `ml:filter` `{ filters: Record<string, string> }`
-- `ml:select` `{ selectedRows: number[], allSelected: boolean }`
-- `ml:row-click` `{ row, index }`
+- `ml:select` `{ selectedRows, selectedIndices, allSelected }` — `selectedRows` are the selected row objects, `selectedIndices` their indices in the original `rows` array. Also fired when sorting, filtering or paging clears a non-empty selection; replacing `rows` clears the selection without an event
+- `ml:row-click` `{ row, index }` — `index` is the row's position on the current page
 - `ml:column-resize` `{ key, width }`
 - `ml:column-reorder` `{ order: string[] }`
 - `ml:page-change` `{ page, pageSize }`
@@ -593,12 +607,11 @@ import '@melodicdev/components/calendar-view';
 interface CalendarEvent {
   id: string;
   title: string;
-  start: string;   // ISO date string (YYYY-MM-DD)
-  end?: string;    // ISO date string
-  color?: string;  // CSS color or semantic: 'primary' | 'success' | 'warning' | 'error'
+  start: string;  // ISO datetime
+  end: string;
+  color?: 'gray' | 'blue' | 'purple' | 'green' | 'pink' | 'orange' | 'yellow';
   allDay?: boolean;
-  startTime?: string; // 'HH:MM' for week/day views
-  endTime?: string;
+  description?: string;
 }
 ```
 
@@ -609,6 +622,7 @@ interface CalendarEvent {
 | `events` | `CalendarEvent[]` | `[]` | Calendar events (property) |
 | `view` | `'month'` \| `'week'` \| `'day'` | `'month'` | Active view mode |
 | `date` | `string` | today | Currently navigated date (`YYYY-MM-DD`) |
+| `locale` | `string` | `''` | BCP 47 tag for month and weekday names. Defaults to the document's `lang`, then the browser's |
 | `week-starts-on` | `number` | `0` | First day of week: `0` = Sunday, `1` = Monday |
 | `max-visible-events` | `number` | `3` | Max events visible per day cell in month view |
 | `add-button-text` | `string` | `'Add event'` | Label for the add button |
@@ -624,6 +638,8 @@ interface CalendarEvent {
 - `ml:date-change` `{ date }` — emitted when navigating to a new date
 - `ml:event-click` `{ event }` — emitted when an event is clicked
 - `ml:date-click` `{ date }` — emitted when a date cell is clicked
-- `ml:add-event` `{ date? }` — emitted when the add event button is clicked (month/day view passes the date)
+- `ml:add-event` — `{}` from the header add button, `{ date }` from a day cell's add button
+
+**Keyboard (month view):** the day grid is one tab stop; arrow keys move between the days shown, and Enter / Space fires `ml:date-click`. Event pills are focusable and activate on Enter / Space.
 
 Clicking "more events" in month view automatically switches to day view for that date.

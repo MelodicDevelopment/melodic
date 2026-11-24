@@ -6861,6 +6861,8 @@ const colorTokens = {
 	"--ml-color-danger": "var(--ml-red-600)",
 	"--ml-color-danger-hover": "var(--ml-red-700)",
 	"--ml-color-danger-subtle": "var(--ml-red-50)",
+	"--ml-color-error": "var(--ml-color-danger)",
+	"--ml-color-error-subtle": "var(--ml-color-danger-subtle)",
 	"--ml-color-info": "var(--ml-cyan-600)",
 	"--ml-color-info-hover": "var(--ml-cyan-700)",
 	"--ml-color-info-subtle": "var(--ml-cyan-50)",
@@ -6869,10 +6871,16 @@ const colorTokens = {
 	"--ml-color-surface-raised": "var(--ml-gray-50)",
 	"--ml-color-surface-overlay": "var(--ml-white)",
 	"--ml-color-surface-sunken": "var(--ml-gray-100)",
+	"--ml-color-surface-hover": "var(--ml-color-surface-raised)",
+	"--ml-color-surface-secondary": "var(--ml-color-surface-raised)",
+	"--ml-color-surface-tertiary": "var(--ml-color-surface-sunken)",
+	"--ml-color-bg-secondary": "var(--ml-color-surface-raised)",
 	"--ml-color-text": "var(--ml-gray-900)",
 	"--ml-color-text-secondary": "var(--ml-gray-700)",
 	"--ml-color-text-muted": "var(--ml-gray-500)",
 	"--ml-color-text-subtle": "var(--ml-gray-400)",
+	"--ml-color-text-tertiary": "var(--ml-color-text-muted)",
+	"--ml-color-text-disabled": "var(--ml-color-text-subtle)",
 	"--ml-color-text-inverse": "var(--ml-white)",
 	"--ml-color-text-link": "var(--ml-blue-600)",
 	"--ml-color-text-link-hover": "var(--ml-blue-700)",
@@ -6980,6 +6988,7 @@ const typographyTokens = {
 	"--ml-font-extralight": "200",
 	"--ml-font-light": "300",
 	"--ml-font-normal": "400",
+	"--ml-font-regular": "var(--ml-font-normal)",
 	"--ml-font-medium": "500",
 	"--ml-font-semibold": "600",
 	"--ml-font-bold": "700",
@@ -7058,6 +7067,7 @@ const transitionTokens = {
 	"--ml-ease-out": "cubic-bezier(0, 0, 0.2, 1)",
 	"--ml-ease-in-out": "cubic-bezier(0.4, 0, 0.2, 1)",
 	"--ml-ease-bounce": "cubic-bezier(0.68, -0.55, 0.265, 1.55)",
+	"--ml-transition-normal": "var(--ml-duration-200) var(--ml-ease-in-out)",
 	"--ml-transition-none": "none",
 	"--ml-transition-all": "all var(--ml-duration-150) var(--ml-ease-in-out)",
 	"--ml-transition-colors": "color var(--ml-duration-150) var(--ml-ease-in-out), background-color var(--ml-duration-150) var(--ml-ease-in-out), border-color var(--ml-duration-150) var(--ml-ease-in-out)",
@@ -7100,10 +7110,16 @@ const lightTheme = {
 	"--ml-color-surface-raised": "var(--ml-gray-50)",
 	"--ml-color-surface-overlay": "var(--ml-white)",
 	"--ml-color-surface-sunken": "var(--ml-gray-100)",
+	"--ml-color-surface-hover": "var(--ml-color-surface-raised)",
+	"--ml-color-surface-secondary": "var(--ml-color-surface-raised)",
+	"--ml-color-surface-tertiary": "var(--ml-color-surface-sunken)",
+	"--ml-color-bg-secondary": "var(--ml-color-surface-raised)",
 	"--ml-color-text": "var(--ml-gray-900)",
 	"--ml-color-text-secondary": "var(--ml-gray-700)",
 	"--ml-color-text-muted": "var(--ml-gray-500)",
 	"--ml-color-text-subtle": "var(--ml-gray-400)",
+	"--ml-color-text-tertiary": "var(--ml-color-text-muted)",
+	"--ml-color-text-disabled": "var(--ml-color-text-subtle)",
 	"--ml-color-text-inverse": "var(--ml-white)",
 	"--ml-color-border": "var(--ml-gray-200)",
 	"--ml-color-border-strong": "var(--ml-gray-300)",
@@ -7120,10 +7136,16 @@ const darkTheme = {
 	"--ml-color-surface-raised": "var(--ml-gray-800)",
 	"--ml-color-surface-overlay": "var(--ml-gray-800)",
 	"--ml-color-surface-sunken": "var(--ml-gray-950)",
+	"--ml-color-surface-hover": "var(--ml-color-surface-raised)",
+	"--ml-color-surface-secondary": "var(--ml-color-surface-raised)",
+	"--ml-color-surface-tertiary": "var(--ml-color-surface-sunken)",
+	"--ml-color-bg-secondary": "var(--ml-color-surface-raised)",
 	"--ml-color-text": "var(--ml-gray-50)",
 	"--ml-color-text-secondary": "var(--ml-gray-300)",
 	"--ml-color-text-muted": "var(--ml-gray-400)",
 	"--ml-color-text-subtle": "var(--ml-gray-500)",
+	"--ml-color-text-tertiary": "var(--ml-color-text-muted)",
+	"--ml-color-text-disabled": "var(--ml-color-text-subtle)",
 	"--ml-color-text-inverse": "var(--ml-gray-900)",
 	"--ml-color-border": "var(--ml-gray-700)",
 	"--ml-color-border-strong": "var(--ml-gray-600)",
@@ -7138,6 +7160,8 @@ const darkTheme = {
 	"--ml-color-warning-subtle": "var(--ml-amber-950)",
 	"--ml-color-danger": "var(--ml-red-500)",
 	"--ml-color-danger-subtle": "var(--ml-red-950)",
+	"--ml-color-error": "var(--ml-color-danger)",
+	"--ml-color-error-subtle": "var(--ml-color-danger-subtle)",
 	"--ml-color-info": "var(--ml-cyan-400)",
 	"--ml-color-info-subtle": "var(--ml-cyan-950)",
 	"--ml-color-input-bg": "var(--ml-gray-900)",
@@ -12865,7 +12889,7 @@ var SliderComponent = class SliderComponent$1 {
 	}
 	get fillWidth() {
 		const p = this.ratio;
-		return `calc(${p * 100}% + ${.5 - p} * var(--ml-slider-thumb-size))`;
+		return `calc(${p * 100}% + ${.5 - p} * var(--ml-slider-thumb-size, 20px))`;
 	}
 };
 SliderComponent = __decorate([MelodicComponent({
@@ -24160,7 +24184,6 @@ function routeAnchorClick(event, href, options = {}) {
 	return true;
 }
 function breadcrumbItemTemplate(c) {
-	const separatorIcon = c.separator === "slash" ? "slash-forward" : "caret-right";
 	return html`
 		<li
 			class=${classMap({
@@ -24168,8 +24191,8 @@ function breadcrumbItemTemplate(c) {
 		"ml-breadcrumb-item--current": c.current
 	})}
 		>
-			<span class="ml-breadcrumb-item__separator">
-				<ml-icon icon=${separatorIcon} size="sm"></ml-icon>
+			<span class="ml-breadcrumb-item__separator" aria-hidden="true">
+				${c.separator === "slash" ? "/" : html`<ml-icon icon="caret-right" size="sm"></ml-icon>`}
 			</span>
 			${when(!!c.href && !c.current, () => html`
 					<a class="ml-breadcrumb-item__link" href=${c.href} @click=${(event) => routeAnchorClick(event, c.href)}>

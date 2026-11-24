@@ -28,6 +28,7 @@ export const typographyTokens = {
 	'--ml-font-extralight': '200',
 	'--ml-font-light': '300',
 	'--ml-font-normal': '400',
+	'--ml-font-regular': 'var(--ml-font-normal)', // alias of normal
 	'--ml-font-medium': '500',
 	'--ml-font-semibold': '600',
 	'--ml-font-bold': '700',

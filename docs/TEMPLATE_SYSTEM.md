@@ -462,8 +462,10 @@ On first use of a template:
 1. Template strings are joined with a unique marker
 2. HTML is analyzed to detect dynamic positions
 3. Markers are inserted for events (`__event-N__`), properties (`__prop-N__`), boolean attributes (`__bool-N__`), action directives (`__action-N__`), attribute values, and nodes
-4. A `<template>` element is created and cached. The cache is keyed by the template literal itself, so a literal is parsed once for the life of the page; a secondary 500-entry cache only de-duplicates different literals that happen to have identical text
+4. A `<template>` element is created from the marked-up HTML
 5. Part metadata is stored (type, index, name), along with the path from the template root to each marker
+6. Markers are stripped from the template, once: replaced with empty text nodes (for content) or removed (for attributes, events, properties and directives). Each replacement is one-for-one, so the recorded paths stay valid
+7. The template is cached. The cache is keyed by the template literal itself, so a literal is parsed once for the life of the page; a secondary 500-entry cache only de-duplicates different literals that happen to have identical text
 
 ```typescript
 // This template:
@@ -472,16 +474,16 @@ html`<button @click=${handler}>${text}</button>`
 // Becomes internally:
 // <button __event-0__=""><!--marker--></button>
 // With parts: [{ type: 'event', name: 'click', index: 0 }, { type: 'node', index: 1 }]
+// and is cached with the markers stripped: <button>[empty text node]</button>
 ```
 
 ### 2. Prepare Phase (`prepareParts()`)
 
 On first render to a container:
 
-1. Template content is cloned
-2. Each marker is reached through the path recorded in the parse phase; the clone is not searched
-3. Markers are replaced with text nodes (for content) or removed (for attributes, events, properties and directives)
-4. Part references to actual DOM nodes are stored
+1. Template content is cloned; the clone carries no markers
+2. Each part's node is reached through the path recorded in the parse phase; the clone is not searched
+3. Part references to actual DOM nodes are stored
 
 ### 3. Commit Phase (`commit()`)
 

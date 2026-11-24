@@ -4,8 +4,8 @@ The reference for projects that **build on** Melodic. It says which API to reach
 one right way to write each common thing, and the mistakes that cost the most time. It is
 written for developers and for AI coding agents working in a consuming project.
 
-Written against `@melodicdev/core` 4.0.1, `@melodicdev/components` 4.0.1 and
-`@melodicdev/cli` 4.0.0.
+Written against `@melodicdev/core` 4.1.0, `@melodicdev/components` 4.1.0 and
+`@melodicdev/cli` 4.1.0.
 
 **How to reference this file from another project.** Point your project's agent
 instructions (`CLAUDE.md`, `AGENTS.md`, or equivalent) at it:
@@ -174,8 +174,9 @@ melodic generate guard auth               #       interceptor, guard, resolver, 
 melodic generate component card --dry-run # prints what would be written
 ```
 
-Names are kebab-cased and must match `^[a-z][a-z0-9]*(-[a-z0-9]+)*$` (no trailing or
-doubled hyphens; JavaScript reserved words are refused). `--dry-run` and `--force` apply to
+Names are kebab-cased and must then match `^[a-z][a-z0-9]*(-[a-z0-9]+)*$`: runs of hyphens,
+underscores and spaces collapse to one hyphen, a leading or trailing hyphen is rejected,
+and `generate directive` refuses JavaScript reserved words. `--dry-run` and `--force` apply to
 `generate` only. A single-word component name is
 prefixed automatically (`card` becomes `app-card`), because a custom element selector must
 contain a hyphen.
@@ -368,7 +369,7 @@ All optional. Define the method and it is called.
 | `onDestroy()` | Permanent removal only | Final cleanup |
 | `onPropertyChange(name, old, new)` | A reactive property is changing | Reacting to an input changing |
 | `onAttributeChange(name, old, new)` | An observed attribute changed | |
-| `onRouteChange(change)` | A routed component's params changed while it stayed mounted | Refetching for the new params |
+| `onRouteChange(change)` | A routed component's params, query string or resolved data changed while it stayed mounted | Refetching for the new params |
 
 Moving an element in the DOM disconnects and reconnects it without destroying it:
 teardown is deferred by a microtask and a reconnect cancels it. So `onDestroy` means
@@ -423,7 +424,7 @@ projected elements.
 | Syntax | Does | Example |
 |---|---|---|
 | `${value}` | Text or nested template. `null`/`undefined` render nothing | `<p>${self.name}</p>` |
-| `attr=${value}` | Sets the attribute as a string. `null`/`undefined` removes it | `<a href=${self.url}>` |
+| `attr=${value}` | Sets the attribute as a string. `null`/`undefined`/`false` removes it; `true` sets it empty | `<a href=${self.url}>` |
 | `?attr=${bool}` | Adds or removes a boolean attribute | `<button ?disabled=${self.busy}>` |
 | `.prop=${value}` | Sets a DOM property. Any JavaScript value | `<user-list .users=${self.users}>` |
 | `@event=${handler}` | Adds an event listener | `<button @click=${self.save}>` |
@@ -431,8 +432,13 @@ projected elements.
 
 Rules that prevent the usual bugs:
 
-- **Boolean attributes use `?`.** `disabled=${false}` writes `disabled="false"`, which is
-  still disabled.
+- **Boolean attributes use `?` unless the value is a real boolean.** `disabled=${false}`
+  removes the attribute and `disabled=${true}` sets it, so a plain binding works for
+  `true`/`false`. Use `?disabled=` when the value is merely truthy or falsy (`0`, `''`, an
+  object): a plain binding would write those as text. On `aria-*` a boolean is written as
+  the string `"true"` / `"false"`.
+- **Bindings on one element commit in the order written.** Put a dependent binding last:
+  `min` and `max` before `.value` on a range input.
 - **Objects, arrays and functions use `.`.** An attribute binding would stringify them.
 - **Editable inputs use `live()`** (or `:model`, below): `<input .value=${live(self.text)}>`.
   A plain `.value=` binding skips the write when the bound value has not changed, so
@@ -611,7 +617,8 @@ html`
 `;
 ```
 
-**Navigating in code.** `navigate` returns a promise of `{ success, error?, redirectTo? }`;
+**Navigating in code.** `navigate` returns a promise of `{ success, url?, error? }` (after a
+redirect, the result is the redirect target's);
 it does not throw when a guard blocks.
 
 ```typescript
@@ -968,7 +975,7 @@ const columns: TableColumn[] = [
 	{ key: 'status', label: 'Status', render: (value) => html`<ml-badge>${value}</ml-badge>` }
 ];
 
-html`<ml-table .columns=${columns} .rows=${self.rows()} @ml:row-click=${self.open}></ml-table>`;
+html`<ml-table clickable-rows .columns=${columns} .rows=${self.rows()} @ml:row-click=${self.open}></ml-table>`;
 ```
 
 Set `row-key="id"` (or `.rowKey=${(row) => ...}`) when a custom `render` cell holds state
@@ -998,9 +1005,8 @@ confirmDelete(): void {
 The dialog component's template renders an `<ml-dialog>`, and the class implements
 `onDialogRefSet(ref)` to receive its `DialogRef`: `ref.data` is the `data` passed to
 `open`, and `ref.close(result)` closes it. An inline `<ml-dialog #confirm>` in your own
-template is opened by name: `this._dialog.open('confirm' as UniqueID)`. The id parameter
-is the branded `UniqueID` type from `@melodicdev/components/functions`, so a plain string
-needs the cast.
+template is opened by name: `this._dialog.open('confirm')`, and closed with
+`this._dialog.close('confirm', result)`. The id is a plain string.
 
 Give `ml-dialog`, `ml-drawer` and `ml-popover` a `label` when they have no visible header,
 so screen readers announce more than "dialog".
@@ -1132,7 +1138,7 @@ it('emits when toggled', async () => {
 | Writing a reactive field in `onRender` | Render loop, stopped after 25 renders | Derive the value with `computed()`, or write it in the handler that caused the change |
 | Expecting `onCreate` to re-run when route params change | Stale data on `/users/1` → `/users/2` | Read `router.params()` in the template, or implement `onRouteChange` |
 | Expecting a signal read in a hook to re-run the hook | Nothing happens | Use `effect()` |
-| `disabled=${flag}` | `disabled="false"` is still disabled | `?disabled=${flag}` |
+| `disabled=${count}` with a non-boolean (`0`, `''`) | Written as text (`disabled="0"`), so still disabled | `?disabled=${count}` |
 | `items=${array}` | The array is stringified | `.items=${array}` |
 | `<input .value=${self.text}>` for an editable field | Resetting to the same value leaves the typed text | `.value=${live(self.text)}` or `:model=${signal}` |
 | `.map()` for a sortable or filterable list | Focus and per-row state land on the wrong row | `repeat(items, keyFn, template)` |

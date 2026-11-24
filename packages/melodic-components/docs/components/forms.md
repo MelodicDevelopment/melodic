@@ -19,7 +19,7 @@
 
 ## FormControl integration
 
-Every error-bearing form component (`ml-input`, `ml-textarea`, `ml-select`, `ml-autocomplete`, `ml-checkbox`, `ml-toggle`, `ml-radio-group`, `ml-slider`, `ml-date-picker`, `ml-time-picker`, `ml-date-time-picker`) registers an adapter at import time and works with the `:formControl` directive from `@melodicdev/core/forms`.
+Every error-bearing form component (`ml-input`, `ml-textarea`, `ml-select`, `ml-autocomplete`, `ml-checkbox`, `ml-toggle`, `ml-radio-group`, `ml-radio-card-group`, `ml-button-group`, `ml-slider`, `ml-date-picker`, `ml-time-picker`, `ml-date-time-picker`, `ml-file-upload`) registers an adapter at import time and works with the `:formControl` directive from `@melodicdev/core/forms`.
 
 ```ts
 html`<ml-input label="Email" :formControl=${form.get('email')}></ml-input>`;
@@ -41,7 +41,7 @@ import '@melodicdev/components/button';
 <ml-button variant="primary">Save</ml-button>
 <ml-button variant="outline" size="sm">Cancel</ml-button>
 <ml-button variant="danger" loading>Deleting...</ml-button>
-<ml-button variant="ghost" fullWidth>
+<ml-button variant="ghost" full-width>
   <ml-icon slot="icon-start" icon="plus"></ml-icon>
   Add item
 </ml-button>
@@ -54,7 +54,7 @@ import '@melodicdev/components/button';
 | `type` | `'button'` \| `'submit'` \| `'reset'` | `'button'` | HTML button type |
 | `disabled` | `boolean` | `false` | Disable the button |
 | `loading` | `boolean` | `false` | Show loading spinner, disables click |
-| `fullWidth` | `boolean` | `false` | Stretch to container width |
+| `fullWidth` | `boolean` | `false` | Stretch to container width (attribute: `full-width`) |
 
 **Slots:** `default` (label text), `icon-start` (left icon), `icon-end` (right icon)
 
@@ -167,7 +167,7 @@ import '@melodicdev/components/textarea';
   label="Message"
   placeholder="Type your message..."
   rows="5"
-  maxLength="500"
+  max-length="500"
   @ml:change=${this.handleChange}
 ></ml-textarea>
 ```
@@ -181,7 +181,7 @@ import '@melodicdev/components/textarea';
 | `error` | `string` | `''` | Error message |
 | `size` | `Size` | `'md'` | Size variant |
 | `rows` | `number` | `3` | Visible text lines |
-| `maxLength` | `number` | `0` | Character limit (0 = unlimited) |
+| `maxLength` | `number` | `0` | Character limit (attribute: `max-length`; 0 = unlimited) |
 | `disabled` | `boolean` | `false` | Disable textarea |
 | `readonly` | `boolean` | `false` | Read-only |
 | `required` | `boolean` | `false` | Required indicator |
@@ -415,8 +415,10 @@ interface SelectOption {
 
 **Events:**
 - Single: `ml:change` `{ value, option }`
-- Multi: `ml:change` `{ values, options, option }` (last toggled option is in `option`)
+- Multi: `ml:change` `{ values, options, option }` (last toggled option is in `option`); removing a tag sends `{ values, options }` with no `option`
 - `ml:open`, `ml:close`
+
+**Methods:** `open()`, `close()`, `toggle()` — callable on the element (`selectEl.open()`) or through `.component`
 
 **Keyboard navigation:**
 
@@ -433,17 +435,18 @@ interface SelectOption {
 
 - **Closed select:** the match is selected directly and `ml:change` fires, without opening the dropdown.
 - **Open dropdown:** keyboard focus moves to the match and it scrolls into view; nothing is selected until `Enter`/`Space`.
+- **Multi mode:** typeahead moves focus only — it never toggles values.
+- Keystrokes inside the multi-select search input are ignored by typeahead; that input filters the option list instead.
 
 **`value`, `values` and `multiple`:** the three are kept consistent whichever order they are set in.
 
 - Turning `multiple` on carries the current `value` into `values` (unless `values` is already set, which is kept).
 - Turning `multiple` off keeps the first of `values` as `value` and empties `values`.
 - In multiple mode, assigning `value` adds it to `values`.
+- In single mode, assigning a non-empty `values` mirrors its first entry onto `value`; `values = []` leaves `value` unchanged.
 - `values` accepts an array or a comma-separated string (`"us, ca"`); duplicates are removed.
 
 **Accessibility:** the hint or error is announced as the control's description, and `error` / `required` are exposed as `aria-invalid` / `aria-required`. In `multiple` mode the search input is the combobox and the single tab stop.
-- **Multi mode:** typeahead moves focus only — it never toggles values.
-- Keystrokes inside the multi-select search input are ignored by typeahead; that input filters the option list instead.
 
 Multi-select shows selected items as inline tags with search filtering.
 
@@ -508,6 +511,9 @@ import '@melodicdev/components/autocomplete';
 | `debounce` | `number` | `300` | Debounce ms for async search |
 | `minChars` | `number` | `0` | Min characters before searching (0 = show on focus) |
 | `showIcon` | `boolean` | `true` | Show search icon |
+| `openOnFocus` | `boolean` | `true` | Open the dropdown when the input gains focus (attribute: `open-on-focus`; `open-on-focus="false"` turns it off) |
+| `initialOption` | `AutocompleteOption \| null` | `null` | Label for a pre-set `value` when using `searchFn` |
+| `initialOptions` | `AutocompleteOption[]` | `[]` | Labels for pre-set `values` when using `searchFn` |
 
 **AutocompleteOption interface:**
 
@@ -526,10 +532,13 @@ type AutocompleteSearchFn = (query: string) => Promise<AutocompleteOption[]>;
 ```
 
 **Events:**
-- Single: `ml:change` `{ value, option }`
-- Multi: `ml:change` `{ values, options, option }`
+- Single: `ml:change` `{ value, option }`, or `{ value: '', option: null }` when cleared
+- Multi: `ml:change` `{ values, options, option }`; clicking a tag's remove button sends `{ values, options }` with no `option`, and when `Backspace` removes the last tag the detail is `{ values, options, removedValue }`
 - `ml:search` `{ query }` — emitted on input change
+- `ml:search-error` `{ query, error }` — emitted when `searchFn` rejects
 - `ml:open`, `ml:close`
+
+**Methods:** `open()`, `close()` — callable on the element (`autocompleteEl.open()`) or through `.component`
 
 Supports full keyboard navigation (`ArrowDown`/`ArrowUp` to navigate, `Enter` to select, `Escape` to close, `Backspace` removes last tag in multi mode). The highlighted option is scrolled into view as you arrow through a long list.
 
@@ -549,7 +558,7 @@ import '@melodicdev/components/slider';
   value="75"
   min="0"
   max="100"
-  showValue
+  show-value
   @ml:change=${this.handleChange}
 ></ml-slider>
 ```
@@ -563,7 +572,7 @@ import '@melodicdev/components/slider';
 | `step` | `number` | `1` | Step increment |
 | `size` | `Size` | `'md'` | Slider size |
 | `disabled` | `boolean` | `false` | Disable slider |
-| `showValue` | `boolean` | `false` | Show current value label |
+| `showValue` | `boolean` | `false` | Show current value label (attribute: `show-value`) |
 | `hint` | `string` | `''` | Hint text |
 | `error` | `string` | `''` | Error message |
 
@@ -607,13 +616,15 @@ import '@melodicdev/components/date-picker';
 | `required` | `boolean` | `false` | Required indicator |
 | `min` | `string` | `''` | Earliest selectable date (`YYYY-MM-DD`) |
 | `max` | `string` | `''` | Latest selectable date (`YYYY-MM-DD`) |
+| `minYear` | `number` | current year − 120 | Earliest year the calendar's year picker can reach (attribute: `min-year`) |
+| `maxYear` | `number` | current year + 10 | Latest year the calendar's year picker can reach (attribute: `max-year`) |
 | `locale` | `string` | `''` | BCP 47 locale for the displayed and typed date format. Defaults to the browser's locale; an invalid tag falls back to it |
 
 **Events:** `ml:change` `{ value: string }` — emitted with the ISO date string when a date is selected
 
-Keyboard support: `Enter` / `Space` / `ArrowDown` opens the calendar, `Escape` closes it.
+Keyboard support: `F4` or `Alt` + `ArrowDown` opens the calendar (as does clicking the field), `Escape` closes it and returns focus to the input.
 
-Inside the calendar's day grid: arrow keys move by a day / a week and carry on into the previous or next month, `PageUp` / `PageDown` move by a month (`Shift` + `PageUp` / `PageDown` by a year), `Home` / `End` go to the start / end of the week. Dates outside `min` / `max` are skipped.
+Inside the calendar's day grid: arrow keys move by a day / a week and carry on into the previous or next month, `PageUp` / `PageDown` move by a month (`Shift` + `PageUp` / `PageDown` by a year), `Home` / `End` go to the start / end of the focused week. A move that would land on a date outside `min` / `max` is refused — focus stays where it is rather than skipping over the disabled dates.
 
 Typed dates are accepted as `YYYY-MM-DD` or in the locale's own short format — whatever the field displays can be typed back, including formats such as `2001. 02. 03.` (ko-KR, hu-HU) and non-Latin digits.
 
@@ -675,7 +686,7 @@ picker.addEventListener('ml:change', (e) => {
 | `required` | `boolean` | `false` | Required indicator |
 | `min-date` / `max-date` | `string` | `''` | Earliest / latest selectable date (`YYYY-MM-DD`) |
 | `min-time` / `max-time` | `string` | `''` | Earliest / latest selectable time (`HH:mm`) |
-| `step` | `number` | `15` | Time step in minutes |
+| `step` | `number` | `15` | Passed to the inner time picker: `1` shows a seconds stepper and the time part becomes `HH:mm:ss`; any other value has no visible effect |
 | `twelve-hour` | `boolean` | `true` | Use 12-hour time format |
 
 **Events:** `ml:change` — `{ value, date, time, valueUtc?, timezone? }`. `valueUtc` and `timezone` are present only when the `timezone` attribute is set.
@@ -686,7 +697,7 @@ picker.addEventListener('ml:change', (e) => {
 
 ## ml-time-picker
 
-Time input with a dropdown selector (preset list plus hour/minute spinners). Stores and emits 24-hour `HH:mm` (or `HH:mm:ss` when `step="1"`) strings; displays 12-hour AM/PM by default.
+Time input with a popover selector (hour / minute steppers, an AM/PM toggle in 12-hour mode, and Now / OK buttons). Stores and emits 24-hour `HH:mm` (or `HH:mm:ss` when `step="1"`) strings; displays 12-hour AM/PM by default.
 
 ```ts
 import '@melodicdev/components/time-picker';
@@ -701,8 +712,8 @@ import '@melodicdev/components/time-picker';
 <!-- Seconds precision -->
 <ml-time-picker label="Precise" step="1"></ml-time-picker>
 
-<!-- Constrained range, 30-minute presets -->
-<ml-time-picker label="Delivery window" min="08:00" max="18:00" step="30"></ml-time-picker>
+<!-- Constrained range -->
+<ml-time-picker label="Delivery window" min="08:00" max="18:00"></ml-time-picker>
 ```
 
 | Property | Type | Default | Description |
@@ -717,10 +728,12 @@ import '@melodicdev/components/time-picker';
 | `required` | `boolean` | `false` | Required indicator |
 | `min` | `string` | `''` | Earliest selectable time (`HH:mm`) |
 | `max` | `string` | `''` | Latest selectable time (`HH:mm`) |
-| `step` | `number` | `15` | Preset list interval in minutes; `1` shows a seconds spinner |
+| `step` | `number` | `15` | `1` shows a seconds stepper and emits `HH:mm:ss`; any other value has no visible effect |
 | `twelveHour` | `boolean` | `true` | 12-hour AM/PM display (attribute: `twelve-hour`) |
 
 **Events:** `ml:change` `{ value: string }` — emitted when the time changes
+
+Keyboard support: `Space`, `F4` or `Alt` + `ArrowDown` opens the popover (as does clicking the field), `Escape` closes it. Inside the popover, `ArrowUp` / `ArrowDown` in the hour, minute or second field step it by one and `Enter` confirms.
 
 Registers a `:formControl` adapter at import time, so it participates in the reactive forms system like the other inputs.
 
@@ -728,7 +741,7 @@ Registers a `:formControl` adapter at import time, so it participates in the rea
 
 ## ml-form-field
 
-Wrapper that adds a label, hint, error, and required indicator to any form control. Automatically links the label to the inner control via `aria-labelledby`.
+Wrapper that adds a label, hint, error, and required indicator to any form control. Clicking the label focuses the control, the hint and error text are exposed as the control's `aria-description`, and `aria-invalid` / `aria-required` are kept in sync with `error` / `required`.
 
 ```ts
 import '@melodicdev/components/form-field';
@@ -784,7 +797,7 @@ import '@melodicdev/components/file-upload';
   size="1.2 MB"
   status="uploading"
   progress="60"
-  @ml:remove=${e => this.remove(e)}
+  @ml:dismiss=${e => this.remove(e)}
   @ml:retry=${e => this.retry(e)}
 ></ml-file-upload-item>
 ```
@@ -803,16 +816,17 @@ import '@melodicdev/components/file-upload';
 | `hint` | `string` | `''` | Hint text |
 | `error` | `string` | `''` | Error message |
 | `icon` | `string` | `'cloud-arrow-up'` | Icon name |
+| `files` | `File[]` | `[]` | The current valid selection (property only). Accumulates in `multiple` mode, otherwise holds the latest file. Settable, e.g. `[]` to reset |
+
+**ml-file-upload methods:** `removeFile(file)` — removes a selected file and emits `ml:change`; callable on the element or through `.component`. `processFiles(files)` — validates and adds files as if the user had selected them; reachable only through the component instance (`uploadEl.component.processFiles(files)`).
 
 **ml-file-upload events:**
 
-- `ml:change` `{ files: File[] }` — emitted with the valid files after selection/drop
+- `ml:change` `{ files: File[], added: File[] }` after a selection/drop, `{ files: File[], removed: File[] }` after `removeFile()` — `files` is always the full current selection
 - `ml:error` `{ errors: Array<{ type: 'accept' | 'max-size' | 'max-files'; file?: File; message: string }> }` — emitted when any file fails validation
 
-**ml-file-upload-item properties:** `name`, `size` (display string), `status` (`'idle' | 'uploading' | 'success' | 'error'`), `progress` (0–100), `error`.
+**ml-file-upload-item properties:** `name`, `size` (display string), `status` (`'idle' | 'uploading' | 'complete' | 'error'`), `progress` (0–100), `error`, `file` (`File | null`, property only).
 
-**ml-file-upload-item events:** `ml:remove`, `ml:retry`.
+**ml-file-upload-item events:** `ml:dismiss` `{ name, file }` (`ml:remove` is a deprecated alias, fired alongside it), `ml:retry` `{ name, file }`.
 
-> **Note:** unlike the other form inputs, `ml-file-upload` does not yet register a `:formControl`
-> adapter, so it cannot be bound to a `FormControl` directly — listen to `ml:change` and write the
-> `File[]` into your form state manually. Adapter support is planned.
+Registers a `:formControl` adapter at import time, like the other form inputs. The control value is the `File[]` in `multiple` mode, or a single `File | null` otherwise.

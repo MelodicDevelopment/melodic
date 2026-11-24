@@ -191,7 +191,8 @@ The prebuilt `bundle/melodic-core.js` is now built with dev mode ON and
 
 `IMelodicApp` is bound **before** `onReady` so startup work in that hook can resolve it. If
 any step throws, everything acquired so far is rolled back: window error handlers removed,
-the root element unmounted, and the `IMelodicApp` binding released.
+the teardowns registered by its providers run, the root element unmounted, and the
+`IMelodicApp` binding released.
 
 ## The `melodic` console API
 

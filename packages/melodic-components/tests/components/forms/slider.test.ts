@@ -18,23 +18,26 @@ describe('ml-slider', () => {
 			await flush();
 
 			const width = el.component.fillWidth as string;
-			expect(width).toContain('var(--ml-slider-thumb-size)');
+			expect(width).toContain('var(--ml-slider-thumb-size, 20px)');
 			expect(width).toContain('25%');
-			expect(width).not.toMatch(/\dpx/);
+			// The only pixel value is the token's fallback. Without one the whole
+			// calc() is invalid whenever the token is unset, and the fill has no
+			// width at all — which is what 4.0.1 shipped.
+			expect(width.replace('var(--ml-slider-thumb-size, 20px)', '')).not.toMatch(/\dpx/);
 		});
 
 		it('has zero token offset at the midpoint and half-thumb offset at the ends', async () => {
 			el = createComponent('ml-slider', { attributes: { value: '50', min: '0', max: '100' } });
 			await flush();
-			expect(el.component.fillWidth).toBe('calc(50% + 0 * var(--ml-slider-thumb-size))');
+			expect(el.component.fillWidth).toBe('calc(50% + 0 * var(--ml-slider-thumb-size, 20px))');
 
 			el.value = 0;
 			await flush();
-			expect(el.component.fillWidth).toBe('calc(0% + 0.5 * var(--ml-slider-thumb-size))');
+			expect(el.component.fillWidth).toBe('calc(0% + 0.5 * var(--ml-slider-thumb-size, 20px))');
 
 			el.value = 100;
 			await flush();
-			expect(el.component.fillWidth).toBe('calc(100% + -0.5 * var(--ml-slider-thumb-size))');
+			expect(el.component.fillWidth).toBe('calc(100% + -0.5 * var(--ml-slider-thumb-size, 20px))');
 		});
 	});
 });

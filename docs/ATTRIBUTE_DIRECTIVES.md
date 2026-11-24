@@ -106,6 +106,8 @@ The `routerLink` directive adds router navigation behavior to any element.
 - **Active state:** Automatically adds/removes the active class based on the current URL path, and updates it on every navigation
 - **Accessibility:** Sets `aria-current="page"` on active anchor elements
 - **Safe URLs:** Only relative, query, hash and `http(s)` URLs are accepted. Any other scheme (`javascript:`, `data:`, ...) logs a console warning; the `href` is not set and a click does not navigate
+- **Other origins:** An `http(s)` URL on another origin is not routed. An anchor keeps the browser's native navigation; any other element gets `window.location.assign`
+- **Root-relative paths:** A scheme-less `href` without a leading slash is root-relative (`href="about"` means `/about`)
 - **Styling hook:** Adds an empty `router-link` attribute to the element
 - **Cleanup:** Event listeners are automatically removed when element is removed
 

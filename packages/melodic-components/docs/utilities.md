@@ -182,7 +182,7 @@ type Alignment = 'start' | 'center' | 'end';
 
 ### Focus Trap
 
-Keep Tab / Shift+Tab cycling inside a container — used internally by `ml-popover`. Focusable elements slotted into the container are included.
+Keep Tab / Shift+Tab cycling inside a container — used internally by `ml-popover`. Focusable elements slotted into the container are included, and so are the controls inside nested components (`ml-input`, `ml-button`, …).
 
 ```ts
 import { focusTrap, createFocusTrap } from '@melodicdev/components/utils';
@@ -453,7 +453,8 @@ import {
 	setCrossRootActiveDescendant,
 	clearCrossRootDescription,
 	getFocusableControl,
-	supportsAriaElementReferences
+	supportsAriaElementReferences,
+	canReferenceElement
 } from '@melodicdev/components/utils';
 
 // Describe a light-DOM trigger with an element inside this shadow root.

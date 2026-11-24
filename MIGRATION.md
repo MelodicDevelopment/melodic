@@ -1,6 +1,6 @@
-# Migration Guide — Unreleased (after 4.0.1)
+# Migration Guide — 4.1.0 (from 4.0.x)
 
-Changes on the way to the next release. Nothing is removed; these are the places where
+Changes in 4.1.0. Nothing is removed; these are the places where
 correct behaviour differs from what a 4.0.x app may have relied on.
 
 ## @melodicdev/core
@@ -74,6 +74,29 @@ in registration order, as `SignalStoreService` does. It previously applied only 
   no longer clears `value`.
 - **Sorting is natural-order for strings and chronological for `Date` values** in
   `ml-table` and `ml-data-grid`. `"item 10"` now sorts after `"item 9"`.
+- **Ten global tokens that component styles read are now defined**, so styling that
+  silently did nothing now applies. They are aliases: `--ml-color-error` and
+  `--ml-color-error-subtle` follow `danger`; `--ml-color-surface-hover`,
+  `--ml-color-surface-secondary` and `--ml-color-bg-secondary` follow `surface-raised`;
+  `--ml-color-surface-tertiary` follows `surface-sunken`; `--ml-color-text-tertiary`
+  follows `text-muted`; `--ml-color-text-disabled` follows `text-subtle`;
+  `--ml-font-regular` follows `--ml-font-normal`; `--ml-transition-normal` is
+  `200ms ease-in-out`. What you will see: destructive dropdown items, sidebar error
+  states and error-variant progress bars are red; hover backgrounds appear on dropdown
+  items, pagination buttons, list items, enclosed and pill tabs, the app-shell menu button
+  and the drawer close button; the slider track, sidebar badges, the auth pages and the
+  subtle hero get a background; secondary text (breadcrumb items, pagination ellipsis,
+  timestamps, hints, dropdown group labels, close buttons) is muted instead of inheriting
+  the text colour. A theme that already sets these names keeps its values. To get the old
+  look for one component, set its own token (`--ml-dropdown-item-hover-bg: transparent`).
+- **`ml-dialog` animates open and close** (200ms fade and scale; it had no transition
+  because its timing token was undefined). Event timing is unchanged: the native `close`
+  event and `afterClosed` still fire as soon as the dialog closes, and the panel stays
+  painted for the 200ms exit. `--ml-dialog-transition: 0s` turns the animation off, and
+  reduced motion does so automatically.
+- **`ml-calendar` and the `ml-date-picker` popover: Home / End move to the start / end of
+  the focused week**, not the first / last day of the month. Arrow keys cross month
+  boundaries; PageUp / PageDown move by a month (Shift: a year).
 - **`ml-table` no longer has `role="grid"`**, `aria-sort` appears only on sortable headers,
   and rows with `clickable-rows` are tab stops. Tests or styles that select on
   `[role="grid"]` need updating.
@@ -91,8 +114,12 @@ in registration order, as `SignalStoreService` does. It previously applied only 
 
 ## @melodicdev/cli
 
-- Names must match `^[a-z][a-z0-9]*(-[a-z0-9]+)*$`: a trailing or doubled hyphen is
-  rejected, and `generate directive` refuses JavaScript reserved words.
+- Names must match `^[a-z][a-z0-9]*(-[a-z0-9]+)*$` after kebab-casing: a leading or
+  trailing hyphen is rejected (a run of hyphens collapses to one), and `generate
+  directive` refuses JavaScript reserved words.
+- `generate --path` and `add app|lib --dir` now fail when the target leaves the project
+  through a symlink. A project whose `src/…` is symlinked to a shared directory outside
+  the project has to generate into a real directory.
 - `init` and `add` reject `--dry-run`; that flag and `--force` apply to `generate` only.
 - Generated projects no longer set `emitDecoratorMetadata`. It was never required; existing
   projects can keep or drop it.

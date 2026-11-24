@@ -180,7 +180,7 @@ export const run = async (args: string[]): Promise<void> => {
 
 				const name = rest[1];
 				if (!type || !name) {
-					throw new Error('Usage: melodic add <app|lib> <name>');
+					throw new Error('Usage: melodic add <app|lib> <name>, melodic add config, or melodic add testing');
 				}
 				if (type === 'app') {
 					const location = await addApp(process.cwd(), name, options.dir ?? 'apps');

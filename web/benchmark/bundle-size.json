@@ -1,6 +1,6 @@
 {
 	"note": "Written by web/benchmark/update-benchmarks.js (npm run benchmark:update). Sizes in bytes.",
-	"version": "4.0.1",
+	"version": "4.1.0",
 	"core": {
 		"dev": {
 			"raw": 225799,

@@ -19,7 +19,7 @@ Pin to a specific version and use the minified build in production:
 
 ```html
 <link melodic-styles rel="stylesheet"
-      href="https://unpkg.com/@melodicdev/components@4.0.1/assets/melodic-components.min.css">
+      href="https://unpkg.com/@melodicdev/components@4.1.0/assets/melodic-components.min.css">
 ```
 
 The `melodic-styles` attribute has no special browser meaning. It's a handy selector for finding the element from JS if you need to swap it out at runtime:
@@ -147,6 +147,7 @@ Tokens are split into two layers: **primitive** (raw values) and **semantic** (m
 --ml-color-success:          /* also -hover, -subtle */
 --ml-color-warning:          /* also -hover, -subtle */
 --ml-color-danger:           /* also -hover, -subtle */
+--ml-color-error:            /* alias of --ml-color-danger; also -subtle */
 --ml-color-info:             /* also -hover, -subtle */
 
 /* Surfaces */
@@ -155,12 +156,17 @@ Tokens are split into two layers: **primitive** (raw values) and **semantic** (m
 --ml-color-surface-raised:
 --ml-color-surface-overlay:
 --ml-color-surface-sunken:
+--ml-color-surface-hover:     /* alias of surface-raised */
+--ml-color-surface-secondary: /* alias of surface-raised (so is --ml-color-bg-secondary) */
+--ml-color-surface-tertiary:  /* alias of surface-sunken */
 
 /* Text */
 --ml-color-text:
 --ml-color-text-secondary:
 --ml-color-text-muted:
 --ml-color-text-subtle:
+--ml-color-text-tertiary:   /* alias of text-muted */
+--ml-color-text-disabled:   /* alias of text-subtle */
 --ml-color-text-inverse:
 --ml-color-text-link:
 --ml-color-text-link-hover:
@@ -209,7 +215,7 @@ Based on a 4px (0.25rem) scale:
 --ml-text-2xl:   1.5rem
 /* ... up to --ml-text-9xl */
 
---ml-font-normal:   400
+--ml-font-normal:   400   /* --ml-font-regular is an alias */
 --ml-font-medium:   500
 --ml-font-semibold: 600
 --ml-font-bold:     700
@@ -261,6 +267,7 @@ Based on a 4px (0.25rem) scale:
 --ml-duration-300: 300ms
 --ml-ease-in-out: cubic-bezier(0.4, 0, 0.2, 1)
 --ml-ease-out:    cubic-bezier(0, 0, 0.2, 1)
+--ml-transition-normal: var(--ml-duration-200) var(--ml-ease-in-out)  /* duration + easing, no property */
 ```
 
 **Reduced motion.** The base theme redefines every `--ml-duration-*` token as `0ms` under

@@ -8,12 +8,19 @@ export const darkTheme = {
 	'--ml-color-surface-raised': 'var(--ml-gray-800)',
 	'--ml-color-surface-overlay': 'var(--ml-gray-800)',
 	'--ml-color-surface-sunken': 'var(--ml-gray-950)',
+	// Aliases, restated so they follow this theme when it is set on a subtree
+	'--ml-color-surface-hover': 'var(--ml-color-surface-raised)',
+	'--ml-color-surface-secondary': 'var(--ml-color-surface-raised)',
+	'--ml-color-surface-tertiary': 'var(--ml-color-surface-sunken)',
+	'--ml-color-bg-secondary': 'var(--ml-color-surface-raised)',
 
 	// Text colors - lighter text for dark backgrounds
 	'--ml-color-text': 'var(--ml-gray-50)',
 	'--ml-color-text-secondary': 'var(--ml-gray-300)',
 	'--ml-color-text-muted': 'var(--ml-gray-400)',
 	'--ml-color-text-subtle': 'var(--ml-gray-500)',
+	'--ml-color-text-tertiary': 'var(--ml-color-text-muted)',
+	'--ml-color-text-disabled': 'var(--ml-color-text-subtle)',
 	'--ml-color-text-inverse': 'var(--ml-gray-900)',
 
 	// Border colors - more visible on dark
@@ -34,6 +41,8 @@ export const darkTheme = {
 	'--ml-color-warning-subtle': 'var(--ml-amber-950)',
 	'--ml-color-danger': 'var(--ml-red-500)',
 	'--ml-color-danger-subtle': 'var(--ml-red-950)',
+	'--ml-color-error': 'var(--ml-color-danger)',
+	'--ml-color-error-subtle': 'var(--ml-color-danger-subtle)',
 	'--ml-color-info': 'var(--ml-cyan-400)',
 	'--ml-color-info-subtle': 'var(--ml-cyan-950)',
 

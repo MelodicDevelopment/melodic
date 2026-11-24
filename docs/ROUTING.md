@@ -7,6 +7,7 @@ Melodic includes a lightweight client-side router for single-page applications w
 - [Setup](#setup)
 - [Route Configuration](#route-configuration)
 - [Router Outlet](#router-outlet)
+- [Lazy Loading](#lazy-loading)
 - [Router Links](#router-links)
 - [Guards](#guards)
 - [Resolvers](#resolvers)
@@ -85,6 +86,19 @@ Route properties:
 
 For nested routing, include additional outlets inside routed components. Each outlet renders the route at its own depth of the **committed match chain**; outlets never match the URL themselves.
 
+### Not found
+
+When nothing matches, the outlet renders the `component` of a route whose path is `'404'` or `'**'`:
+
+```typescript
+const routes: IRoute[] = [
+	{ path: 'home', component: 'home-page' },
+	{ path: '**', component: 'not-found-page' }
+];
+```
+
+The route is looked up in the outlet's own `.routes` or, for a bare `<router-outlet>`, in the routes given to `provideRouter(routes)`. With neither, the root outlet navigates to `/404`.
+
 ## Lazy Loading
 
 `loadChildren` and `loadComponent` are resolved by the router **inside the navigation pipeline**, before guards and resolvers run and before anything is committed:
@@ -125,6 +139,11 @@ The directive automatically:
 - sets `href` on anchor elements
 - manages the active class
 - supports modifier-key navigation (open in new tab)
+
+Both forms route within the app's own origin only:
+
+- An `http(s)` URL on another origin is not routed. An anchor keeps the browser's native navigation; any other host element gets `window.location.assign`.
+- A scheme-less `href` without a leading slash is root-relative: `href="about"` means `/about`.
 
 ## Guards
 
@@ -238,6 +257,17 @@ class NavMenuComponent {
 		void this.router.navigateByName('user.detail', { id: '123' });
 	}
 }
+```
+
+- **Paths are root-relative.** `navigate('about')` means `/about`, whatever the current URL.
+- **`navigate()` does not reject.** A navigation that is blocked, fails or is superseded
+  resolves `{ success: false, error }` — check `result.success`.
+- **Only this origin is routed.** A same-origin absolute URL is reduced to its path. A URL
+  on another origin resolves `{ success: false, error }`; use `window.location` for those.
+
+```typescript
+const result = await this.router.navigate('/users/123');
+if (!result.success) console.warn(result.error);
 ```
 
 ## Redirects
