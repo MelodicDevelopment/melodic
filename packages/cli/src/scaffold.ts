@@ -237,7 +237,10 @@ const VITEST_CONFIG = [
 	'export default defineConfig({',
 	'\ttest: {',
 	"\t\tenvironment: 'happy-dom',",
-	"\t\tinclude: ['tests/unit/**/*.test.ts']",
+	"\t\tinclude: ['tests/unit/**/*.test.ts'],",
+	'\t\t// @melodicdev packages publish extensionless imports, which Node cannot',
+	'\t\t// load on its own. Inlining them lets Vite resolve those imports.',
+	'\t\tserver: { deps: { inline: [/@melodicdev\\//] } }',
 	'\t}',
 	'});',
 	''

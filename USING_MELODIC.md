@@ -5,7 +5,7 @@ one right way to write each common thing, and the mistakes that cost the most ti
 written for developers and for AI coding agents working in a consuming project.
 
 Written against `@melodicdev/core` 4.1.0, `@melodicdev/components` 4.1.0 and
-`@melodicdev/cli` 4.1.0.
+`@melodicdev/cli` 4.1.1.
 
 **How to reference this file from another project.** Point your project's agent
 instructions (`CLAUDE.md`, `AGENTS.md`, or equivalent) at it:
@@ -1091,6 +1091,14 @@ ml-button.cta { --ml-button-font-weight: 700; --ml-button-border-radius: 999px; 
 
 ```bash
 melodic add testing        # Vitest + happy-dom setup
+```
+
+If you write `vitest.config.ts` yourself, inline the Melodic packages or every test that
+imports them fails with "Cannot find module" (their published `lib/` uses extensionless
+imports, which Node cannot load on its own):
+
+```typescript
+test: { environment: 'happy-dom', server: { deps: { inline: [/@melodicdev\//] } } }
 ```
 
 ```typescript

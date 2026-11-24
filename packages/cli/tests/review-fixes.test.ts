@@ -138,6 +138,9 @@ describe('add testing (review item 12)', () => {
 
 		const pkg = JSON.parse(await fs.readFile(path.join(target, 'package.json'), 'utf8'));
 		expect(pkg.scripts['test:unit']).toBe('vitest run');
+		// Without this the generated test cannot even be collected: Node rejects
+		// the extensionless imports inside @melodicdev/core's published lib/.
+		expect(await fs.readFile(path.join(target, 'vitest.config.ts'), 'utf8')).toContain('inline: [/@melodicdev\\//]');
 		expect(pkg.devDependencies.vitest).toBeDefined();
 		expect(pkg.devDependencies['happy-dom']).toBeDefined();
 	});

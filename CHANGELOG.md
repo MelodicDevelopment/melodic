@@ -1,5 +1,17 @@
 # Changelog
 
+## 4.1.1 (`@melodicdev/cli` only)
+
+- Fixed `melodic add testing` writing a `vitest.config.ts` that could not load
+  `@melodicdev/core`: the generated example test failed with "Cannot find module" on its
+  first run. The config now inlines the `@melodicdev` packages
+  (`server.deps.inline: [/@melodicdev\//]`), because their published `lib/` uses
+  extensionless imports that Node cannot load on its own. A project set up with CLI 4.1.0
+  needs that one line added to its `vitest.config.ts`.
+- `docs/TESTING.md` and `USING_MELODIC.md` say the same for hand-written Vitest configs.
+
+Core and components stay at 4.1.0.
+
 ## 4.1.0
 
 A second review-driven pass (November 2026). No export, attribute, event, token or CLI

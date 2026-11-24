@@ -11,6 +11,20 @@ import { mount, flush, query, text, unmountAll } from '@melodicdev/core/testing'
 In a project made with the CLI, `melodic add testing` installs Vitest and happy-dom and
 writes a first test that uses these helpers.
 
+With Vitest, inline the Melodic packages. Their published `lib/` uses extensionless
+imports, which Node cannot load on its own, so without this a test that imports
+`@melodicdev/core` fails with "Cannot find module" before it runs:
+
+```typescript
+// vitest.config.ts
+export default defineConfig({
+	test: {
+		environment: 'happy-dom',
+		server: { deps: { inline: [/@melodicdev\//] } }
+	}
+});
+```
+
 ## Why these helpers exist
 
 Two things about Melodic are easy to get wrong by hand:
